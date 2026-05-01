@@ -6,6 +6,8 @@ import { mockEmployees } from "@/lib/mockData";
 import { DEPARTMENTS } from "@/lib/utils";
 import { Users, Plus, Search, Star, Edit2, Trash2, X } from "lucide-react";
 import type { Employee, UserRole } from "@/types";
+import { usePermissions } from "@/contexts/PermissionsContext";
+import AccessDenied from "@/components/ui/AccessDenied";
 
 const ROLE_LABELS: Record<string, string> = {
   "مدير_عام": "مدير عام",
@@ -30,7 +32,7 @@ const deptColors: Record<string, string> = {
   "AI Lab": "#8b5cf6",
 };
 
-export default function EmployeesPage() {
+function EmployeesContent() {
   const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("الكل");
@@ -279,4 +281,13 @@ export default function EmployeesPage() {
       )}
     </DashboardLayout>
   );
+}
+
+
+export default function EmployeesPage() {
+  const { hasPermission } = usePermissions();
+  if (!hasPermission("manage_users")) {
+    return <DashboardLayout><AccessDenied /></DashboardLayout>;
+  }
+  return <EmployeesContent />;
 }

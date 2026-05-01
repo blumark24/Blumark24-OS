@@ -4,6 +4,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { MessagesProvider } from "@/contexts/MessagesContext";
+import { PermissionsProvider } from "@/contexts/PermissionsContext";
 
 export const metadata: Metadata = {
   title: "Blumark24 OS – نظام إدارة الأعمال بالذكاء الاصطناعي",
@@ -27,11 +28,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ToastProvider>
           <AuthProvider>
-            <NotificationsProvider>
-              <MessagesProvider>
-                {children}
-              </MessagesProvider>
-            </NotificationsProvider>
+            <PermissionsProvider>
+              <NotificationsProvider>
+                <MessagesProvider>
+                  {children}
+                </MessagesProvider>
+              </NotificationsProvider>
+            </PermissionsProvider>
           </AuthProvider>
         </ToastProvider>
       </body>

@@ -6,6 +6,8 @@ import { mockClients } from "@/lib/mockData";
 import { CITIES, formatCurrency } from "@/lib/utils";
 import { UserCircle, Plus, Search, Phone, MapPin, Package, Edit2, Trash2, X } from "lucide-react";
 import type { Client, ClientStatus, PackageType } from "@/types";
+import { usePermissions } from "@/contexts/PermissionsContext";
+import AccessDenied from "@/components/ui/AccessDenied";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; class: string; color: string }> = {
@@ -23,7 +25,7 @@ const PKG_CONFIG: Record<PackageType, { label: string; color: string }> = {
 
 const STATUSES: ClientStatus[] = ["محتمل", "متعاقد", "نشط", "متوقف"];
 
-export default function ClientsPage() {
+function ClientsContent() {
   const [clients, setClients] = useState<Client[]>(mockClients);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "الكل">("الكل");
@@ -293,4 +295,12 @@ export default function ClientsPage() {
       )}
     </DashboardLayout>
   );
+}
+
+export default function ClientsPage() {
+  const { hasPermission } = usePermissions();
+  if (!hasPermission("manage_clients")) {
+    return <DashboardLayout><AccessDenied /></DashboardLayout>;
+  }
+  return <ClientsContent />;
 }

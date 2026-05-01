@@ -6,6 +6,8 @@ import { mockTransactions } from "@/lib/mockData";
 import { FUND_DISTRIBUTION, formatCurrency } from "@/lib/utils";
 import { DollarSign, Plus, TrendingUp, TrendingDown, X, ArrowUpRight } from "lucide-react";
 import type { Transaction } from "@/types";
+import { usePermissions } from "@/contexts/PermissionsContext";
+import AccessDenied from "@/components/ui/AccessDenied";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell
@@ -18,7 +20,7 @@ const monthlyData = MONTHS.map((month, i) => ({
   expense: 80000 + i * 10000 + Math.random() * 20000,
 }));
 
-export default function FinancePage() {
+function FinanceContent() {
   const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ type: "دخل" as "دخل" | "مصروف", amount: "", description: "", category: "", date: new Date().toISOString().split("T")[0] });
@@ -263,4 +265,12 @@ export default function FinancePage() {
       )}
     </DashboardLayout>
   );
+}
+
+export default function FinancePage() {
+  const { hasPermission } = usePermissions();
+  if (!hasPermission("manage_finance")) {
+    return <DashboardLayout><AccessDenied /></DashboardLayout>;
+  }
+  return <FinanceContent />;
 }

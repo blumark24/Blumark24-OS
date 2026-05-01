@@ -666,3 +666,194 @@ begin
   on conflict do nothing;
 end;
 $$;
+
+-- ============================================================
+-- RBAC EXTENSION – roles, permissions, role_permissions, user_roles
+-- profiles table (extends auth.users with RBAC fields)
+-- board_members table (organization members managed via /org page)
+-- ============================================================
+
+-- ─── profiles ─────────────────────────────────────────────────────────────────
+create table if not exists public.profiles (
+  id           uuid primary key references auth.users(id) on delete cascade,
+  email        text not null unique,
+  full_name    text not null,
+  role         text not null default 'employee'
+                 check (role in ('super_admin','board_member','defense_manager','attack_manager','finance_manager','employee')),
+  department   text,
+  status       text not null default 'active' check (status in ('active','inactive')),
+  phone        text,
+  position     text,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+create policy "profiles: read own"    on public.profiles for select using (auth.uid() = id);
+create policy "profiles: admin reads" on public.profiles for select using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'super_admin'));
+create policy "profiles: admin write" on public.profiles for all    using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'super_admin'));
+create policy "profiles: update own"  on public.profiles for update using (auth.uid() = id);
+
+-- ─── roles ────────────────────────────────────────────────────────────────────
+create table if not exists public.roles (
+  id          uuid primary key default uuid_generate_v4(),
+  name        text not null unique,
+  label       text not null,
+  description text,
+  created_at  timestamptz not null default now()
+);
+
+alter table public.roles enable row level security;
+create policy "roles: authenticated read" on public.roles for select using (auth.role() = 'authenticated');
+create policy "roles: admin write"        on public.roles for all    using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'super_admin'));
+
+insert into public.roles (name, label, description) values
+  ('super_admin',     'مدير أعلى',             'صلاحيات كاملة على النظام'),
+  ('board_member',    'عضو مجلس الإدارة',      'يشاهد التقارير والمالية والهيكل'),
+  ('defense_manager', 'مدير وكالة الدفاع',     'يدير الأقسام الداخلية والموظفين والمهام'),
+  ('attack_manager',  'مدير وكالة الهجوم',    'يدير العملاء والمبيعات والمتابعة'),
+  ('finance_manager', 'مدير مالي',             'يدير المالية والفواتير والمصروفات'),
+  ('employee',        'موظف',                  'يرى مهامه فقط')
+on conflict (name) do nothing;
+
+-- ─── permissions ──────────────────────────────────────────────────────────────
+create table if not exists public.permissions (
+  id          uuid primary key default uuid_generate_v4(),
+  key         text not null unique,
+  label       text not null,
+  description text
+);
+
+alter table public.permissions enable row level security;
+create policy "permissions: authenticated read" on public.permissions for select using (auth.role() = 'authenticated');
+create policy "permissions: admin write"        on public.permissions for all    using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'super_admin'));
+
+insert into public.permissions (key, label) values
+  ('view_dashboard',    'عرض لوحة التحكم'),
+  ('manage_board',      'إدارة مجلس الإدارة'),
+  ('manage_users',      'إدارة المستخدمين'),
+  ('manage_roles',      'إدارة الأدوار'),
+  ('manage_tasks',      'إدارة المهام'),
+  ('manage_clients',    'إدارة العملاء'),
+  ('manage_finance',    'إدارة المالية'),
+  ('manage_reports',    'عرض التقارير'),
+  ('manage_settings',   'إدارة الإعدادات'),
+  ('manage_automations','إدارة الأتمتة')
+on conflict (key) do nothing;
+
+-- ─── role_permissions ─────────────────────────────────────────────────────────
+create table if not exists public.role_permissions (
+  role_id       uuid not null references public.roles(id) on delete cascade,
+  permission_id uuid not null references public.permissions(id) on delete cascade,
+  primary key (role_id, permission_id)
+);
+
+alter table public.role_permissions enable row level security;
+create policy "role_permissions: authenticated read" on public.role_permissions for select using (auth.role() = 'authenticated');
+create policy "role_permissions: admin write"        on public.role_permissions for all    using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'super_admin'));
+
+-- Seed default role→permission mappings
+do $$
+declare
+  r_super    uuid; r_board uuid; r_defense uuid; r_attack uuid; r_finance uuid; r_emp uuid;
+  p_dash uuid; p_board uuid; p_users uuid; p_roles uuid; p_tasks uuid;
+  p_clients uuid; p_finance uuid; p_reports uuid; p_settings uuid; p_auto uuid;
+begin
+  select id into r_super   from public.roles where name = 'super_admin';
+  select id into r_board   from public.roles where name = 'board_member';
+  select id into r_defense from public.roles where name = 'defense_manager';
+  select id into r_attack  from public.roles where name = 'attack_manager';
+  select id into r_finance from public.roles where name = 'finance_manager';
+  select id into r_emp     from public.roles where name = 'employee';
+
+  select id into p_dash     from public.permissions where key = 'view_dashboard';
+  select id into p_board    from public.permissions where key = 'manage_board';
+  select id into p_users    from public.permissions where key = 'manage_users';
+  select id into p_roles    from public.permissions where key = 'manage_roles';
+  select id into p_tasks    from public.permissions where key = 'manage_tasks';
+  select id into p_clients  from public.permissions where key = 'manage_clients';
+  select id into p_finance  from public.permissions where key = 'manage_finance';
+  select id into p_reports  from public.permissions where key = 'manage_reports';
+  select id into p_settings from public.permissions where key = 'manage_settings';
+  select id into p_auto     from public.permissions where key = 'manage_automations';
+
+  -- super_admin: all permissions
+  insert into public.role_permissions values
+    (r_super,p_dash),(r_super,p_board),(r_super,p_users),(r_super,p_roles),(r_super,p_tasks),
+    (r_super,p_clients),(r_super,p_finance),(r_super,p_reports),(r_super,p_settings),(r_super,p_auto)
+  on conflict do nothing;
+
+  -- board_member
+  insert into public.role_permissions values (r_board,p_dash),(r_board,p_board),(r_board,p_reports),(r_board,p_finance) on conflict do nothing;
+
+  -- defense_manager
+  insert into public.role_permissions values (r_defense,p_dash),(r_defense,p_board),(r_defense,p_users),(r_defense,p_tasks),(r_defense,p_reports),(r_defense,p_auto) on conflict do nothing;
+
+  -- attack_manager
+  insert into public.role_permissions values (r_attack,p_dash),(r_attack,p_clients),(r_attack,p_tasks),(r_attack,p_reports) on conflict do nothing;
+
+  -- finance_manager
+  insert into public.role_permissions values (r_finance,p_dash),(r_finance,p_finance),(r_finance,p_reports) on conflict do nothing;
+
+  -- employee
+  insert into public.role_permissions values (r_emp,p_dash),(r_emp,p_tasks) on conflict do nothing;
+end;
+$$;
+
+-- ─── user_roles ───────────────────────────────────────────────────────────────
+create table if not exists public.user_roles (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  role_id uuid not null references public.roles(id) on delete cascade,
+  primary key (user_id, role_id)
+);
+
+alter table public.user_roles enable row level security;
+create policy "user_roles: authenticated read" on public.user_roles for select using (auth.role() = 'authenticated');
+create policy "user_roles: admin write"        on public.user_roles for all    using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'super_admin'));
+
+-- ─── board_members ────────────────────────────────────────────────────────────
+create table if not exists public.board_members (
+  id         uuid primary key default uuid_generate_v4(),
+  name       text not null,
+  position   text not null,
+  email      text,
+  phone      text,
+  status     text not null default 'نشط' check (status in ('نشط','غير نشط')),
+  sort_order integer not null default 0,
+  user_id    uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Max 3 board members enforced via DB constraint
+create or replace function public.check_board_member_limit()
+returns trigger language plpgsql as $$
+begin
+  if (select count(*) from public.board_members) >= 3 then
+    raise exception 'لا يمكن إضافة أكثر من 3 أعضاء في مجلس الإدارة';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace trigger trg_board_members_limit
+  before insert on public.board_members
+  for each row execute function public.check_board_member_limit();
+
+alter table public.board_members enable row level security;
+create policy "board_members: authenticated read" on public.board_members for select using (auth.role() = 'authenticated');
+create policy "board_members: manage_board write" on public.board_members for all    using (exists (select 1 from public.profiles p join public.user_roles ur on ur.user_id = p.id join public.role_permissions rp on rp.role_id = ur.role_id join public.permissions pm on pm.id = rp.permission_id where p.id = auth.uid() and pm.key = 'manage_board'));
+
+-- updated_at trigger for new tables
+do $$
+declare t text;
+begin
+  foreach t in array array['profiles','board_members'] loop
+    execute format(
+      'create or replace trigger trg_%I_updated_at before update on public.%I for each row execute function public.set_updated_at()',
+      t, t
+    );
+  end loop;
+end;
+$$;

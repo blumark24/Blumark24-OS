@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, Bell, Mail, Plus, Settings,
   Users, CheckSquare, DollarSign, UserCircle, Briefcase,
-  Clock, AlertTriangle, UserCheck, X, ChevronLeft,
+  Clock, AlertTriangle, UserCheck, X, ChevronLeft, Menu,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -75,7 +75,7 @@ const QUICK_CREATE = [
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 
-export default function Header() {
+export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: () => void }) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const toast = useToast();
@@ -127,6 +127,15 @@ export default function Header() {
       className="sticky top-0 z-30 flex items-center gap-3 px-6 py-3 border-b border-[#1e3a5f]"
       style={{ background: "rgba(10,22,40,0.9)", backdropFilter: "blur(16px)" }}
     >
+      {/* Mobile menu toggle */}
+      <button
+        onClick={onMobileMenuToggle}
+        className="lg:hidden p-2 rounded-xl text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356]/50 transition-all flex-shrink-0"
+        aria-label="القائمة"
+      >
+        <Menu size={20} />
+      </button>
+
       {/* ─── Search ─────────────────────────────────────────────── */}
       <div className="flex-1 max-w-md relative">
         <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] pointer-events-none" />

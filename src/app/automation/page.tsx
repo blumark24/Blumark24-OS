@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useToast } from "@/contexts/ToastContext";
+import { usePermissions } from "@/contexts/PermissionsContext";
+import AccessDenied from "@/components/ui/AccessDenied";
 import { mockTasks, mockClients, mockTransactions } from "@/lib/mockData";
 import { FUND_DISTRIBUTION, formatCurrency } from "@/lib/utils";
 import {
@@ -117,7 +119,7 @@ const RULE_RUNNERS: Record<string, () => AutomationLog[]> = {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function AutomationPage() {
+function AutomationContent() {
   const toast = useToast();
 
   const [rules, setRules] = useState<AutomationRule[]>([
@@ -416,4 +418,12 @@ export default function AutomationPage() {
       </div>
     </DashboardLayout>
   );
+}
+
+export default function AutomationPage() {
+  const { hasPermission } = usePermissions();
+  if (!hasPermission("manage_automations")) {
+    return <DashboardLayout><AccessDenied /></DashboardLayout>;
+  }
+  return <AutomationContent />;
 }
