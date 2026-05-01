@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ToastProvider } from "@/contexts/ToastContext";
+import { NotificationsProvider } from "@/contexts/NotificationsContext";
+import { MessagesProvider } from "@/contexts/MessagesContext";
 
 export const metadata: Metadata = {
   title: "Blumark24 OS – نظام إدارة الأعمال بالذكاء الاصطناعي",
@@ -20,7 +24,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <ToastProvider>
+          <AuthProvider>
+            <NotificationsProvider>
+              <MessagesProvider>
+                {children}
+              </MessagesProvider>
+            </NotificationsProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </body>
     </html>
   );
 }

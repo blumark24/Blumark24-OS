@@ -9,7 +9,7 @@ interface DashboardLayoutProps {
   title?: string;
 }
 
-export default function DashboardLayout({ children, title }: DashboardLayoutProps) {
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
@@ -19,7 +19,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header title={title} />
+        <Header />
         <main className="flex-1 overflow-y-auto p-6">
           {children}
         </main>

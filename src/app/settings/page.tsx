@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Settings, Users, Shield, Building2, Palette, Link2, Bell, Save, Check } from "lucide-react";
+import { Settings, Users, Shield, Building2, Palette, Link2, Bell, Save, Check, Zap, ExternalLink, Play, Clock, ToggleLeft, ToggleRight } from "lucide-react";
+import Link from "next/link";
 
 const TABS = [
   { id: "general", label: "عام", icon: Building2 },
@@ -10,7 +11,18 @@ const TABS = [
   { id: "permissions", label: "الصلاحيات", icon: Shield },
   { id: "integrations", label: "التكاملات", icon: Link2 },
   { id: "notifications", label: "الإشعارات", icon: Bell },
+  { id: "automation", label: "الأتمتة", icon: Zap },
   { id: "appearance", label: "المظهر", icon: Palette },
+];
+
+const AUTOMATION_RULES_SUMMARY = [
+  { id: "fund-dist", label: "توزيع الصندوق التلقائي", desc: "توزيع الإيرادات على 5 صناديق وفق نسب محددة", enabled: true, lastRun: "اليوم 09:00", nextRun: "غداً 09:00", trigger: "يومي" },
+  { id: "task-reminder", label: "تذكيرات المهام", desc: "إرسال تذكير قبل 24 ساعة من موعد تسليم المهمة", enabled: true, lastRun: "اليوم 08:00", nextRun: "غداً 08:00", trigger: "يومي" },
+  { id: "late-task", label: "كشف المهام المتأخرة", desc: "رصد المهام المتأخرة وإرسال إنذار للمسؤولين", enabled: true, lastRun: "منذ ساعة", nextRun: "بعد ساعة", trigger: "كل ساعة" },
+  { id: "client-followup", label: "متابعة العملاء", desc: "إنشاء مهمة متابعة تلقائية للعملاء الخاملين", enabled: false, lastRun: "منذ 7 أيام", nextRun: "غير مفعّل", trigger: "أسبوعي" },
+  { id: "kpi-update", label: "تحديث مؤشرات الأداء", desc: "إعادة حساب مؤشرات الأداء الرئيسية تلقائياً", enabled: true, lastRun: "منذ 30 دقيقة", nextRun: "بعد 30 دقيقة", trigger: "كل ساعة" },
+  { id: "weekly-report", label: "التقرير الأسبوعي", desc: "توليد تقرير أسبوعي شامل للإدارة العليا", enabled: true, lastRun: "الإثنين الماضي", nextRun: "الإثنين القادم", trigger: "أسبوعي" },
+  { id: "workload", label: "حساب عبء العمل", desc: "تحليل توزيع المهام على الفريق ورفع تقرير", enabled: false, lastRun: "منذ 3 أيام", nextRun: "غير مفعّل", trigger: "يومي" },
 ];
 
 const ROLES = ["مدير_عام", "مدير_مالي", "مدير_مبيعات", "مدير", "موظف"];
@@ -39,6 +51,11 @@ export default function SettingsPage() {
   const [selectedRole, setSelectedRole] = useState("مدير_عام");
   const [darkMode, setDarkMode] = useState(true);
   const [notifs, setNotifs] = useState({ tasks: true, clients: true, finance: true, weekly: true, email: false });
+  const [automationRules, setAutomationRules] = useState(AUTOMATION_RULES_SUMMARY);
+
+  const toggleRule = (id: string) => {
+    setAutomationRules((prev) => prev.map((r) => r.id === id ? { ...r, enabled: !r.enabled } : r));
+  };
 
   const handleSave = () => {
     setSaved(true);
@@ -270,6 +287,95 @@ export default function SettingsPage() {
                         {lang}
                       </button>
                     ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Automation */}
+            {activeTab === "automation" && (
+              <div className="space-y-4">
+                <div className="glass-card p-5 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-white font-medium text-lg">مركز الأتمتة</h3>
+                    <p className="text-[#8ba3c7] text-sm mt-1">إدارة قواعد الأتمتة والمهام المجدولة — للتحكم الكامل انتقل إلى الصفحة المخصصة</p>
+                  </div>
+                  <Link href="/automation" className="btn-primary flex items-center gap-2 text-sm">
+                    <ExternalLink size={14} />
+                    فتح مركز الأتمتة
+                  </Link>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    { label: "قواعد مفعّلة", value: automationRules.filter((r) => r.enabled).length, color: "#22d3ee" },
+                    { label: "قواعد موقوفة", value: automationRules.filter((r) => !r.enabled).length, color: "#ff7a3d" },
+                    { label: "إجمالي القواعد", value: automationRules.length, color: "#8ba3c7" },
+                  ].map((stat) => (
+                    <div key={stat.label} className="glass-card p-4 text-center">
+                      <div className="text-3xl font-bold font-heading mb-1" style={{ color: stat.color }}>{stat.value}</div>
+                      <div className="text-xs text-[#8ba3c7]">{stat.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="glass-card overflow-hidden">
+                  <div className="px-5 py-4 border-b border-[#1e3a5f] flex items-center gap-2">
+                    <Zap size={16} className="text-[#22d3ee]" />
+                    <h3 className="text-white font-medium">قواعد الأتمتة</h3>
+                  </div>
+                  <div className="divide-y divide-[#1e3a5f]/40">
+                    {automationRules.map((rule) => (
+                      <div key={rule.id} className="flex items-center justify-between px-5 py-4 hover:bg-[#1a3356]/20 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-medium text-sm">{rule.label}</span>
+                            <span className="badge bg-[#1e3a5f] text-[#8ba3c7] text-xs flex items-center gap-1">
+                              <Clock size={10} />
+                              {rule.trigger}
+                            </span>
+                          </div>
+                          <div className="text-xs text-[#8ba3c7] mt-0.5 truncate">{rule.desc}</div>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[10px] text-[#4a6a99]">آخر تشغيل: {rule.lastRun}</span>
+                            {rule.enabled && (
+                              <span className="text-[10px] text-emerald-400/70">التالي: {rule.nextRun}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 mr-4">
+                          <button
+                            onClick={() => toggleRule(rule.id)}
+                            className="transition-colors"
+                            title={rule.enabled ? "إيقاف" : "تفعيل"}
+                          >
+                            {rule.enabled
+                              ? <ToggleRight size={28} className="text-[#22d3ee]" />
+                              : <ToggleLeft size={28} className="text-[#4a6a99]" />
+                            }
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="glass-card p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Play size={15} className="text-[#22d3ee]" />
+                    <h3 className="text-white font-medium">إجراءات سريعة</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Link href="/automation" className="p-4 rounded-2xl bg-[#0d1f3c]/60 border border-[#1e3a5f] hover:border-[#22d3ee]/30 transition-all text-center group">
+                      <Zap size={20} className="text-[#22d3ee] mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                      <div className="text-sm text-white font-medium">تشغيل الكل</div>
+                      <div className="text-xs text-[#8ba3c7] mt-0.5">تنفيذ جميع القواعد المفعّلة</div>
+                    </Link>
+                    <Link href="/automation" className="p-4 rounded-2xl bg-[#0d1f3c]/60 border border-[#1e3a5f] hover:border-[#22d3ee]/30 transition-all text-center group">
+                      <Clock size={20} className="text-[#22d3ee] mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                      <div className="text-sm text-white font-medium">سجل التنفيذ</div>
+                      <div className="text-xs text-[#8ba3c7] mt-0.5">عرض آخر عمليات الأتمتة</div>
+                    </Link>
                   </div>
                 </div>
               </div>

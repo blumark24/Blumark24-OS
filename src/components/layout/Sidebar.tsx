@@ -5,9 +5,11 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, CheckSquare, UserCircle,
   DollarSign, Map, Bot, BarChart3, Settings, LogOut,
-  ChevronLeft, Network
+  ChevronLeft, Network, Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/contexts/ToastContext";
 
 const navItems = [
   { href: "/", label: "الرئيسية", icon: LayoutDashboard },
@@ -17,6 +19,7 @@ const navItems = [
   { href: "/finance", label: "المالية", icon: DollarSign },
   { href: "/strategy", label: "الاستراتيجية", icon: Map },
   { href: "/org", label: "الهيكل الإداري", icon: Network },
+  { href: "/automation", label: "مركز الأتمتة", icon: Zap },
   { href: "/ai", label: "المساعد الذكي", icon: Bot },
   { href: "/reports", label: "التقارير", icon: BarChart3 },
   { href: "/settings", label: "الإعدادات", icon: Settings },
@@ -29,6 +32,13 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+  const toast = useToast();
+
+  const handleLogout = () => {
+    toast.info("تم تسجيل الخروج بنجاح");
+    setTimeout(() => logout(), 600);
+  };
 
   return (
     <aside
@@ -105,12 +115,12 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-white truncate">أحمد محمد</div>
-              <div className="text-xs text-[#8ba3c7]">مدير عام</div>
+              <div className="text-sm font-medium text-white truncate">{user?.name ?? "المستخدم"}</div>
+              <div className="text-xs text-[#8ba3c7]">{user?.role?.replace("_", " ") ?? ""}</div>
             </div>
           )}
           {!collapsed && (
-            <button className="text-[#8ba3c7] hover:text-red-400 transition-colors" title="تسجيل الخروج">
+            <button onClick={handleLogout} className="text-[#8ba3c7] hover:text-red-400 transition-colors" title="تسجيل الخروج">
               <LogOut size={15} />
             </button>
           )}
