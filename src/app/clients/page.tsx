@@ -28,7 +28,9 @@ const STATUSES: ClientStatus[] = ["محتمل", "متعاقد", "نشط", "مت�
 
 function ClientsContent() {
   const { data: clients, loading, insert, update, remove } = useClients();
+  const { userRole } = usePermissions();
   const toast = useToast();
+  const isAdmin = userRole === "super_admin";
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "الكل">("الكل");
   const [cityFilter, setCityFilter] = useState("الكل");
@@ -122,10 +124,12 @@ function ClientsContent() {
             </h1>
             <p className="text-[#8ba3c7] text-sm mt-1">إدارة علاقات العملاء والعقود</p>
           </div>
-          <button onClick={openAdd} className="btn-primary flex items-center gap-2">
-            <Plus size={16} />
-            عميل جديد
-          </button>
+          {isAdmin && (
+            <button onClick={openAdd} className="btn-primary flex items-center gap-2">
+              <Plus size={16} />
+              عميل جديد
+            </button>
+          )}
         </div>
 
         {/* Stats + Chart Row */}
@@ -245,14 +249,16 @@ function ClientsContent() {
                       <span className={`badge ${STATUS_CONFIG[client.status].class}`}>{STATUS_CONFIG[client.status].label}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => openEdit(client)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => handleDelete(client.id)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                      {isAdmin && (
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => openEdit(client)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => handleDelete(client.id)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

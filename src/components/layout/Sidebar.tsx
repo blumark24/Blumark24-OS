@@ -186,15 +186,15 @@ export default function Sidebar({
 
       {/* Mobile sidebar overlay */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
+        <div className="lg:hidden fixed inset-0 z-50">
           {/* Backdrop */}
           <div
             className="absolute inset-0"
             style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(2px)" }}
             onClick={onMobileClose}
           />
-          {/* Sidebar panel (slides from right for RTL) */}
-          <div className="relative mr-auto">
+          {/* Sidebar panel - RTL: slides in from right */}
+          <div className="absolute top-0 right-0 h-full sidebar-mobile-enter" style={{ zIndex: 51 }}>
             {sidebarContent}
           </div>
         </div>

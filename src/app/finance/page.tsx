@@ -23,7 +23,9 @@ const monthlyData = MONTHS.map((month, i) => ({
 
 function FinanceContent() {
   const { data: transactions, loading, insert } = useTransactions();
+  const { userRole } = usePermissions();
   const toast = useToast();
+  const isAdmin = userRole === "super_admin";
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
     type: "دخل" as "دخل" | "مصروف",
@@ -88,10 +90,12 @@ function FinanceContent() {
             </h1>
             <p className="text-[#8ba3c7] text-sm mt-1">إدارة الإيرادات والمصروفات وتوزيع الصناديق</p>
           </div>
-          <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2">
-            <Plus size={16} />
-            معاملة جديدة
-          </button>
+          {isAdmin && (
+            <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2">
+              <Plus size={16} />
+              معاملة جديدة
+            </button>
+          )}
         </div>
 
         {/* Summary Cards */}

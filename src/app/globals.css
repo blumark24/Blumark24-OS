@@ -265,6 +265,16 @@ html, body {
 /* Donut gap */
 .recharts-pie-sector:focus { outline: none; }
 
+/* Mobile sidebar - slides in from right (RTL) */
+@keyframes slideInFromRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0);    }
+}
+.sidebar-mobile-enter {
+  animation: slideInFromRight 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
 /* Notification badge */
 .notif-badge {
   position: absolute;

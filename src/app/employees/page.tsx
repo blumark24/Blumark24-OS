@@ -38,7 +38,9 @@ const EMP_ROLE_LABELS: Record<string, string> = {
 
 function EmployeesContent() {
   const { data: employees, loading, insert, update, remove } = useEmployees();
+  const { userRole } = usePermissions();
   const toast = useToast();
+  const isAdmin = userRole === "super_admin";
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("الكل");
   const [showModal, setShowModal] = useState(false);
@@ -128,10 +130,12 @@ function EmployeesContent() {
             </h1>
             <p className="text-[#8ba3c7] text-sm mt-1">إدارة وتتبع فريق العمل</p>
           </div>
-          <button onClick={openAdd} className="btn-primary flex items-center gap-2">
-            <Plus size={16} />
-            إضافة موظف
-          </button>
+          {isAdmin && (
+            <button onClick={openAdd} className="btn-primary flex items-center gap-2">
+              <Plus size={16} />
+              إضافة موظف
+            </button>
+          )}
         </div>
 
         {/* Stats */}
@@ -232,14 +236,16 @@ function EmployeesContent() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => openEdit(emp)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => handleDelete(emp.id)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                      {isAdmin && (
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => openEdit(emp)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => handleDelete(emp.id)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

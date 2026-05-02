@@ -255,9 +255,9 @@ function AgencyBlock({ title, subtitle, icon: Icon, accentColor, depts, descript
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function OrgPage() {
-  const { hasPermission } = usePermissions();
+  const { hasPermission, userRole } = usePermissions();
   const toast = useToast();
-  const canManage = hasPermission("manage_board");
+  const canManage = userRole === "super_admin";
 
   const { data: boardMembers, insert, update, remove } = useBoardMembers();
   const [showModal,    setShowModal]    = useState(false);

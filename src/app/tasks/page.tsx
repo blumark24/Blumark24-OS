@@ -29,7 +29,9 @@ type ViewMode = "kanban" | "list";
 
 function TasksContent() {
   const { data: tasks, loading, insert, update } = useTasks();
+  const { userRole } = usePermissions();
   const toast = useToast();
+  const isAdmin = userRole === "super_admin";
   const [view, setView] = useState<ViewMode>("kanban");
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
@@ -101,10 +103,12 @@ function TasksContent() {
                 <List size={15} />
               </button>
             </div>
-            <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2">
-              <Plus size={16} />
-              مهمة جديدة
-            </button>
+            {isAdmin && (
+              <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2">
+                <Plus size={16} />
+                مهمة جديدة
+              </button>
+            )}
           </div>
         </div>
 
