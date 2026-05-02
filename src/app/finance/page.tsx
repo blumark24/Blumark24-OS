@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import PageGuard from "@/components/ui/PageGuard";
 import { FUND_DISTRIBUTION, formatCurrency } from "@/lib/utils";
 import { DollarSign, Plus, TrendingUp, TrendingDown, X, ArrowUpRight } from "lucide-react";
 import type { Transaction } from "@/types";
@@ -305,5 +306,9 @@ function FinanceContent() {
 }
 
 export default function FinancePage() {
-  return <FinanceContent />;
+  return (
+    <PageGuard permission="manage_finance">
+      <FinanceContent />
+    </PageGuard>
+  );
 }

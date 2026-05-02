@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import PageGuard from "@/components/ui/PageGuard";
 import Link from "next/link";
 import {
   Settings, Users, Shield, Building2, Palette, Link2, Bell, Save,
@@ -298,7 +299,7 @@ function PermissionsTab() {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function SettingsPage() {
+function SettingsContent() {
   const toast = useToast();
   const { hasPermission } = usePermissions();
 
@@ -580,5 +581,13 @@ export default function SettingsPage() {
         </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <PageGuard permission="manage_settings">
+      <SettingsContent />
+    </PageGuard>
   );
 }

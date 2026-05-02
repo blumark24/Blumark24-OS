@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import PageGuard from "@/components/ui/PageGuard";
 import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X } from "lucide-react";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { cn } from "@/lib/utils";
@@ -298,5 +299,9 @@ function TasksContent() {
 }
 
 export default function TasksPage() {
-  return <TasksContent />;
+  return (
+    <PageGuard permission="manage_tasks">
+      <TasksContent />
+    </PageGuard>
+  );
 }

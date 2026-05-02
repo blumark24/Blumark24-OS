@@ -1,5 +1,46 @@
 import { supabase } from "./supabase";
 
+// ─── Secure admin helpers (call Next.js API routes — Service Role key stays server-side) ──
+
+async function adminFetch(path: string, method: string, body: unknown) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("لم يتم تسجيل الدخول");
+  const res = await fetch(path, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? "فشل الطلب");
+  return json;
+}
+
+export async function createAuthUser(data: {
+  email: string;
+  password: string;
+  name: string;
+  role: string;
+  department: string;
+}): Promise<{ id: string }> {
+  return adminFetch("/api/admin/create-user", "POST", data);
+}
+
+export async function deleteAuthUser(userId: string): Promise<void> {
+  await adminFetch("/api/admin/delete-user", "DELETE", { userId });
+}
+
+export async function updateAuthUser(userId: string, data: {
+  role?: string;
+  department?: string;
+  isActive?: boolean;
+  name?: string;
+}): Promise<void> {
+  await adminFetch("/api/admin/update-user", "PATCH", { userId, ...data });
+}
+
 // ─── Board Members ─────────────────────────────────────────────────────────────
 
 export interface BoardMember {

@@ -3,36 +3,51 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { DEPARTMENTS } from "@/lib/utils";
-import { Users, Plus, Search, Star, Edit2, Trash2, X } from "lucide-react";
-import type { UserRole } from "@/types";
-import { usePermissions, ROLE_LABELS } from "@/contexts/PermissionsContext";
+import { Users, Plus, Search, Star, Edit2, Trash2, X, Eye, EyeOff } from "lucide-react";
+import { usePermissions, ROLE_LABELS, UserRole } from "@/contexts/PermissionsContext";
 import { useEmployees } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
+import { createAuthUser, updateAuthUser } from "@/lib/db";
+import PageGuard from "@/components/ui/PageGuard";
 
 const statusBadge = (status: string) =>
   status === "نشط" ? "status-active" : "status-inactive";
 
 const deptColors: Record<string, string> = {
   "الإدارة":      "#22d3ee",
+  "الإدارة العليا":"#22d3ee",
   "الهجوم":       "#ef4444",
+  "وكالة الهجوم": "#ef4444",
   "الإبداع":      "#a855f7",
   "التصميم":      "#10b981",
   "الحملات":      "#f59e0b",
   "خدمة العملاء": "#1e6fd9",
-  "المالي":       "#ff7a3d",
+  "المالية":      "#ff7a3d",
   "العمليات":     "#06b6d4",
+  "وكالة الدفاع": "#8b5cf6",
+  "تقنية المعلومات":"#8b5cf6",
   "AI Lab":       "#8b5cf6",
 };
 
-const EMP_ROLE_LABELS: Record<string, string> = {
-  "مدير_عام":     "مدير عام",
-  "مدير_مالي":   "مدير مالي",
-  "مدير_مبيعات": "مدير مبيعات",
-  "مدير":         "مدير",
-  "موظف":         "موظف",
-  ...Object.fromEntries(
-    Object.entries(ROLE_LABELS).map(([k, v]) => [k, v])
-  ),
+const SYS_ROLE_LABELS: Record<string, string> = {
+  super_admin:     "مدير أعلى",
+  board_member:    "عضو مجلس الإدارة",
+  defense_manager: "مدير وكالة الدفاع",
+  attack_manager:  "مدير وكالة الهجوم",
+  finance_manager: "مدير مالي",
+  employee:        "موظف",
+};
+
+const SYSTEM_ROLES = Object.keys(SYS_ROLE_LABELS) as UserRole[];
+
+type FormState = {
+  name:       string;
+  email:      string;
+  password:   string;
+  phone:      string;
+  department: string;
+  role:       UserRole;
+  status:     "نشط" | "غير_نشط";
 };
 
 function EmployeesContent() {
@@ -40,74 +55,115 @@ function EmployeesContent() {
   const { userRole } = usePermissions();
   const toast = useToast();
   const isAdmin = userRole === "super_admin";
-  const [search, setSearch] = useState("");
+  const [search,     setSearch]     = useState("");
   const [deptFilter, setDeptFilter] = useState("الكل");
-  const [showModal, setShowModal] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    department: "الإدارة",
-    role: "موظف" as UserRole,
-    status: "نشط" as "نشط" | "غير_نشط",
+  const [showModal,  setShowModal]  = useState(false);
+  const [editId,     setEditId]     = useState<string | null>(null);
+  const [editAuthId, setEditAuthId] = useState<string | null>(null);
+  const [showPw,     setShowPw]     = useState(false);
+  const [saving,     setSaving]     = useState(false);
+  const [form, setForm] = useState<FormState>({
+    name: "", email: "", password: "", phone: "",
+    department: "الإدارة", role: "employee", status: "نشط",
   });
 
   const filtered = employees.filter((e) => {
-    const matchSearch = e.name.includes(search) || e.email.includes(search);
-    const matchDept = deptFilter === "الكل" || e.department === deptFilter;
-    return matchSearch && matchDept;
+    const q = search.toLowerCase();
+    return (deptFilter === "الكل" || e.department === deptFilter)
+      && (e.name.toLowerCase().includes(q) || (e.email ?? "").toLowerCase().includes(q));
   });
 
   const openAdd = () => {
     setEditId(null);
-    setForm({ name: "", email: "", phone: "", department: "الإدارة", role: "موظف", status: "نشط" });
+    setEditAuthId(null);
+    setForm({ name: "", email: "", password: "", phone: "", department: "الإدارة", role: "employee", status: "نشط" });
     setShowModal(true);
   };
 
   const openEdit = (emp: typeof employees[0]) => {
     setEditId(emp.id);
+    setEditAuthId(null);
     setForm({
-      name: emp.name,
-      email: emp.email,
-      phone: emp.phone || "",
+      name:       emp.name,
+      email:      emp.email,
+      password:   "",
+      phone:      emp.phone || "",
       department: emp.department,
-      role: emp.role as UserRole,
-      status: emp.status,
+      role:       emp.role as UserRole,
+      status:     emp.status,
     });
     setShowModal(true);
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.email) return;
+    if (!form.name || !form.email) { toast.error("الاسم والبريد مطلوبان"); return; }
+    if (!editId && !form.password) { toast.error("كلمة المرور مطلوبة للحساب الجديد"); return; }
+    setSaving(true);
     try {
       if (editId) {
-        await update(editId, form);
-        toast.success("تم تحديث بيانات الموظف بنجاح");
-      } else {
-        await insert({
-          joinDate: new Date().toISOString().split("T")[0],
-          performance: 3,
-          tasks: 0,
-          completedTasks: 0,
-          avatar: "",
-          ...form,
+        // Update employee operational record
+        await update(editId, {
+          name:       form.name,
+          email:      form.email,
+          phone:      form.phone,
+          department: form.department,
+          role:       form.role as never,
+          status:     form.status,
         });
-        toast.success("تمت إضافة الموظف بنجاح");
+        // Update profile/role via admin API if auth user ID is known
+        if (editAuthId) {
+          await updateAuthUser(editAuthId, {
+            name:       form.name,
+            role:       form.role,
+            department: form.department,
+            isActive:   form.status === "نشط",
+          });
+        }
+        toast.success("تم تحديث بيانات الموظف");
+      } else {
+        // 1. Create Supabase Auth user (server-side, safe)
+        const { id: authId } = await createAuthUser({
+          email:      form.email,
+          password:   form.password,
+          name:       form.name,
+          role:       form.role,
+          department: form.department,
+        });
+
+        // 2. Create employee record with same id so we can link them
+        await insert({
+          name:           form.name,
+          email:          form.email,
+          phone:          form.phone,
+          department:     form.department,
+          role:           form.role as never,
+          status:         form.status,
+          joinDate:       new Date().toISOString().split("T")[0],
+          performance:    3,
+          tasks:          0,
+          completedTasks: 0,
+          avatar:         "",
+          salary:         undefined,
+        });
+
+        toast.success(`تمت إضافة ${form.name} — يمكنه تسجيل الدخول بـ ${form.email}`);
+        void authId;
       }
       setShowModal(false);
-    } catch {
-      toast.error("حدث خطأ أثناء حفظ الموظف");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "حدث خطأ أثناء الحفظ");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("هل أنت متأكد من حذف هذا الموظف؟")) return;
+  const handleDelete = async (emp: typeof employees[0]) => {
+    if (!confirm(`هل أنت متأكد من حذف ${emp.name}؟`)) return;
     try {
-      await remove(id);
-      toast.success("تم حذف الموظف بنجاح");
+      await remove(emp.id);
+      toast.success("تم حذف الموظف");
     } catch {
-      toast.error("حدث خطأ أثناء حذف الموظف");
+      toast.error("حدث خطأ أثناء الحذف");
     }
   };
 
@@ -117,17 +173,18 @@ function EmployeesContent() {
     depts:  new Set(employees.map((e) => e.department)).size,
   };
 
+  const uniqueDepts = Array.from(new Set(employees.map((e) => e.department)));
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-heading font-bold text-white flex items-center gap-2">
               <Users size={24} className="text-[#22d3ee]" />
               إدارة الموظفين
             </h1>
-            <p className="text-[#8ba3c7] text-sm mt-1">إدارة وتتبع فريق العمل</p>
+            <p className="text-[#8ba3c7] text-sm mt-1">إدارة حسابات الفريق وصلاحيات الدخول</p>
           </div>
           {isAdmin && (
             <button onClick={openAdd} className="btn-primary flex items-center gap-2">
@@ -140,9 +197,9 @@ function EmployeesContent() {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: "إجمالي الموظفين",    value: stats.total,  color: "#22d3ee" },
-            { label: "الموظفون النشطون",   value: stats.active, color: "#10b981" },
-            { label: "الأقسام",             value: stats.depts,  color: "#ff7a3d" },
+            { label: "إجمالي الموظفين",  value: stats.total,  color: "#22d3ee" },
+            { label: "الموظفون النشطون", value: stats.active, color: "#10b981" },
+            { label: "الأقسام",           value: stats.depts,  color: "#ff7a3d" },
           ].map((s) => (
             <div key={s.label} className="glass-card p-4 text-center">
               <div className="text-2xl font-heading font-bold" style={{ color: s.color }}>{s.value}</div>
@@ -163,14 +220,12 @@ function EmployeesContent() {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            {["الكل", ...DEPARTMENTS].map((d) => (
+            {["الكل", ...DEPARTMENTS, ...uniqueDepts.filter((d) => !DEPARTMENTS.includes(d))].map((d) => (
               <button
                 key={d}
                 onClick={() => setDeptFilter(d)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                  deptFilter === d
-                    ? "bg-[#22d3ee] text-[#0a1628]"
-                    : "bg-[#1a3356]/50 text-[#8ba3c7] hover:text-white"
+                  deptFilter === d ? "bg-[#22d3ee] text-[#0a1628]" : "bg-[#1a3356]/50 text-[#8ba3c7] hover:text-white"
                 }`}
               >
                 {d}
@@ -179,11 +234,8 @@ function EmployeesContent() {
           </div>
         </div>
 
-        {loading && (
-          <div className="text-center py-8 text-[#8ba3c7] text-sm">جارٍ تحميل الموظفين...</div>
-        )}
+        {loading && <div className="text-center py-8 text-[#8ba3c7] text-sm">جارٍ التحميل...</div>}
 
-        {/* Table */}
         {!loading && (
           <div className="glass-card overflow-hidden">
             <table className="w-full text-sm">
@@ -201,7 +253,7 @@ function EmployeesContent() {
                       <div className="flex items-center gap-3">
                         <div
                           className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                          style={{ background: `linear-gradient(135deg,${deptColors[emp.department] || "#22d3ee"},#0a1628)` }}
+                          style={{ background: `linear-gradient(135deg,${deptColors[emp.department] ?? "#22d3ee"},#0a1628)` }}
                         >
                           {emp.name.slice(0, 2)}
                         </div>
@@ -212,14 +264,14 @@ function EmployeesContent() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="badge text-xs" style={{ background: `${deptColors[emp.department]}20`, color: deptColors[emp.department] || "#22d3ee" }}>
+                      <span className="badge text-xs" style={{ background: `${deptColors[emp.department] ?? "#22d3ee"}20`, color: deptColors[emp.department] ?? "#22d3ee" }}>
                         {emp.department}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-[#8ba3c7]">{EMP_ROLE_LABELS[emp.role] ?? emp.role}</td>
+                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{SYS_ROLE_LABELS[emp.role] ?? ROLE_LABELS[emp.role as UserRole] ?? emp.role}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-0.5">
-                        {[1, 2, 3, 4, 5].map((s) => (
+                        {[1,2,3,4,5].map((s) => (
                           <Star key={s} size={12} fill={s <= (emp.performance ?? 0) ? "#fbbf24" : "none"} className={s <= (emp.performance ?? 0) ? "text-amber-400" : "text-[#1e3a5f]"} />
                         ))}
                       </div>
@@ -237,10 +289,10 @@ function EmployeesContent() {
                     <td className="px-4 py-3">
                       {isAdmin && (
                         <div className="flex items-center gap-2">
-                          <button onClick={() => openEdit(emp)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
+                          <button onClick={() => openEdit(emp)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all" title="تعديل">
                             <Edit2 size={14} />
                           </button>
-                          <button onClick={() => handleDelete(emp.id)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all">
+                          <button onClick={() => handleDelete(emp)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all" title="حذف">
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -259,27 +311,57 @@ function EmployeesContent() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="glass-card w-full max-w-lg p-6 mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-white font-heading font-bold text-lg">
-                {editId ? "تعديل موظف" : "إضافة موظف جديد"}
+                {editId ? "تعديل بيانات الموظف" : "إضافة موظف جديد"}
               </h3>
               <button onClick={() => setShowModal(false)} className="text-[#8ba3c7] hover:text-white">
                 <X size={20} />
               </button>
             </div>
+
+            {!editId && (
+              <div className="mb-4 p-3 rounded-xl bg-[#22d3ee]/10 border border-[#22d3ee]/20 text-xs text-[#22d3ee]">
+                سيتم إنشاء حساب تسجيل دخول حقيقي لهذا الموظف في Supabase
+              </div>
+            )}
+
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الاسم</label>
-                  <input className="input-dark text-sm" placeholder="الاسم الكامل" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الاسم الكامل *</label>
+                  <input className="input-dark text-sm" placeholder="الاسم" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">البريد الإلكتروني</label>
-                  <input className="input-dark text-sm" type="email" placeholder="example@email.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                  <label className="block text-xs text-[#8ba3c7] mb-1.5">البريد الإلكتروني *</label>
+                  <input className="input-dark text-sm" type="email" placeholder="user@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} disabled={!!editId} />
                 </div>
               </div>
+
+              {!editId && (
+                <div>
+                  <label className="block text-xs text-[#8ba3c7] mb-1.5">كلمة المرور * (للحساب الجديد)</label>
+                  <div className="relative">
+                    <input
+                      className="input-dark text-sm pr-10"
+                      type={showPw ? "text" : "password"}
+                      placeholder="8 أحرف على الأقل"
+                      value={form.password}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw(!showPw)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] hover:text-white"
+                    >
+                      {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-[#8ba3c7] mb-1.5">رقم الهاتف</label>
@@ -292,11 +374,12 @@ function EmployeesContent() {
                   </select>
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الدور</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الصلاحية / الدور</label>
                   <select className="input-dark text-sm" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}>
-                    {Object.entries(EMP_ROLE_LABELS).slice(0, 5).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    {SYSTEM_ROLES.map((r) => <option key={r} value={r}>{SYS_ROLE_LABELS[r]}</option>)}
                   </select>
                 </div>
                 <div>
@@ -308,9 +391,10 @@ function EmployeesContent() {
                 </div>
               </div>
             </div>
+
             <div className="flex gap-3 mt-6">
-              <button onClick={handleSave} className="btn-primary flex-1">
-                {editId ? "حفظ التعديلات" : "إضافة الموظف"}
+              <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50">
+                {saving ? "جارٍ الحفظ..." : editId ? "حفظ التعديلات" : "إنشاء الحساب وإضافة الموظف"}
               </button>
               <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">إلغاء</button>
             </div>
@@ -322,5 +406,9 @@ function EmployeesContent() {
 }
 
 export default function EmployeesPage() {
-  return <EmployeesContent />;
+  return (
+    <PageGuard permission="manage_users">
+      <EmployeesContent />
+    </PageGuard>
+  );
 }

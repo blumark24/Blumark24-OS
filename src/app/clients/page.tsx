@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import PageGuard from "@/components/ui/PageGuard";
 import { CITIES, formatCurrency } from "@/lib/utils";
 import { UserCircle, Plus, Search, Phone, MapPin, Package, Edit2, Trash2, X } from "lucide-react";
 import type { ClientStatus, PackageType } from "@/types";
@@ -343,5 +344,9 @@ function ClientsContent() {
 }
 
 export default function ClientsPage() {
-  return <ClientsContent />;
+  return (
+    <PageGuard permission="manage_clients">
+      <ClientsContent />
+    </PageGuard>
+  );
 }

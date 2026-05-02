@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import PageGuard from "@/components/ui/PageGuard";
 import { BarChart3, Download, FileText, Users, CheckSquare, UserCircle, DollarSign, Map, Calendar } from "lucide-react";
 import { useEmployees, useClients, useTasks, useTransactions } from "@/hooks/useData";
 import { formatCurrency } from "@/lib/utils";
@@ -30,7 +31,7 @@ const TOOLTIP_STYLE = {
 
 type ReportId = "employees" | "tasks" | "clients" | "finance" | "strategy" | "monthly";
 
-export default function ReportsPage() {
+function ReportsContent() {
   const [activeReport, setActiveReport] = useState<ReportId>("monthly");
   const [period, setPeriod]             = useState("هذا الشهر");
 
@@ -354,5 +355,13 @@ export default function ReportsPage() {
         </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <PageGuard permission="manage_reports">
+      <ReportsContent />
+    </PageGuard>
   );
 }

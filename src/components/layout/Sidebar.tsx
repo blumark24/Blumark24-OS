@@ -22,17 +22,17 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/",           label: "الرئيسية",         icon: LayoutDashboard, permission: "view_dashboard" },
-  { href: "/employees",  label: "الموظفين",          icon: Users,           permission: "view_dashboard" },
-  { href: "/tasks",      label: "المهام",             icon: CheckSquare,     permission: "view_dashboard" },
-  { href: "/clients",    label: "العملاء (CRM)",      icon: UserCircle,      permission: "view_dashboard" },
-  { href: "/finance",    label: "المالية",            icon: DollarSign,      permission: "view_dashboard" },
-  { href: "/strategy",   label: "الاستراتيجية",      icon: Map,             permission: "view_dashboard" },
-  { href: "/org",        label: "الهيكل الإداري",    icon: Network,         permission: "view_dashboard" },
-  { href: "/automation", label: "مركز الأتمتة",      icon: Zap,             permission: "view_dashboard" },
-  { href: "/ai",         label: "المساعد الذكي",     icon: Bot,             permission: "view_dashboard" },
-  { href: "/reports",    label: "التقارير",           icon: BarChart3,       permission: "view_dashboard" },
-  { href: "/settings",   label: "الإعدادات",         icon: Settings,        permission: "view_dashboard" },
+  { href: "/",           label: "الرئيسية",         icon: LayoutDashboard, permission: "view_dashboard"    },
+  { href: "/employees",  label: "الموظفين",          icon: Users,           permission: "manage_users"      },
+  { href: "/tasks",      label: "المهام",             icon: CheckSquare,     permission: "manage_tasks"      },
+  { href: "/clients",    label: "العملاء (CRM)",      icon: UserCircle,      permission: "manage_clients"    },
+  { href: "/finance",    label: "المالية",            icon: DollarSign,      permission: "manage_finance"    },
+  { href: "/strategy",   label: "الاستراتيجية",      icon: Map,             permission: "manage_reports"    },
+  { href: "/org",        label: "الهيكل الإداري",    icon: Network,         permission: "view_dashboard"    },
+  { href: "/automation", label: "مركز الأتمتة",      icon: Zap,             permission: "manage_automations"},
+  { href: "/ai",         label: "المساعد الذكي",     icon: Bot,             permission: "view_dashboard"    },
+  { href: "/reports",    label: "التقارير",           icon: BarChart3,       permission: "manage_reports"    },
+  { href: "/settings",   label: "الإعدادات",         icon: Settings,        permission: "manage_settings"   },
 ];
 
 // ─── Props ─────────────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import PageGuard from "@/components/ui/PageGuard";
 import { useToast } from "@/contexts/ToastContext";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useTasks, useClients, useTransactions } from "@/hooks/useData";
@@ -419,5 +420,9 @@ function AutomationContent() {
 }
 
 export default function AutomationPage() {
-  return <AutomationContent />;
+  return (
+    <PageGuard permission="manage_automations">
+      <AutomationContent />
+    </PageGuard>
+  );
 }
