@@ -27,13 +27,6 @@ interface AuthContextValue {
   logout: () => void;
 }
 
-// Demo users for when Supabase is not configured
-const DEMO_USERS: (AuthUser & { password: string })[] = [
-  { id: "1", name: "أحمد محمد",  email: "admin@blumark24.com",   password: "admin123",   role: "super_admin",    avatar: "أم" },
-  { id: "2", name: "فاطمة خالد", email: "finance@blumark24.com", password: "finance123", role: "finance_manager", avatar: "فخ" },
-  { id: "3", name: "سارة أحمد",  email: "sales@blumark24.com",   password: "sales123",   role: "attack_manager",  avatar: "سأ" },
-];
-
 const PUBLIC_PATHS = ["/auth"];
 
 const AuthContext = createContext<AuthContextValue>({
@@ -61,20 +54,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
-      // Demo mode: no session persistence across refreshes
       setLoading(false);
       return;
     }
 
-    // Restore session from Supabase
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         const profile = await getUserProfile(session.user.id);
         setUser({
-          id: session.user.id,
-          email: session.user.email ?? "",
-          name: profile?.name ?? session.user.email ?? "",
-          role: profile?.role ?? "employee",
+          id:     session.user.id,
+          email:  session.user.email ?? "",
+          name:   profile?.name  ?? session.user.email ?? "",
+          role:   profile?.role  ?? "employee",
           avatar: profile?.avatar,
         });
         setSessionCookie("1");
@@ -82,16 +73,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
           const profile = await getUserProfile(session.user.id);
           setUser({
-            id: session.user.id,
-            email: session.user.email ?? "",
-            name: profile?.name ?? session.user.email ?? "",
-            role: profile?.role ?? "employee",
+            id:     session.user.id,
+            email:  session.user.email ?? "",
+            name:   profile?.name  ?? session.user.email ?? "",
+            role:   profile?.role  ?? "employee",
             avatar: profile?.avatar,
           });
           setSessionCookie("1");
@@ -119,20 +109,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
       if (!isSupabaseConfigured) {
-        // Demo mode fallback
-        await new Promise((r) => setTimeout(r, 700));
-        const found = DEMO_USERS.find((u) => u.email === email && u.password === password);
-        if (!found) return { ok: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
-        const { password: _pw, ...authUser } = found;
-        setUser(authUser);
-        setSessionCookie("1");
-        router.replace("/");
-        return { ok: true };
+        return {
+          ok: false,
+          error: "لم يتم تهيئة Supabase. يرجى إضافة NEXT_PUBLIC_SUPABASE_URL و NEXT_PUBLIC_SUPABASE_ANON_KEY في متغيرات البيئة.",
+        };
       }
 
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return { ok: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
-      // onAuthStateChange will update user state + cookie
+      if (error) {
+        return { ok: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
+      }
+
+      // onAuthStateChange handles user state update + session cookie
       router.replace("/");
       return { ok: true };
     },

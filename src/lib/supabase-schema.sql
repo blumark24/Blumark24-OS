@@ -1,10 +1,23 @@
 -- ============================================================
--- Blumark24 OS – Supabase Schema  (run once in SQL Editor)
--- Matches the TypeScript types in src/types/index.ts exactly.
+-- Blumark24 OS – Supabase Schema
+-- Run this once in the Supabase SQL Editor.
 -- ============================================================
 
 -- ── Extensions ──────────────────────────────────────────────
 create extension if not exists "uuid-ossp";
+
+-- ============================================================
+-- HELPER: security-definer function to read own role safely
+-- (avoids infinite recursion in RLS policies on profiles)
+-- ============================================================
+create or replace function public.get_my_role()
+returns text
+language sql
+security definer
+stable
+as $$
+  select role from public.profiles where id = auth.uid();
+$$;
 
 -- ============================================================
 -- 1. PROFILES  (mirrors auth.users, holds role/name/dept)
@@ -26,30 +39,28 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
--- Everyone reads own profile; super_admin reads all
-create policy "profiles: read own"
-  on public.profiles for select using (auth.uid() = id);
-
-create policy "profiles: super_admin read all"
+-- Use security-definer helper to avoid infinite recursion
+create policy "profiles: read own or admin"
   on public.profiles for select
-  using (exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role = 'super_admin'
-  ));
+  using (
+    auth.uid() = id
+    or public.get_my_role() = 'super_admin'
+  );
 
 create policy "profiles: update own"
-  on public.profiles for update using (auth.uid() = id);
+  on public.profiles for update
+  using (auth.uid() = id);
 
-create policy "profiles: super_admin write"
+create policy "profiles: super_admin all"
   on public.profiles for all
-  using (exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role = 'super_admin'
-  ));
+  using (public.get_my_role() = 'super_admin');
 
 -- Auto-create profile row when a new auth user signs up
 create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer as $$
+returns trigger
+language plpgsql
+security definer
+as $$
 begin
   insert into public.profiles (id, email, name)
   values (
@@ -69,7 +80,6 @@ create trigger on_auth_user_created
 
 -- ============================================================
 -- 2. EMPLOYEES
--- Columns match TypeScript Employee type (camelCase→snake_case)
 -- ============================================================
 create table if not exists public.employees (
   id               uuid primary key default uuid_generate_v4(),
@@ -92,14 +102,12 @@ create table if not exists public.employees (
 alter table public.employees enable row level security;
 
 create policy "employees: authenticated read"
-  on public.employees for select using (auth.role() = 'authenticated');
+  on public.employees for select
+  using (auth.role() = 'authenticated');
 
 create policy "employees: super_admin write"
   on public.employees for all
-  using (exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role = 'super_admin'
-  ));
+  using (public.get_my_role() = 'super_admin');
 
 -- ============================================================
 -- 3. CLIENTS
@@ -124,23 +132,14 @@ create table if not exists public.clients (
 alter table public.clients enable row level security;
 
 create policy "clients: authenticated read"
-  on public.clients for select using (auth.role() = 'authenticated');
+  on public.clients for select
+  using (auth.role() = 'authenticated');
 
-create policy "clients: super_admin write"
-  on public.clients for all
-  using (exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role = 'super_admin'
-  ));
-
--- Managers can also insert/update clients
 create policy "clients: manager write"
   on public.clients for all
-  using (exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid()
-      and p.role in ('attack_manager','defense_manager','finance_manager')
-  ));
+  using (
+    public.get_my_role() in ('super_admin','attack_manager','defense_manager','finance_manager')
+  );
 
 -- ============================================================
 -- 4. TASKS
@@ -166,10 +165,12 @@ create table if not exists public.tasks (
 alter table public.tasks enable row level security;
 
 create policy "tasks: authenticated read"
-  on public.tasks for select using (auth.role() = 'authenticated');
+  on public.tasks for select
+  using (auth.role() = 'authenticated');
 
 create policy "tasks: authenticated write"
-  on public.tasks for all using (auth.role() = 'authenticated');
+  on public.tasks for all
+  using (auth.role() = 'authenticated');
 
 -- ============================================================
 -- 5. TRANSACTIONS
@@ -188,15 +189,14 @@ create table if not exists public.transactions (
 alter table public.transactions enable row level security;
 
 create policy "transactions: authenticated read"
-  on public.transactions for select using (auth.role() = 'authenticated');
+  on public.transactions for select
+  using (auth.role() = 'authenticated');
 
 create policy "transactions: finance write"
   on public.transactions for all
-  using (exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid()
-      and p.role in ('super_admin','finance_manager')
-  ));
+  using (
+    public.get_my_role() in ('super_admin','finance_manager')
+  );
 
 -- ============================================================
 -- 6. PROJECTS
@@ -217,14 +217,12 @@ create table if not exists public.projects (
 alter table public.projects enable row level security;
 
 create policy "projects: authenticated read"
-  on public.projects for select using (auth.role() = 'authenticated');
+  on public.projects for select
+  using (auth.role() = 'authenticated');
 
 create policy "projects: super_admin write"
   on public.projects for all
-  using (exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role = 'super_admin'
-  ));
+  using (public.get_my_role() = 'super_admin');
 
 -- ============================================================
 -- 7. ACTIVITIES  (audit/activity feed)
@@ -241,10 +239,12 @@ create table if not exists public.activities (
 alter table public.activities enable row level security;
 
 create policy "activities: authenticated read"
-  on public.activities for select using (auth.role() = 'authenticated');
+  on public.activities for select
+  using (auth.role() = 'authenticated');
 
 create policy "activities: authenticated insert"
-  on public.activities for insert with check (auth.role() = 'authenticated');
+  on public.activities for insert
+  with check (auth.role() = 'authenticated');
 
 -- ============================================================
 -- 8. BOARD MEMBERS
@@ -262,15 +262,14 @@ create table if not exists public.board_members (
 alter table public.board_members enable row level security;
 
 create policy "board_members: authenticated read"
-  on public.board_members for select using (auth.role() = 'authenticated');
+  on public.board_members for select
+  using (auth.role() = 'authenticated');
 
-create policy "board_members: super_admin write"
+create policy "board_members: admin write"
   on public.board_members for all
-  using (exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid()
-      and p.role in ('super_admin','board_member')
-  ));
+  using (
+    public.get_my_role() in ('super_admin','board_member')
+  );
 
 -- ============================================================
 -- 9. MESSAGES
@@ -288,10 +287,12 @@ create table if not exists public.messages (
 alter table public.messages enable row level security;
 
 create policy "messages: authenticated read"
-  on public.messages for select using (auth.role() = 'authenticated');
+  on public.messages for select
+  using (auth.role() = 'authenticated');
 
 create policy "messages: authenticated write"
-  on public.messages for all using (auth.role() = 'authenticated');
+  on public.messages for all
+  using (auth.role() = 'authenticated');
 
 -- ============================================================
 -- 10. NOTIFICATIONS
@@ -310,11 +311,11 @@ create table if not exists public.notifications (
 
 alter table public.notifications enable row level security;
 
-create policy "notifications: read own"
+create policy "notifications: read own or broadcast"
   on public.notifications for select
   using (user_id = auth.uid() or user_id is null);
 
-create policy "notifications: update own"
+create policy "notifications: update own or broadcast"
   on public.notifications for update
   using (user_id = auth.uid() or user_id is null);
 
@@ -323,7 +324,27 @@ create policy "notifications: insert authenticated"
   with check (auth.role() = 'authenticated');
 
 -- ============================================================
--- DONE – verify with:
---   select table_name from information_schema.tables
---   where table_schema = 'public';
+-- SETUP: Create the admin user AFTER running this schema.
+--
+-- Step 1 – In Supabase Dashboard → Authentication → Users:
+--   Create user: admin@blumark24.com  with your chosen password
+--   (or use the API/CLI)
+--
+-- Step 2 – Run this SQL to promote to super_admin:
+-- ============================================================
+/*
+  UPDATE public.profiles
+  SET
+    role       = 'super_admin',
+    name       = 'أحمد محمد',
+    department = 'الإدارة العليا',
+    is_active  = true
+  WHERE email = 'admin@blumark24.com';
+*/
+
+-- ============================================================
+-- Verify setup:
+--   SELECT table_name FROM information_schema.tables
+--   WHERE table_schema = 'public'
+--   ORDER BY table_name;
 -- ============================================================

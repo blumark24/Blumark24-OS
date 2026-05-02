@@ -6,21 +6,15 @@ import { Eye, EyeOff, LogIn } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 
-const DEMO_ACCOUNTS = [
-  { email: "admin@blumark24.com",   password: "admin123",   name: "أحمد محمد",  role: "مدير عام"       },
-  { email: "finance@blumark24.com", password: "finance123", name: "فاطمة خالد", role: "مدير مالي"      },
-  { email: "sales@blumark24.com",   password: "sales123",   name: "سارة أحمد",  role: "مدير مبيعات"    },
-];
-
 export default function AuthPage() {
   const { login } = useAuth();
-  const toast      = useToast();
+  const toast     = useToast();
 
-  const [email,   setEmail]   = useState("admin@blumark24.com");
-  const [password,setPassword]= useState("admin123");
-  const [showPw,  setShowPw]  = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
+  const [email,    setEmail]    = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw,   setShowPw]   = useState(false);
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,23 +117,6 @@ export default function AuthPage() {
               )}
             </button>
           </form>
-
-          {/* Demo accounts */}
-          <div className="mt-6 pt-5 border-t border-[#1e3a5f]">
-            <p className="text-xs text-[#8ba3c7] text-center mb-3">حسابات تجريبية</p>
-            <div className="space-y-2">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  onClick={() => { setEmail(acc.email); setPassword(acc.password); }}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-[#1a3356]/50 hover:bg-[#1a3356] transition-colors text-sm"
-                >
-                  <span className="text-white font-medium">{acc.name}</span>
-                  <span className="badge bg-[#0d1f3c] text-[#22d3ee] text-xs">{acc.role}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Feature bullets */}

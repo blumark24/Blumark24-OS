@@ -15,12 +15,6 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // Read Supabase config server-side so both SUPABASE_URL and
-  // NEXT_PUBLIC_SUPABASE_URL env var naming conventions work.
-  const sbUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL  || process.env.SUPABASE_URL  || "";
-  const sbKey  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
-  const inlineScript = `window.__SB_URL__=${JSON.stringify(sbUrl)};window.__SB_KEY__=${JSON.stringify(sbKey)};`;
-
   return (
     <html lang="ar" dir="rtl">
       <head>
@@ -31,7 +25,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;800&display=swap"
           rel="stylesheet"
         />
-        <script dangerouslySetInnerHTML={{ __html: inlineScript }} />
       </head>
       <body>
         <ToastProvider>
