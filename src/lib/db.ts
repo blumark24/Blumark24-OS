@@ -63,11 +63,9 @@ export interface DBMessage {
 }
 
 export const FALLBACK_MESSAGES: DBMessage[] = [
-  { id: "m1", sender_name: "سارة أحمد",  sender_avatar: "سأ", subject: "تحديث عقد شركة الماس",  content: "تم تجديد العقد بنجاح ويحتاج توقيعك...", created_at: "2024-05-28T08:30:00", read: false },
-  { id: "m2", sender_name: "محمد علي",   sender_avatar: "مع", subject: "تصميم الهوية البصرية",    content: "انتهيت من المسودة الأولى، أرسلتها للمراجعة", created_at: "2024-05-27T14:00:00", read: false },
-  { id: "m3", sender_name: "فاطمة خالد", sender_avatar: "فخ", subject: "تقرير المالية لشهر مايو", content: "الأرقام النهائية جاهزة، صافي الربح +18%", created_at: "2024-05-27T10:15:00", read: false },
-  { id: "m4", sender_name: "عمر حسن",    sender_avatar: "عح", subject: "متابعة العملاء المحتملين", content: "راجعت 15 عميل، 4 منهم مهتمون جداً...", created_at: "2024-05-26T16:00:00", read: true },
-  { id: "m5", sender_name: "ريم الشهري", sender_avatar: "رش", subject: "تقرير AI Lab الأسبوعي",  content: "اكتملت تجارب النموذج الجديد بنتائج ممتازة", created_at: "2024-05-26T09:00:00", read: true },
+  { id: "m1", sender_name: "سارة أحمد",  sender_avatar: "سأ", subject: "تحديث عقد شركة الماس",  content: "تم تجديد العقد بنجاح ويحتاج توقيعك...", created_at: new Date().toISOString(), read: false },
+  { id: "m2", sender_name: "محمد علي",   sender_avatar: "مع", subject: "تصميم الهوية البصرية",    content: "انتهيت من المسودة الأولى، أرسلتها للمراجعة", created_at: new Date().toISOString(), read: false },
+  { id: "m3", sender_name: "فاطمة خالد", sender_avatar: "فخ", subject: "تقرير المالية لشهر مايو", content: "الأرقام النهائية جاهزة، صافي الربح +18%", created_at: new Date().toISOString(), read: false },
 ];
 
 export async function getMessages(): Promise<DBMessage[]> {
@@ -106,22 +104,19 @@ export interface DBNotification {
 }
 
 export const FALLBACK_NOTIFICATIONS: DBNotification[] = [
-  { id: "n1", type: "task_late",       title: "مهمة متأخرة",    body: "تصميم هوية شركة الماس",    href: "/tasks",   read: false, created_at: new Date().toISOString() },
-  { id: "n2", type: "client_followup", title: "متابعة عميل",    body: "شركة النخيل تحتاج متابعة", href: "/clients", read: false, created_at: new Date().toISOString() },
-  { id: "n3", type: "task_due",        title: "مهمة تستحق اليوم", body: "إعداد تقرير الأداء الشهري", href: "/tasks", read: false, created_at: new Date().toISOString() },
+  { id: "n1", type: "task_late",       title: "مهمة متأخرة",      body: "تصميم هوية شركة الماس",    href: "/tasks",   read: false, created_at: new Date().toISOString() },
+  { id: "n2", type: "client_followup", title: "متابعة عميل",       body: "شركة النخيل تحتاج متابعة", href: "/clients", read: false, created_at: new Date().toISOString() },
+  { id: "n3", type: "task_due",        title: "مهمة تستحق اليوم",  body: "إعداد تقرير الأداء الشهري",href: "/tasks",   read: false, created_at: new Date().toISOString() },
 ];
 
 export async function getNotifications(userId?: string): Promise<DBNotification[]> {
   if (!isSupabaseConfigured) return FALLBACK_NOTIFICATIONS;
-  let q = supabase
+  const { data, error } = await supabase
     .from("notifications")
     .select("*")
+    .or(`user_id.eq.${userId ?? "null"},user_id.is.null`)
     .order("created_at", { ascending: false })
     .limit(20);
-  if (userId) {
-    q = q.eq("user_id", userId);
-  }
-  const { data, error } = await q;
   if (error) throw new Error(error.message);
   return (data ?? []) as DBNotification[];
 }
@@ -135,14 +130,13 @@ export async function markNotificationReadInDB(id: string): Promise<void> {
 export async function markAllNotificationsReadInDB(userId?: string): Promise<void> {
   if (!isSupabaseConfigured) return;
   let q = supabase.from("notifications").update({ read: true }).eq("read", false);
-  if (userId) {
-    q = q.eq("user_id", userId);
-  }
+  if (userId) q = q.eq("user_id", userId);
   const { error } = await q;
   if (error) throw new Error(error.message);
 }
 
-// ─── User Profiles & Permissions ───────────────────────────────────────────────
+// ─── User Profiles ─────────────────────────────────────────────────────────────
+// Table: public.profiles  (id, email, name, role, is_active, department, avatar)
 
 export interface DBProfile {
   id: string;
