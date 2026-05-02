@@ -2,58 +2,77 @@
 
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { mockTasks } from "@/lib/mockData";
-import { CheckSquare, Plus, Calendar, List, Columns, Clock, AlertTriangle, X } from "lucide-react";
-import type { Task, TaskStatus, TaskPriority } from "@/types";
+import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X } from "lucide-react";
+import type { TaskStatus, TaskPriority } from "@/types";
 import { cn } from "@/lib/utils";
+import { useTasks } from "@/hooks/useData";
+import { usePermissions } from "@/contexts/PermissionsContext";
+import { useToast } from "@/contexts/ToastContext";
+import AccessDenied from "@/components/ui/AccessDenied";
 
 const STATUS_COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
-  { key: "جديدة", label: "جديدة", color: "#22d3ee" },
-  { key: "قيد_التنفيذ", label: "قيد التنفيذ", color: "#f59e0b" },
-  { key: "بانتظار_المراجعة", label: "بانتظار المراجعة", color: "#a855f7" },
-  { key: "مكتملة", label: "مكتملة", color: "#10b981" },
-  { key: "متأخرة", label: "متأخرة", color: "#ef4444" },
+  { key: "جديدة",             label: "جديدة",             color: "#22d3ee" },
+  { key: "قيد_التنفيذ",       label: "قيد التنفيذ",       color: "#f59e0b" },
+  { key: "بانتظار_المراجعة",  label: "بانتظار المراجعة",  color: "#a855f7" },
+  { key: "مكتملة",            label: "مكتملة",            color: "#10b981" },
+  { key: "متأخرة",            label: "متأخرة",            color: "#ef4444" },
 ];
 
 const PRIORITY_CONFIG: Record<TaskPriority, { label: string; class: string }> = {
-  "عاجلة": { label: "عاجلة", class: "priority-urgent" },
-  "عالية": { label: "عالية", class: "priority-high" },
-  "متوسطة": { label: "متوسطة", class: "priority-medium" },
-  "منخفضة": { label: "منخفضة", class: "priority-low" },
+  "عاجلة":   { label: "عاجلة",   class: "priority-urgent" },
+  "عالية":   { label: "عالية",   class: "priority-high"   },
+  "متوسطة":  { label: "متوسطة",  class: "priority-medium" },
+  "منخفضة":  { label: "منخفضة",  class: "priority-low"    },
 };
 
 type ViewMode = "kanban" | "list";
 
-export default function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+function TasksContent() {
+  const { data: tasks, loading, insert, update } = useTasks();
+  const toast = useToast();
   const [view, setView] = useState<ViewMode>("kanban");
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", status: "جديدة" as TaskStatus, priority: "متوسطة" as TaskPriority, assigneeName: "", clientName: "", dueDate: "" });
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    status: "جديدة" as TaskStatus,
+    priority: "متوسطة" as TaskPriority,
+    assigneeName: "",
+    clientName: "",
+    dueDate: "",
+  });
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.title) return;
-    const newTask: Task = {
-      id: String(Date.now()),
-      assigneeId: "1",
-      createdAt: new Date().toISOString(),
-      ...form,
-    };
-    setTasks([newTask, ...tasks]);
-    setShowModal(false);
-    setForm({ title: "", description: "", status: "جديدة", priority: "متوسطة", assigneeName: "", clientName: "", dueDate: "" });
+    try {
+      await insert({
+        assigneeId: "1",
+        ...form,
+      });
+      toast.success("تمت إضافة المهمة بنجاح");
+      setShowModal(false);
+      setForm({ title: "", description: "", status: "جديدة", priority: "متوسطة", assigneeName: "", clientName: "", dueDate: "" });
+    } catch {
+      toast.error("حدث خطأ أثناء إضافة المهمة");
+    }
   };
 
-  const moveTask = (taskId: string, newStatus: TaskStatus) => {
-    setTasks(tasks.map((t) => t.id === taskId ? { ...t, status: newStatus } : t));
+  const moveTask = async (taskId: string, newStatus: TaskStatus) => {
+    try {
+      await update(taskId, { status: newStatus });
+    } catch {
+      toast.error("حدث خطأ أثناء تحديث المهمة");
+    }
   };
 
-  const isOverdue = (task: Task) => task.status !== "مكتملة" && new Date(task.dueDate) < new Date();
+  const isOverdue = (dueDate: string, status: TaskStatus) =>
+    status !== "مكتملة" && new Date(dueDate) < new Date();
 
   const stats = {
-    total: tasks.length,
-    completed: tasks.filter((t) => t.status === "مكتملة").length,
+    total:      tasks.length,
+    completed:  tasks.filter((t) => t.status === "مكتملة").length,
     inProgress: tasks.filter((t) => t.status === "قيد_التنفيذ").length,
-    late: tasks.filter((t) => t.status === "متأخرة" || (t.status !== "مكتملة" && new Date(t.dueDate) < new Date())).length,
+    late:       tasks.filter((t) => t.status === "متأخرة" || (t.status !== "مكتملة" && new Date(t.dueDate) < new Date())).length,
   };
 
   return (
@@ -69,10 +88,16 @@ export default function TasksPage() {
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center bg-[#0d1f3c] rounded-xl p-1 border border-[#1e3a5f]">
-              <button onClick={() => setView("kanban")} className={cn("p-2 rounded-lg transition-all", view === "kanban" ? "bg-[#22d3ee] text-[#0a1628]" : "text-[#8ba3c7]")}>
+              <button
+                onClick={() => setView("kanban")}
+                className={cn("p-2 rounded-lg transition-all", view === "kanban" ? "bg-[#22d3ee] text-[#0a1628]" : "text-[#8ba3c7]")}
+              >
                 <Columns size={15} />
               </button>
-              <button onClick={() => setView("list")} className={cn("p-2 rounded-lg transition-all", view === "list" ? "bg-[#22d3ee] text-[#0a1628]" : "text-[#8ba3c7]")}>
+              <button
+                onClick={() => setView("list")}
+                className={cn("p-2 rounded-lg transition-all", view === "list" ? "bg-[#22d3ee] text-[#0a1628]" : "text-[#8ba3c7]")}
+              >
                 <List size={15} />
               </button>
             </div>
@@ -86,10 +111,10 @@ export default function TasksPage() {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: "إجمالي المهام", value: stats.total, color: "#22d3ee" },
-            { label: "مكتملة", value: stats.completed, color: "#10b981" },
-            { label: "قيد التنفيذ", value: stats.inProgress, color: "#f59e0b" },
-            { label: "متأخرة", value: stats.late, color: "#ef4444" },
+            { label: "إجمالي المهام",  value: stats.total,      color: "#22d3ee" },
+            { label: "مكتملة",         value: stats.completed,  color: "#10b981" },
+            { label: "قيد التنفيذ",   value: stats.inProgress, color: "#f59e0b" },
+            { label: "متأخرة",         value: stats.late,       color: "#ef4444" },
           ].map((s) => (
             <div key={s.label} className="glass-card p-4 text-center">
               <div className="text-2xl font-heading font-bold" style={{ color: s.color }}>{s.value}</div>
@@ -98,8 +123,12 @@ export default function TasksPage() {
           ))}
         </div>
 
+        {loading && (
+          <div className="text-center py-8 text-[#8ba3c7] text-sm">جارٍ تحميل المهام...</div>
+        )}
+
         {/* Kanban View */}
-        {view === "kanban" && (
+        {!loading && view === "kanban" && (
           <div className="flex gap-4 overflow-x-auto pb-4">
             {STATUS_COLUMNS.map((col) => {
               const colTasks = tasks.filter((t) => t.status === col.key);
@@ -108,7 +137,9 @@ export default function TasksPage() {
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-3 h-3 rounded-full" style={{ background: col.color }} />
                     <span className="text-sm font-medium text-white">{col.label}</span>
-                    <span className="badge text-xs" style={{ background: `${col.color}20`, color: col.color }}>{colTasks.length}</span>
+                    <span className="badge text-xs" style={{ background: `${col.color}20`, color: col.color }}>
+                      {colTasks.length}
+                    </span>
                   </div>
                   <div className="space-y-3">
                     {colTasks.map((task) => (
@@ -126,7 +157,7 @@ export default function TasksPage() {
                           <div className="flex items-center gap-1 text-xs text-[#8ba3c7]">
                             <Clock size={11} />
                             <span>{task.dueDate}</span>
-                            {isOverdue(task) && task.status !== "متأخرة" && (
+                            {isOverdue(task.dueDate, task.status) && task.status !== "متأخرة" && (
                               <AlertTriangle size={11} className="text-red-400 mr-1" />
                             )}
                           </div>
@@ -134,7 +165,6 @@ export default function TasksPage() {
                             {task.assigneeName.slice(0, 1)}
                           </div>
                         </div>
-                        {/* Quick status change */}
                         <select
                           className="mt-2 w-full bg-[#0d1f3c] border border-[#1e3a5f] rounded-lg text-xs text-[#8ba3c7] px-2 py-1 outline-none"
                           value={task.status}
@@ -157,7 +187,7 @@ export default function TasksPage() {
         )}
 
         {/* List View */}
-        {view === "list" && (
+        {!loading && view === "list" && (
           <div className="glass-card overflow-hidden">
             <table className="w-full text-sm">
               <thead>
@@ -180,8 +210,8 @@ export default function TasksPage() {
                       <span className={`badge ${PRIORITY_CONFIG[task.priority].class}`}>{PRIORITY_CONFIG[task.priority].label}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className={cn("flex items-center gap-1 text-xs", isOverdue(task) ? "text-red-400" : "text-[#8ba3c7]")}>
-                        {isOverdue(task) && <AlertTriangle size={11} />}
+                      <div className={cn("flex items-center gap-1 text-xs", isOverdue(task.dueDate, task.status) ? "text-red-400" : "text-[#8ba3c7]")}>
+                        {isOverdue(task.dueDate, task.status) && <AlertTriangle size={11} />}
                         {task.dueDate}
                       </div>
                     </td>
@@ -260,4 +290,12 @@ export default function TasksPage() {
       )}
     </DashboardLayout>
   );
+}
+
+export default function TasksPage() {
+  const { hasPermission } = usePermissions();
+  if (!hasPermission("manage_tasks")) {
+    return <DashboardLayout><AccessDenied /></DashboardLayout>;
+  }
+  return <TasksContent />;
 }

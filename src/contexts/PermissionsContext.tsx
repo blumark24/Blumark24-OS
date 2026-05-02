@@ -9,6 +9,8 @@ import {
   ReactNode,
 } from "react";
 import { useAuth } from "./AuthContext";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { getAllProfiles, updateProfileRole, toggleProfileStatus } from "@/lib/db";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,16 +113,18 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
 export function mapAuthRoleToUserRole(role: string): UserRole {
   switch (role) {
-    case "مدير_عام":      return "super_admin";
-    case "مدير_مالي":    return "finance_manager";
-    case "مدير_مبيعات": return "attack_manager";
-    case "مدير":          return "defense_manager";
-    case "board_member":  return "board_member";
-    default:              return "employee";
+    case "مدير_عام":
+    case "super_admin":      return "super_admin";
+    case "مدير_مالي":
+    case "finance_manager":  return "finance_manager";
+    case "مدير_مبيعات":
+    case "attack_manager":   return "attack_manager";
+    case "مدير":
+    case "defense_manager":  return "defense_manager";
+    case "board_member":     return "board_member";
+    default:                 return "employee";
   }
 }
-
-// ─── User permission records (managed in settings) ────────────────────────────
 
 export interface ManagedUser {
   userId:     string;
@@ -163,8 +167,6 @@ const PermissionsContext = createContext<PermissionsContextValue>({
   saveAll:              () => {},
 });
 
-const STORAGE_KEY = "blumark24_permissions_v2";
-
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function PermissionsProvider({ children }: { children: ReactNode }) {
@@ -173,25 +175,23 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const [managedUsers,    setManagedUsers]    = useState<ManagedUser[]>(DEFAULT_MANAGED_USERS);
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, Permission[]>>(DEFAULT_ROLE_PERMISSIONS);
 
+  // Load managed users from Supabase profiles when configured
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as { users?: ManagedUser[]; rolePermissions?: Record<UserRole, Permission[]> };
-        if (saved.users)           setManagedUsers(saved.users);
-        if (saved.rolePermissions) setRolePermissions(saved.rolePermissions);
-      }
-    } catch { /* ignore parse errors */ }
+    if (!isSupabaseConfigured) return;
+    getAllProfiles().then((profiles) => {
+      if (!profiles.length) return;
+      setManagedUsers(
+        profiles.map((p) => ({
+          userId:     p.id,
+          email:      p.email,
+          name:       p.name,
+          role:       mapAuthRoleToUserRole(p.role),
+          isActive:   p.is_active,
+          department: p.department,
+        }))
+      );
+    });
   }, []);
-
-  const persist = useCallback(
-    (u: ManagedUser[], rp: Record<UserRole, Permission[]>) => {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ users: u, rolePermissions: rp }));
-      } catch { /* ignore */ }
-    },
-    []
-  );
 
   const currentRecord = managedUsers.find(
     (u) => u.userId === user?.id || u.email === user?.email
@@ -206,13 +206,12 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
 
   const updateUserRole = useCallback(
     (userId: string, role: UserRole) => {
-      setManagedUsers((prev) => {
-        const next = prev.map((u) => (u.userId === userId ? { ...u, role } : u));
-        persist(next, rolePermissions);
-        return next;
-      });
+      setManagedUsers((prev) => prev.map((u) => (u.userId === userId ? { ...u, role } : u)));
+      if (isSupabaseConfigured) {
+        updateProfileRole(userId, role).catch(console.error);
+      }
     },
-    [rolePermissions, persist]
+    []
   );
 
   const toggleUserStatus = useCallback(
@@ -221,39 +220,34 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         const next = prev.map((u) =>
           u.userId === userId ? { ...u, isActive: !u.isActive } : u
         );
-        persist(next, rolePermissions);
+        if (isSupabaseConfigured) {
+          const updated = next.find((u) => u.userId === userId);
+          if (updated) toggleProfileStatus(userId, updated.isActive).catch(console.error);
+        }
         return next;
       });
     },
-    [rolePermissions, persist]
+    []
   );
 
   const addManagedUser = useCallback(
     (u: Omit<ManagedUser, "userId">) => {
       const newUser: ManagedUser = { ...u, userId: Date.now().toString() };
-      setManagedUsers((prev) => {
-        const next = [...prev, newUser];
-        persist(next, rolePermissions);
-        return next;
-      });
+      setManagedUsers((prev) => [...prev, newUser]);
     },
-    [rolePermissions, persist]
+    []
   );
 
   const updateRolePermissions = useCallback(
     (role: UserRole, perms: Permission[]) => {
-      setRolePermissions((prev) => {
-        const next = { ...prev, [role]: perms };
-        persist(managedUsers, next);
-        return next;
-      });
+      setRolePermissions((prev) => ({ ...prev, [role]: perms }));
     },
-    [managedUsers, persist]
+    []
   );
 
   const saveAll = useCallback(() => {
-    persist(managedUsers, rolePermissions);
-  }, [managedUsers, rolePermissions, persist]);
+    // Role permissions are in-memory only; user roles are already synced to DB per-update
+  }, []);
 
   return (
     <PermissionsContext.Provider

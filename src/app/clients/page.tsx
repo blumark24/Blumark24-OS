@@ -2,37 +2,49 @@
 
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { mockClients } from "@/lib/mockData";
 import { CITIES, formatCurrency } from "@/lib/utils";
 import { UserCircle, Plus, Search, Phone, MapPin, Package, Edit2, Trash2, X } from "lucide-react";
-import type { Client, ClientStatus, PackageType } from "@/types";
+import type { ClientStatus, PackageType } from "@/types";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import AccessDenied from "@/components/ui/AccessDenied";
+import { useClients } from "@/hooks/useData";
+import { useToast } from "@/contexts/ToastContext";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; class: string; color: string }> = {
-  "محتمل": { label: "محتمل", class: "status-pending", color: "#f59e0b" },
-  "متعاقد": { label: "متعاقد", class: "status-active", color: "#22d3ee" },
-  "نشط": { label: "نشط", class: "status-active", color: "#10b981" },
-  "متوقف": { label: "متوقف", class: "status-inactive", color: "#ef4444" },
+  "محتمل":  { label: "محتمل",  class: "status-pending",  color: "#f59e0b" },
+  "متعاقد": { label: "متعاقد", class: "status-active",   color: "#22d3ee" },
+  "نشط":    { label: "نشط",    class: "status-active",   color: "#10b981" },
+  "متوقف":  { label: "متوقف",  class: "status-inactive", color: "#ef4444" },
 };
 
 const PKG_CONFIG: Record<PackageType, { label: string; color: string }> = {
-  "صغيرة": { label: "صغيرة", color: "#22d3ee" },
+  "صغيرة":  { label: "صغيرة",  color: "#22d3ee" },
   "متوسطة": { label: "متوسطة", color: "#a855f7" },
-  "كبيرة": { label: "كبيرة", color: "#ff7a3d" },
+  "كبيرة":  { label: "كبيرة",  color: "#ff7a3d" },
 };
 
 const STATUSES: ClientStatus[] = ["محتمل", "متعاقد", "نشط", "متوقف"];
 
 function ClientsContent() {
-  const [clients, setClients] = useState<Client[]>(mockClients);
+  const { data: clients, loading, insert, update, remove } = useClients();
+  const toast = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "الكل">("الكل");
   const [cityFilter, setCityFilter] = useState("الكل");
   const [showModal, setShowModal] = useState(false);
-  const [editClient, setEditClient] = useState<Client | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", businessType: "", city: "جدة", packageType: "صغيرة" as PackageType, contractValue: "", status: "محتمل" as ClientStatus, accountManagerName: "", notes: "" });
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    businessType: "",
+    city: "جدة",
+    packageType: "صغيرة" as PackageType,
+    contractValue: "",
+    status: "محتمل" as ClientStatus,
+    accountManagerName: "",
+    notes: "",
+  });
 
   const filtered = clients.filter((c) => {
     const matchSearch = c.name.includes(search) || c.phone.includes(search);
@@ -42,38 +54,61 @@ function ClientsContent() {
   });
 
   const pkgData = [
-    { name: "صغيرة", value: clients.filter((c) => c.packageType === "صغيرة").length },
+    { name: "صغيرة",  value: clients.filter((c) => c.packageType === "صغيرة").length },
     { name: "متوسطة", value: clients.filter((c) => c.packageType === "متوسطة").length },
-    { name: "كبيرة", value: clients.filter((c) => c.packageType === "كبيرة").length },
+    { name: "كبيرة",  value: clients.filter((c) => c.packageType === "كبيرة").length },
   ];
   const PKG_COLORS = ["#22d3ee", "#a855f7", "#ff7a3d"];
 
   const totalRevenue = clients.filter((c) => c.status === "نشط").reduce((s, c) => s + c.contractValue, 0);
 
   const openAdd = () => {
-    setEditClient(null);
+    setEditId(null);
     setForm({ name: "", phone: "", businessType: "", city: "جدة", packageType: "صغيرة", contractValue: "", status: "محتمل", accountManagerName: "", notes: "" });
     setShowModal(true);
   };
 
-  const openEdit = (c: Client) => {
-    setEditClient(c);
-    setForm({ name: c.name, phone: c.phone, businessType: c.businessType, city: c.city, packageType: c.packageType, contractValue: String(c.contractValue), status: c.status, accountManagerName: c.accountManagerName, notes: c.notes || "" });
+  const openEdit = (c: typeof clients[0]) => {
+    setEditId(c.id);
+    setForm({
+      name: c.name,
+      phone: c.phone,
+      businessType: c.businessType,
+      city: c.city,
+      packageType: c.packageType,
+      contractValue: String(c.contractValue),
+      status: c.status,
+      accountManagerName: c.accountManagerName,
+      notes: c.notes || "",
+    });
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name) return;
-    if (editClient) {
-      setClients(clients.map((c) => c.id === editClient.id ? { ...c, ...form, contractValue: Number(form.contractValue) } : c));
-    } else {
-      setClients([{ id: String(Date.now()), accountManagerId: "1", createdAt: new Date().toISOString().split("T")[0], ...form, contractValue: Number(form.contractValue) }, ...clients]);
+    try {
+      const payload = { ...form, contractValue: Number(form.contractValue) };
+      if (editId) {
+        await update(editId, payload);
+        toast.success("تم تحديث بيانات العميل بنجاح");
+      } else {
+        await insert({ ...payload, accountManagerId: "1" });
+        toast.success("تمت إضافة العميل بنجاح");
+      }
+      setShowModal(false);
+    } catch {
+      toast.error("حدث خطأ أثناء حفظ العميل");
     }
-    setShowModal(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("هل أنت متأكد؟")) setClients(clients.filter((c) => c.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!confirm("هل أنت متأكد؟")) return;
+    try {
+      await remove(id);
+      toast.success("تم حذف العميل بنجاح");
+    } catch {
+      toast.error("حدث خطأ أثناء حذف العميل");
+    }
   };
 
   return (
@@ -95,13 +130,12 @@ function ClientsContent() {
 
         {/* Stats + Chart Row */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          {/* Stats */}
           <div className="lg:col-span-2 grid grid-cols-2 gap-4">
             {[
-              { label: "إجمالي العملاء", value: clients.length, color: "#22d3ee" },
-              { label: "العملاء النشطون", value: clients.filter((c) => c.status === "نشط").length, color: "#10b981" },
-              { label: "العملاء المحتملون", value: clients.filter((c) => c.status === "محتمل").length, color: "#f59e0b" },
-              { label: "إجمالي العقود", value: `${formatCurrency(totalRevenue)} SAR`, color: "#ff7a3d" },
+              { label: "إجمالي العملاء",     value: clients.length,                                              color: "#22d3ee" },
+              { label: "العملاء النشطون",    value: clients.filter((c) => c.status === "نشط").length,           color: "#10b981" },
+              { label: "العملاء المحتملون",  value: clients.filter((c) => c.status === "محتمل").length,         color: "#f59e0b" },
+              { label: "إجمالي العقود",      value: `${formatCurrency(totalRevenue)} SAR`,                      color: "#ff7a3d" },
             ].map((s) => (
               <div key={s.label} className="glass-card p-4">
                 <div className="text-xl font-heading font-bold" style={{ color: s.color }}>{s.value}</div>
@@ -110,7 +144,6 @@ function ClientsContent() {
             ))}
           </div>
 
-          {/* Package Distribution */}
           <div className="glass-card p-5">
             <h3 className="text-sm font-medium text-white mb-3">توزيع الحزم</h3>
             <ResponsiveContainer width="100%" height={140}>
@@ -124,13 +157,12 @@ function ClientsContent() {
             </ResponsiveContainer>
           </div>
 
-          {/* Pipeline */}
           <div className="glass-card p-5">
             <h3 className="text-sm font-medium text-white mb-4">خط الأنابيب</h3>
             <div className="space-y-3">
               {STATUSES.map((status) => {
                 const count = clients.filter((c) => c.status === status).length;
-                const pct = Math.round((count / clients.length) * 100);
+                const pct = clients.length ? Math.round((count / clients.length) * 100) : 0;
                 return (
                   <div key={status}>
                     <div className="flex justify-between text-xs mb-1">
@@ -169,59 +201,65 @@ function ClientsContent() {
           </div>
         </div>
 
+        {loading && (
+          <div className="text-center py-8 text-[#8ba3c7] text-sm">جارٍ تحميل العملاء...</div>
+        )}
+
         {/* Table */}
-        <div className="glass-card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#1e3a5f]">
-                {["العميل", "نوع النشاط", "المدينة", "الحزمة", "قيمة العقد", "المسؤول", "الحالة", ""].map((h) => (
-                  <th key={h} className="text-right text-[#8ba3c7] font-medium px-4 py-3">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((client) => (
-                <tr key={client.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="text-white font-medium">{client.name}</div>
-                    <div className="flex items-center gap-1 text-xs text-[#8ba3c7] mt-0.5">
-                      <Phone size={10} />
-                      <span>{client.phone}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-[#8ba3c7]">{client.businessType}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 text-[#8ba3c7] text-xs">
-                      <MapPin size={11} />
-                      <span>{client.city}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="badge text-xs" style={{ background: `${PKG_CONFIG[client.packageType].color}20`, color: PKG_CONFIG[client.packageType].color }}>
-                      <Package size={10} className="inline ml-1" />
-                      {PKG_CONFIG[client.packageType].label}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-white font-medium">{formatCurrency(client.contractValue)} SAR</td>
-                  <td className="px-4 py-3 text-[#8ba3c7] text-xs">{client.accountManagerName}</td>
-                  <td className="px-4 py-3">
-                    <span className={`badge ${STATUS_CONFIG[client.status].class}`}>{STATUS_CONFIG[client.status].label}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => openEdit(client)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
-                        <Edit2 size={14} />
-                      </button>
-                      <button onClick={() => handleDelete(client.id)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
+        {!loading && (
+          <div className="glass-card overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#1e3a5f]">
+                  {["العميل", "نوع النشاط", "المدينة", "الحزمة", "قيمة العقد", "المسؤول", "الحالة", ""].map((h) => (
+                    <th key={h} className="text-right text-[#8ba3c7] font-medium px-4 py-3">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((client) => (
+                  <tr key={client.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
+                    <td className="px-4 py-3">
+                      <div className="text-white font-medium">{client.name}</div>
+                      <div className="flex items-center gap-1 text-xs text-[#8ba3c7] mt-0.5">
+                        <Phone size={10} />
+                        <span>{client.phone}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-[#8ba3c7]">{client.businessType}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1 text-[#8ba3c7] text-xs">
+                        <MapPin size={11} />
+                        <span>{client.city}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="badge text-xs" style={{ background: `${PKG_CONFIG[client.packageType].color}20`, color: PKG_CONFIG[client.packageType].color }}>
+                        <Package size={10} className="inline ml-1" />
+                        {PKG_CONFIG[client.packageType].label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-white font-medium">{formatCurrency(client.contractValue)} SAR</td>
+                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{client.accountManagerName}</td>
+                    <td className="px-4 py-3">
+                      <span className={`badge ${STATUS_CONFIG[client.status].class}`}>{STATUS_CONFIG[client.status].label}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => openEdit(client)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
+                          <Edit2 size={14} />
+                        </button>
+                        <button onClick={() => handleDelete(client.id)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Modal */}
@@ -229,7 +267,7 @@ function ClientsContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-card w-full max-w-lg p-6 mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white font-heading font-bold text-lg">{editClient ? "تعديل عميل" : "عميل جديد"}</h3>
+              <h3 className="text-white font-heading font-bold text-lg">{editId ? "تعديل عميل" : "عميل جديد"}</h3>
               <button onClick={() => setShowModal(false)} className="text-[#8ba3c7] hover:text-white"><X size={20} /></button>
             </div>
             <div className="space-y-4">
@@ -287,7 +325,7 @@ function ClientsContent() {
               </div>
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={handleSave} className="btn-primary flex-1">{editClient ? "حفظ" : "إضافة"}</button>
+              <button onClick={handleSave} className="btn-primary flex-1">{editId ? "حفظ" : "إضافة"}</button>
               <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">إلغاء</button>
             </div>
           </div>

@@ -2,66 +2,79 @@
 
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { mockTransactions } from "@/lib/mockData";
 import { FUND_DISTRIBUTION, formatCurrency } from "@/lib/utils";
 import { DollarSign, Plus, TrendingUp, TrendingDown, X, ArrowUpRight } from "lucide-react";
 import type { Transaction } from "@/types";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import AccessDenied from "@/components/ui/AccessDenied";
+import { useTransactions } from "@/hooks/useData";
+import { useToast } from "@/contexts/ToastContext";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  PieChart, Pie, Cell
+  PieChart, Pie, Cell,
 } from "recharts";
 
 const MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو"];
 const monthlyData = MONTHS.map((month, i) => ({
   month,
-  income: 200000 + i * 40000 + Math.random() * 50000,
-  expense: 80000 + i * 10000 + Math.random() * 20000,
+  income:  200000 + i * 40000 + Math.random() * 50000,
+  expense: 80000  + i * 10000 + Math.random() * 20000,
 }));
 
 function FinanceContent() {
-  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
+  const { data: transactions, loading, insert } = useTransactions();
+  const toast = useToast();
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ type: "دخل" as "دخل" | "مصروف", amount: "", description: "", category: "", date: new Date().toISOString().split("T")[0] });
+  const [form, setForm] = useState({
+    type: "دخل" as "دخل" | "مصروف",
+    amount: "",
+    description: "",
+    category: "",
+    date: new Date().toISOString().split("T")[0],
+  });
 
-  const totalIncome = transactions.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0);
+  const totalIncome  = transactions.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0);
   const totalExpense = transactions.filter((t) => t.type === "مصروف").reduce((s, t) => s + t.amount, 0);
-  const netProfit = totalIncome - totalExpense;
+  const netProfit    = totalIncome - totalExpense;
 
   const fundBalances = Object.entries(FUND_DISTRIBUTION).map(([key, config]) => ({
     key,
     label: config.label,
     color: config.color,
-    pct: config.pct,
+    pct:   config.pct,
     balance: totalIncome * config.pct,
   }));
 
   const donutData = fundBalances.map((f) => ({ name: f.label, value: Math.round(f.pct * 100) }));
 
-  const handleAddTransaction = () => {
+  const handleAddTransaction = async () => {
     if (!form.amount || !form.description) return;
     const amount = Number(form.amount);
-    const funds = form.type === "دخل" ? {
-      operations: amount * 0.4,
-      savings: amount * 0.1,
-      taxes: amount * 0.1,
-      salaries: amount * 0.2,
-      marketing: amount * 0.2,
-    } : undefined;
+    const funds: Transaction["funds"] = form.type === "دخل"
+      ? {
+          operations: amount * 0.4,
+          savings:    amount * 0.1,
+          taxes:      amount * 0.1,
+          salaries:   amount * 0.2,
+          marketing:  amount * 0.2,
+        }
+      : undefined;
 
-    const newTx: Transaction = {
-      id: String(Date.now()),
-      type: form.type,
-      amount,
-      description: form.description,
-      category: form.category,
-      date: form.date,
-      funds,
-    };
-    setTransactions([newTx, ...transactions]);
-    setShowModal(false);
-    setForm({ type: "دخل", amount: "", description: "", category: "", date: new Date().toISOString().split("T")[0] });
+    try {
+      await insert({
+        type:        form.type,
+        amount,
+        description: form.description,
+        category:    form.category,
+        date:        form.date,
+        funds,
+      });
+      toast.success("تمت إضافة المعاملة بنجاح");
+      setShowModal(false);
+      setForm({ type: "دخل", amount: "", description: "", category: "", date: new Date().toISOString().split("T")[0] });
+    } catch {
+      toast.error("حدث خطأ أثناء إضافة المعاملة");
+    }
   };
 
   return (
@@ -116,7 +129,9 @@ function FinanceContent() {
 
         {/* Fund Cards */}
         <div>
-          <h2 className="text-white font-medium mb-3">توزيع الصناديق <span className="text-xs text-[#8ba3c7]">(تلقائي عند إدخال دخل جديد)</span></h2>
+          <h2 className="text-white font-medium mb-3">
+            توزيع الصناديق <span className="text-xs text-[#8ba3c7]">(تلقائي عند إدخال دخل جديد)</span>
+          </h2>
           <div className="grid grid-cols-5 gap-3">
             {fundBalances.map((fund) => (
               <div key={fund.key} className="glass-card p-4 relative overflow-hidden">
@@ -137,11 +152,11 @@ function FinanceContent() {
               <LineChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.5)" />
                 <XAxis dataKey="month" tick={{ fill: "#8ba3c7", fontSize: 11 }} />
-                <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip contentStyle={{ background: "#0d1f3c", border: "1px solid #1e3a5f", borderRadius: "10px", color: "#e2e8f0" }} formatter={(v: number) => `${formatCurrency(v)} SAR`} />
                 <Legend />
-                <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2.5} dot={false} name="الإيرادات" />
-                <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2} dot={false} name="المصروفات" strokeDasharray="4 2" />
+                <Line type="monotone" dataKey="income"  stroke="#10b981" strokeWidth={2.5} dot={false} name="الإيرادات" />
+                <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2}   dot={false} name="المصروفات" strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -160,45 +175,51 @@ function FinanceContent() {
           </div>
         </div>
 
+        {loading && (
+          <div className="text-center py-8 text-[#8ba3c7] text-sm">جارٍ تحميل المعاملات...</div>
+        )}
+
         {/* Transactions Table */}
-        <div className="glass-card overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e3a5f]">
-            <h3 className="text-white font-medium">سجل المعاملات</h3>
-            <span className="text-xs text-[#8ba3c7]">{transactions.length} معاملة</span>
-          </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#1e3a5f]">
-                {["النوع", "الوصف", "الفئة", "التاريخ", "المبلغ", "العمليات %", "الادخار %"].map((h) => (
-                  <th key={h} className="text-right text-[#8ba3c7] font-medium px-4 py-3">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((tx) => (
-                <tr key={tx.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
-                  <td className="px-4 py-3">
-                    <span className={`badge ${tx.type === "دخل" ? "status-active" : "status-inactive"}`}>
-                      {tx.type === "دخل" ? "↑ دخل" : "↓ مصروف"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-white">{tx.description}</td>
-                  <td className="px-4 py-3 text-[#8ba3c7]">{tx.category}</td>
-                  <td className="px-4 py-3 text-[#8ba3c7] text-xs">{tx.date}</td>
-                  <td className="px-4 py-3 font-bold" style={{ color: tx.type === "دخل" ? "#10b981" : "#ef4444" }}>
-                    {tx.type === "دخل" ? "+" : "-"}{formatCurrency(tx.amount)} SAR
-                  </td>
-                  <td className="px-4 py-3 text-[#8ba3c7] text-xs">
-                    {tx.funds ? formatCurrency(tx.funds.operations) : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-[#8ba3c7] text-xs">
-                    {tx.funds ? formatCurrency(tx.funds.savings) : "—"}
-                  </td>
+        {!loading && (
+          <div className="glass-card overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e3a5f]">
+              <h3 className="text-white font-medium">سجل المعاملات</h3>
+              <span className="text-xs text-[#8ba3c7]">{transactions.length} معاملة</span>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#1e3a5f]">
+                  {["النوع", "الوصف", "الفئة", "التاريخ", "المبلغ", "العمليات %", "الادخار %"].map((h) => (
+                    <th key={h} className="text-right text-[#8ba3c7] font-medium px-4 py-3">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {transactions.map((tx) => (
+                  <tr key={tx.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
+                    <td className="px-4 py-3">
+                      <span className={`badge ${tx.type === "دخل" ? "status-active" : "status-inactive"}`}>
+                        {tx.type === "دخل" ? "↑ دخل" : "↓ مصروف"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-white">{tx.description}</td>
+                    <td className="px-4 py-3 text-[#8ba3c7]">{tx.category}</td>
+                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{tx.date}</td>
+                    <td className="px-4 py-3 font-bold" style={{ color: tx.type === "دخل" ? "#10b981" : "#ef4444" }}>
+                      {tx.type === "دخل" ? "+" : "-"}{formatCurrency(tx.amount)} SAR
+                    </td>
+                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">
+                      {tx.funds ? formatCurrency(tx.funds.operations) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">
+                      {tx.funds ? formatCurrency(tx.funds.savings) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Modal */}

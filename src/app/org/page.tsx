@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import {
   Network, Shield, Swords, Users, ChevronDown,
@@ -9,46 +9,30 @@ import {
 } from "lucide-react";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface BoardMember {
-  id:     string;
-  name:   string;
-  role:   string;
-  email:  string;
-  phone:  string;
-  status: "نشط" | "غير نشط";
-}
+import { useBoardMembers } from "@/hooks/useData";
+import type { BoardMember } from "@/lib/db";
 
 const MAX_BOARD = 3;
-const BOARD_KEY = "blumark24_board_members";
-
-const DEFAULT_BOARD: BoardMember[] = [
-  { id: "1", name: "عبدالله الشهري", role: "رئيس مجلس الإدارة", email: "board1@blumark24.com", phone: "0501234567", status: "نشط" },
-  { id: "2", name: "محمد الغامدي",   role: "نائب الرئيس",         email: "board2@blumark24.com", phone: "0507654321", status: "نشط" },
-  { id: "3", name: "سلطان العمري",   role: "عضو مجلس الإدارة",   email: "board3@blumark24.com", phone: "0509876543", status: "نشط" },
-];
 
 // ─── Static dept data ─────────────────────────────────────────────────────────
 
 const DEFENSE_DEPTS = [
-  { name: "الإدارة",     icon: "🏢", desc: "إدارة الشؤون الداخلية"     },
-  { name: "العمليات",    icon: "⚙️", desc: "تشغيل وإدارة الأنظمة"      },
-  { name: "المالي",      icon: "💰", desc: "الحسابات والخزينة"           },
-  { name: "الإبداع",     icon: "✨", desc: "الأفكار والمحتوى"           },
-  { name: "التصميم",     icon: "🎨", desc: "الهوية البصرية"             },
-  { name: "الحملات",     icon: "📣", desc: "التسويق الداخلي"            },
-  { name: "AI Lab",      icon: "🤖", desc: "أبحاث الذكاء الاصطناعي"     },
+  { name: "الإدارة",  icon: "🏢", desc: "إدارة الشؤون الداخلية"     },
+  { name: "العمليات", icon: "⚙️", desc: "تشغيل وإدارة الأنظمة"      },
+  { name: "المالي",   icon: "💰", desc: "الحسابات والخزينة"           },
+  { name: "الإبداع",  icon: "✨", desc: "الأفكار والمحتوى"           },
+  { name: "التصميم",  icon: "🎨", desc: "الهوية البصرية"             },
+  { name: "الحملات",  icon: "📣", desc: "التسويق الداخلي"            },
+  { name: "AI Lab",   icon: "🤖", desc: "أبحاث الذكاء الاصطناعي"     },
 ];
 
 const OFFENSE_DEPTS = [
-  { name: "العملاء CRM",  icon: "👥", desc: "إدارة علاقات العملاء"  },
-  { name: "المبيعات",     icon: "📈", desc: "تنمية الإيرادات"       },
-  { name: "الشراكات",    icon: "🤝", desc: "التوسع والتحالفات"      },
-  { name: "خدمة العملاء",icon: "🎧", desc: "دعم ومتابعة العملاء"   },
-  { name: "المتابعة",    icon: "📋", desc: "تتبع الطلبات والعقود"   },
-  { name: "العلاقات التجارية", icon: "💼", desc: "بناء شبكة الأعمال" },
+  { name: "العملاء CRM",       icon: "👥", desc: "إدارة علاقات العملاء"  },
+  { name: "المبيعات",           icon: "📈", desc: "تنمية الإيرادات"       },
+  { name: "الشراكات",          icon: "🤝", desc: "التوسع والتحالفات"      },
+  { name: "خدمة العملاء",      icon: "🎧", desc: "دعم ومتابعة العملاء"   },
+  { name: "المتابعة",           icon: "📋", desc: "تتبع الطلبات والعقود"   },
+  { name: "العلاقات التجارية", icon: "💼", desc: "بناء شبكة الأعمال"     },
 ];
 
 // ─── Board Member Modal ───────────────────────────────────────────────────────
@@ -64,13 +48,17 @@ function BoardMemberModal({
   onSave: (data: Omit<BoardMember, "id">) => void;
   onClose: () => void;
 }) {
-  const [form, setForm] = useState(member ? { name: member.name, role: member.role, email: member.email, phone: member.phone, status: member.status } : EMPTY_FORM);
+  const [form, setForm] = useState(
+    member
+      ? { name: member.name, role: member.role, email: member.email, phone: member.phone, status: member.status }
+      : EMPTY_FORM
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.name.trim())  e.name  = "الاسم مطلوب";
-    if (!form.role.trim())  e.role  = "المنصب مطلوب";
+    if (!form.name.trim()) e.name = "الاسم مطلوب";
+    if (!form.role.trim()) e.role = "المنصب مطلوب";
     return e;
   };
 
@@ -93,26 +81,15 @@ function BoardMemberModal({
           </button>
         </div>
 
-        {/* Name */}
         <div>
           <label className="block text-xs text-[#8ba3c7] mb-1.5">الاسم الكامل *</label>
-          <input
-            className="input-dark text-sm"
-            placeholder="مثال: عبدالله الشهري"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
+          <input className="input-dark text-sm" placeholder="مثال: عبدالله الشهري" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
         </div>
 
-        {/* Position */}
         <div>
           <label className="block text-xs text-[#8ba3c7] mb-1.5">المنصب *</label>
-          <select
-            className="input-dark text-sm"
-            value={form.role}
-            onChange={(e) => setForm({ ...form, role: e.target.value })}
-          >
+          <select className="input-dark text-sm" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
             <option value="">-- اختر المنصب --</option>
             <option>رئيس مجلس الإدارة</option>
             <option>نائب الرئيس</option>
@@ -123,37 +100,22 @@ function BoardMemberModal({
           {errors.role && <p className="text-red-400 text-xs mt-1">{errors.role}</p>}
         </div>
 
-        {/* Email */}
         <div>
           <label className="block text-xs text-[#8ba3c7] mb-1.5 flex items-center gap-1">
             <Mail size={11} />
             البريد الإلكتروني
           </label>
-          <input
-            type="email"
-            className="input-dark text-sm"
-            placeholder="example@blumark24.com"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-          />
+          <input type="email" className="input-dark text-sm" placeholder="example@blumark24.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         </div>
 
-        {/* Phone */}
         <div>
           <label className="block text-xs text-[#8ba3c7] mb-1.5 flex items-center gap-1">
             <Phone size={11} />
             رقم الجوال
           </label>
-          <input
-            type="tel"
-            className="input-dark text-sm"
-            placeholder="05XXXXXXXX"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          />
+          <input type="tel" className="input-dark text-sm" placeholder="05XXXXXXXX" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         </div>
 
-        {/* Status */}
         <div>
           <label className="block text-xs text-[#8ba3c7] mb-1.5">الحالة</label>
           <div className="flex gap-3">
@@ -170,7 +132,6 @@ function BoardMemberModal({
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex gap-3 pt-2">
           <button onClick={onClose} className="btn-secondary flex-1 py-2 text-sm">إلغاء</button>
           <button onClick={handleSave} className="btn-primary flex-1 py-2 text-sm flex items-center justify-center gap-2">
@@ -182,8 +143,6 @@ function BoardMemberModal({
     </div>
   );
 }
-
-// ─── Delete confirm ────────────────────────────────────────────────────────────
 
 function DeleteConfirmModal({ name, onConfirm, onClose }: { name: string; onConfirm: () => void; onClose: () => void }) {
   return (
@@ -207,44 +166,24 @@ function DeleteConfirmModal({ name, onConfirm, onClose }: { name: string; onConf
   );
 }
 
-// ─── Board card ────────────────────────────────────────────────────────────────
-
 function BoardCard({
-  member,
-  canManage,
-  onEdit,
-  onDelete,
+  member, canManage, onEdit, onDelete,
 }: {
-  member: BoardMember;
-  canManage: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
+  member: BoardMember; canManage: boolean; onEdit: () => void; onDelete: () => void;
 }) {
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-4 rounded-2xl border border-[#22d3ee]/30 bg-[#22d3ee]/10 text-center min-w-[140px] relative group">
       {canManage && (
         <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={onEdit}
-            className="w-6 h-6 rounded-lg bg-[#22d3ee]/20 hover:bg-[#22d3ee]/40 flex items-center justify-center transition-colors"
-            title="تعديل"
-          >
+          <button onClick={onEdit} className="w-6 h-6 rounded-lg bg-[#22d3ee]/20 hover:bg-[#22d3ee]/40 flex items-center justify-center transition-colors" title="تعديل">
             <Pencil size={11} className="text-[#22d3ee]" />
           </button>
-          <button
-            onClick={onDelete}
-            className="w-6 h-6 rounded-lg bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-colors"
-            title="حذف"
-          >
+          <button onClick={onDelete} className="w-6 h-6 rounded-lg bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-colors" title="حذف">
             <Trash2 size={11} className="text-red-400" />
           </button>
         </div>
       )}
-
-      <div
-        className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-        style={{ background: "linear-gradient(135deg,#22d3ee,#1e6fd9)" }}
-      >
+      <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ background: "linear-gradient(135deg,#22d3ee,#1e6fd9)" }}>
         {member.name.slice(0, 2)}
       </div>
       <div>
@@ -270,14 +209,10 @@ function BoardCard({
   );
 }
 
-// ─── Dept card ────────────────────────────────────────────────────────────────
-
 function DeptCard({ name, icon, desc, accentColor }: { name: string; icon: string; desc: string; accentColor: string }) {
   return (
-    <div
-      className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border text-center transition-all hover:-translate-y-0.5"
-      style={{ background: `${accentColor}10`, borderColor: `${accentColor}30` }}
-    >
+    <div className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border text-center transition-all hover:-translate-y-0.5"
+      style={{ background: `${accentColor}10`, borderColor: `${accentColor}30` }}>
       <span className="text-xl">{icon}</span>
       <div className="text-white text-xs font-medium">{name}</div>
       <div className="text-[10px] leading-tight" style={{ color: `${accentColor}99` }}>{desc}</div>
@@ -285,19 +220,13 @@ function DeptCard({ name, icon, desc, accentColor }: { name: string; icon: strin
   );
 }
 
-// ─── Agency block ─────────────────────────────────────────────────────────────
-
-function AgencyBlock({
-  title, subtitle, icon: Icon, accentColor, depts, description,
-}: {
+function AgencyBlock({ title, subtitle, icon: Icon, accentColor, depts, description }: {
   title: string; subtitle: string; icon: React.ElementType;
   accentColor: string; depts: typeof DEFENSE_DEPTS; description: string;
 }) {
   return (
-    <div
-      className="flex-1 rounded-2xl border p-5 flex flex-col gap-4"
-      style={{ background: `${accentColor}08`, borderColor: `${accentColor}25`, backdropFilter: "blur(12px)" }}
-    >
+    <div className="flex-1 rounded-2xl border p-5 flex flex-col gap-4"
+      style={{ background: `${accentColor}08`, borderColor: `${accentColor}25`, backdropFilter: "blur(12px)" }}>
       <div className="flex items-center gap-3">
         <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
           style={{ background: `linear-gradient(135deg,${accentColor},${accentColor}99)` }}>
@@ -308,11 +237,7 @@ function AgencyBlock({
           <div className="text-[11px] mt-0.5" style={{ color: accentColor }}>{subtitle}</div>
         </div>
       </div>
-
-      <p className="text-xs text-[#8ba3c7] leading-relaxed border-t border-[#1e3a5f]/60 pt-3">
-        {description}
-      </p>
-
+      <p className="text-xs text-[#8ba3c7] leading-relaxed border-t border-[#1e3a5f]/60 pt-3">{description}</p>
       <div className="flex justify-center">
         <div className="flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full"
           style={{ background: `${accentColor}15`, color: accentColor }}>
@@ -320,11 +245,8 @@ function AgencyBlock({
           <span>الأقسام التابعة ({depts.length})</span>
         </div>
       </div>
-
       <div className="grid grid-cols-3 lg:grid-cols-4 gap-2">
-        {depts.map((dept) => (
-          <DeptCard key={dept.name} {...dept} accentColor={accentColor} />
-        ))}
+        {depts.map((dept) => <DeptCard key={dept.name} {...dept} accentColor={accentColor} />)}
       </div>
     </div>
   );
@@ -337,24 +259,10 @@ export default function OrgPage() {
   const toast = useToast();
   const canManage = hasPermission("manage_board");
 
-  const [boardMembers, setBoardMembers] = useState<BoardMember[]>(DEFAULT_BOARD);
+  const { data: boardMembers, insert, update, remove } = useBoardMembers();
   const [showModal,    setShowModal]    = useState(false);
   const [editMember,   setEditMember]   = useState<BoardMember | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BoardMember | null>(null);
-
-  // Load from localStorage
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(BOARD_KEY);
-      if (raw) setBoardMembers(JSON.parse(raw) as BoardMember[]);
-    } catch { /* ignore */ }
-  }, []);
-
-  const persist = useCallback((members: BoardMember[]) => {
-    try {
-      localStorage.setItem(BOARD_KEY, JSON.stringify(members));
-    } catch { /* ignore */ }
-  }, []);
 
   const handleOpenAdd = () => {
     if (boardMembers.length >= MAX_BOARD) {
@@ -365,37 +273,32 @@ export default function OrgPage() {
     setShowModal(true);
   };
 
-  const handleSave = useCallback((data: Omit<BoardMember, "id">) => {
-    if (editMember) {
-      setBoardMembers((prev) => {
-        const next = prev.map((m) => m.id === editMember.id ? { ...m, ...data } : m);
-        persist(next);
-        return next;
-      });
-      toast.success(`تم تحديث بيانات ${data.name} بنجاح`);
-    } else {
-      const newMember: BoardMember = { id: Date.now().toString(), ...data };
-      setBoardMembers((prev) => {
-        const next = [...prev, newMember];
-        persist(next);
-        return next;
-      });
-      toast.success(`تمت إضافة ${data.name} إلى مجلس الإدارة`);
+  const handleSave = useCallback(async (data: Omit<BoardMember, "id">) => {
+    try {
+      if (editMember) {
+        await update(editMember.id, data);
+        toast.success(`تم تحديث بيانات ${data.name} بنجاح`);
+      } else {
+        await insert(data);
+        toast.success(`تمت إضافة ${data.name} إلى مجلس الإدارة`);
+      }
+      setShowModal(false);
+      setEditMember(null);
+    } catch {
+      toast.error("حدث خطأ أثناء حفظ البيانات");
     }
-    setShowModal(false);
-    setEditMember(null);
-  }, [editMember, persist, toast]);
+  }, [editMember, insert, update, toast]);
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
-    setBoardMembers((prev) => {
-      const next = prev.filter((m) => m.id !== deleteTarget.id);
-      persist(next);
-      return next;
-    });
-    toast.success(`تم حذف ${deleteTarget.name} من مجلس الإدارة`);
-    setDeleteTarget(null);
-  }, [deleteTarget, persist, toast]);
+    try {
+      await remove(deleteTarget.id);
+      toast.success(`تم حذف ${deleteTarget.name} من مجلس الإدارة`);
+      setDeleteTarget(null);
+    } catch {
+      toast.error("حدث خطأ أثناء الحذف");
+    }
+  }, [deleteTarget, remove, toast]);
 
   return (
     <DashboardLayout>
@@ -410,18 +313,13 @@ export default function OrgPage() {
             <p className="text-[#8ba3c7] text-sm mt-1">المخطط التنظيمي لشركة Blumark24</p>
           </div>
           {canManage && (
-            <button
-              onClick={handleOpenAdd}
-              className="btn-primary flex items-center gap-2 text-sm"
-              title={boardMembers.length >= MAX_BOARD ? "الحد الأقصى 3 أعضاء" : "إضافة عضو"}
-            >
+            <button onClick={handleOpenAdd} className="btn-primary flex items-center gap-2 text-sm" title={boardMembers.length >= MAX_BOARD ? "الحد الأقصى 3 أعضاء" : "إضافة عضو"}>
               <Plus size={16} />
               إضافة عضو مجلس
             </button>
           )}
         </div>
 
-        {/* Max members warning */}
         {canManage && boardMembers.length >= MAX_BOARD && (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
             <AlertCircle size={15} />
@@ -429,12 +327,10 @@ export default function OrgPage() {
           </div>
         )}
 
-        {/* ─── Level 1: Board ─────────────────────────────────────────── */}
+        {/* Level 1: Board */}
         <div className="flex flex-col items-center gap-3">
-          <div
-            className="w-full rounded-2xl border p-5"
-            style={{ background: "rgba(34,211,238,0.07)", borderColor: "rgba(34,211,238,0.3)", backdropFilter: "blur(12px)" }}
-          >
+          <div className="w-full rounded-2xl border p-5"
+            style={{ background: "rgba(34,211,238,0.07)", borderColor: "rgba(34,211,238,0.3)", backdropFilter: "blur(12px)" }}>
             <div className="flex items-center justify-center gap-2 mb-4">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg,#22d3ee,#1e6fd9)" }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -473,7 +369,6 @@ export default function OrgPage() {
             )}
           </div>
 
-          {/* Connector */}
           <div className="flex flex-col items-center gap-0">
             <div className="w-0.5 h-6 bg-gradient-to-b from-[#22d3ee] to-[#1e6fd9]" />
             <ChevronDown size={16} className="text-[#22d3ee]" />
@@ -492,7 +387,7 @@ export default function OrgPage() {
           </div>
         </div>
 
-        {/* ─── Level 2: Two agencies ──────────────────────────────────── */}
+        {/* Level 2: Two agencies */}
         <div className="flex flex-col lg:flex-row gap-5">
           <AgencyBlock
             title="وكالة الدفاع"
@@ -534,7 +429,6 @@ export default function OrgPage() {
         </div>
       </div>
 
-      {/* Modals */}
       {showModal && (
         <BoardMemberModal
           member={editMember}

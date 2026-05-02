@@ -8,7 +8,14 @@ import {
   useCallback,
   ReactNode,
 } from "react";
-import { mockTasks, mockClients } from "@/lib/mockData";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import {
+  getNotifications,
+  markNotificationReadInDB,
+  markAllNotificationsReadInDB,
+  FALLBACK_NOTIFICATIONS,
+} from "@/lib/db";
+import { useAuth } from "./AuthContext";
 
 export interface AppNotification {
   id: string;
@@ -34,82 +41,52 @@ const NotifContext = createContext<NotifContextValue>({
   markAllRead: () => {},
 });
 
-function buildNotifications(): AppNotification[] {
-  const now   = new Date();
-  const items: AppNotification[] = [];
-
-  // Late tasks
-  mockTasks
-    .filter((t) => t.status !== "مكتملة" && new Date(t.dueDate) < now)
-    .slice(0, 3)
-    .forEach((t) => {
-      items.push({
-        id:    `late-${t.id}`,
-        type:  "task_late",
-        title: "مهمة متأخرة",
-        body:  t.title,
-        href:  "/tasks",
-        read:  false,
-        at:    t.dueDate,
-      });
-    });
-
-  // Tasks due within 24 h
-  mockTasks
-    .filter((t) => {
-      if (t.status === "مكتملة") return false;
-      const due  = new Date(t.dueDate);
-      const diff = due.getTime() - now.getTime();
-      return diff > 0 && diff < 86_400_000;
-    })
-    .slice(0, 2)
-    .forEach((t) => {
-      items.push({
-        id:    `due-${t.id}`,
-        type:  "task_due",
-        title: "مهمة تستحق اليوم",
-        body:  t.title,
-        href:  "/tasks",
-        read:  false,
-        at:    t.dueDate,
-      });
-    });
-
-  // Clients needing follow-up (محتمل with no recent activity mock)
-  mockClients
-    .filter((c) => c.status === "محتمل")
-    .slice(0, 2)
-    .forEach((c) => {
-      items.push({
-        id:    `client-${c.id}`,
-        type:  "client_followup",
-        title: "متابعة عميل",
-        body:  `${c.name} يحتاج متابعة`,
-        href:  "/clients",
-        read:  false,
-        at:    c.createdAt,
-      });
-    });
-
-  return items;
+function mapDBToApp(n: typeof FALLBACK_NOTIFICATIONS[0]): AppNotification {
+  return {
+    id:    n.id,
+    type:  n.type,
+    title: n.title,
+    body:  n.body,
+    href:  n.href,
+    read:  n.read,
+    at:    n.created_at,
+  };
 }
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
+  const load = useCallback(async () => {
+    const raw = await getNotifications(user?.id);
+    setNotifications(raw.map(mapDBToApp));
+  }, [user?.id]);
+
   useEffect(() => {
-    setNotifications(buildNotifications());
-  }, []);
+    load();
+  }, [load]);
+
+  // Realtime subscription
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const channel = supabase
+      .channel("notifications-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [load]);
 
   const markRead = useCallback((id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
+    markNotificationReadInDB(id).catch(console.error);
   }, []);
 
   const markAllRead = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  }, []);
+    markAllNotificationsReadInDB(user?.id).catch(console.error);
+  }, [user?.id]);
 
   const unread = notifications.filter((n) => !n.read).length;
 
