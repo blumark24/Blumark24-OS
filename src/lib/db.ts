@@ -151,6 +151,24 @@ export async function toggleProfileStatus(userId: string, isActive: boolean): Pr
   if (error) throw new Error(error.message);
 }
 
+// ─── System Settings ───────────────────────────────────────────────────────────
+
+export async function getSystemSettings(): Promise<Record<string, unknown>> {
+  const { data } = await supabase.from("system_settings").select("key, value");
+  const result: Record<string, unknown> = {};
+  ((data ?? []) as { key: string; value: unknown }[]).forEach((row) => {
+    result[row.key] = row.value;
+  });
+  return result;
+}
+
+export async function setSystemSetting(key: string, value: unknown): Promise<void> {
+  const { error } = await supabase
+    .from("system_settings")
+    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+  if (error) throw new Error(error.message);
+}
+
 // ─── Activity Log ───────────────────────────────────────────────────────────────
 
 export async function logActivity(

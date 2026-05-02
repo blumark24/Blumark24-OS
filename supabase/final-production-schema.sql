@@ -72,15 +72,27 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+  v_role TEXT := 'employee';
 BEGIN
-  INSERT INTO public.profiles (id, email, name)
+  -- Known admin emails always get super_admin role
+  IF NEW.email IN ('blumark24@gmail.com', 'blumark.sa@gmail.com') THEN
+    v_role := 'super_admin';
+  END IF;
+  INSERT INTO public.profiles (id, email, name, role)
   VALUES (
     NEW.id,
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1))
+    COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
+    v_role
   )
   ON CONFLICT (id) DO UPDATE
-    SET email = EXCLUDED.email;
+    SET email = EXCLUDED.email,
+        role  = CASE
+          WHEN profiles.email IN ('blumark24@gmail.com', 'blumark.sa@gmail.com')
+          THEN 'super_admin'
+          ELSE profiles.role
+        END;
   RETURN NEW;
 END;
 $$;
@@ -343,10 +355,41 @@ CREATE POLICY "notifications: insert"
   WITH CHECK (auth.role() = 'authenticated');
 
 -- ============================================================
+-- 11. SYSTEM SETTINGS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.system_settings (
+  key         TEXT PRIMARY KEY,
+  value       JSONB NOT NULL DEFAULT '{}',
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "system_settings: read authenticated" ON public.system_settings;
+DROP POLICY IF EXISTS "system_settings: write admin"        ON public.system_settings;
+
+CREATE POLICY "system_settings: read"
+  ON public.system_settings FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "system_settings: write"
+  ON public.system_settings FOR ALL
+  USING (public.get_my_role() = 'super_admin');
+
+-- ============================================================
+-- ENSURE SUPER_ADMIN FOR KNOWN ADMIN EMAILS
+-- Run this after auth.users accounts exist
+-- ============================================================
+UPDATE public.profiles
+SET role       = 'super_admin',
+    is_active  = true,
+    updated_at = now()
+WHERE email IN ('blumark24@gmail.com', 'blumark.sa@gmail.com');
+
+-- ============================================================
 -- VERIFY
 -- SELECT table_name FROM information_schema.tables
 -- WHERE table_schema = 'public' ORDER BY table_name;
 --
 -- SELECT id, email, role, is_active FROM public.profiles
--- WHERE email = 'blumark24@gmail.com';
+-- WHERE email IN ('blumark24@gmail.com', 'blumark.sa@gmail.com');
 -- ============================================================

@@ -168,8 +168,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const [managedUsers,    setManagedUsers]    = useState<ManagedUser[]>([]);
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, Permission[]>>(DEFAULT_ROLE_PERMISSIONS);
 
-  // Load managed users from Supabase profiles
+  // Load managed users from Supabase profiles — re-run when user signs in
   useEffect(() => {
+    if (!user?.id) return;
     getAllProfiles().then((profiles) => {
       if (!profiles.length) return;
       setManagedUsers(
@@ -183,7 +184,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         }))
       );
     }).catch(console.error);
-  }, []);
+  }, [user?.id]);
 
   const currentRecord = managedUsers.find(
     (u) => u.userId === user?.id || u.email === user?.email

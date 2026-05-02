@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Link from "next/link";
 import {
@@ -20,6 +20,7 @@ import {
   ManagedUser,
 } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
+import { getSystemSettings, setSystemSetting } from "@/lib/db";
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -311,10 +312,28 @@ export default function SettingsPage() {
   const [notifs,   setNotifs]   = useState({ tasks: true, clients: true, finance: true, weekly: true, email: false });
   const [automationRules, setAutomationRules] = useState(AUTOMATION_RULES_SUMMARY);
 
-  const handleSave = () => {
-    setSaved(true);
-    toast.success("تم حفظ الإعدادات بنجاح");
-    setTimeout(() => setSaved(false), 2500);
+  // Load settings from Supabase on mount
+  useEffect(() => {
+    getSystemSettings().then((s) => {
+      if (s.company_info) setCompanyForm(s.company_info as typeof companyForm);
+      if (s.notifications) setNotifs(s.notifications as typeof notifs);
+      if (s.appearance) setDarkMode(Boolean((s.appearance as { darkMode?: boolean }).darkMode ?? true));
+    }).catch(console.error);
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      await Promise.all([
+        setSystemSetting("company_info", companyForm),
+        setSystemSetting("notifications", notifs),
+        setSystemSetting("appearance", { darkMode }),
+      ]);
+      setSaved(true);
+      toast.success("تم حفظ الإعدادات بنجاح");
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      toast.error("حدث خطأ أثناء حفظ الإعدادات");
+    }
   };
 
   const toggleRule = (id: string) => {
