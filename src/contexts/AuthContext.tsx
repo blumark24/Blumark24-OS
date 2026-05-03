@@ -10,7 +10,9 @@ import {
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { getUserProfile } from "@/lib/db";
+
+// Known admin emails — ALWAYS get super_admin regardless of DB state
+const ADMIN_EMAILS = ["blumark24@gmail.com", "blumark.sa@gmail.com"];
 
 export interface AuthUser {
   id: string;
@@ -45,13 +47,55 @@ function setSessionCookie(value: string) {
   }
 }
 
+// Build AuthUser:
+// 1. Fetch profile from DB using auth user ID
+// 2. If missing, upsert it (handles trigger-not-fired edge case)
+// 3. Admin emails ALWAYS get super_admin — final authority
 async function buildUser(id: string, email: string): Promise<AuthUser> {
-  const profile = await getUserProfile(id);
+  const isAdmin = ADMIN_EMAILS.includes(email);
+
+  // Step 1: try reading existing profile
+  let profile: { name: string; role: string; avatar?: string } | null = null;
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("name, role, avatar")
+    .eq("id", id)
+    .maybeSingle();
+  profile = existing;
+
+  // Step 2: create profile if it doesn't exist
+  if (!profile) {
+    const { data: created } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id,
+          email,
+          name: email.split("@")[0],
+          role: isAdmin ? "super_admin" : "employee",
+          is_active: true,
+          department: isAdmin ? "الإدارة العليا" : "",
+        },
+        { onConflict: "id" }
+      )
+      .select("name, role, avatar")
+      .maybeSingle();
+    profile = created;
+  }
+
+  // Step 3: admin emails always override to super_admin
+  const role = isAdmin ? "super_admin" : (profile?.role ?? "employee");
+
+  // Fix DB silently if admin email has wrong role
+  if (isAdmin && profile?.role !== "super_admin") {
+    supabase.from("profiles").update({ role: "super_admin" }).eq("id", id).then(() => {});
+  }
+
   return {
     id,
     email,
-    name:   profile?.name   ?? email,
-    role:   profile?.role   ?? "employee",
+    name:   profile?.name ?? email.split("@")[0],
+    role,
     avatar: profile?.avatar,
   };
 }

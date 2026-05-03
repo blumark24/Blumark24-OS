@@ -53,7 +53,7 @@ export default function Sidebar({
   onMobileClose,
 }: SidebarProps) {
   const pathname    = usePathname();
-  const { user, logout } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const toast       = useToast();
   const { hasPermission, userRole } = usePermissions();
 
@@ -62,10 +62,13 @@ export default function Sidebar({
     setTimeout(() => logout(), 600);
   };
 
-  // super_admin always sees every section — no permission check needed
-  const visibleItems = userRole === "super_admin"
+  // While auth is loading: show all items (avoids flash of limited sidebar)
+  // After auth: super_admin gets all, others get filtered items
+  const visibleItems = authLoading
     ? NAV_ITEMS
-    : NAV_ITEMS.filter((item) => hasPermission(item.permission));
+    : userRole === "super_admin"
+      ? NAV_ITEMS
+      : NAV_ITEMS.filter((item) => hasPermission(item.permission));
 
   const sidebarContent = (
     <aside

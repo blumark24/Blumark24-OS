@@ -1,21 +1,38 @@
 -- ============================================================
--- Blumark24 OS – Final Production Schema
--- Run this in Supabase SQL Editor (safe to re-run)
+-- Blumark24 OS – Final Production Schema v3
+-- Safe to re-run. Run in Supabase SQL Editor.
 -- ============================================================
 
--- ── Extensions ──────────────────────────────────────────────
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================
--- HELPER: read own role without RLS recursion
+-- HELPER: read current user's role (SECURITY DEFINER bypasses RLS)
+-- Falls back to email-based check if profile doesn't exist yet
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.get_my_role()
 RETURNS text
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 STABLE
 AS $$
-  SELECT role FROM public.profiles WHERE id = auth.uid();
+DECLARE
+  v_role text;
+  v_email text;
+BEGIN
+  -- Try profile table first
+  SELECT role INTO v_role FROM public.profiles WHERE id = auth.uid();
+  IF FOUND AND v_role IS NOT NULL THEN
+    RETURN v_role;
+  END IF;
+
+  -- Fallback: check email against known admin list
+  SELECT email INTO v_email FROM auth.users WHERE id = auth.uid();
+  IF v_email IN ('blumark24@gmail.com', 'blumark.sa@gmail.com') THEN
+    RETURN 'super_admin';
+  END IF;
+
+  RETURN 'employee';
+END;
 $$;
 
 -- ============================================================
@@ -33,37 +50,47 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Add missing columns if upgrading from older schema
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS department  TEXT NOT NULL DEFAULT '';
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_active   BOOLEAN NOT NULL DEFAULT true;
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar      TEXT;
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS updated_at  TIMESTAMPTZ NOT NULL DEFAULT now();
+-- Add columns if upgrading from older schema
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS department TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_active  BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar     TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
--- Enforce role values
+-- Remove old restrictive constraint before adding new one
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
   CHECK (role IN ('super_admin','board_member','defense_manager','attack_manager','finance_manager','employee'));
 
--- ── RLS ─────────────────────────────────────────────────────
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "profiles: read own or admin"  ON public.profiles;
-DROP POLICY IF EXISTS "profiles: update own"          ON public.profiles;
-DROP POLICY IF EXISTS "profiles: super_admin all"     ON public.profiles;
-DROP POLICY IF EXISTS "profiles: read own"            ON public.profiles;
+-- Drop ALL old policies first
+DROP POLICY IF EXISTS "profiles: read"              ON public.profiles;
+DROP POLICY IF EXISTS "profiles: read own"          ON public.profiles;
+DROP POLICY IF EXISTS "profiles: read own or admin" ON public.profiles;
+DROP POLICY IF EXISTS "profiles: insert own"        ON public.profiles;
+DROP POLICY IF EXISTS "profiles: update own"        ON public.profiles;
+DROP POLICY IF EXISTS "profiles: super_admin all"   ON public.profiles;
 DROP POLICY IF EXISTS "profiles: super_admin read all" ON public.profiles;
-DROP POLICY IF EXISTS "profiles: super_admin write"   ON public.profiles;
+DROP POLICY IF EXISTS "profiles: super_admin write" ON public.profiles;
 
-CREATE POLICY "profiles: read"
+-- SELECT: own profile OR super_admin sees all
+CREATE POLICY "profiles: select"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id OR public.get_my_role() = 'super_admin');
 
-CREATE POLICY "profiles: update own"
-  ON public.profiles FOR UPDATE
-  USING (auth.uid() = id);
+-- INSERT: any authenticated user can insert their own profile
+CREATE POLICY "profiles: insert own"
+  ON public.profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
 
-CREATE POLICY "profiles: super_admin all"
-  ON public.profiles FOR ALL
+-- UPDATE: own profile OR super_admin
+CREATE POLICY "profiles: update"
+  ON public.profiles FOR UPDATE
+  USING (auth.uid() = id OR public.get_my_role() = 'super_admin');
+
+-- DELETE: super_admin only
+CREATE POLICY "profiles: delete"
+  ON public.profiles FOR DELETE
   USING (public.get_my_role() = 'super_admin');
 
 -- ── Auto-create profile on signup ───────────────────────────
@@ -75,24 +102,29 @@ AS $$
 DECLARE
   v_role TEXT := 'employee';
 BEGIN
-  -- Known admin emails always get super_admin role
   IF NEW.email IN ('blumark24@gmail.com', 'blumark.sa@gmail.com') THEN
     v_role := 'super_admin';
   END IF;
-  INSERT INTO public.profiles (id, email, name, role)
+
+  INSERT INTO public.profiles (id, email, name, role, is_active, department)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-    v_role
+    v_role,
+    true,
+    CASE WHEN v_role = 'super_admin' THEN 'الإدارة العليا' ELSE '' END
   )
   ON CONFLICT (id) DO UPDATE
-    SET email = EXCLUDED.email,
-        role  = CASE
-          WHEN profiles.email IN ('blumark24@gmail.com', 'blumark.sa@gmail.com')
-          THEN 'super_admin'
-          ELSE profiles.role
-        END;
+    SET
+      email      = EXCLUDED.email,
+      name       = COALESCE(NULLIF(profiles.name, ''), EXCLUDED.name),
+      role       = CASE
+                     WHEN profiles.email IN ('blumark24@gmail.com', 'blumark.sa@gmail.com')
+                     THEN 'super_admin'
+                     ELSE profiles.role
+                   END,
+      updated_at = now();
   RETURN NEW;
 END;
 $$;
@@ -102,25 +134,14 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- ── Upsert the super_admin account ──────────────────────────
--- User must already exist in auth.users (created via Dashboard or API)
-INSERT INTO public.profiles (id, email, name, role, department, is_active)
-VALUES (
-  'b2e970a2-1ece-454d-8bc7-0f907dc83f7e',
-  'blumark24@gmail.com',
-  'Blumark24',
-  'super_admin',
-  'الإدارة العليا',
-  true
-)
-ON CONFLICT (id) DO UPDATE
-  SET
-    email      = EXCLUDED.email,
-    name       = EXCLUDED.name,
-    role       = 'super_admin',
-    department = EXCLUDED.department,
-    is_active  = true,
-    updated_at = now();
+-- ── Force super_admin for known admin emails (run after accounts exist) ──
+UPDATE public.profiles
+SET
+  role       = 'super_admin',
+  is_active  = true,
+  department = COALESCE(NULLIF(department, ''), 'الإدارة العليا'),
+  updated_at = now()
+WHERE email IN ('blumark24@gmail.com', 'blumark.sa@gmail.com');
 
 -- ============================================================
 -- 2. EMPLOYEES
@@ -144,15 +165,23 @@ CREATE TABLE IF NOT EXISTS public.employees (
 
 ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "employees: read"  ON public.employees;
+DROP POLICY IF EXISTS "employees: write" ON public.employees;
 DROP POLICY IF EXISTS "employees: authenticated read"  ON public.employees;
 DROP POLICY IF EXISTS "employees: super_admin write"   ON public.employees;
 
+-- Any authenticated user can read employees
 CREATE POLICY "employees: read"
-  ON public.employees FOR SELECT USING (auth.role() = 'authenticated');
+  ON public.employees FOR SELECT
+  USING (auth.role() = 'authenticated');
 
+-- super_admin, defense_manager, attack_manager can write
 CREATE POLICY "employees: write"
   ON public.employees FOR ALL
-  USING (public.get_my_role() = 'super_admin');
+  USING (
+    auth.role() = 'authenticated' AND
+    public.get_my_role() IN ('super_admin', 'defense_manager', 'attack_manager', 'board_member')
+  );
 
 -- ============================================================
 -- 3. CLIENTS
@@ -174,15 +203,22 @@ CREATE TABLE IF NOT EXISTS public.clients (
 
 ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "clients: read"  ON public.clients;
+DROP POLICY IF EXISTS "clients: write" ON public.clients;
 DROP POLICY IF EXISTS "clients: authenticated read" ON public.clients;
 DROP POLICY IF EXISTS "clients: manager write"      ON public.clients;
 
 CREATE POLICY "clients: read"
-  ON public.clients FOR SELECT USING (auth.role() = 'authenticated');
+  ON public.clients FOR SELECT
+  USING (auth.role() = 'authenticated');
 
+-- All managers can write clients
 CREATE POLICY "clients: write"
   ON public.clients FOR ALL
-  USING (public.get_my_role() IN ('super_admin','attack_manager','defense_manager','finance_manager'));
+  USING (
+    auth.role() = 'authenticated' AND
+    public.get_my_role() IN ('super_admin', 'attack_manager', 'defense_manager', 'finance_manager', 'board_member')
+  );
 
 -- ============================================================
 -- 4. TASKS
@@ -205,6 +241,8 @@ CREATE TABLE IF NOT EXISTS public.tasks (
 
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "tasks: read"  ON public.tasks;
+DROP POLICY IF EXISTS "tasks: write" ON public.tasks;
 DROP POLICY IF EXISTS "tasks: authenticated read"  ON public.tasks;
 DROP POLICY IF EXISTS "tasks: authenticated write" ON public.tasks;
 
@@ -227,6 +265,8 @@ CREATE TABLE IF NOT EXISTS public.transactions (
 
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "transactions: read"  ON public.transactions;
+DROP POLICY IF EXISTS "transactions: write" ON public.transactions;
 DROP POLICY IF EXISTS "transactions: authenticated read" ON public.transactions;
 DROP POLICY IF EXISTS "transactions: finance write"      ON public.transactions;
 
@@ -235,7 +275,10 @@ CREATE POLICY "transactions: read"
 
 CREATE POLICY "transactions: write"
   ON public.transactions FOR ALL
-  USING (public.get_my_role() IN ('super_admin','finance_manager'));
+  USING (
+    auth.role() = 'authenticated' AND
+    public.get_my_role() IN ('super_admin', 'finance_manager', 'board_member')
+  );
 
 -- ============================================================
 -- 6. PROJECTS
@@ -254,11 +297,14 @@ CREATE TABLE IF NOT EXISTS public.projects (
 
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "projects: read"  ON public.projects;
+DROP POLICY IF EXISTS "projects: write" ON public.projects;
 DROP POLICY IF EXISTS "projects: authenticated read" ON public.projects;
 DROP POLICY IF EXISTS "projects: super_admin write"  ON public.projects;
 
 CREATE POLICY "projects: read"  ON public.projects FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "projects: write" ON public.projects FOR ALL    USING (public.get_my_role() = 'super_admin');
+CREATE POLICY "projects: write" ON public.projects FOR ALL
+  USING (auth.role() = 'authenticated' AND public.get_my_role() IN ('super_admin', 'defense_manager'));
 
 -- ============================================================
 -- 7. ACTIVITIES
@@ -273,6 +319,8 @@ CREATE TABLE IF NOT EXISTS public.activities (
 
 ALTER TABLE public.activities ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "activities: read"   ON public.activities;
+DROP POLICY IF EXISTS "activities: insert" ON public.activities;
 DROP POLICY IF EXISTS "activities: authenticated read"   ON public.activities;
 DROP POLICY IF EXISTS "activities: authenticated insert" ON public.activities;
 
@@ -294,12 +342,14 @@ CREATE TABLE IF NOT EXISTS public.board_members (
 
 ALTER TABLE public.board_members ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "board_members: read"  ON public.board_members;
+DROP POLICY IF EXISTS "board_members: write" ON public.board_members;
 DROP POLICY IF EXISTS "board_members: authenticated read" ON public.board_members;
 DROP POLICY IF EXISTS "board_members: admin write"        ON public.board_members;
 
 CREATE POLICY "board_members: read"  ON public.board_members FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "board_members: write" ON public.board_members FOR ALL
-  USING (public.get_my_role() IN ('super_admin','board_member'));
+  USING (auth.role() = 'authenticated' AND public.get_my_role() IN ('super_admin', 'board_member'));
 
 -- ============================================================
 -- 9. MESSAGES
@@ -316,6 +366,8 @@ CREATE TABLE IF NOT EXISTS public.messages (
 
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "messages: read"  ON public.messages;
+DROP POLICY IF EXISTS "messages: write" ON public.messages;
 DROP POLICY IF EXISTS "messages: authenticated read"  ON public.messages;
 DROP POLICY IF EXISTS "messages: authenticated write" ON public.messages;
 
@@ -338,6 +390,9 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "notifications: read"   ON public.notifications;
+DROP POLICY IF EXISTS "notifications: update" ON public.notifications;
+DROP POLICY IF EXISTS "notifications: insert" ON public.notifications;
 DROP POLICY IF EXISTS "notifications: read own or broadcast"   ON public.notifications;
 DROP POLICY IF EXISTS "notifications: update own or broadcast" ON public.notifications;
 DROP POLICY IF EXISTS "notifications: insert authenticated"    ON public.notifications;
@@ -365,31 +420,36 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
 
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "system_settings: read"  ON public.system_settings;
+DROP POLICY IF EXISTS "system_settings: write" ON public.system_settings;
 DROP POLICY IF EXISTS "system_settings: read authenticated" ON public.system_settings;
 DROP POLICY IF EXISTS "system_settings: write admin"        ON public.system_settings;
 
 CREATE POLICY "system_settings: read"
-  ON public.system_settings FOR SELECT USING (auth.role() = 'authenticated');
+  ON public.system_settings FOR SELECT
+  USING (auth.role() = 'authenticated');
 
 CREATE POLICY "system_settings: write"
   ON public.system_settings FOR ALL
-  USING (public.get_my_role() = 'super_admin');
+  USING (auth.role() = 'authenticated' AND public.get_my_role() IN ('super_admin', 'board_member'));
 
 -- ============================================================
--- ENSURE SUPER_ADMIN FOR KNOWN ADMIN EMAILS
--- Run this after auth.users accounts exist
+-- ENSURE super_admin FOR KNOWN ADMIN ACCOUNTS
+-- (Safe to run even if accounts don't exist yet — no-op in that case)
 -- ============================================================
 UPDATE public.profiles
-SET role       = 'super_admin',
-    is_active  = true,
-    updated_at = now()
+SET
+  role       = 'super_admin',
+  is_active  = true,
+  department = COALESCE(NULLIF(department, ''), 'الإدارة العليا'),
+  updated_at = now()
 WHERE email IN ('blumark24@gmail.com', 'blumark.sa@gmail.com');
 
 -- ============================================================
--- VERIFY
+-- VERIFY (uncomment to check):
+-- SELECT id, email, role, is_active, department FROM public.profiles
+-- WHERE email IN ('blumark24@gmail.com', 'blumark.sa@gmail.com');
+--
 -- SELECT table_name FROM information_schema.tables
 -- WHERE table_schema = 'public' ORDER BY table_name;
---
--- SELECT id, email, role, is_active FROM public.profiles
--- WHERE email IN ('blumark24@gmail.com', 'blumark.sa@gmail.com');
 -- ============================================================
