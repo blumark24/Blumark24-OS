@@ -8,36 +8,38 @@ import {
 } from "recharts";
 import {
   Users, CheckCircle2, ArrowUpRight, XCircle,
-  DollarSign, Activity, Clock, UserCheck, Star,
+  DollarSign, Activity, Clock, UserCheck,
 } from "lucide-react";
 import { formatCurrency, timeAgo } from "@/lib/utils";
-import { useDashboardKPI, useProjects, useActivities, useTransactions, useEmployees } from "@/hooks/useData";
+import { useDashboardKPI, useProjects, useActivities, useTransactions, useEmployees, useClients } from "@/hooks/useData";
 import { useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { ROLE_LABELS } from "@/contexts/PermissionsContext";
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
+import type { UserRole } from "@/contexts/PermissionsContext";
 
-// ─── Tooltip ────────────────────────────────────────────────────────────────
+// ─── Tooltip ──────────────────────────────────────────────────────────────────
+
+const TOOLTIP_STYLE = { background: "#0d1f3c", border: "1px solid #1e3a5f", borderRadius: "10px", color: "#e2e8f0" };
 
 const CustomTooltip = ({
   active, payload, label,
-}: {
-  active?: boolean;
-  payload?: { value: number; name: string }[];
-  label?: string;
-}) => {
+}: { active?: boolean; payload?: { value: number; name: string }[]; label?: string }) => {
   if (!active || !payload?.length) return null;
+  const now = new Date().getFullYear();
   return (
     <div className="glass-card p-3 text-sm border border-[#1e3a5f]">
       <p className="text-[#8ba3c7] mb-1">{label}</p>
       {payload.map((entry, i) => (
         <p key={i} className="font-medium" style={{ color: entry.name === "current" ? "#22d3ee" : "#8ba3c7" }}>
-          {entry.name === "current" ? "2024: " : "2023: "}{formatCurrency(entry.value)} SAR
+          {entry.name === "current" ? `${now}: ` : `${now - 1}: `}{formatCurrency(entry.value)} SAR
         </p>
       ))}
     </div>
   );
 };
 
-// ─── Status colours ──────────────────────────────────────────────────────────
+// ─── Status colours ───────────────────────────────────────────────────────────
 
 const statusColors: Record<string, string> = {
   "قيد_التنفيذ": "status-pending",
@@ -46,25 +48,35 @@ const statusColors: Record<string, string> = {
 };
 
 const activityIcons: Record<string, React.ReactNode> = {
-  employee: <Users      size={14} />,
+  employee: <Users       size={14} />,
   task:     <CheckCircle2 size={14} />,
-  client:   <UserCheck  size={14} />,
-  finance:  <DollarSign size={14} />,
-  project:  <Activity   size={14} />,
+  client:   <UserCheck   size={14} />,
+  finance:  <DollarSign  size={14} />,
+  project:  <Activity    size={14} />,
 };
-
-// ─── Page ────────────────────────────────────────────────────────────────────
 
 const ARABIC_MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
+// Format today's date in Arabic
+function todayArabic() {
+  const d = new Date();
+  return `${d.getDate()} ${ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function DashboardPage() {
+  const { user }                               = useAuth();
   const { kpi, loading: kpiLoading }           = useDashboardKPI();
   const { data: projects, loading: projLoad }  = useProjects();
   const { data: activities, loading: actLoad } = useActivities();
   const { data: transactions }                 = useTransactions();
   const { data: employees }                    = useEmployees();
+  const { data: clients }                      = useClients();
 
-  // Compute monthly income from real transactions
+  const currentYear = new Date().getFullYear();
+
+  // Monthly income from real transactions
   const salesData = useMemo(() => {
     const byMonth: Record<number, number> = {};
     transactions
@@ -76,7 +88,7 @@ export default function DashboardPage() {
     return ARABIC_MONTHS.map((month, i) => ({ month, current: byMonth[i] ?? 0, previous: 0 }));
   }, [transactions]);
 
-  // Active employees as proxy for active users chart
+  // Active employees by department
   const activeUsersData = useMemo(() => {
     const depts = Array.from(new Set(employees.map((e) => e.department))).slice(0, 6);
     return depts.map((dept) => ({
@@ -85,53 +97,57 @@ export default function DashboardPage() {
     }));
   }, [employees]);
 
-  // KPI card definitions (values come from hook)
+  // Real client satisfaction: active / total ratio as percentage
+  const satisfactionPct = useMemo(() => {
+    if (!clients.length) return 0;
+    const active = clients.filter((c) => c.status === "نشط" || c.status === "متعاقد").length;
+    return Math.round((active / clients.length) * 100);
+  }, [clients]);
+
+  // Role label
+  const roleLabel = user?.role
+    ? ROLE_LABELS[user.role as UserRole] ?? user.role
+    : "—";
+
+  // KPI card definitions — values from Supabase, no fake change percentages
   const kpiCards = [
     {
-      label:     "عدد العملاء المشتركين",
+      label:     "العملاء النشطون",
       value:     kpi.activeClients.toString(),
-      change:    5.3,
-      subtitle:  "من الشهر الماضي",
+      subtitle:  "عميل نشط حالياً",
       icon:      Users,
       gradient:  "from-[#1e6fd9] to-[#0d4fa0]",
       iconBg:    "bg-blue-500/20",
       iconColor: "text-blue-400",
-      negative:  false,
     },
     {
       label:     "المهام المكتملة",
       value:     `${kpi.completedTasksPct}%`,
-      change:    8.7,
-      subtitle:  "من الشهر الماضي",
+      subtitle:  "نسبة الإنجاز",
       icon:      CheckCircle2,
       gradient:  "from-[#10b981] to-[#059669]",
       iconBg:    "bg-emerald-500/20",
       iconColor: "text-emerald-400",
-      negative:  false,
     },
     {
-      label:     "المهام غير المكتملة",
+      label:     "المهام المتبقية",
       value:     kpi.incompleteTasks.toString(),
-      change:    -3.1,
-      subtitle:  "مهمة متبقية",
+      subtitle:  "مهمة لم تُكتمل",
       icon:      XCircle,
       gradient:  "from-[#f59e0b] to-[#d97706]",
       iconBg:    "bg-amber-500/20",
       iconColor: "text-amber-400",
-      negative:  true,
     },
     {
-      label:    "إجمالي الأرباح",
+      label:    "صافي الأرباح",
       value:    kpi.netProfit >= 1_000_000
         ? `${(kpi.netProfit / 1_000_000).toFixed(2)}M`
-        : formatCurrency(kpi.netProfit),
-      change:    12.5,
-      subtitle:  "SAR صافي الربح",
+        : `${formatCurrency(kpi.netProfit)}`,
+      subtitle:  "SAR — دخل - مصروف",
       icon:      DollarSign,
       gradient:  "from-[#22d3ee] to-[#1e6fd9]",
       iconBg:    "bg-cyan-500/20",
       iconColor: "text-cyan-400",
-      negative:  false,
     },
   ] as const;
 
@@ -149,9 +165,9 @@ export default function DashboardPage() {
                     <div className={`p-2 rounded-xl ${card.iconBg}`}>
                       <card.icon size={20} className={card.iconColor} />
                     </div>
-                    <div className={`flex items-center gap-1 text-xs font-medium ${card.negative ? "text-amber-400" : "text-emerald-400"}`}>
+                    <div className="flex items-center gap-1 text-xs font-medium text-[#22d3ee]">
                       <ArrowUpRight size={13} />
-                      <span>{card.negative ? card.change : `+${card.change}`}%</span>
+                      <span>مباشر</span>
                     </div>
                   </div>
                   <div className="text-2xl font-heading font-bold text-white mb-1">{card.value}</div>
@@ -162,79 +178,85 @@ export default function DashboardPage() {
               ))}
         </div>
 
-        {/* ── Welcome + Satisfaction + Referrals ──────────────────── */}
+        {/* ── Welcome + Satisfaction + Summary ────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Welcome */}
+          {/* Welcome card — real user data */}
           <div className="lg:col-span-1 glass-card relative overflow-hidden p-6 min-h-[180px]">
             <JellyfishBackground />
             <div className="relative z-10">
               <div className="text-2xl mb-2">👋</div>
-              <h2 className="text-xl font-heading font-bold text-white mb-1">مرحباً أحمد</h2>
-              <p className="text-[#8ba3c7] text-sm mb-1">مدير عام</p>
-              <p className="text-xs text-[#6b87ab]">اليوم هو 15 مايو 2024</p>
+              <h2 className="text-xl font-heading font-bold text-white mb-1">
+                مرحباً {user?.name ?? "..."}
+              </h2>
+              <p className="text-[#8ba3c7] text-sm mb-1">{roleLabel}</p>
+              <p className="text-xs text-[#6b87ab]">اليوم هو {todayArabic()}</p>
               <p className="text-xs text-[#22d3ee] mt-2 font-medium">نحو إنجازات أكبر وأداء أفضل</p>
             </div>
           </div>
 
-          {/* Customer Satisfaction */}
+          {/* Client Satisfaction — computed from real data */}
           <div className="glass-card p-5 flex flex-col items-center justify-center">
             <h3 className="text-[#8ba3c7] text-sm mb-4">معدل رضا العملاء</h3>
-            <div className="relative w-32 h-32">
-              <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
-                <circle cx="60" cy="60" r="50" fill="none" stroke="#1e3a5f" strokeWidth="10" />
-                <circle
-                  cx="60" cy="60" r="50" fill="none"
-                  stroke="url(#satGrad)" strokeWidth="10"
-                  strokeLinecap="round"
-                  strokeDasharray={`${2 * Math.PI * 50 * 0.95} ${2 * Math.PI * 50 * 0.05}`}
-                />
-                <defs>
-                  <linearGradient id="satGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#22d3ee" />
-                    <stop offset="100%" stopColor="#10b981" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-heading font-bold text-white">95%</span>
-                <span className="text-xs text-emerald-400 font-medium">ممتاز</span>
+            {kpiLoading ? (
+              <div className="w-32 h-32 rounded-full border-8 border-[#1e3a5f] flex items-center justify-center">
+                <span className="text-[#8ba3c7] text-xs">جارٍ التحميل...</span>
               </div>
-            </div>
-            <div className="flex items-center gap-1 mt-3 text-xs text-emerald-400">
-              <ArrowUpRight size={12} />
-              <span>+5% من الشهر الماضي</span>
-            </div>
+            ) : (
+              <>
+                <div className="relative w-32 h-32">
+                  <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="#1e3a5f" strokeWidth="10" />
+                    <circle
+                      cx="60" cy="60" r="50" fill="none"
+                      stroke="url(#satGrad)" strokeWidth="10"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 50 * (satisfactionPct / 100)} ${2 * Math.PI * 50 * (1 - satisfactionPct / 100)}`}
+                    />
+                    <defs>
+                      <linearGradient id="satGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#22d3ee" />
+                        <stop offset="100%" stopColor="#10b981" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-3xl font-heading font-bold text-white">{satisfactionPct}%</span>
+                    <span className="text-xs font-medium" style={{ color: satisfactionPct >= 70 ? "#10b981" : satisfactionPct >= 40 ? "#f59e0b" : "#ef4444" }}>
+                      {satisfactionPct >= 70 ? "ممتاز" : satisfactionPct >= 40 ? "متوسط" : "يحتاج تحسين"}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-[#8ba3c7] mt-3 text-center">
+                  {clients.filter((c) => c.status === "نشط" || c.status === "متعاقد").length} من {clients.length} عميل نشط/متعاقد
+                </p>
+              </>
+            )}
           </div>
 
-          {/* Referral Tracking */}
+          {/* Quick Stats — real numbers */}
           <div className="glass-card p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-medium text-sm">تتبع الإحالات</h3>
-              <span className="badge status-active">نشطة</span>
+              <h3 className="text-white font-medium text-sm">ملخص سريع</h3>
+              <span className="badge status-active">مباشر</span>
             </div>
             <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs text-[#8ba3c7] mb-1">
-                  <span>درجة الإحالات</span>
-                  <span className="text-[#22d3ee] font-bold">4.8/5</span>
-                </div>
-                <div className="flex gap-0.5">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} size={14} className={s <= 4 ? "star-gold fill-amber-400" : "text-[#1e3a5f]"} fill={s <= 4 ? "#fbbf24" : "none"} />
-                  ))}
-                </div>
+              <div className="flex justify-between items-center py-2 border-b border-[#1e3a5f]">
+                <span className="text-xs text-[#8ba3c7]">إجمالي الموظفين</span>
+                <span className="text-white font-bold text-sm">{employees.length}</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-t border-[#1e3a5f]">
-                <span className="text-xs text-[#8ba3c7]">إجمالي الإحالات</span>
-                <span className="text-white font-bold text-sm">248</span>
+              <div className="flex justify-between items-center py-2 border-b border-[#1e3a5f]">
+                <span className="text-xs text-[#8ba3c7]">الموظفون النشطون</span>
+                <span className="text-emerald-400 font-bold text-sm">{employees.filter((e) => e.status === "نشط").length}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-[#1e3a5f]">
+                <span className="text-xs text-[#8ba3c7]">إجمالي العملاء</span>
+                <span className="text-[#22d3ee] font-bold text-sm">{clients.length}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-[#8ba3c7]">هذا الشهر</span>
-                <span className="text-[#22d3ee] font-bold text-sm">+32</span>
-              </div>
-              <div className="flex items-center gap-1 text-xs text-emerald-400 mt-1">
-                <ArrowUpRight size={11} />
-                <span>+5% من الشهر الماضي</span>
+                <span className="text-xs text-[#8ba3c7]">صافي الدخل</span>
+                <span className="font-bold text-sm" style={{ color: kpi.netProfit >= 0 ? "#10b981" : "#ef4444" }}>
+                  {formatCurrency(kpi.netProfit)} SAR
+                </span>
               </div>
             </div>
           </div>
@@ -244,7 +266,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 glass-card p-5">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white font-medium">نظرة عامة على المبيعات</h3>
+              <h3 className="text-white font-medium">نظرة عامة على الإيرادات</h3>
               <span className="text-xs text-[#8ba3c7] bg-[#1a3356]/50 px-2 py-1 rounded-lg">آخر 12 شهر</span>
             </div>
             <ResponsiveContainer width="100%" height={220}>
@@ -253,7 +275,7 @@ export default function DashboardPage() {
                 <XAxis dataKey="month"    tick={{ fill: "#8ba3c7", fontSize: 11 }} />
                 <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip content={<CustomTooltip />} />
-                <Legend formatter={(v) => v === "current" ? "2024" : "2023"} />
+                <Legend formatter={(v) => v === "current" ? String(currentYear) : String(currentYear - 1)} />
                 <Line type="monotone" dataKey="current"  stroke="#22d3ee" strokeWidth={2.5} dot={false} name="current" />
                 <Line type="monotone" dataKey="previous" stroke="#1e3a5f" strokeWidth={1.5} dot={false} name="previous" strokeDasharray="4 2" />
               </LineChart>
@@ -262,21 +284,22 @@ export default function DashboardPage() {
 
           <div className="glass-card p-5">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white font-medium text-sm">المستخدمون النشطون</h3>
-              <span className="text-xs text-[#8ba3c7] bg-[#1a3356]/50 px-2 py-1 rounded-lg">آخر 30 يوم</span>
+              <h3 className="text-white font-medium text-sm">الموظفون بالقسم</h3>
+              <span className="text-xs text-[#8ba3c7] bg-[#1a3356]/50 px-2 py-1 rounded-lg">{employees.filter((e) => e.status === "نشط").length} نشط</span>
             </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={activeUsersData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.5)" />
-                <XAxis dataKey="date" tick={{ fill: "#8ba3c7", fontSize: 10 }} />
-                <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{ background: "#0d1f3c", border: "1px solid #1e3a5f", borderRadius: "10px", color: "#e2e8f0" }}
-                  labelStyle={{ color: "#8ba3c7" }}
-                />
-                <Bar dataKey="users" fill="#1e6fd9" radius={[4, 4, 0, 0]} name="مستخدم" />
-              </BarChart>
-            </ResponsiveContainer>
+            {activeUsersData.length === 0 ? (
+              <div className="flex items-center justify-center h-[220px] text-[#8ba3c7] text-sm">لا توجد بيانات</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={activeUsersData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.5)" />
+                  <XAxis dataKey="date" tick={{ fill: "#8ba3c7", fontSize: 10 }} />
+                  <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#8ba3c7" }} />
+                  <Bar dataKey="users" fill="#1e6fd9" radius={[4, 4, 0, 0]} name="موظف نشط" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -290,12 +313,14 @@ export default function DashboardPage() {
             </div>
             {projLoad ? (
               <ChartSkeleton height={180} />
+            ) : projects.length === 0 ? (
+              <div className="py-8 text-center text-[#8ba3c7] text-sm">لا توجد مشاريع بعد</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#1e3a5f]">
-                      {["المشروع", "العميل", "التقدم", "الميزانية", "الموعد النهائي", "الحالة"].map((h) => (
+                      {["المشروع", "العميل", "التقدم", "الميزانية", "الموعد", "الحالة"].map((h) => (
                         <th key={h} className="text-right text-[#8ba3c7] font-medium pb-3">{h}</th>
                       ))}
                     </tr>
@@ -338,16 +363,17 @@ export default function DashboardPage() {
           <div className="glass-card p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white font-medium text-sm">النشاطات الأخيرة</h3>
-              <button className="text-[#22d3ee] text-xs hover:underline">عرض الجميع</button>
             </div>
             {actLoad ? (
               <CardSkeleton rows={5} />
+            ) : activities.length === 0 ? (
+              <div className="py-8 text-center text-[#8ba3c7] text-sm">لا توجد نشاطات بعد</div>
             ) : (
               <div className="space-y-3">
                 {activities.map((activity) => (
                   <div key={activity.id} className="flex items-start gap-3 pb-3 border-b border-[#1e3a5f]/40 last:border-0 last:pb-0">
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#1a3356] text-[#22d3ee]">
-                      {activityIcons[activity.type]}
+                      {activityIcons[activity.type] ?? <Activity size={14} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-white leading-snug">{activity.description}</p>
