@@ -500,6 +500,76 @@ SELECT * FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM public.strategy_phases LIMIT 1);
 
 -- ============================================================
+-- 13. AUTOMATIONS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.automations (
+  id         TEXT PRIMARY KEY,
+  title      TEXT NOT NULL,
+  enabled    BOOLEAN NOT NULL DEFAULT true,
+  last_run   TIMESTAMPTZ,
+  run_count  INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.automations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "automations: read"  ON public.automations;
+DROP POLICY IF EXISTS "automations: write" ON public.automations;
+
+CREATE POLICY "automations: read"
+  ON public.automations FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+CREATE POLICY "automations: write"
+  ON public.automations FOR ALL
+  USING (
+    auth.role() = 'authenticated' AND (
+      (SELECT email FROM auth.users WHERE id = auth.uid()) IN ('blumark24@gmail.com', 'blumark.sa@gmail.com')
+      OR public.get_my_role() IN ('super_admin', 'board_member')
+    )
+  );
+
+-- Seed default automation rules
+INSERT INTO public.automations (id, title, enabled, run_count)
+SELECT id, title, enabled, 0
+FROM (VALUES
+  ('fund-dist',       'توزيع الصناديق التلقائي',       true),
+  ('task-reminder',   'تنبيه مواعيد المهام',            true),
+  ('late-tasks',      'كشف المهام المتأخرة',            true),
+  ('client-followup', 'متابعة العملاء المحتملين',       true),
+  ('workload',        'حساب عبء العمل',                 true),
+  ('kpi-update',      'تحديث مؤشرات الأداء',            true),
+  ('weekly-report',   'التقرير الأسبوعي التلقائي',      false)
+) AS v(id, title, enabled)
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================
+-- 14. AUTOMATION LOGS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.automation_logs (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  rule_id      TEXT NOT NULL REFERENCES public.automations(id) ON DELETE CASCADE,
+  rule_title   TEXT NOT NULL,
+  result       TEXT NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'success' CHECK (status IN ('success', 'warning', 'error')),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.automation_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "automation_logs: read"   ON public.automation_logs;
+DROP POLICY IF EXISTS "automation_logs: insert" ON public.automation_logs;
+
+CREATE POLICY "automation_logs: read"
+  ON public.automation_logs FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+CREATE POLICY "automation_logs: insert"
+  ON public.automation_logs FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
+
+-- ============================================================
 -- ENSURE super_admin FOR KNOWN ADMIN ACCOUNTS
 -- (Safe to run even if accounts don't exist yet — no-op in that case)
 -- ============================================================

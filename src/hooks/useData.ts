@@ -362,7 +362,25 @@ export function useTransactions() {
     ]);
   }, [refetch]);
 
-  return { ...result, insert };
+  const update = useCallback(async (id: string, changes: Partial<Omit<Transaction, "id">>) => {
+    const { error } = await supabase.from("transactions").update(changes).eq("id", id);
+    if (error) throw new Error(error.message);
+    await Promise.all([
+      refetch(),
+      logActivity("finance", `تم تحديث معاملة مالية`, "✏️"),
+    ]);
+  }, [refetch]);
+
+  const remove = useCallback(async (id: string) => {
+    const { error } = await supabase.from("transactions").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    await Promise.all([
+      refetch(),
+      logActivity("finance", `تم حذف معاملة مالية`, "🗑️"),
+    ]);
+  }, [refetch]);
+
+  return { ...result, insert, update, remove };
 }
 
 // ─── Employees ────────────────────────────────────────────────────────────────
@@ -599,4 +617,116 @@ export function useDashboardKPI() {
   }, [compute]);
 
   return { kpi, loading, error };
+}
+
+// ─── Automations ──────────────────────────────────────────────────────────────
+
+export interface AutomationRecord {
+  id:        string;
+  title:     string;
+  enabled:   boolean;
+  lastRun:   string | null;
+  runCount:  number;
+}
+
+function automationFromDB(row: Record<string, unknown>): AutomationRecord {
+  return {
+    id:       row.id       as string,
+    title:    row.title    as string,
+    enabled:  row.enabled  as boolean,
+    lastRun:  row.last_run as string | null,
+    runCount: row.run_count as number,
+  };
+}
+
+async function fetchAutomations(): Promise<AutomationRecord[]> {
+  const { data, error } = await supabase
+    .from("automations")
+    .select("*")
+    .order("id");
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Record<string, unknown>[]).map(automationFromDB);
+}
+
+export function useAutomations() {
+  const result = useAsyncData<AutomationRecord[]>(fetchAutomations, []);
+  const { refetch } = result;
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("automations-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "automations" }, () => refetch())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [refetch]);
+
+  const toggle = useCallback(async (id: string, enabled: boolean) => {
+    const { error } = await supabase
+      .from("automations")
+      .update({ enabled, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+    await refetch();
+  }, [refetch]);
+
+  const updateRunStats = useCallback(async (id: string, currentCount: number, logEntry: { rule_title: string; result: string; status: "success" | "warning" | "error" }) => {
+    const { error } = await supabase.from("automations").update({
+      last_run:   new Date().toISOString(),
+      run_count:  currentCount + 1,
+      updated_at: new Date().toISOString(),
+    }).eq("id", id);
+    if (error) throw new Error(error.message);
+    await supabase.from("automation_logs").insert([{
+      rule_id:    id,
+      rule_title: logEntry.rule_title,
+      result:     logEntry.result,
+      status:     logEntry.status,
+    }]);
+    await refetch();
+  }, [refetch]);
+
+  return { ...result, toggle, updateRunStats };
+}
+
+// ─── Automation Logs ──────────────────────────────────────────────────────────
+
+export interface AutomationLog {
+  id:        string;
+  ruleId:    string;
+  ruleTitle: string;
+  result:    string;
+  status:    "success" | "warning" | "error";
+  createdAt: string;
+}
+
+async function fetchAutomationLogs(): Promise<AutomationLog[]> {
+  const { data, error } = await supabase
+    .from("automation_logs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(30);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+    id:        row.id         as string,
+    ruleId:    row.rule_id    as string,
+    ruleTitle: row.rule_title as string,
+    result:    row.result     as string,
+    status:    row.status     as "success" | "warning" | "error",
+    createdAt: row.created_at as string,
+  }));
+}
+
+export function useAutomationLogs() {
+  const result = useAsyncData<AutomationLog[]>(fetchAutomationLogs, []);
+  const { refetch } = result;
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("auto-logs-rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "automation_logs" }, () => refetch())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [refetch]);
+
+  return result;
 }

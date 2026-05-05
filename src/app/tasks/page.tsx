@@ -6,7 +6,7 @@ import PageGuard from "@/components/ui/PageGuard";
 import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X } from "lucide-react";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { cn } from "@/lib/utils";
-import { useTasks } from "@/hooks/useData";
+import { useTasks, useClients, useEmployees } from "@/hooks/useData";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -30,6 +30,8 @@ type ViewMode = "kanban" | "list";
 
 function TasksContent() {
   const { data: tasks, loading, insert, update, remove } = useTasks();
+  const { data: clients }   = useClients();
+  const { data: employees } = useEmployees();
   const { userRole } = usePermissions();
   const { user } = useAuth();
   const toast = useToast();
@@ -39,17 +41,19 @@ function TasksContent() {
   const [saving,    setSaving]    = useState(false);
   const [editTask,  setEditTask]  = useState<typeof tasks[0] | null>(null);
   const [form, setForm] = useState({
-    title: "",
-    description: "",
-    status: "جديدة" as TaskStatus,
-    priority: "متوسطة" as TaskPriority,
+    title:        "",
+    description:  "",
+    status:       "جديدة" as TaskStatus,
+    priority:     "متوسطة" as TaskPriority,
+    assigneeId:   "",
     assigneeName: "",
-    clientName: "",
-    dueDate: "",
+    clientId:     "",
+    clientName:   "",
+    dueDate:      "",
   });
 
   const resetForm = () => {
-    setForm({ title: "", description: "", status: "جديدة", priority: "متوسطة", assigneeName: "", clientName: "", dueDate: "" });
+    setForm({ title: "", description: "", status: "جديدة", priority: "متوسطة", assigneeId: "", assigneeName: "", clientId: "", clientName: "", dueDate: "" });
     setEditTask(null);
   };
 
@@ -62,7 +66,9 @@ function TasksContent() {
       description:  task.description ?? "",
       status:       task.status,
       priority:     task.priority,
+      assigneeId:   task.assigneeId,
       assigneeName: task.assigneeName,
+      clientId:     task.clientId ?? "",
       clientName:   task.clientName ?? "",
       dueDate:      task.dueDate,
     });
@@ -73,11 +79,13 @@ function TasksContent() {
     if (!form.title.trim()) { toast.error("عنوان المهمة مطلوب"); return; }
     setSaving(true);
     try {
+      const assigneeId   = form.assigneeId   || user?.id || "";
+      const assigneeName = form.assigneeName || user?.email || "";
       if (editTask) {
-        await update(editTask.id, { ...form, assigneeId: editTask.assigneeId });
+        await update(editTask.id, { title: form.title, description: form.description, status: form.status, priority: form.priority, assigneeId, assigneeName, clientId: form.clientId || undefined, clientName: form.clientName || undefined, dueDate: form.dueDate });
         toast.success("تم تحديث المهمة بنجاح");
       } else {
-        await insert({ assigneeId: user?.id ?? "", ...form });
+        await insert({ title: form.title, description: form.description, status: form.status, priority: form.priority, assigneeId, assigneeName, clientId: form.clientId || undefined, clientName: form.clientName || undefined, dueDate: form.dueDate });
         toast.success("تمت إضافة المهمة بنجاح");
       }
       setShowModal(false);
@@ -330,7 +338,19 @@ function TasksContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-[#8ba3c7] mb-1.5">المُكلَّف</label>
-                  <input className="input-dark text-sm" placeholder="اسم الموظف" value={form.assigneeName} onChange={(e) => setForm({ ...form, assigneeName: e.target.value })} />
+                  <select
+                    className="input-dark text-sm"
+                    value={form.assigneeId}
+                    onChange={(e) => {
+                      const emp = employees.find((x) => x.id === e.target.value);
+                      setForm({ ...form, assigneeId: e.target.value, assigneeName: emp?.name ?? "" });
+                    }}
+                  >
+                    <option value="">— اختر موظفاً —</option>
+                    {employees.filter((e) => e.status === "نشط").map((e) => (
+                      <option key={e.id} value={e.id}>{e.name} ({e.department})</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs text-[#8ba3c7] mb-1.5">الموعد النهائي</label>
@@ -339,7 +359,19 @@ function TasksContent() {
               </div>
               <div>
                 <label className="block text-xs text-[#8ba3c7] mb-1.5">العميل (اختياري)</label>
-                <input className="input-dark text-sm" placeholder="اسم العميل" value={form.clientName} onChange={(e) => setForm({ ...form, clientName: e.target.value })} />
+                <select
+                  className="input-dark text-sm"
+                  value={form.clientId}
+                  onChange={(e) => {
+                    const cl = clients.find((x) => x.id === e.target.value);
+                    setForm({ ...form, clientId: e.target.value, clientName: cl?.name ?? "" });
+                  }}
+                >
+                  <option value="">— بدون عميل —</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.status})</option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="flex gap-3 mt-6">

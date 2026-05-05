@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import { FUND_DISTRIBUTION, formatCurrency } from "@/lib/utils";
-import { DollarSign, Plus, TrendingUp, TrendingDown, X, ArrowUpRight } from "lucide-react";
+import { DollarSign, Plus, TrendingUp, TrendingDown, X, ArrowUpRight, Edit2, Trash2 } from "lucide-react";
 import type { Transaction } from "@/types";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useTransactions } from "@/hooks/useData";
@@ -16,20 +16,28 @@ import {
 
 const ARABIC_MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
+type FormState = {
+  type:        "دخل" | "مصروف";
+  amount:      string;
+  description: string;
+  category:    string;
+  date:        string;
+};
+
+function emptyForm(): FormState {
+  return { type: "دخل", amount: "", description: "", category: "", date: new Date().toISOString().split("T")[0] };
+}
+
 function FinanceContent() {
-  const { data: transactions, loading, insert } = useTransactions();
+  const { data: transactions, loading, insert, update, remove } = useTransactions();
   const { userRole } = usePermissions();
   const toast = useToast();
   const isAdmin = userRole === "super_admin";
+
   const [showModal, setShowModal] = useState(false);
-  const [saving,    setSaving]   = useState(false);
-  const [form, setForm] = useState({
-    type: "دخل" as "دخل" | "مصروف",
-    amount: "",
-    description: "",
-    category: "",
-    date: new Date().toISOString().split("T")[0],
-  });
+  const [editId,    setEditId]    = useState<string | null>(null);
+  const [saving,    setSaving]    = useState(false);
+  const [form, setForm] = useState<FormState>(emptyForm());
 
   const totalIncome  = transactions.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0);
   const totalExpense = transactions.filter((t) => t.type === "مصروف").reduce((s, t) => s + t.amount, 0);
@@ -54,16 +62,26 @@ function FinanceContent() {
   }, [transactions]);
 
   const fundBalances = Object.entries(FUND_DISTRIBUTION).map(([key, config]) => ({
-    key,
-    label: config.label,
-    color: config.color,
-    pct:   config.pct,
-    balance: totalIncome * config.pct,
+    key, label: config.label, color: config.color, pct: config.pct, balance: totalIncome * config.pct,
   }));
 
   const donutData = fundBalances.map((f) => ({ name: f.label, value: Math.round(f.pct * 100) }));
 
-  const handleAddTransaction = async () => {
+  const openAdd = () => {
+    setEditId(null);
+    setForm(emptyForm());
+    setShowModal(true);
+  };
+
+  const openEdit = (tx: Transaction) => {
+    setEditId(tx.id);
+    setForm({ type: tx.type, amount: String(tx.amount), description: tx.description, category: tx.category, date: tx.date });
+    setShowModal(true);
+  };
+
+  const closeModal = () => { setShowModal(false); setEditId(null); setSaving(false); };
+
+  const handleSave = async () => {
     if (!form.amount || !form.description.trim()) {
       toast.error("المبلغ والوصف مطلوبان");
       return;
@@ -77,15 +95,30 @@ function FinanceContent() {
 
     setSaving(true);
     try {
-      await insert({ type: form.type, amount, description: form.description, category: form.category, date: form.date, funds });
-      toast.success("تمت إضافة المعاملة بنجاح");
-      setShowModal(false);
-      setForm({ type: "دخل", amount: "", description: "", category: "", date: new Date().toISOString().split("T")[0] });
+      if (editId) {
+        await update(editId, { type: form.type, amount, description: form.description, category: form.category, date: form.date, funds });
+        toast.success("تم تحديث المعاملة بنجاح");
+      } else {
+        await insert({ type: form.type, amount, description: form.description, category: form.category, date: form.date, funds });
+        toast.success("تمت إضافة المعاملة بنجاح");
+      }
+      closeModal();
     } catch (err) {
-      toast.error("حدث خطأ أثناء إضافة المعاملة");
+      toast.error("حدث خطأ أثناء حفظ المعاملة");
       console.error("[Finance Save Error]", err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async (tx: Transaction) => {
+    if (!confirm(`هل أنت متأكد من حذف المعاملة "${tx.description}"؟`)) return;
+    try {
+      await remove(tx.id);
+      toast.success("تم حذف المعاملة بنجاح");
+    } catch (err) {
+      toast.error("حدث خطأ أثناء الحذف");
+      console.error("[Finance Delete Error]", err);
     }
   };
 
@@ -101,7 +134,7 @@ function FinanceContent() {
             <p className="text-[#8ba3c7] text-sm mt-1">إدارة الإيرادات والمصروفات وتوزيع الصناديق</p>
           </div>
           {isAdmin && (
-            <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2">
+            <button onClick={openAdd} className="btn-primary flex items-center gap-2">
               <Plus size={16} />
               معاملة جديدة
             </button>
@@ -203,7 +236,7 @@ function FinanceContent() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#1e3a5f]">
-                  {["النوع", "الوصف", "الفئة", "التاريخ", "المبلغ", "العمليات %", "الادخار %"].map((h) => (
+                  {["النوع", "الوصف", "الفئة", "التاريخ", "المبلغ", "العمليات", "الادخار", ""].map((h) => (
                     <th key={h} className="text-right text-[#8ba3c7] font-medium px-4 py-3">{h}</th>
                   ))}
                 </tr>
@@ -228,30 +261,47 @@ function FinanceContent() {
                     <td className="px-4 py-3 text-[#8ba3c7] text-xs">
                       {tx.funds ? formatCurrency(tx.funds.savings) : "—"}
                     </td>
+                    <td className="px-4 py-3">
+                      {isAdmin && (
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => openEdit(tx)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all" title="تعديل">
+                            <Edit2 size={13} />
+                          </button>
+                          <button onClick={() => handleDelete(tx)} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all" title="حذف">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))}
+                {transactions.length === 0 && (
+                  <tr><td colSpan={8} className="text-center py-8 text-[#8ba3c7]">لا توجد معاملات بعد</td></tr>
+                )}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Modal */}
+      {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-card w-full max-w-md p-6 mx-4">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white font-heading font-bold text-lg">معاملة مالية جديدة</h3>
-              <button onClick={() => setShowModal(false)} className="text-[#8ba3c7] hover:text-white"><X size={20} /></button>
+              <h3 className="text-white font-heading font-bold text-lg">
+                {editId ? "تعديل المعاملة" : "معاملة مالية جديدة"}
+              </h3>
+              <button onClick={closeModal} className="text-[#8ba3c7] hover:text-white"><X size={20} /></button>
             </div>
             <div className="space-y-4">
               <div>
                 <label className="block text-xs text-[#8ba3c7] mb-1.5">نوع المعاملة</label>
                 <div className="flex gap-3">
-                  {["دخل", "مصروف"].map((t) => (
+                  {(["دخل", "مصروف"] as const).map((t) => (
                     <button
                       key={t}
-                      onClick={() => setForm({ ...form, type: t as "دخل" | "مصروف" })}
+                      onClick={() => setForm({ ...form, type: t })}
                       className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${form.type === t ? (t === "دخل" ? "bg-emerald-500 text-white" : "bg-red-500 text-white") : "bg-[#1a3356]/50 text-[#8ba3c7]"}`}
                     >
                       {t === "دخل" ? "↑ دخل" : "↓ مصروف"}
@@ -277,7 +327,7 @@ function FinanceContent() {
                   <input className="input-dark text-sm" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
                 </div>
               </div>
-              {form.type === "دخل" && form.amount && (
+              {form.type === "دخل" && form.amount && Number(form.amount) > 0 && (
                 <div className="p-3 rounded-xl bg-[#1a3356]/50 border border-[#1e3a5f]">
                   <p className="text-xs text-[#8ba3c7] mb-2">التوزيع التلقائي للصناديق:</p>
                   <div className="grid grid-cols-5 gap-2">
@@ -292,11 +342,11 @@ function FinanceContent() {
               )}
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={handleAddTransaction} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
+              <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
                 {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                {saving ? "جارٍ الحفظ..." : "إضافة"}
+                {saving ? "جارٍ الحفظ..." : editId ? "حفظ التعديلات" : "إضافة"}
               </button>
-              <button onClick={() => setShowModal(false)} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
+              <button onClick={closeModal} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
             </div>
           </div>
         </div>

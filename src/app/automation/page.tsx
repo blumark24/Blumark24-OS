@@ -4,8 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import { useToast } from "@/contexts/ToastContext";
-import { usePermissions } from "@/contexts/PermissionsContext";
-import { useTasks, useClients, useTransactions } from "@/hooks/useData";
+import { useTasks, useClients, useTransactions, useAutomations, useAutomationLogs } from "@/hooks/useData";
 import { FUND_DISTRIBUTION, formatCurrency } from "@/lib/utils";
 import type { Task, Client, Transaction } from "@/types";
 import {
@@ -14,99 +13,25 @@ import {
   ArrowUpRight, Shield,
 } from "lucide-react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Static rule metadata (UI only, state persisted in DB) ───────────────────
 
-interface AutomationRule {
-  id: string;
-  title: string;
+interface RuleMeta {
+  id:        string;
+  title:     string;
   description: string;
-  trigger: string;
-  icon: React.ElementType;
+  trigger:   string;
+  icon:      React.ElementType;
   iconColor: string;
-  iconBg: string;
-  enabled: boolean;
-  lastRun?: string;
-  runCount: number;
+  iconBg:    string;
 }
 
-interface AutomationLog {
-  id: string;
-  ruleId: string;
-  ruleTitle: string;
-  result: string;
-  at: string;
-  status: "success" | "warning" | "error";
-}
-
-// ─── Automation runners (accept live data) ────────────────────────────────────
-
-function runFundDistribution(txs: Transaction[]): AutomationLog[] {
-  const income = txs.filter((t) => t.type === "دخل");
-  if (!income.length) return [{
-    id: "fd-empty", ruleId: "fund-dist", ruleTitle: "توزيع الصناديق",
-    result: "لا توجد معاملات دخل للتوزيع", at: new Date().toISOString(), status: "warning",
-  }];
-  return income.slice(0, 2).map((t) => ({
-    id: `fd-${t.id}`,
-    ruleId: "fund-dist",
-    ruleTitle: "توزيع الصناديق",
-    result: `وُزِّع ${formatCurrency(t.amount)} SAR على 5 صناديق (عمليات ${formatCurrency(t.amount * 0.4)})`,
-    at: new Date().toISOString(),
-    status: "success" as const,
-  }));
-}
-
-function runLateTaskDetection(tasks: Task[]): AutomationLog[] {
-  const now  = new Date();
-  const late = tasks.filter((t) => t.status !== "مكتملة" && new Date(t.dueDate) < now);
-  if (!late.length) return [{
-    id: "lt-none", ruleId: "late-tasks", ruleTitle: "كشف المهام المتأخرة",
-    result: "لا توجد مهام متأخرة 🎉", at: new Date().toISOString(), status: "success",
-  }];
-  return late.map((t) => ({
-    id: `lt-${t.id}`,
-    ruleId: "late-tasks",
-    ruleTitle: "كشف المهام المتأخرة",
-    result: `تم تصنيف "${t.title}" كمتأخرة وإنشاء إشعار`,
-    at: new Date().toISOString(),
-    status: "warning" as const,
-  }));
-}
-
-function runClientFollowup(clients: Client[]): AutomationLog[] {
-  const pending = clients.filter((c) => c.status === "محتمل");
-  if (!pending.length) return [{
-    id: "cf-none", ruleId: "client-followup", ruleTitle: "متابعة العملاء",
-    result: "لا توجد عملاء محتملين تحتاج متابعة", at: new Date().toISOString(), status: "success",
-  }];
-  return pending.map((c) => ({
-    id: `cf-${c.id}`,
-    ruleId: "client-followup",
-    ruleTitle: "متابعة العملاء",
-    result: `تم إنشاء تذكير متابعة للعميل "${c.name}"`,
-    at: new Date().toISOString(),
-    status: "success" as const,
-  }));
-}
-
-function runWeeklyReport(clients: Client[], tasks: Task[], txs: Transaction[]): AutomationLog[] {
-  const totalIncome = txs.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0);
-  const completed   = tasks.filter((t) => t.status === "مكتملة").length;
-  return [{
-    id: "wr-1", ruleId: "weekly-report", ruleTitle: "التقرير الأسبوعي",
-    result: `التقرير جاهز: ${clients.length} عميل، ${completed} مهمة مكتملة، إيراد ${formatCurrency(totalIncome)} SAR`,
-    at: new Date().toISOString(), status: "success",
-  }];
-}
-
-const INITIAL_RULES: AutomationRule[] = [
+const RULE_META: RuleMeta[] = [
   {
     id: "fund-dist",
     title: "توزيع الصناديق التلقائي",
     description: "عند إضافة دخل يوزَّع تلقائياً على 5 صناديق بنسب 40/10/10/20/20",
     trigger: "عند إضافة دخل أو فاتورة مدفوعة",
     icon: DollarSign, iconColor: "text-emerald-400", iconBg: "bg-emerald-500/20",
-    enabled: true, lastRun: undefined, runCount: 0,
   },
   {
     id: "task-reminder",
@@ -114,7 +39,6 @@ const INITIAL_RULES: AutomationRule[] = [
     description: "إنشاء إشعار عند اقتراب موعد مهمة خلال 24 ساعة",
     trigger: "قبل 24 ساعة من موعد استحقاق المهمة",
     icon: Clock, iconColor: "text-amber-400", iconBg: "bg-amber-500/20",
-    enabled: true, lastRun: undefined, runCount: 0,
   },
   {
     id: "late-tasks",
@@ -122,7 +46,6 @@ const INITIAL_RULES: AutomationRule[] = [
     description: "تحديث المهام المتجاوز موعدها كـ \"متأخرة\" وإنشاء إشعار",
     trigger: "يومياً عند منتصف الليل",
     icon: AlertTriangle, iconColor: "text-red-400", iconBg: "bg-red-500/20",
-    enabled: true, lastRun: undefined, runCount: 0,
   },
   {
     id: "client-followup",
@@ -130,7 +53,6 @@ const INITIAL_RULES: AutomationRule[] = [
     description: "إنشاء تذكير متابعة للعملاء الذين لم يُتواصل معهم لأكثر من 7 أيام",
     trigger: "يومياً في الساعة 9 صباحاً",
     icon: Users, iconColor: "text-cyan-400", iconBg: "bg-cyan-500/20",
-    enabled: true, lastRun: undefined, runCount: 0,
   },
   {
     id: "workload",
@@ -138,7 +60,6 @@ const INITIAL_RULES: AutomationRule[] = [
     description: "حساب وتحديث نسبة عبء العمل لكل موظف تلقائياً",
     trigger: "كل ساعتين",
     icon: BarChart3, iconColor: "text-purple-400", iconBg: "bg-purple-500/20",
-    enabled: true, lastRun: undefined, runCount: 0,
   },
   {
     id: "kpi-update",
@@ -146,7 +67,6 @@ const INITIAL_RULES: AutomationRule[] = [
     description: "تحديث KPI لوحة التحكم تلقائياً بناءً على أحدث البيانات",
     trigger: "كل 15 دقيقة",
     icon: RefreshCw, iconColor: "text-blue-400", iconBg: "bg-blue-500/20",
-    enabled: true, lastRun: undefined, runCount: 0,
   },
   {
     id: "weekly-report",
@@ -154,9 +74,54 @@ const INITIAL_RULES: AutomationRule[] = [
     description: "إنشاء تقرير أسبوعي شامل كل صباح إثنين جاهز للذكاء الاصطناعي",
     trigger: "كل إثنين الساعة 8 صباحاً",
     icon: Shield, iconColor: "text-teal-400", iconBg: "bg-teal-500/20",
-    enabled: false, lastRun: undefined, runCount: 0,
   },
 ];
+
+// ─── Automation runners (produce log text from live data) ─────────────────────
+
+function runFundDistribution(txs: Transaction[]) {
+  const income = txs.filter((t) => t.type === "دخل");
+  if (!income.length) return { result: "لا توجد معاملات دخل للتوزيع", status: "warning" as const };
+  const last = income[0];
+  return {
+    result: `وُزِّع ${formatCurrency(last.amount)} SAR على 5 صناديق — عمليات ${formatCurrency(last.amount * 0.4)}`,
+    status: "success" as const,
+  };
+}
+
+function runLateTaskDetection(tasks: Task[]) {
+  const late = tasks.filter((t) => t.status !== "مكتملة" && new Date(t.dueDate) < new Date());
+  if (!late.length) return { result: "لا توجد مهام متأخرة 🎉", status: "success" as const };
+  return { result: `تم كشف ${late.length} مهمة متأخرة وإنشاء إشعارات`, status: "warning" as const };
+}
+
+function runClientFollowup(clients: Client[]) {
+  const pending = clients.filter((c) => c.status === "محتمل");
+  if (!pending.length) return { result: "لا توجد عملاء محتملين تحتاج متابعة", status: "success" as const };
+  return { result: `تم إنشاء ${pending.length} تذكير متابعة للعملاء المحتملين`, status: "success" as const };
+}
+
+function runWeeklyReport(clients: Client[], tasks: Task[], txs: Transaction[]) {
+  const income    = txs.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0);
+  const completed = tasks.filter((t) => t.status === "مكتملة").length;
+  return {
+    result: `تقرير جاهز: ${clients.length} عميل، ${completed} مهمة مكتملة، إيراد ${formatCurrency(income)} SAR`,
+    status: "success" as const,
+  };
+}
+
+function runnerFor(ruleId: string, tasks: Task[], clients: Client[], txs: Transaction[]) {
+  switch (ruleId) {
+    case "fund-dist":       return runFundDistribution(txs);
+    case "late-tasks":      return runLateTaskDetection(tasks);
+    case "client-followup": return runClientFollowup(clients);
+    case "weekly-report":   return runWeeklyReport(clients, tasks, txs);
+    case "task-reminder":   return { result: `تم إرسال تنبيهات للمهام القادمة خلال 24 ساعة (${tasks.filter((t) => t.status !== "مكتملة").length} مهمة)`, status: "success" as const };
+    case "kpi-update":      return { result: `تم تحديث مؤشرات الأداء: ${clients.length} عميل، ${tasks.filter((t) => t.status === "مكتملة").length} مهمة مكتملة`, status: "success" as const };
+    case "workload":        return { result: `تم حساب عبء العمل: ${tasks.filter((t) => t.status === "قيد_التنفيذ").length} مهمة نشطة`, status: "warning" as const };
+    default:                return { result: "تم التنفيذ", status: "success" as const };
+  }
+}
 
 const LOG_COLORS = {
   success: { badge: "status-active",   dot: "bg-emerald-400" },
@@ -169,13 +134,27 @@ const LOG_COLORS = {
 function AutomationContent() {
   const toast = useToast();
 
-  const { data: tasks }  = useTasks();
+  const { data: tasks }   = useTasks();
   const { data: clients } = useClients();
-  const { data: txs }    = useTransactions();
+  const { data: txs }     = useTransactions();
 
-  const [rules,     setRules]     = useState<AutomationRule[]>(INITIAL_RULES);
-  const [logs,      setLogs]      = useState<AutomationLog[]>([]);
+  const { data: automations, loading: loadingAuto, toggle, updateRunStats } = useAutomations();
+  const { data: dbLogs, refetch: refetchLogs } = useAutomationLogs();
+
   const [runningId, setRunningId] = useState<string | null>(null);
+
+  // Merge DB state with static metadata
+  const rules = useMemo(() =>
+    RULE_META.map((meta) => {
+      const db = automations.find((a) => a.id === meta.id);
+      return {
+        ...meta,
+        enabled:  db?.enabled  ?? true,
+        lastRun:  db?.lastRun  ?? null,
+        runCount: db?.runCount ?? 0,
+      };
+    }),
+  [automations]);
 
   const weeklyStats = useMemo(() => ({
     activeClients:  clients.filter((c) => c.status === "نشط").length,
@@ -184,66 +163,46 @@ function AutomationContent() {
     totalIncome:    txs.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0),
   }), [clients, tasks, txs]);
 
-  // Seed initial logs once data is available
-  useEffect(() => {
-    if (!tasks.length && !clients.length && !txs.length) return;
-    const seeds: AutomationLog[] = runLateTaskDetection(tasks).slice(0, 3);
-    if (seeds.length) setLogs(seeds);
-  }, [tasks, clients, txs]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const getRuleRunner = (ruleId: string): (() => AutomationLog[]) => {
-    switch (ruleId) {
-      case "fund-dist":       return () => runFundDistribution(txs);
-      case "late-tasks":      return () => runLateTaskDetection(tasks);
-      case "client-followup": return () => runClientFollowup(clients);
-      case "weekly-report":   return () => runWeeklyReport(clients, tasks, txs);
-      case "task-reminder":   return () => [{ id: `tr-${Date.now()}`, ruleId: "task-reminder", ruleTitle: "تنبيه المواعيد", result: `تم إرسال ${tasks.filter((t) => t.status !== "مكتملة").length > 0 ? "تنبيهات" : "0 تنبيه"} للمهام القادمة`, at: new Date().toISOString(), status: "success" as const }];
-      case "kpi-update":      return () => [{ id: `ku-${Date.now()}`, ruleId: "kpi-update", ruleTitle: "تحديث KPI", result: `تم تحديث مؤشرات الأداء: ${clients.length} عميل، ${tasks.filter((t) => t.status === "مكتملة").length} مهمة مكتملة`, at: new Date().toISOString(), status: "success" as const }];
-      case "workload":        return () => [{ id: `wl-${Date.now()}`, ruleId: "workload", ruleTitle: "عبء العمل", result: `تم حساب عبء العمل: ${tasks.filter((t) => t.status === "قيد_التنفيذ").length} مهمة نشطة`, at: new Date().toISOString(), status: "warning" as const }];
-      default:                return () => [];
+  const handleToggle = async (id: string, currentEnabled: boolean) => {
+    try {
+      await toggle(id, !currentEnabled);
+      const meta = RULE_META.find((r) => r.id === id);
+      toast.info(`${meta?.title ?? id}: ${!currentEnabled ? "تم التفعيل" : "تم الإيقاف"}`);
+    } catch (err) {
+      toast.error("حدث خطأ أثناء تغيير الحالة");
+      console.error("[Automation Toggle Error]", err);
     }
   };
 
-  const toggle = (id: string) => {
-    setRules((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r;
-        const next = { ...r, enabled: !r.enabled };
-        toast.info(`${next.title}: ${next.enabled ? "تم التفعيل" : "تم الإيقاف"}`);
-        return next;
-      })
-    );
-  };
-
-  const runNow = async (rule: AutomationRule) => {
-    if (runningId) return;
-    setRunningId(rule.id);
-    await new Promise((r) => setTimeout(r, 900));
-    const runner  = getRuleRunner(rule.id);
-    const newLogs = runner();
-    setLogs((prev) => [...newLogs, ...prev].slice(0, 20));
-    setRules((prev) =>
-      prev.map((r) =>
-        r.id === rule.id
-          ? { ...r, lastRun: new Date().toISOString(), runCount: r.runCount + 1 }
-          : r
-      )
-    );
-    setRunningId(null);
-    toast.success(`${rule.title}: تم التنفيذ بنجاح`);
+  const runNow = async (id: string, title: string, enabled: boolean, currentCount: number) => {
+    if (runningId || !enabled) return;
+    setRunningId(id);
+    try {
+      await new Promise((r) => setTimeout(r, 700));
+      const { result, status } = runnerFor(id, tasks, clients, txs);
+      await updateRunStats(id, currentCount, { rule_title: title, result, status });
+      await refetchLogs();
+      toast.success(`${title}: تم التنفيذ بنجاح`);
+    } catch (err) {
+      toast.error("حدث خطأ أثناء التنفيذ");
+      console.error("[Automation Run Error]", err);
+    } finally {
+      setRunningId(null);
+    }
   };
 
   const runAll = async () => {
+    const active = rules.filter((r) => r.enabled);
+    if (!active.length) { toast.warning("لا توجد قواعد نشطة"); return; }
     toast.info("جاري تشغيل جميع القواعد النشطة...");
-    for (const rule of rules.filter((r) => r.enabled)) {
-      await runNow(rule);
+    for (const rule of active) {
+      await runNow(rule.id, rule.title, rule.enabled, rule.runCount);
     }
     toast.success("تم تشغيل جميع القواعد النشطة");
   };
 
   const totalRuns   = rules.reduce((s, r) => s + r.runCount, 0);
   const activeCount = rules.filter((r) => r.enabled).length;
-  const successLogs = logs.filter((l) => l.status === "success").length;
 
   return (
     <DashboardLayout>
@@ -257,7 +216,7 @@ function AutomationContent() {
             </h1>
             <p className="text-[#8ba3c7] text-sm mt-1">تشغيل القواعد الآلية وإدارة سير العمل</p>
           </div>
-          <button onClick={runAll} className="btn-primary flex items-center gap-2">
+          <button onClick={runAll} disabled={!!runningId} className="btn-primary flex items-center gap-2 disabled:opacity-50">
             <Play size={15} />
             تشغيل الكل
           </button>
@@ -266,10 +225,10 @@ function AutomationContent() {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: "القواعد النشطة",   value: activeCount,  color: "#22d3ee" },
-            { label: "إجمالي التنفيذات", value: totalRuns,    color: "#10b981" },
-            { label: "نجاح اليوم",       value: successLogs,  color: "#a855f7" },
-            { label: "القواعد الكلية",   value: rules.length, color: "#ff7a3d" },
+            { label: "القواعد النشطة",   value: activeCount,   color: "#22d3ee" },
+            { label: "إجمالي التنفيذات", value: totalRuns,     color: "#10b981" },
+            { label: "السجلات الكلية",   value: dbLogs.length, color: "#a855f7" },
+            { label: "القواعد الكلية",   value: rules.length,  color: "#ff7a3d" },
           ].map((s) => (
             <div key={s.label} className="glass-card p-4 text-center">
               <div className="text-2xl font-heading font-bold" style={{ color: s.color }}>{s.value}</div>
@@ -299,7 +258,9 @@ function AutomationContent() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Rules list */}
           <div className="lg:col-span-2 space-y-3">
-            {rules.map((rule) => {
+            {loadingAuto ? (
+              <div className="text-center py-8 text-[#8ba3c7] text-sm">جارٍ تحميل القواعد...</div>
+            ) : rules.map((rule) => {
               const isRunning = runningId === rule.id;
               return (
                 <div key={rule.id} className={`glass-card p-4 transition-all ${!rule.enabled ? "opacity-60" : ""}`}>
@@ -325,7 +286,7 @@ function AutomationContent() {
                     </div>
                     <div className="flex flex-col gap-2 flex-shrink-0">
                       <button
-                        onClick={() => runNow(rule)}
+                        onClick={() => runNow(rule.id, rule.title, rule.enabled, rule.runCount)}
                         disabled={!!runningId || !rule.enabled}
                         className="p-2 rounded-xl bg-[#22d3ee]/10 text-[#22d3ee] hover:bg-[#22d3ee]/20 transition-all disabled:opacity-40"
                         title="تشغيل الآن"
@@ -336,7 +297,7 @@ function AutomationContent() {
                         }
                       </button>
                       <button
-                        onClick={() => toggle(rule.id)}
+                        onClick={() => handleToggle(rule.id, rule.enabled)}
                         className={`p-2 rounded-xl transition-all ${rule.enabled ? "bg-emerald-500/10 text-emerald-400 hover:bg-red-500/10 hover:text-red-400" : "bg-[#1a3356] text-[#8ba3c7] hover:text-emerald-400"}`}
                         title={rule.enabled ? "إيقاف" : "تفعيل"}
                       >
@@ -349,17 +310,17 @@ function AutomationContent() {
             })}
           </div>
 
-          {/* Execution log */}
+          {/* Execution log from DB */}
           <div className="glass-card p-5 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white font-medium text-sm flex items-center gap-2">
                 <CheckCircle2 size={14} className="text-[#22d3ee]" />
                 سجل التنفيذ
               </h3>
-              <span className="text-xs text-[#8ba3c7]">{logs.length} سجل</span>
+              <span className="text-xs text-[#8ba3c7]">{dbLogs.length} سجل</span>
             </div>
             <div className="flex-1 space-y-2 overflow-y-auto max-h-[480px]">
-              {logs.map((log) => {
+              {dbLogs.map((log) => {
                 const cfg = LOG_COLORS[log.status];
                 return (
                   <div key={log.id} className="flex items-start gap-2.5 pb-2.5 border-b border-[#1e3a5f]/40 last:border-0">
@@ -374,14 +335,14 @@ function AutomationContent() {
                       <p className="text-[11px] text-[#8ba3c7] leading-snug">{log.result}</p>
                       <div className="flex items-center gap-1 mt-1 text-[10px] text-[#6b87ab]">
                         <Clock size={9} />
-                        <span>{new Date(log.at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}</span>
+                        <span>{new Date(log.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}</span>
                       </div>
                     </div>
                   </div>
                 );
               })}
-              {logs.length === 0 && (
-                <div className="text-center py-8 text-[#8ba3c7] text-sm">لا توجد سجلات بعد</div>
+              {dbLogs.length === 0 && (
+                <div className="text-center py-8 text-[#8ba3c7] text-sm">لا توجد سجلات بعد — اضغط تشغيل على أي قاعدة</div>
               )}
             </div>
           </div>
@@ -393,19 +354,19 @@ function AutomationContent() {
             <h3 className="text-white font-medium flex items-center gap-2">
               <BarChart3 size={16} className="text-[#22d3ee]" />
               ملخص التقرير الأسبوعي
-              <span className="badge bg-[#1a3356] text-[#8ba3c7] text-xs">جاهز للذكاء الاصطناعي</span>
+              <span className="badge bg-[#1a3356] text-[#8ba3c7] text-xs">بيانات حية من Supabase</span>
             </h3>
             <div className="flex items-center gap-1 text-xs text-emerald-400">
               <ArrowUpRight size={12} />
-              <span>بيانات حية من النظام</span>
+              <span>يتحدث تلقائياً</span>
             </div>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: "العملاء النشطون",  value: weeklyStats.activeClients,                            color: "#22d3ee" },
-              { label: "المهام المكتملة",  value: weeklyStats.completedTasks,                           color: "#10b981" },
-              { label: "المهام المتأخرة",  value: weeklyStats.lateTasks,                                color: "#ef4444" },
-              { label: "إجمالي الإيرادات", value: `${formatCurrency(weeklyStats.totalIncome)} SAR`,    color: "#ff7a3d" },
+              { label: "العملاء النشطون",  value: weeklyStats.activeClients,                          color: "#22d3ee" },
+              { label: "المهام المكتملة",  value: weeklyStats.completedTasks,                         color: "#10b981" },
+              { label: "المهام المتأخرة",  value: weeklyStats.lateTasks,                              color: "#ef4444" },
+              { label: "إجمالي الإيرادات", value: `${formatCurrency(weeklyStats.totalIncome)} SAR`,   color: "#ff7a3d" },
             ].map((s) => (
               <div key={s.label} className="p-3 rounded-xl bg-[#0d1f3c]/60 border border-[#1e3a5f]">
                 <div className="text-base font-bold" style={{ color: s.color }}>{s.value}</div>

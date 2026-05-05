@@ -3,7 +3,7 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { DEPARTMENTS } from "@/lib/utils";
-import { Users, Plus, Search, Star, Edit2, Trash2, X } from "lucide-react";
+import { Users, Plus, Search, Star, Edit2, Trash2, X, Eye, EyeOff } from "lucide-react";
 import { usePermissions, ROLE_LABELS, UserRole } from "@/contexts/PermissionsContext";
 import { useEmployees } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
@@ -43,6 +43,7 @@ const SYSTEM_ROLES = Object.keys(SYS_ROLE_LABELS) as UserRole[];
 type FormState = {
   name:       string;
   email:      string;
+  password:   string;
   phone:      string;
   department: string;
   role:       UserRole;
@@ -61,8 +62,9 @@ function EmployeesContent() {
   const [showModal,  setShowModal]  = useState(false);
   const [editId,     setEditId]     = useState<string | null>(null);
   const [saving,     setSaving]     = useState(false);
+  const [showPass,   setShowPass]   = useState(false);
   const [form, setForm] = useState<FormState>({
-    name: "", email: "", phone: "", department: "الإدارة",
+    name: "", email: "", password: "", phone: "", department: "الإدارة",
     role: "employee", status: "نشط", salary: "",
   });
 
@@ -74,7 +76,8 @@ function EmployeesContent() {
 
   const openAdd = () => {
     setEditId(null);
-    setForm({ name: "", email: "", phone: "", department: "الإدارة", role: "employee", status: "نشط", salary: "" });
+    setForm({ name: "", email: "", password: "", phone: "", department: "الإدارة", role: "employee", status: "نشط", salary: "" });
+    setShowPass(false);
     setShowModal(true);
   };
 
@@ -83,12 +86,14 @@ function EmployeesContent() {
     setForm({
       name:       emp.name,
       email:      emp.email,
+      password:   "",
       phone:      emp.phone || "",
       department: emp.department,
       role:       emp.role as UserRole,
       status:     emp.status,
       salary:     String(emp.salary ?? ""),
     });
+    setShowPass(false);
     setShowModal(true);
   };
 
@@ -97,6 +102,14 @@ function EmployeesContent() {
   const handleSave = async () => {
     if (!form.name.trim() || !form.email.trim()) {
       toast.error("الاسم والبريد الإلكتروني مطلوبان");
+      return;
+    }
+    if (!editId && !form.password.trim()) {
+      toast.error("كلمة المرور مطلوبة لإنشاء حساب جديد");
+      return;
+    }
+    if (!editId && form.password.length < 6) {
+      toast.error("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
       return;
     }
     setSaving(true);
@@ -113,8 +126,35 @@ function EmployeesContent() {
         });
         toast.success("تم تحديث بيانات الموظف بنجاح");
       } else {
-        // Insert directly into employees table — no Auth creation needed
+        // Try real Auth user creation first
+        let authUserId: string | null = null;
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData.session?.access_token;
+          const res = await fetch("/api/admin/create-user", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
+            body: JSON.stringify({
+              email:      form.email,
+              password:   form.password,
+              name:       form.name,
+              role:       form.role,
+              department: form.department,
+            }),
+          });
+          const json = await res.json();
+          if (res.ok && json.id) {
+            authUserId = json.id;
+          } else {
+            console.warn("[Employee Auth Create]", json.error ?? "API error — falling back to direct insert");
+          }
+        } catch (apiErr) {
+          console.warn("[Employee Auth Create] API unreachable:", apiErr);
+        }
+
+        // Insert into employees table (with or without linked auth id)
         const { error: insertErr } = await supabase.from("employees").insert([{
+          id:              authUserId ?? undefined,
           name:            form.name,
           email:           form.email,
           phone:           form.phone || null,
@@ -129,7 +169,7 @@ function EmployeesContent() {
         }]);
         if (insertErr) throw new Error(insertErr.message);
         await refetch();
-        toast.success(`تمت إضافة ${form.name} بنجاح`);
+        toast.success(authUserId ? `تمت إضافة ${form.name} وإنشاء حساب الدخول بنجاح` : `تمت إضافة ${form.name} بنجاح`);
       }
       closeModal();
     } catch (err) {
@@ -322,6 +362,29 @@ function EmployeesContent() {
                     disabled={!!editId} />
                 </div>
               </div>
+
+              {!editId && (
+                <div>
+                  <label className="block text-xs text-[#8ba3c7] mb-1.5">كلمة المرور *</label>
+                  <div className="relative">
+                    <input
+                      className="input-dark text-sm pl-10"
+                      type={showPass ? "text" : "password"}
+                      placeholder="6 أحرف على الأقل"
+                      value={form.password}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass((p) => !p)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] hover:text-white"
+                    >
+                      {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[#6b87ab] mt-1">سيتم إنشاء حساب دخول حقيقي بالبريد وكلمة المرور</p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>

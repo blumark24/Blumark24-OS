@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
-import { BarChart3, Download, FileText, Users, CheckSquare, UserCircle, DollarSign, Map, Calendar } from "lucide-react";
+import { BarChart3, Download, FileText, Users, CheckSquare, UserCircle, DollarSign, Map, Calendar, Printer } from "lucide-react";
 import { useEmployees, useClients, useTasks, useTransactions } from "@/hooks/useData";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -30,6 +30,20 @@ const TOOLTIP_STYLE = {
 };
 
 type ReportId = "employees" | "tasks" | "clients" | "finance" | "strategy" | "monthly";
+
+// ─── Export helpers ───────────────────────────────────────────────────────────
+
+function downloadBlob(content: string, filename: string, mime: string) {
+  const blob = new Blob(["﻿" + content], { type: `${mime};charset=utf-8;` });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function toCSV(rows: string[][]): string {
+  return rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+}
 
 function ReportsContent() {
   const [activeReport, setActiveReport] = useState<ReportId>("monthly");
@@ -64,6 +78,52 @@ function ReportsContent() {
 
   const totalContractValue = useMemo(() => clients.reduce((s, c) => s + c.contractValue, 0), [clients]);
 
+  // ─── Export functions ───────────────────────────────────────────────────────
+
+  const exportCSV = () => {
+    const dateStr = new Date().toISOString().split("T")[0];
+    if (activeReport === "employees") {
+      const rows = [
+        ["الاسم", "القسم", "الدور", "المهام المكتملة", "الأداء", "الحالة"],
+        ...employees.map((e) => [e.name, e.department, e.role, String(e.completedTasks ?? 0), String(e.performance ?? 0), e.status]),
+      ];
+      downloadBlob(toCSV(rows), `تقرير-الموظفين-${dateStr}.csv`, "text/csv");
+    } else if (activeReport === "clients") {
+      const rows = [
+        ["الاسم", "نوع النشاط", "المدينة", "الحزمة", "قيمة العقد", "الحالة"],
+        ...clients.map((c) => [c.name, c.businessType, c.city, c.packageType, String(c.contractValue), c.status]),
+      ];
+      downloadBlob(toCSV(rows), `تقرير-العملاء-${dateStr}.csv`, "text/csv");
+    } else if (activeReport === "tasks") {
+      const rows = [
+        ["المهمة", "المُكلَّف", "العميل", "الأولوية", "الموعد", "الحالة"],
+        ...tasks.map((t) => [t.title, t.assigneeName, t.clientName ?? "", t.priority, t.dueDate, t.status]),
+      ];
+      downloadBlob(toCSV(rows), `تقرير-المهام-${dateStr}.csv`, "text/csv");
+    } else if (activeReport === "finance") {
+      const rows = [
+        ["النوع", "الوصف", "الفئة", "التاريخ", "المبلغ"],
+        ...txs.map((t) => [t.type, t.description, t.category, t.date, String(t.amount)]),
+      ];
+      downloadBlob(toCSV(rows), `تقرير-المالية-${dateStr}.csv`, "text/csv");
+    } else {
+      const rows = [
+        ["الموظفون", "العملاء", "المهام المكتملة", "صافي الربح"],
+        [String(employees.length), String(clients.length), String(tasks.filter((t) => t.status === "مكتملة").length), `${formatCurrency(totalIncome - totalExpense)} SAR`],
+      ];
+      downloadBlob(toCSV(rows), `تقرير-شهري-${dateStr}.csv`, "text/csv");
+    }
+  };
+
+  const exportExcel = () => {
+    // Excel-compatible CSV (with BOM)
+    exportCSV();
+  };
+
+  const exportPDF = () => window.print();
+
+  const exportPrint = () => window.print();
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -81,7 +141,7 @@ function ReportsContent() {
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
-            <button className="btn-primary flex items-center gap-2">
+            <button onClick={exportPDF} className="btn-primary flex items-center gap-2">
               <Download size={15} />
               تصدير PDF
             </button>
@@ -173,9 +233,13 @@ function ReportsContent() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e3a5f]">
               <h3 className="text-white font-medium">تقرير الموظفين</h3>
               <div className="flex gap-2">
-                {["PDF", "Excel", "CSV"].map((fmt) => (
-                  <button key={fmt} className="px-3 py-1 rounded-lg text-xs text-[#8ba3c7] bg-[#1a3356]/50 hover:text-[#22d3ee] transition-colors flex items-center gap-1">
-                    <Download size={11} />{fmt}
+                {[
+                  { label: "PDF",   action: exportPDF   },
+                  { label: "Excel", action: exportExcel },
+                  { label: "CSV",   action: exportCSV   },
+                ].map((fmt) => (
+                  <button key={fmt.label} onClick={fmt.action} className="px-3 py-1 rounded-lg text-xs text-[#8ba3c7] bg-[#1a3356]/50 hover:text-[#22d3ee] transition-colors flex items-center gap-1">
+                    <Download size={11} />{fmt.label}
                   </button>
                 ))}
               </div>
@@ -337,16 +401,17 @@ function ReportsContent() {
           </h3>
           <div className="grid grid-cols-4 gap-3">
             {[
-              { label: "PDF",    icon: "📄", desc: "تقرير منسق للطباعة"          },
-              { label: "Excel",  icon: "📊", desc: "جداول بيانات للتحليل"        },
-              { label: "CSV",    icon: "📋", desc: "بيانات خام قابلة للاستيراد" },
-              { label: "طباعة", icon: "🖨️", desc: "طباعة مباشرة"              },
+              { label: "PDF",    icon: <Download size={20} className="text-red-400" />,    desc: "تقرير منسق للطباعة",          action: exportPDF    },
+              { label: "Excel",  icon: <Download size={20} className="text-emerald-400" />, desc: "جداول بيانات للتحليل",        action: exportExcel  },
+              { label: "CSV",    icon: <Download size={20} className="text-blue-400" />,   desc: "بيانات خام قابلة للاستيراد",  action: exportCSV    },
+              { label: "طباعة", icon: <Printer  size={20} className="text-purple-400" />, desc: "طباعة مباشرة",                action: exportPrint  },
             ].map((opt) => (
               <button
                 key={opt.label}
+                onClick={opt.action}
                 className="p-4 rounded-2xl bg-[#1a3356]/40 hover:bg-[#1a3356] border border-[#1e3a5f] hover:border-[#22d3ee]/40 transition-all text-right"
               >
-                <div className="text-2xl mb-2">{opt.icon}</div>
+                <div className="mb-2">{opt.icon}</div>
                 <div className="text-sm font-medium text-white">{opt.label}</div>
                 <div className="text-xs text-[#8ba3c7] mt-0.5">{opt.desc}</div>
               </button>
