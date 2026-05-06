@@ -23,6 +23,8 @@ import {
 } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { getSystemSettings, setSystemSetting } from "@/lib/db";
+import { useAutomations } from "@/hooks/useData";
+import { withTimeout } from "@/lib/asyncHelpers";
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -36,17 +38,16 @@ const TABS = [
   { id: "appearance",   label: "المظهر",            icon: Palette   },
 ];
 
-// ─── Automation summary ────────────────────────────────────────────────────────
-
-const AUTOMATION_RULES_SUMMARY = [
-  { id: "fund-dist",    label: "توزيع الصندوق التلقائي",    trigger: "يومي",    enabled: true,  lastRun: "اليوم 09:00"    },
-  { id: "task-reminder",label: "تذكيرات المهام",           trigger: "يومي",    enabled: true,  lastRun: "اليوم 08:00"    },
-  { id: "late-task",    label: "كشف المهام المتأخرة",      trigger: "كل ساعة", enabled: true,  lastRun: "منذ ساعة"       },
-  { id: "client-followup",label: "متابعة العملاء",         trigger: "أسبوعي",  enabled: false, lastRun: "منذ 7 أيام"     },
-  { id: "kpi-update",   label: "تحديث مؤشرات الأداء",     trigger: "كل ساعة", enabled: true,  lastRun: "منذ 30 دقيقة"   },
-  { id: "weekly-report",label: "التقرير الأسبوعي",        trigger: "أسبوعي",  enabled: true,  lastRun: "الإثنين الماضي" },
-  { id: "workload",     label: "حساب عبء العمل",           trigger: "يومي",    enabled: false, lastRun: "منذ 3 أيام"     },
-];
+// Static trigger labels per automation id
+const RULE_TRIGGERS: Record<string, string> = {
+  "fund-dist":      "عند إضافة دخل",
+  "task-reminder":  "قبل 24 ساعة من الموعد",
+  "late-tasks":     "يومياً منتصف الليل",
+  "client-followup":"يومياً الساعة 9 صباحاً",
+  "workload":       "كل ساعتين",
+  "kpi-update":     "كل 15 دقيقة",
+  "weekly-report":  "كل إثنين 8 صباحاً",
+};
 
 const DEPARTMENTS = ["الإدارة العليا", "وكالة الدفاع", "وكالة الهجوم", "المالية", "تقنية المعلومات"];
 
@@ -78,7 +79,7 @@ function AddUserBanner({ onClose }: { onClose: () => void }) {
 // ─── Permissions Tab ──────────────────────────────────────────────────────────
 
 function PermissionsTab() {
-  const { managedUsers, rolePermissions, updateUserRole, toggleUserStatus, updateRolePermissions } = usePermissions();
+  const { managedUsers, rolePermissions, updateUserRole, toggleUserStatus, savePermissions } = usePermissions();
   const toast  = useToast();
   const [selectedRole,   setSelectedRole]   = useState<UserRole>("super_admin");
   const [localPerms,     setLocalPerms]     = useState<Record<UserRole, Permission[]>>({ ...rolePermissions });
@@ -101,12 +102,16 @@ function PermissionsTab() {
   const handleSavePerms = async () => {
     setSavingPerms(true);
     try {
-      Object.entries(localPerms).forEach(([role, perms]) => {
-        updateRolePermissions(role as UserRole, perms);
-      });
-      toast.success("تم حفظ الصلاحيات بنجاح");
+      // savePermissions updates state AND persists to DB in one atomic call
+      await withTimeout(
+        savePermissions(localPerms as Record<UserRole, Permission[]>),
+        12_000,
+        "انتهت مهلة حفظ الصلاحيات — تحقق من الاتصال"
+      );
+      toast.success("تم حفظ الصلاحيات في قاعدة البيانات بنجاح");
     } catch (err) {
-      toast.error("حدث خطأ أثناء حفظ الصلاحيات");
+      const msg = err instanceof Error ? err.message : "حدث خطأ أثناء حفظ الصلاحيات";
+      toast.error(msg);
       console.error("[Permissions Save Error]", err);
     } finally {
       setSavingPerms(false);
@@ -284,7 +289,9 @@ function SettingsContent() {
   });
   const [darkMode, setDarkMode] = useState(true);
   const [notifs,   setNotifs]   = useState({ tasks: true, clients: true, finance: true, weekly: true, email: false });
-  const [automationRules, setAutomationRules] = useState(AUTOMATION_RULES_SUMMARY);
+
+  // Real automation data from DB
+  const { data: automationsDB, toggle: toggleAutomation } = useAutomations();
 
   // Load settings from Supabase on mount
   useEffect(() => {
@@ -298,26 +305,34 @@ function SettingsContent() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await Promise.all([
-        setSystemSetting("company_info",  companyForm),
-        setSystemSetting("notifications", notifs),
-        setSystemSetting("appearance",    { darkMode }),
-      ]);
+      await withTimeout(
+        Promise.all([
+          setSystemSetting("company_info",  companyForm),
+          setSystemSetting("notifications", notifs),
+          setSystemSetting("appearance",    { darkMode }),
+        ]),
+        12_000,
+        "انتهت مهلة حفظ الإعدادات — تحقق من الاتصال"
+      );
       setSaved(true);
       toast.success("تم حفظ الإعدادات بنجاح");
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      toast.error("حدث خطأ أثناء حفظ الإعدادات");
+      const msg = err instanceof Error ? err.message : "حدث خطأ أثناء حفظ الإعدادات";
+      toast.error(msg);
       console.error("[Settings Save Error]", err);
     } finally {
       setSaving(false);
     }
   };
 
-  const toggleRule = (id: string) => {
-    setAutomationRules((prev) => prev.map((r) => r.id === id ? { ...r, enabled: !r.enabled } : r));
-    const rule = automationRules.find((r) => r.id === id);
-    if (rule) toast.info(rule.enabled ? `تم إيقاف "${rule.label}"` : `تم تفعيل "${rule.label}"`);
+  const toggleRule = async (id: string, currentEnabled: boolean) => {
+    try {
+      await withTimeout(toggleAutomation(id, !currentEnabled), 8_000, "انتهت مهلة تحديث الأتمتة");
+      toast.info(currentEnabled ? `تم إيقاف القاعدة` : `تم تفعيل القاعدة`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "حدث خطأ أثناء تحديث الأتمتة");
+    }
   };
 
   return (
@@ -467,9 +482,9 @@ function SettingsContent() {
 
                 <div className="grid grid-cols-3 gap-4">
                   {[
-                    { label: "قواعد مفعّلة",  value: automationRules.filter((r) => r.enabled).length,  color: "#22d3ee" },
-                    { label: "قواعد موقوفة",  value: automationRules.filter((r) => !r.enabled).length, color: "#ff7a3d" },
-                    { label: "إجمالي القواعد",value: automationRules.length,                            color: "#8ba3c7" },
+                    { label: "قواعد مفعّلة",  value: automationsDB.filter((r) => r.enabled).length,  color: "#22d3ee" },
+                    { label: "قواعد موقوفة",  value: automationsDB.filter((r) => !r.enabled).length, color: "#ff7a3d" },
+                    { label: "إجمالي القواعد",value: automationsDB.length,                            color: "#8ba3c7" },
                   ].map((s) => (
                     <div key={s.label} className="glass-card p-4 text-center">
                       <div className="text-3xl font-bold font-heading mb-1" style={{ color: s.color }}>{s.value}</div>
@@ -484,18 +499,24 @@ function SettingsContent() {
                     <h3 className="text-white font-medium">قواعد الأتمتة</h3>
                   </div>
                   <div className="divide-y divide-[#1e3a5f]/40">
-                    {automationRules.map((rule) => (
+                    {automationsDB.map((rule) => (
                       <div key={rule.id} className="flex items-center justify-between px-5 py-4 hover:bg-[#1a3356]/20 transition-colors">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-white font-medium text-sm">{rule.label}</span>
+                            <span className="text-white font-medium text-sm">{rule.title}</span>
                             <span className="badge bg-[#1e3a5f] text-[#8ba3c7] text-xs flex items-center gap-1">
-                              <Clock size={10} /> {rule.trigger}
+                              <Clock size={10} /> {RULE_TRIGGERS[rule.id] ?? "—"}
                             </span>
                           </div>
-                          <div className="text-[10px] text-[#4a6a99] mt-1">آخر تشغيل: {rule.lastRun}</div>
+                          <div className="text-[10px] text-[#4a6a99] mt-1">
+                            آخر تشغيل: {rule.lastRun ? new Date(rule.lastRun).toLocaleString("ar-SA") : "لم يُشغَّل بعد"}
+                          </div>
                         </div>
-                        <button onClick={() => toggleRule(rule.id)} className="transition-colors">
+                        <button
+                          onClick={() => toggleRule(rule.id, rule.enabled)}
+                          className="transition-colors"
+                          aria-label={rule.enabled ? "إيقاف القاعدة" : "تفعيل القاعدة"}
+                        >
                           {rule.enabled
                             ? <ToggleRight size={28} className="text-[#22d3ee]" />
                             : <ToggleLeft  size={28} className="text-[#4a6a99]"  />
@@ -503,6 +524,11 @@ function SettingsContent() {
                         </button>
                       </div>
                     ))}
+                    {automationsDB.length === 0 && (
+                      <div className="px-5 py-8 text-center text-[#8ba3c7] text-sm">
+                        لا توجد قواعد — تأكد من تشغيل migration 004 في Supabase
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

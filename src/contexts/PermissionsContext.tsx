@@ -146,7 +146,13 @@ interface PermissionsContextValue {
   toggleUserStatus:      (userId: string) => void;
   addManagedUser:        (user: Omit<ManagedUser, "userId">) => void;
   updateRolePermissions: (role: UserRole, perms: Permission[]) => void;
-  saveAll:               () => void;
+  /** Save current rolePermissions state to DB */
+  saveAll:               () => Promise<void>;
+  /**
+   * Update all permissions from `perms` (bypasses React state lag) and
+   * persist to DB atomically.  Use this from the settings save handler.
+   */
+  savePermissions:       (perms: Record<UserRole, Permission[]>) => Promise<void>;
 }
 
 const PermissionsContext = createContext<PermissionsContextValue>({
@@ -158,7 +164,8 @@ const PermissionsContext = createContext<PermissionsContextValue>({
   toggleUserStatus:      () => {},
   addManagedUser:        () => {},
   updateRolePermissions: () => {},
-  saveAll:               () => {},
+  saveAll:               async () => {},
+  savePermissions:       async () => {},
 });
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -257,15 +264,31 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  // Persist all role permissions to DB (called by settings page Save button)
+  // Persist all role permissions to DB using the current state
   const saveAll = useCallback(async () => {
     const rows = ALL_ROLES.map((role) => ({
       role,
       permissions: rolePermissions[role] ?? [],
       updated_at: new Date().toISOString(),
     }));
-    await supabase.from("role_permissions").upsert(rows, { onConflict: "role" });
+    const { error } = await supabase.from("role_permissions").upsert(rows, { onConflict: "role" });
+    if (error) throw new Error(error.message);
   }, [rolePermissions]);
+
+  // Persist permissions from an explicit map (avoids React state lag when called
+  // immediately after multiple updateRolePermissions() calls)
+  const savePermissions = useCallback(async (perms: Record<UserRole, Permission[]>) => {
+    // Update state for all roles
+    setRolePermissions((prev) => ({ ...prev, ...perms }));
+    // Persist directly from the provided map — no state read lag
+    const rows = ALL_ROLES.map((role) => ({
+      role,
+      permissions: perms[role] ?? [],
+      updated_at: new Date().toISOString(),
+    }));
+    const { error } = await supabase.from("role_permissions").upsert(rows, { onConflict: "role" });
+    if (error) throw new Error(error.message);
+  }, []);
 
   return (
     <PermissionsContext.Provider
@@ -279,6 +302,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         addManagedUser,
         updateRolePermissions,
         saveAll,
+        savePermissions,
       }}
     >
       {children}

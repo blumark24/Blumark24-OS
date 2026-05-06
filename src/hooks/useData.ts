@@ -10,8 +10,14 @@ import {
   logActivity,
   createNotification,
 } from "@/lib/db";
+import { withTimeout, withSoftTimeout } from "@/lib/asyncHelpers";
 import type { Client, Task, Transaction, Employee, Project, Activity, StrategyPhase } from "@/types";
 import type { BoardMember } from "@/lib/db";
+
+// Timeout constants (ms)
+const DB_WRITE_TIMEOUT  = 12_000; // INSERT/UPDATE/DELETE operations
+const DB_READ_TIMEOUT   = 15_000; // SELECT / initial fetch
+const REFETCH_TIMEOUT   = 6_000;  // post-write refetch (soft — resolves on expiry)
 
 // ─── camelCase ↔ snake_case mappers ──────────────────────────────────────────
 
@@ -198,7 +204,7 @@ function useAsyncData<T>(fetcher: () => Promise<T>, fallback: T) {
     setLoading(true);
     setError(null);
     try {
-      setData(await fetcher());
+      setData(await withTimeout(fetcher(), DB_READ_TIMEOUT, "انتهت مهلة تحميل البيانات — تحقق من الاتصال"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "حدث خطأ في تحميل البيانات");
       setData(fallback);
@@ -245,31 +251,35 @@ export function useClients() {
   }, [refetch]);
 
   const insert = useCallback(async (item: Omit<Client, "id" | "createdAt">) => {
-    const { error } = await supabase.from("clients").insert([clientToDB(item)]);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("clients").insert([clientToDB(item)])),
+      DB_WRITE_TIMEOUT, "انتهت مهلة إضافة العميل"
+    );
     if (error) throw new Error(error.message);
-    await Promise.all([
-      refetch(),
-      logActivity("client", `تمت إضافة عميل جديد: ${item.name}`, "👤"),
-      createNotification("client_followup", "عميل جديد", `تمت إضافة العميل ${item.name}`, "/clients"),
-    ]);
+    // Soft-timeout refetch so a slow DB doesn't block the save response
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
+    logActivity("client", `تمت إضافة عميل جديد: ${item.name}`, "👤");
+    createNotification("client_followup", "عميل جديد", `تمت إضافة العميل ${item.name}`, "/clients");
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Client>) => {
-    const { error } = await supabase.from("clients").update(clientUpdateToDB(changes)).eq("id", id);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("clients").update(clientUpdateToDB(changes)).eq("id", id)),
+      DB_WRITE_TIMEOUT, "انتهت مهلة تحديث العميل"
+    );
     if (error) throw new Error(error.message);
-    await Promise.all([
-      refetch(),
-      logActivity("client", `تم تحديث بيانات العميل`, "✏️"),
-    ]);
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
+    logActivity("client", `تم تحديث بيانات العميل`, "✏️");
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
-    const { error } = await supabase.from("clients").delete().eq("id", id);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("clients").delete().eq("id", id)),
+      DB_WRITE_TIMEOUT, "انتهت مهلة حذف العميل"
+    );
     if (error) throw new Error(error.message);
-    await Promise.all([
-      refetch(),
-      logActivity("client", `تم حذف عميل`, "🗑️"),
-    ]);
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
+    logActivity("client", `تم حذف عميل`, "🗑️");
   }, [refetch]);
 
   return { ...result, insert, update, remove };
@@ -299,31 +309,34 @@ export function useTasks() {
   }, [refetch]);
 
   const insert = useCallback(async (item: Omit<Task, "id" | "createdAt">) => {
-    const { error } = await supabase.from("tasks").insert([taskToDB(item)]);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("tasks").insert([taskToDB(item)])),
+      DB_WRITE_TIMEOUT, "انتهت مهلة إضافة المهمة"
+    );
     if (error) throw new Error(error.message);
-    await Promise.all([
-      refetch(),
-      logActivity("task", `تمت إضافة مهمة جديدة: ${item.title}`, "✅"),
-      createNotification("task_due", "مهمة جديدة", `تمت إضافة المهمة: ${item.title}`, "/tasks"),
-    ]);
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
+    logActivity("task", `تمت إضافة مهمة جديدة: ${item.title}`, "✅");
+    createNotification("task_due", "مهمة جديدة", `تمت إضافة المهمة: ${item.title}`, "/tasks");
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Task>) => {
-    const { error } = await supabase.from("tasks").update(taskUpdateToDB(changes)).eq("id", id);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("tasks").update(taskUpdateToDB(changes)).eq("id", id)),
+      DB_WRITE_TIMEOUT, "انتهت مهلة تحديث المهمة"
+    );
     if (error) throw new Error(error.message);
-    await Promise.all([
-      refetch(),
-      logActivity("task", `تم تحديث حالة المهمة${changes.status ? `: ${changes.status}` : ""}`, "🔄"),
-    ]);
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
+    logActivity("task", `تم تحديث حالة المهمة${changes.status ? `: ${changes.status}` : ""}`, "🔄");
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
-    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("tasks").delete().eq("id", id)),
+      DB_WRITE_TIMEOUT, "انتهت مهلة حذف المهمة"
+    );
     if (error) throw new Error(error.message);
-    await Promise.all([
-      refetch(),
-      logActivity("task", `تم حذف مهمة`, "🗑️"),
-    ]);
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
+    logActivity("task", `تم حذف مهمة`, "🗑️");
   }, [refetch]);
 
   return { ...result, insert, update, remove };
@@ -353,31 +366,34 @@ export function useTransactions() {
   }, [refetch]);
 
   const insert = useCallback(async (item: Omit<Transaction, "id">) => {
-    const { error } = await supabase.from("transactions").insert([item]);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("transactions").insert([item])),
+      DB_WRITE_TIMEOUT, "انتهت مهلة إضافة المعاملة"
+    );
     if (error) throw new Error(error.message);
-    await Promise.all([
-      refetch(),
-      logActivity("finance", `${item.type === "دخل" ? "دخل" : "مصروف"} جديد: ${item.description} (${item.amount} SAR)`, item.type === "دخل" ? "💰" : "💸"),
-      createNotification("invoice_due", `معاملة مالية جديدة`, `${item.type}: ${item.description} — ${item.amount} SAR`, "/finance"),
-    ]);
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
+    logActivity("finance", `${item.type === "دخل" ? "دخل" : "مصروف"} جديد: ${item.description} (${item.amount} SAR)`, item.type === "دخل" ? "💰" : "💸");
+    createNotification("invoice_due", "معاملة مالية جديدة", `${item.type}: ${item.description} — ${item.amount} SAR`, "/finance");
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Omit<Transaction, "id">>) => {
-    const { error } = await supabase.from("transactions").update(changes).eq("id", id);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("transactions").update(changes).eq("id", id)),
+      DB_WRITE_TIMEOUT, "انتهت مهلة تحديث المعاملة"
+    );
     if (error) throw new Error(error.message);
-    await Promise.all([
-      refetch(),
-      logActivity("finance", `تم تحديث معاملة مالية`, "✏️"),
-    ]);
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
+    logActivity("finance", "تم تحديث معاملة مالية", "✏️");
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
-    const { error } = await supabase.from("transactions").delete().eq("id", id);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("transactions").delete().eq("id", id)),
+      DB_WRITE_TIMEOUT, "انتهت مهلة حذف المعاملة"
+    );
     if (error) throw new Error(error.message);
-    await Promise.all([
-      refetch(),
-      logActivity("finance", `تم حذف معاملة مالية`, "🗑️"),
-    ]);
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
+    logActivity("finance", "تم حذف معاملة مالية", "🗑️");
   }, [refetch]);
 
   return { ...result, insert, update, remove };
@@ -407,30 +423,33 @@ export function useEmployees() {
   }, [refetch]);
 
   const insert = useCallback(async (item: Omit<Employee, "id">) => {
-    const { error } = await supabase.from("employees").insert([employeeToDB(item)]);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("employees").insert([employeeToDB(item)])),
+      DB_WRITE_TIMEOUT, "انتهت مهلة إضافة الموظف"
+    );
     if (error) throw new Error(error.message);
-    await Promise.all([
-      refetch(),
-      logActivity("employee", `تمت إضافة موظف جديد: ${item.name}`, "👥"),
-    ]);
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
+    logActivity("employee", `تمت إضافة موظف جديد: ${item.name}`, "👥");
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Employee>) => {
-    const { error } = await supabase.from("employees").update(employeeUpdateToDB(changes)).eq("id", id);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("employees").update(employeeUpdateToDB(changes)).eq("id", id)),
+      DB_WRITE_TIMEOUT, "انتهت مهلة تحديث الموظف"
+    );
     if (error) throw new Error(error.message);
-    await Promise.all([
-      refetch(),
-      logActivity("employee", `تم تحديث بيانات موظف`, "✏️"),
-    ]);
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
+    logActivity("employee", "تم تحديث بيانات موظف", "✏️");
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
-    const { error } = await supabase.from("employees").delete().eq("id", id);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("employees").delete().eq("id", id)),
+      DB_WRITE_TIMEOUT, "انتهت مهلة حذف الموظف"
+    );
     if (error) throw new Error(error.message);
-    await Promise.all([
-      refetch(),
-      logActivity("employee", `تم حذف موظف`, "🗑️"),
-    ]);
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
+    logActivity("employee", "تم حذف موظف", "🗑️");
   }, [refetch]);
 
   return { ...result, insert, update, remove };
@@ -482,19 +501,20 @@ export function useBoardMembers() {
   }, [refetch]);
 
   const insert = useCallback(async (item: Omit<BoardMember, "id">) => {
-    const newMember = await insertBoardMember(item);
-    await refetch();
+    const newMember = await withTimeout(insertBoardMember(item), DB_WRITE_TIMEOUT, "انتهت مهلة إضافة عضو مجلس الإدارة");
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
+    logActivity("employee", `تمت إضافة عضو مجلس: ${item.name}`, "🏛️");
     return newMember;
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Omit<BoardMember, "id">>) => {
-    await updateBoardMember(id, changes);
-    await refetch();
+    await withTimeout(updateBoardMember(id, changes), DB_WRITE_TIMEOUT, "انتهت مهلة تحديث عضو مجلس الإدارة");
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
-    await deleteBoardMember(id);
-    await refetch();
+    await withTimeout(deleteBoardMember(id), DB_WRITE_TIMEOUT, "انتهت مهلة حذف عضو مجلس الإدارة");
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
   }, [refetch]);
 
   return { ...result, insert, update, remove };
@@ -568,12 +588,12 @@ export function useStrategyPhases() {
   }, [refetch]);
 
   const update = useCallback(async (id: number, changes: Partial<StrategyPhase>) => {
-    const { error } = await supabase
-      .from("strategy_phases")
-      .update(strategyPhaseUpdateToDB(changes))
-      .eq("id", id);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("strategy_phases").update(strategyPhaseUpdateToDB(changes)).eq("id", id)),
+      DB_WRITE_TIMEOUT, "انتهت مهلة تحديث المرحلة"
+    );
     if (error) throw new Error(error.message);
-    await refetch();
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
   }, [refetch]);
 
   return { ...result, update };
@@ -673,28 +693,32 @@ export function useAutomations() {
   }, [refetch]);
 
   const toggle = useCallback(async (id: string, enabled: boolean) => {
-    const { error } = await supabase
-      .from("automations")
-      .update({ enabled, updated_at: new Date().toISOString() })
-      .eq("id", id);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("automations").update({ enabled, updated_at: new Date().toISOString() }).eq("id", id)),
+      DB_WRITE_TIMEOUT, "انتهت مهلة تحديث الأتمتة"
+    );
     if (error) throw new Error(error.message);
-    await refetch();
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
   }, [refetch]);
 
   const updateRunStats = useCallback(async (id: string, currentCount: number, logEntry: { rule_title: string; result: string; status: "success" | "warning" | "error" }) => {
-    const { error } = await supabase.from("automations").update({
-      last_run:   new Date().toISOString(),
-      run_count:  currentCount + 1,
-      updated_at: new Date().toISOString(),
-    }).eq("id", id);
+    const { error } = await withTimeout(
+      Promise.resolve(supabase.from("automations").update({
+        last_run: new Date().toISOString(),
+        run_count: currentCount + 1,
+        updated_at: new Date().toISOString(),
+      }).eq("id", id)),
+      DB_WRITE_TIMEOUT, "انتهت مهلة تسجيل الأتمتة"
+    );
     if (error) throw new Error(error.message);
-    await supabase.from("automation_logs").insert([{
+    // Log entry is fire-and-forget — don't block on it
+    supabase.from("automation_logs").insert([{
       rule_id:    id,
       rule_title: logEntry.rule_title,
       result:     logEntry.result,
       status:     logEntry.status,
     }]);
-    await refetch();
+    await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
   }, [refetch]);
 
   return { ...result, toggle, updateRunStats };
