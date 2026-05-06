@@ -5,6 +5,7 @@ import { ToastProvider } from "@/contexts/ToastContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { MessagesProvider } from "@/contexts/MessagesContext";
 import { PermissionsProvider } from "@/contexts/PermissionsContext";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: "Blumark24 OS – نظام إدارة الأعمال بالذكاء الاصطناعي",
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </PermissionsProvider>
           </AuthProvider>
         </ToastProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
