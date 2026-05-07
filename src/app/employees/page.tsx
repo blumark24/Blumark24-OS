@@ -8,7 +8,8 @@ import { usePermissions, ROLE_LABELS, UserRole } from "@/contexts/PermissionsCon
 import { useEmployees } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import PageGuard from "@/components/ui/PageGuard";
-import { supabase } from "@/lib/supabase"; // needed for getSession()
+import { createAuthUser, deleteAuthUser } from "@/lib/db";
+import { withSoftTimeout } from "@/lib/asyncHelpers";
 
 const statusBadge = (status: string) =>
   status === "نشط" ? "status-active" : "status-inactive";
@@ -126,42 +127,24 @@ function EmployeesContent() {
         });
         toast.success("تم تحديث بيانات الموظف بنجاح");
       } else {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData.session?.access_token;
-        if (!token) throw new Error("لم يتم العثور على جلسة المستخدم — يرجى تسجيل الدخول مجدداً");
-
-        const controller = new AbortController();
-        const timeoutId  = setTimeout(() => controller.abort(), 10000);
-        let res: Response;
-        try {
-          res = await fetch("/api/admin/create-user", {
-            method:  "POST",
-            signal:  controller.signal,
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              email:      form.email,
-              password:   form.password,
-              name:       form.name,
-              role:       form.role,
-              department: form.department,
-              phone:      form.phone || null,
-              salary:     form.salary ? Number(form.salary) : null,
-              status:     form.status,
-            }),
-          });
-        } catch (fetchErr) {
-          clearTimeout(timeoutId);
-          const isAbort = fetchErr instanceof DOMException && fetchErr.name === "AbortError";
-          throw new Error(isAbort ? "انتهت مهلة الطلب (10 ثوانٍ) — تحقق من اتصال الإنترنت" : "تعذر الوصول إلى الخادم");
-        }
-        clearTimeout(timeoutId);
-
-        const json = await res.json();
-        if (!res.ok) {
-          throw new Error(json.error ?? `خطأ من الخادم (${res.status})`);
-        }
-
-        await refetch();
+        // Race the Edge Function call against a 12-second hard timeout.
+        // withSoftTimeout on refetch so a slow DB read never keeps the modal open.
+        await Promise.race([
+          createAuthUser({
+            email:      form.email,
+            password:   form.password,
+            name:       form.name,
+            role:       form.role,
+            department: form.department,
+            phone:      form.phone || null,
+            salary:     form.salary ? Number(form.salary) : null,
+            status:     form.status,
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("انتهت مهلة الطلب (12 ثانية) — حاول مرة أخرى")), 12000)
+          ),
+        ]);
+        await withSoftTimeout(refetch(), 6000);
         toast.success(`تمت إضافة ${form.name} وإنشاء حساب الدخول بنجاح`);
       }
       closeModal();
@@ -177,27 +160,17 @@ function EmployeesContent() {
   const handleDelete = async (emp: typeof employees[0]) => {
     if (!confirm(`هل أنت متأكد من حذف ${emp.name}؟ سيُحذف حسابه من نظام المصادقة أيضاً.`)) return;
     try {
-      // Delete from Supabase Auth (non-blocking — auth user may not exist for legacy records)
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (token) {
-        const res = await fetch("/api/admin/delete-user", {
-          method:  "DELETE",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ userId: emp.id }),
-        });
-        if (!res.ok) {
-          const json = await res.json().catch(() => ({}));
-          // "not found" is expected for legacy employees without auth accounts — continue
-          const isNotFound = res.status === 400 && (json.error ?? "").includes("غير موجود");
-          if (!isNotFound) {
-            const isMissingKey = (json.error ?? "").includes("SERVICE_ROLE_KEY");
-            if (isMissingKey) throw new Error(json.error);
-            console.warn("[Employee Delete Auth]", json.error);
-          }
+      // Delete from Supabase Auth via Edge Function (non-blocking for legacy records with no auth account)
+      try {
+        await deleteAuthUser(emp.id);
+      } catch (authErr) {
+        const msg = authErr instanceof Error ? authErr.message : "";
+        // Legacy employees may not have an auth account — treat as non-fatal
+        if (!msg.includes("غير موجود") && !msg.toLowerCase().includes("not found")) {
+          throw authErr;
         }
       }
-      // Delete from employees table
+      // Delete employee row (useData remove handles profile cleanup)
       await remove(emp.id);
       toast.success(`تم حذف ${emp.name} بنجاح`);
     } catch (err) {

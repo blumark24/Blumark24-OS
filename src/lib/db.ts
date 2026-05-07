@@ -1,21 +1,43 @@
 import { supabase } from "./supabase";
 
-// ─── Secure admin helpers (call Next.js API routes — Service Role key stays server-side) ──
+// ─── Secure admin helpers (Supabase Edge Function — Service Role key stays in Supabase infra) ──
+// Uses supabase.functions.invoke() — JWT forwarded automatically from current session.
 
-async function adminFetch(path: string, method: string, body: unknown) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error("لم يتم تسجيل الدخول");
-  const res = await fetch(path, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify(body),
+async function adminInvoke(action: string, payload: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke("admin-users", {
+    body: { action, ...payload },
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error ?? "فشل الطلب");
-  return json;
+
+  if (error) {
+    const raw = error.message ?? "";
+    // Detect that the Edge Function hasn't been deployed yet
+    const isNotDeployed =
+      raw.toLowerCase().includes("function not found") ||
+      raw.toLowerCase().includes("relay error") ||
+      raw.toLowerCase().includes("failed to send") ||
+      raw.toLowerCase().includes("failed to fetch") ||
+      raw.toLowerCase().includes("networkerror") ||
+      (error as { status?: number }).status === 404;
+    if (isNotDeployed) {
+      throw new Error(
+        "دالة admin-users غير منشورة في Supabase — يرجى تشغيل: supabase functions deploy admin-users"
+      );
+    }
+    // Try to parse JSON error body returned by the function
+    let msg = raw;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed?.error) msg = parsed.error;
+    } catch { /* not JSON — use raw message */ }
+    throw new Error(msg || "فشل الطلب");
+  }
+
+  // Edge Function returns { success: false, error: "..." } on business errors
+  if (data?.success === false || data?.error) {
+    throw new Error(data?.error ?? "فشل تنفيذ العملية");
+  }
+
+  return data;
 }
 
 export async function createAuthUser(data: {
@@ -24,12 +46,15 @@ export async function createAuthUser(data: {
   name: string;
   role: string;
   department: string;
+  phone?: string | null;
+  salary?: number | null;
+  status?: string;
 }): Promise<{ id: string }> {
-  return adminFetch("/api/admin/create-user", "POST", data);
+  return adminInvoke("create", data as Record<string, unknown>);
 }
 
 export async function deleteAuthUser(userId: string): Promise<void> {
-  await adminFetch("/api/admin/delete-user", "DELETE", { userId });
+  await adminInvoke("delete", { userId });
 }
 
 export async function updateAuthUser(userId: string, data: {
@@ -38,7 +63,7 @@ export async function updateAuthUser(userId: string, data: {
   isActive?: boolean;
   name?: string;
 }): Promise<void> {
-  await adminFetch("/api/admin/update-user", "PATCH", { userId, ...data });
+  await adminInvoke("update", { userId, ...data });
 }
 
 // ─── Board Members ─────────────────────────────────────────────────────────────
