@@ -1,23 +1,42 @@
 import { supabase } from "./supabase";
 
 // ─── Secure admin helpers (Supabase Edge Function — Service Role key stays in Supabase infra) ──
-// Uses supabase.functions.invoke() so the JWT is sent automatically and the
-// Edge Function URL is always correct regardless of deployment environment.
+// Uses supabase.functions.invoke() — JWT forwarded automatically from current session.
 
 async function adminInvoke(action: string, payload: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke("admin-users", {
     body: { action, ...payload },
   });
+
   if (error) {
-    // error.message may contain a JSON string from the function body
-    let msg = error.message ?? "فشل الطلب";
+    const raw = error.message ?? "";
+    // Detect that the Edge Function hasn't been deployed yet
+    const isNotDeployed =
+      raw.toLowerCase().includes("function not found") ||
+      raw.toLowerCase().includes("relay error") ||
+      raw.toLowerCase().includes("failed to send") ||
+      raw.toLowerCase().includes("failed to fetch") ||
+      raw.toLowerCase().includes("networkerror") ||
+      (error as { status?: number }).status === 404;
+    if (isNotDeployed) {
+      throw new Error(
+        "دالة admin-users غير منشورة في Supabase — يرجى تشغيل: supabase functions deploy admin-users"
+      );
+    }
+    // Try to parse JSON error body returned by the function
+    let msg = raw;
     try {
-      const parsed = JSON.parse(msg);
+      const parsed = JSON.parse(raw);
       if (parsed?.error) msg = parsed.error;
-    } catch { /* not JSON */ }
-    throw new Error(msg);
+    } catch { /* not JSON — use raw message */ }
+    throw new Error(msg || "فشل الطلب");
   }
-  if (data?.error) throw new Error(data.error);
+
+  // Edge Function returns { success: false, error: "..." } on business errors
+  if (data?.success === false || data?.error) {
+    throw new Error(data?.error ?? "فشل تنفيذ العملية");
+  }
+
   return data;
 }
 

@@ -287,8 +287,10 @@ function SettingsContent() {
     name: "Blumark24", tagline: "نظام إدارة الأعمال بالذكاء الاصطناعي",
     email: "info@blumark24.com", phone: "0550000000", website: "blumark24.com", city: "جدة",
   });
-  const [darkMode, setDarkMode] = useState(true);
-  const [notifs,   setNotifs]   = useState({ tasks: true, clients: true, finance: true, weekly: true, email: false });
+  const [darkMode,     setDarkMode]     = useState(true);
+  const [accentColor,  setAccentColor]  = useState("#22d3ee");
+  const [language,     setLanguage]     = useState("العربية");
+  const [notifs,       setNotifs]       = useState({ tasks: true, clients: true, finance: true, weekly: true, email: false });
 
   // Real automation data from DB
   const { data: automationsDB, toggle: toggleAutomation } = useAutomations();
@@ -298,9 +300,24 @@ function SettingsContent() {
     getSystemSettings().then((s) => {
       if (s.company_info) setCompanyForm(s.company_info as typeof companyForm);
       if (s.notifications) setNotifs(s.notifications as typeof notifs);
-      if (s.appearance) setDarkMode(Boolean((s.appearance as { darkMode?: boolean }).darkMode ?? true));
+      const app = s.appearance as { darkMode?: boolean; accentColor?: string; language?: string } | undefined;
+      if (app) {
+        setDarkMode(app.darkMode ?? true);
+        if (app.accentColor) setAccentColor(app.accentColor);
+        if (app.language)    setLanguage(app.language);
+      }
     }).catch(console.error);
   }, []);
+
+  // Apply theme to DOM whenever appearance state changes
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
+    document.documentElement.style.setProperty("--accent-primary", accentColor);
+    document.documentElement.style.setProperty("--accent-teal",    accentColor);
+    try {
+      localStorage.setItem("blumark-theme", JSON.stringify({ darkMode, accentColor, language }));
+    } catch { /* storage may be unavailable */ }
+  }, [darkMode, accentColor, language]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -309,7 +326,7 @@ function SettingsContent() {
         Promise.all([
           setSystemSetting("company_info",  companyForm),
           setSystemSetting("notifications", notifs),
-          setSystemSetting("appearance",    { darkMode }),
+          setSystemSetting("appearance",    { darkMode, accentColor, language }),
         ]),
         12_000,
         "انتهت مهلة حفظ الإعدادات — تحقق من الاتصال"
@@ -554,7 +571,13 @@ function SettingsContent() {
                   <label className="text-sm text-[#8ba3c7] mb-3 block">لون التمييز</label>
                   <div className="flex gap-3">
                     {[["#22d3ee", "فيروزي"], ["#1e6fd9", "أزرق"], ["#ff7a3d", "برتقالي"], ["#a855f7", "بنفسجي"], ["#10b981", "أخضر"]].map(([c, l]) => (
-                      <button key={c} className="w-10 h-10 rounded-full border-2 border-transparent hover:border-white transition-all" style={{ background: c }} title={l} />
+                      <button
+                        key={c}
+                        onClick={() => setAccentColor(c)}
+                        className={`w-10 h-10 rounded-full border-2 transition-all ${accentColor === c ? "border-white scale-110 shadow-lg" : "border-transparent hover:border-white/50"}`}
+                        style={{ background: c }}
+                        title={l}
+                      />
                     ))}
                   </div>
                 </div>
@@ -562,7 +585,11 @@ function SettingsContent() {
                   <label className="text-sm text-[#8ba3c7] mb-3 block">اللغة</label>
                   <div className="flex gap-3">
                     {["العربية", "English"].map((lang) => (
-                      <button key={lang} className={`px-4 py-2 rounded-xl text-sm border transition-all ${lang === "العربية" ? "border-[#22d3ee] text-[#22d3ee] bg-[#22d3ee]/10" : "border-[#1e3a5f] text-[#8ba3c7] hover:text-white"}`}>
+                      <button
+                        key={lang}
+                        onClick={() => setLanguage(lang)}
+                        className={`px-4 py-2 rounded-xl text-sm border transition-all ${language === lang ? "border-[#22d3ee] text-[#22d3ee] bg-[#22d3ee]/10" : "border-[#1e3a5f] text-[#8ba3c7] hover:text-white"}`}
+                      >
                         {lang}
                       </button>
                     ))}

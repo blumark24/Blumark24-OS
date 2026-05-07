@@ -18,6 +18,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ar" dir="rtl">
       <head>
+        {/* Apply theme from localStorage before first paint — prevents flash */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=JSON.parse(localStorage.getItem('blumark-theme')||'{}');document.documentElement.setAttribute('data-theme',t.darkMode===false?'light':'dark');if(t.accentColor){document.documentElement.style.setProperty('--accent-primary',t.accentColor);document.documentElement.style.setProperty('--accent-teal',t.accentColor);}}catch(e){}})();` }} />
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
