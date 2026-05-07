@@ -98,7 +98,7 @@ function EmployeesContent() {
     setShowModal(true);
   };
 
-  const closeModal = () => { setShowModal(false); setSaving(false); };
+  const closeModal = () => { setShowModal(false); };
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.email.trim()) {
@@ -127,24 +127,19 @@ function EmployeesContent() {
         });
         toast.success("تم تحديث بيانات الموظف بنجاح");
       } else {
-        // Race the Edge Function call against a 12-second hard timeout.
-        // withSoftTimeout on refetch so a slow DB read never keeps the modal open.
-        await Promise.race([
-          createAuthUser({
-            email:      form.email,
-            password:   form.password,
-            name:       form.name,
-            role:       form.role,
-            department: form.department,
-            phone:      form.phone || null,
-            salary:     form.salary ? Number(form.salary) : null,
-            status:     form.status,
-          }),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error("انتهت مهلة الطلب (12 ثانية) — حاول مرة أخرى")), 12000)
-          ),
-        ]);
-        await withSoftTimeout(refetch(), 6000);
+        // adminInvoke has a built-in 12 s AbortController — no extra race needed.
+        await createAuthUser({
+          email:      form.email,
+          password:   form.password,
+          name:       form.name,
+          role:       form.role,
+          department: form.department,
+          phone:      form.phone || null,
+          salary:     form.salary ? Number(form.salary) : null,
+          status:     form.status,
+        });
+        // Soft-timeout: refresh list but do NOT block modal close on slow reads
+        await withSoftTimeout(refetch(), 6_000);
         toast.success(`تمت إضافة ${form.name} وإنشاء حساب الدخول بنجاح`);
       }
       closeModal();

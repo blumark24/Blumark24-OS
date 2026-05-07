@@ -1,40 +1,71 @@
 import { supabase } from "./supabase";
 
-// ─── Secure admin helpers (Supabase Edge Function — Service Role key stays in Supabase infra) ──
-// Uses supabase.functions.invoke() — JWT forwarded automatically from current session.
+// ─── Secure admin helpers ──────────────────────────────────────────────────────
+// Calls the Supabase Edge Function admin-users using a direct fetch() with an
+// AbortController timeout.  supabase.functions.invoke() has no built-in timeout
+// and can hang silently — direct fetch guarantees the 12 s abort fires.
 
 async function adminInvoke(action: string, payload: Record<string, unknown>) {
-  const { data, error } = await supabase.functions.invoke("admin-users", {
-    body: { action, ...payload },
-  });
-
-  if (error) {
-    const raw = error.message ?? "";
-    // Detect that the Edge Function hasn't been deployed yet
-    const isNotDeployed =
-      raw.toLowerCase().includes("function not found") ||
-      raw.toLowerCase().includes("relay error") ||
-      raw.toLowerCase().includes("failed to send") ||
-      raw.toLowerCase().includes("failed to fetch") ||
-      raw.toLowerCase().includes("networkerror") ||
-      (error as { status?: number }).status === 404;
-    if (isNotDeployed) {
-      throw new Error(
-        "دالة admin-users غير منشورة في Supabase — يرجى تشغيل: supabase functions deploy admin-users"
-      );
-    }
-    // Try to parse JSON error body returned by the function
-    let msg = raw;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed?.error) msg = parsed.error;
-    } catch { /* not JSON — use raw message */ }
-    throw new Error(msg || "فشل الطلب");
+  // 1. Obtain the current JWT (fast — reads from in-memory cache)
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) {
+    throw new Error("لم يتم تسجيل الدخول — يرجى تحديث الصفحة وإعادة المحاولة");
   }
 
-  // Edge Function returns { success: false, error: "..." } on business errors
-  if (data?.success === false || data?.error) {
-    throw new Error(data?.error ?? "فشل تنفيذ العملية");
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL غير مضبوط في بيئة Next.js");
+  }
+
+  // 2. Hard 12-second abort at the network level — guaranteed to fire
+  const controller = new AbortController();
+  const timeoutId  = setTimeout(() => controller.abort(), 12_000);
+
+  let res: Response;
+  try {
+    res = await fetch(`${supabaseUrl}/functions/v1/admin-users`, {
+      method:  "POST",
+      signal:  controller.signal,
+      headers: {
+        "Content-Type":  "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ action, ...payload }),
+    });
+  } catch (fetchErr) {
+    clearTimeout(timeoutId);
+    if (fetchErr instanceof DOMException && fetchErr.name === "AbortError") {
+      throw new Error(
+        "دالة admin-users لم ترد خلال 12 ثانية — تحقق من حالة Edge Functions في لوحة Supabase"
+      );
+    }
+    const detail = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+    throw new Error(`تعذر الاتصال بخادم Supabase: ${detail}`);
+  }
+  clearTimeout(timeoutId);
+
+  // 3. Parse JSON body
+  let data: Record<string, unknown>;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error(`استجابة غير صالحة من Edge Function (HTTP ${res.status})`);
+  }
+
+  // 4. Surface HTTP errors with the Arabic message from the function body
+  if (!res.ok) {
+    const errMsg = (data?.error as string) ?? `خطأ HTTP ${res.status}`;
+    // Detect missing service-role key inside the function
+    if (errMsg.includes("SERVICE_ROLE_KEY") || errMsg.includes("غير مضبوط")) {
+      throw new Error("مفتاح الخدمة غير مضبوط في Supabase Edge Function");
+    }
+    throw new Error(`تعذر حفظ الموظف: ${errMsg}`);
+  }
+
+  // 5. Function may return { error: "..." } with status 200 for business errors
+  if (data?.error) {
+    throw new Error(`تعذر حفظ الموظف: ${data.error as string}`);
   }
 
   return data;
@@ -50,7 +81,8 @@ export async function createAuthUser(data: {
   salary?: number | null;
   status?: string;
 }): Promise<{ id: string }> {
-  return adminInvoke("create", data as Record<string, unknown>);
+  const result = await adminInvoke("create", data as Record<string, unknown>);
+  return result as { id: string };
 }
 
 export async function deleteAuthUser(userId: string): Promise<void> {
