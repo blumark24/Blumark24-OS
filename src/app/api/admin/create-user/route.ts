@@ -4,204 +4,190 @@ import {
   validateEmail, validatePassword, validateRole, validateName, firstError,
 } from "@/lib/apiValidation";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL  ?? "";
-const ANON_KEY     = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-
+const TAG          = "[create-user]";
 const ADMIN_EMAILS = ["blumark24@gmail.com", "blumark.sa@gmail.com"];
-const TAG = "[create-user]";
 
-// ─── response helpers ─────────────────────────────────────────────────────────
+const ARABIC_TO_ROLE: Record<string, string> = {
+  "مدير أعلى":           "super_admin",
+  "مدير عام":            "super_admin",
+  "عضو مجلس الإدارة":   "board_member",
+  "مدير الدفاع":         "defense_manager",
+  "مدير وكالة الدفاع":  "defense_manager",
+  "مدير الهجوم":         "attack_manager",
+  "مدير وكالة الهجوم":  "attack_manager",
+  "مدير المالية":        "finance_manager",
+  "مدير مالي":           "finance_manager",
+  "موظف":                "employee",
+};
 
-function apiError(status: number, error: string, debug: string) {
-  console.error(`${TAG} HTTP ${status} — ${debug}`);
+function ok(data: Record<string, unknown>, status = 200) {
+  return NextResponse.json(data, { status });
+}
+function fail(status: number, error: string, debug: string) {
+  console.error(`${TAG} HTTP ${status} | ${debug}`);
   return NextResponse.json({ success: false, error, debug }, { status });
 }
 
-// ─── service client ───────────────────────────────────────────────────────────
+export async function POST(req: NextRequest) {
+  // ── 0. Read env vars INSIDE the handler (never at module level in Next.js) ──
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
-function serviceClient() {
-  if (!SUPABASE_URL || !SERVICE_KEY) {
-    throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY غير مضبوط — أضفه في Vercel → Project Settings → Environment Variables → SUPABASE_SERVICE_ROLE_KEY"
+  console.log(
+    `${TAG} start | URL=${!!SUPABASE_URL} SERVICE_KEY=${!!SERVICE_KEY} (len=${SERVICE_KEY.length})`,
+  );
+
+  if (!SUPABASE_URL) {
+    return fail(500,
+      "NEXT_PUBLIC_SUPABASE_URL غير مضبوط",
+      "step=env: NEXT_PUBLIC_SUPABASE_URL is empty",
     );
   }
-  return createClient(SUPABASE_URL, SERVICE_KEY, {
+  if (!SERVICE_KEY) {
+    return fail(500,
+      "SUPABASE_SERVICE_ROLE_KEY غير مضبوط — أضفه في Vercel → Project Settings → Environment Variables → SUPABASE_SERVICE_ROLE_KEY",
+      "step=env: SUPABASE_SERVICE_ROLE_KEY is empty or undefined",
+    );
+  }
+
+  // ── 1. Build service-role admin client (only one client needed) ────────────
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-}
 
-// ─── caller verification ──────────────────────────────────────────────────────
-
-type VerifyResult =
-  | { ok: true;  userId: string; callerEmail: string }
-  | { ok: false; error: string;  debug: string };
-
-async function verifyAdmin(token: string): Promise<VerifyResult> {
-  if (!SUPABASE_URL || !ANON_KEY) {
-    return { ok: false, error: "إعداد Supabase غير مكتمل", debug: "NEXT_PUBLIC_SUPABASE_URL or ANON_KEY missing from env" };
-  }
-
-  const client = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-    auth:   { autoRefreshToken: false, persistSession: false },
-  });
-
-  const { data: { user }, error: authErr } = await client.auth.getUser();
-  if (authErr || !user) {
-    return { ok: false, error: "جلسة المستخدم غير صالحة أو انتهت — يرجى تسجيل الدخول مجدداً", debug: `getUser: ${authErr?.message ?? "no user returned"}` };
-  }
-
-  const email = user.email ?? "";
-  if (ADMIN_EMAILS.includes(email)) {
-    return { ok: true, userId: user.id, callerEmail: email };
-  }
-
-  const { data: profile, error: profileErr } = await client
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profileErr) {
-    return { ok: false, error: "تعذر قراءة صلاحيات المستخدم من قاعدة البيانات", debug: `profiles.select: ${profileErr.message}` };
-  }
-
-  if (profile?.role === "super_admin") {
-    return { ok: true, userId: user.id, callerEmail: email };
-  }
-
-  return {
-    ok: false,
-    error: `غير مصرح — دورك (${profile?.role ?? "غير محدد"}) لا يملك صلاحية إنشاء المستخدمين`,
-    debug: `role=${profile?.role ?? "null"}, userId=${user.id}`,
-  };
-}
-
-// ─── POST handler ─────────────────────────────────────────────────────────────
-
-export async function POST(req: NextRequest) {
-  console.log(`${TAG} start — from ${req.headers.get("x-forwarded-for") ?? "unknown"}`);
-
-  // ── Step 1: Authenticate caller ───────────────────────────────────────────────
+  // ── 2. Authenticate caller via service-role getUser (no anon key needed) ──
   const authHeader = req.headers.get("authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) {
-    return apiError(401, "Authorization header مفقود أو غير صالح", "step=auth: no Bearer prefix");
+    return fail(401,
+      "Authorization header مفقود أو غير صالح",
+      "step=auth: no Bearer prefix",
+    );
+  }
+  const token = authHeader.slice(7);
+
+  const { data: { user: caller }, error: callerErr } = await admin.auth.getUser(token);
+  if (callerErr || !caller) {
+    return fail(403,
+      "جلسة المستخدم غير صالحة أو انتهت — يرجى تسجيل الدخول مجدداً",
+      `step=auth: ${callerErr?.message ?? "no user returned"}`,
+    );
   }
 
-  const identity = await verifyAdmin(authHeader.slice(7));
-  if (!identity.ok) {
-    return apiError(403, identity.error, `step=auth: ${identity.debug}`);
+  // Check caller is admin (by email whitelist or profile.role)
+  const callerEmail = caller.email ?? "";
+  let isAdmin = ADMIN_EMAILS.includes(callerEmail);
+  if (!isAdmin) {
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("role")
+      .eq("id", caller.id)
+      .maybeSingle();
+    isAdmin = prof?.role === "super_admin";
   }
-  console.log(`${TAG} step=auth ok — caller: ${identity.callerEmail}`);
+  if (!isAdmin) {
+    return fail(403,
+      "غير مصرح — هذه العملية تتطلب صلاحيات المدير الأعلى",
+      `step=auth: caller email=${callerEmail} id=${caller.id}`,
+    );
+  }
+  console.log(`${TAG} step=auth ok | caller=${callerEmail}`);
 
-  // ── Step 2: Parse JSON body ───────────────────────────────────────────────────
+  // ── 3. Parse body ──────────────────────────────────────────────────────────
   let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch (e) {
-    return apiError(400, "طلب غير صالح — تعذر قراءة البيانات المرسلة", `step=parse: ${String(e)}`);
-  }
-
-  // ── Step 3: Clean email + map Arabic role → English BEFORE validation ─────────
-  const rawEmailInput = typeof body.email === "string" ? body.email : "";
-  const email = rawEmailInput
-    // eslint-disable-next-line no-control-regex
-    .replace(/[^\x00-\x7F]/g, "")  // strip non-ASCII: RTL/LTR marks, Arabic comma ،, zero-width chars
-    .replace(/\s/g, "")             // strip any whitespace
-    .trim()
-    .toLowerCase();
-
-  console.log(`${TAG} step=clean email: raw=${JSON.stringify(rawEmailInput)} → clean=${email}`);
-
-  const ARABIC_TO_ROLE: Record<string, string> = {
-    "مدير أعلى":           "super_admin",
-    "مدير عام":            "super_admin",
-    "عضو مجلس الإدارة":   "board_member",
-    "مدير الدفاع":         "defense_manager",
-    "مدير وكالة الدفاع":  "defense_manager",
-    "مدير الهجوم":         "attack_manager",
-    "مدير وكالة الهجوم":  "attack_manager",
-    "مدير المالية":        "finance_manager",
-    "مدير مالي":           "finance_manager",
-    "موظف":                "employee",
-  };
-  const rawRole    = typeof body.role === "string" ? body.role : "employee";
-  const mappedRole = ARABIC_TO_ROLE[rawRole] ?? rawRole;
-
-  console.log(`${TAG} step=role map: raw=${rawRole} → mapped=${mappedRole}`);
-
-  // ── Step 4: Validate ──────────────────────────────────────────────────────────
-  const validationError = firstError(
-    validateEmail(email),
-    validatePassword(body.password),
-    validateRole(mappedRole),
-    validateName(body.name),
-  );
-  if (validationError) {
-    return apiError(
-      400,
-      validationError,
-      `step=validate: email=${email}, role=${mappedRole}, name=${JSON.stringify(body.name)}, pwdLen=${typeof body.password === "string" ? body.password.length : "?"}`,
+    return fail(400,
+      "طلب غير صالح — تعذر قراءة البيانات المرسلة",
+      `step=parse: ${String(e)}`,
     );
   }
 
-  // ── Step 5: Sanitise remaining inputs ─────────────────────────────────────────
-  const password   = body.password as string;
-  const name       = typeof body.name === "string" ? body.name.trim() : email.split("@")[0];
-  const role       = mappedRole;
-  const department = typeof body.department === "string" ? body.department.slice(0, 100) : "";
-  const phone      = typeof body.phone  === "string" ? body.phone.slice(0, 20) : null;
-  const salary     = typeof body.salary === "number" && body.salary >= 0 ? body.salary : null;
-  const status     = body.status === "غير_نشط" ? "غير_نشط" : "نشط";
-
-  console.log(`${TAG} step=sanitise: email=${email}, role=${role}, dept=${department}, status=${status}`);
-
-  // ── Step 6: Build service-role client ─────────────────────────────────────────
-  let admin: ReturnType<typeof serviceClient>;
-  try {
-    admin = serviceClient();
-  } catch (e) {
-    return apiError(500, e instanceof Error ? e.message : "خطأ في إعداد خادم Supabase", `step=client: ${String(e)}`);
+  // ── 4. Clean + map + validate ──────────────────────────────────────────────
+  // Strip RTL/LTR invisible chars, Arabic comma, whitespace BEFORE validation
+  const rawEmail = typeof body.email === "string" ? body.email : "";
+  // eslint-disable-next-line no-control-regex
+  const email = rawEmail.replace(/[^\x00-\x7F]/g, "").replace(/\s/g, "").trim().toLowerCase();
+  if (email !== rawEmail.trim().toLowerCase()) {
+    console.log(`${TAG} step=clean | raw=${JSON.stringify(rawEmail)} → email=${email}`);
   }
 
-  // ── Step 7: Create Supabase Auth user ─────────────────────────────────────────
-  console.log(`${TAG} step=auth.createUser: email=${email}`);
+  const rawRole = typeof body.role === "string" ? body.role : "employee";
+  const role    = ARABIC_TO_ROLE[rawRole] ?? rawRole;
+  if (role !== rawRole) {
+    console.log(`${TAG} step=role | raw="${rawRole}" → role="${role}"`);
+  }
+
+  const validationError = firstError(
+    validateEmail(email),
+    validatePassword(body.password),
+    validateRole(role),
+    validateName(body.name),
+  );
+  if (validationError) {
+    return fail(400, validationError,
+      `step=validate | email=${email} role=${role} name=${JSON.stringify(body.name)} pwdLen=${typeof body.password === "string" ? body.password.length : "?"}`,
+    );
+  }
+
+  const password   = body.password as string;
+  const name       = typeof body.name === "string" ? body.name.trim() : email.split("@")[0];
+  const department = typeof body.department === "string" ? body.department.slice(0, 100) : "";
+  const phone      = typeof body.phone   === "string" ? body.phone.slice(0, 20) : null;
+  const salary     = typeof body.salary  === "number" && body.salary >= 0 ? body.salary : null;
+  const status     = body.status === "غير_نشط" ? "غير_نشط" : "نشط";
+
+  console.log(`${TAG} step=inputs | email=${email} role=${role} dept="${department}" status=${status} salary=${salary}`);
+
+  // ── 5. Create auth user ────────────────────────────────────────────────────
+  console.log(`${TAG} step=createUser | calling admin.auth.admin.createUser email=${email}`);
+
   const { data: authData, error: authError } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
     user_metadata: { name },
   });
+
+  // Always log the full result so Vercel logs show exactly what happened
+  console.log(
+    `${TAG} step=createUser result | error="${authError?.message ?? "none"}" userId="${authData?.user?.id ?? "none"}"`,
+  );
+
   if (authError) {
     const lower = authError.message.toLowerCase();
-    const alreadyExists = lower.includes("already") || lower.includes("registered") || lower.includes("exists");
-    const userMsg = alreadyExists
-      ? `البريد الإلكتروني (${email}) مسجل مسبقاً — احذف الحساب القديم من Supabase Auth أو استخدم بريداً مختلفاً`
-      : `فشل إنشاء حساب المستخدم: ${authError.message}`;
-    console.error(`${TAG} step=auth.createUser error: ${authError.message}`);
-    return apiError(400, userMsg, `step=auth.createUser: ${authError.message}`);
+    const dup = lower.includes("already") || lower.includes("registered")
+             || lower.includes("exists")  || lower.includes("duplicate");
+    return fail(400,
+      dup
+        ? `البريد الإلكتروني (${email}) مسجل مسبقاً — احذف الحساب القديم من Supabase Auth أو استخدم بريداً مختلفاً`
+        : `فشل إنشاء حساب المستخدم: ${authError.message}`,
+      `step=createUser: ${authError.message}`,
+    );
   }
 
   const userId = authData.user.id;
-  console.log(`${TAG} step=auth.createUser ok: userId=${userId}`);
+  console.log(`${TAG} step=createUser ok | userId=${userId}`);
 
-  // ── Step 8: Upsert profiles row ───────────────────────────────────────────────
-  console.log(`${TAG} step=profiles.upsert: userId=${userId}`);
-  const { error: profileError } = await admin.from("profiles").upsert(
-    { id: userId, email, name, role, department, is_active: true },
-    { onConflict: "id" },
-  );
+  // ── 6. Upsert profiles row ─────────────────────────────────────────────────
+  console.log(`${TAG} step=profiles | userId=${userId}`);
+  const { error: profileError } = await admin
+    .from("profiles")
+    .upsert({ id: userId, email, name, role, department, is_active: true }, { onConflict: "id" });
+
   if (profileError) {
-    console.error(`${TAG} step=profiles.upsert error: ${profileError.message} — rolling back auth user`);
-    const { error: rollbackErr } = await admin.auth.admin.deleteUser(userId);
-    if (rollbackErr) console.error(`${TAG} rollback.deleteUser error: ${rollbackErr.message}`);
-    return apiError(500, `فشل إنشاء الملف الشخصي: ${profileError.message}`, `step=profiles.upsert: ${profileError.message}`);
+    console.error(`${TAG} step=profiles error: ${profileError.message} — rolling back auth user`);
+    const { error: rbErr } = await admin.auth.admin.deleteUser(userId);
+    if (rbErr) console.error(`${TAG} rollback error: ${rbErr.message}`);
+    return fail(500,
+      `فشل إنشاء الملف الشخصي: ${profileError.message}`,
+      `step=profiles: ${profileError.message}`,
+    );
   }
-  console.log(`${TAG} step=profiles.upsert ok`);
+  console.log(`${TAG} step=profiles ok`);
 
-  // ── Step 9: Upsert employees row ──────────────────────────────────────────────
-  console.log(`${TAG} step=employees.upsert: userId=${userId}`);
+  // ── 7. Upsert employees row ────────────────────────────────────────────────
+  console.log(`${TAG} step=employees | userId=${userId}`);
   const { error: empError } = await admin.from("employees").upsert(
     [{
       id: userId, name, email, phone, department, role, status, salary,
@@ -212,14 +198,18 @@ export async function POST(req: NextRequest) {
     }],
     { onConflict: "id" },
   );
-  if (empError) {
-    console.error(`${TAG} step=employees.upsert error: ${empError.message} — rolling back auth user`);
-    const { error: rollbackErr } = await admin.auth.admin.deleteUser(userId);
-    if (rollbackErr) console.error(`${TAG} rollback.deleteUser error: ${rollbackErr.message}`);
-    return apiError(500, `فشل إنشاء سجل الموظف: ${empError.message}`, `step=employees.upsert: ${empError.message}`);
-  }
-  console.log(`${TAG} step=employees.upsert ok`);
 
-  console.log(`${TAG} SUCCESS: userId=${userId}, email=${email}, role=${role}`);
-  return NextResponse.json({ success: true, id: userId, name });
+  if (empError) {
+    console.error(`${TAG} step=employees error: ${empError.message} — rolling back auth user`);
+    const { error: rbErr } = await admin.auth.admin.deleteUser(userId);
+    if (rbErr) console.error(`${TAG} rollback error: ${rbErr.message}`);
+    return fail(500,
+      `فشل إنشاء سجل الموظف: ${empError.message}`,
+      `step=employees: ${empError.message}`,
+    );
+  }
+  console.log(`${TAG} step=employees ok`);
+
+  console.log(`${TAG} SUCCESS | userId=${userId} email=${email} role=${role}`);
+  return ok({ success: true, id: userId, name });
 }
