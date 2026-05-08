@@ -75,7 +75,7 @@ async function callApiRoute(
   payload: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   const controller = new AbortController();
-  const tid = setTimeout(() => controller.abort(), 15_000);
+  const tid = setTimeout(() => controller.abort(), 12_000);
   let res: Response;
   try {
     res = await fetch(route.path, {
@@ -87,7 +87,7 @@ async function callApiRoute(
   } catch (err) {
     clearTimeout(tid);
     if (err instanceof DOMException && err.name === "AbortError") {
-      throw new Error("انتهت مهلة الطلب — يرجى المحاولة مجدداً");
+      throw new Error("انتهت مهلة الحفظ — تحقق من اتصال Supabase أو سجلات Vercel");
     }
     throw new Error("تعذر الاتصال بالخادم — تحقق من اتصال الإنترنت");
   }
@@ -98,7 +98,12 @@ async function callApiRoute(
     throw new Error(`استجابة غير صالحة من الخادم (HTTP ${res.status})`);
   }
 
-  if (!res.ok) throw new Error((data?.error as string) ?? `خطأ HTTP ${res.status}`);
+  if (!res.ok) {
+    // Include debug info from server so the toast is actionable
+    const errMsg   = (data?.error as string) ?? `خطأ HTTP ${res.status}`;
+    const debugMsg = (data?.debug as string);
+    throw new Error(debugMsg ? `${errMsg}\n[debug: ${debugMsg}]` : errMsg);
+  }
   if (data?.error) throw new Error(data.error as string);
   return data;
 }

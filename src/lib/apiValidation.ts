@@ -16,8 +16,12 @@ export function validateEmail(email: unknown): string | null {
 
 export function validatePassword(password: unknown): string | null {
   if (typeof password !== "string" || !password) return "كلمة المرور مطلوبة";
-  if (password.length < 6)   return "كلمة المرور يجب أن تكون 6 أحرف على الأقل";
+  if (password.length < 8)   return "كلمة المرور يجب أن تكون 8 أحرف على الأقل";
   if (password.length > 128) return "كلمة المرور طويلة جداً";
+  if (!/[A-Z]/.test(password)) return "كلمة المرور يجب أن تحتوي على حرف إنجليزي كبير (A-Z)";
+  if (!/[a-z]/.test(password)) return "كلمة المرور يجب أن تحتوي على حرف إنجليزي صغير (a-z)";
+  if (!/[0-9]/.test(password)) return "كلمة المرور يجب أن تحتوي على رقم (0-9)";
+  if (!/[^A-Za-z0-9]/.test(password)) return "كلمة المرور يجب أن تحتوي على رمز مثل (!@#$%^&*)";
   return null;
 }
 
