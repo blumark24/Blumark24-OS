@@ -2,54 +2,86 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { validateUserId, validateRole, validateName, firstError } from "@/lib/apiValidation";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL  ?? "";
-const ANON_KEY     = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-
+const TAG          = "[update-user]";
 const ADMIN_EMAILS = ["blumark24@gmail.com", "blumark.sa@gmail.com"];
 
-function serviceClient() {
-  if (!SUPABASE_URL || !SERVICE_KEY) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY غير مضبوط — أضفه في Vercel → Project Settings → Environment Variables");
-  }
-  return createClient(SUPABASE_URL, SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+function ok(data: Record<string, unknown>, status = 200) {
+  return NextResponse.json(data, { status });
 }
-
-async function verifyAdmin(token: string): Promise<string | null> {
-  const client = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-    auth:   { autoRefreshToken: false, persistSession: false },
-  });
-  const { data: { user }, error } = await client.auth.getUser();
-  if (error || !user) return "جلسة المستخدم غير صالحة أو انتهت";
-  const email = user.email ?? "";
-  if (ADMIN_EMAILS.includes(email)) return null;
-  const { data: profile } = await client.from("profiles").select("role").eq("id", user.id).maybeSingle();
-  if (profile?.role === "super_admin") return null;
-  return `غير مصرح — دورك (${profile?.role ?? "غير محدد"}) لا يملك هذه الصلاحية`;
+function fail(status: number, error: string, debug: string) {
+  console.error(`${TAG} HTTP ${status} | ${debug}`);
+  return NextResponse.json({ success: false, error, debug }, { status });
 }
 
 export async function PATCH(req: NextRequest) {
-  const auth = req.headers.get("authorization") ?? "";
-  if (!auth.startsWith("Bearer ")) {
-    return NextResponse.json({ error: "Authorization header مفقود" }, { status: 401 });
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+
+  console.log(`${TAG} start | URL=${!!SUPABASE_URL} SERVICE_KEY=${!!SERVICE_KEY} (len=${SERVICE_KEY.length})`);
+
+  if (!SUPABASE_URL) {
+    return fail(500, "NEXT_PUBLIC_SUPABASE_URL غير مضبوط", "step=env: NEXT_PUBLIC_SUPABASE_URL is empty");
+  }
+  if (!SERVICE_KEY) {
+    return fail(500,
+      "SUPABASE_SERVICE_ROLE_KEY غير مضبوط — أضفه في Vercel → Project Settings → Environment Variables → SUPABASE_SERVICE_ROLE_KEY",
+      "step=env: SUPABASE_SERVICE_ROLE_KEY is empty or undefined",
+    );
   }
 
-  const authError = await verifyAdmin(auth.slice(7));
-  if (authError) return NextResponse.json({ error: authError }, { status: 403 });
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const authHeader = req.headers.get("authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ")) {
+    return fail(401, "Authorization header مفقود أو غير صالح", "step=auth: no Bearer prefix");
+  }
+  const token = authHeader.slice(7);
+
+  const { data: { user: caller }, error: callerErr } = await admin.auth.getUser(token);
+  if (callerErr || !caller) {
+    return fail(403,
+      "جلسة المستخدم غير صالحة أو انتهت — يرجى تسجيل الدخول مجدداً",
+      `step=auth: ${callerErr?.message ?? "no user returned"}`,
+    );
+  }
+
+  const callerEmail = caller.email ?? "";
+  let isAdmin = ADMIN_EMAILS.includes(callerEmail);
+  if (!isAdmin) {
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("role")
+      .eq("id", caller.id)
+      .maybeSingle();
+    isAdmin = prof?.role === "super_admin";
+  }
+  if (!isAdmin) {
+    return fail(403,
+      "غير مصرح — هذه العملية تتطلب صلاحيات المدير الأعلى",
+      `step=auth: caller email=${callerEmail} id=${caller.id}`,
+    );
+  }
+  console.log(`${TAG} step=auth ok | caller=${callerEmail}`);
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); }
-  catch { return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 }); }
+  try {
+    body = await req.json();
+  } catch (e) {
+    return fail(400, "طلب غير صالح — تعذر قراءة البيانات المرسلة", `step=parse: ${String(e)}`);
+  }
 
   const validationError = firstError(
     validateUserId(body.userId),
     validateRole(body.role),
     validateName(body.name),
   );
-  if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
+  if (validationError) {
+    return fail(400, validationError,
+      `step=validate | userId=${JSON.stringify(body.userId)} role=${JSON.stringify(body.role)} name=${JSON.stringify(body.name)}`,
+    );
+  }
 
   const { userId, role, department, isActive, name } = body as {
     userId: string;
@@ -59,37 +91,37 @@ export async function PATCH(req: NextRequest) {
     name?: string;
   };
 
-  // Sanitize optional fields
   const cleanDept     = typeof department === "string" ? department.slice(0, 100) : undefined;
   const cleanIsActive = typeof isActive === "boolean" ? isActive : undefined;
   const cleanName     = typeof name === "string" ? name.trim().slice(0, 100) : undefined;
   const cleanRole     = typeof role === "string" ? role : undefined;
 
   if (!cleanRole && !cleanDept && cleanIsActive === undefined && !cleanName) {
-    return NextResponse.json({ error: "لا توجد حقول للتحديث" }, { status: 400 });
+    return fail(400, "لا توجد حقول للتحديث", "step=validate: no updatable fields");
   }
 
-  let admin: ReturnType<typeof serviceClient>;
-  try { admin = serviceClient(); }
-  catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "خطأ في إعداد الخادم" }, { status: 500 });
-  }
-
-  // profiles table does not have updated_at column — build update map without it
+  // profiles table does not have updated_at — build update map without it
   const profileUpdate: Record<string, unknown> = {};
   if (cleanRole     !== undefined) profileUpdate.role       = cleanRole;
   if (cleanDept     !== undefined) profileUpdate.department = cleanDept;
   if (cleanIsActive !== undefined) profileUpdate.is_active  = cleanIsActive;
   if (cleanName     !== undefined) profileUpdate.name       = cleanName;
 
+  console.log(`${TAG} step=updateProfile | userId=${userId} fields=${JSON.stringify(profileUpdate)}`);
   const { error: profileError } = await admin.from("profiles").update(profileUpdate).eq("id", userId);
   if (profileError) {
-    return NextResponse.json({ error: `فشل تحديث الملف الشخصي: ${profileError.message}` }, { status: 400 });
+    return fail(500,
+      `فشل تحديث الملف الشخصي: ${profileError.message}`,
+      `step=updateProfile: ${profileError.message}`,
+    );
   }
+  console.log(`${TAG} step=updateProfile ok`);
 
   if (cleanName !== undefined) {
+    console.log(`${TAG} step=updateAuthMeta | userId=${userId} name=${cleanName}`);
     await admin.auth.admin.updateUserById(userId, { user_metadata: { name: cleanName } });
   }
 
-  return NextResponse.json({ ok: true });
+  console.log(`${TAG} SUCCESS | userId=${userId}`);
+  return ok({ success: true });
 }

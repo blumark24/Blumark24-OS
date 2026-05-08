@@ -42,18 +42,17 @@ async function tryEdgeFunction(
       body:    JSON.stringify({ action, ...payload }),
     });
   } catch {
-    // CORS error, network error, abort, etc. → try API route
+    // CORS error, network error, abort timeout, etc. → fall back to API route
     clearTimeout(tid);
     return { type: "fallback" };
   }
-  clearTimeout(tid);
+  // DO NOT clearTimeout here — keep the timer running so it can abort res.json()
+  // if the Edge Function sends headers but never finishes the response body.
 
-  // Keep the AbortController alive while reading the body — prevents res.json()
-  // from hanging if the Edge Function sends headers but never finishes the body.
   let data: Record<string, unknown> = {};
   let bodyOk = true;
   try { data = await res.json(); } catch { bodyOk = false; }
-  clearTimeout(tid);
+  clearTimeout(tid); // safe to clear now — body read finished (or timed out)
 
   // Body read timed-out or failed → treat as undeployed / broken, fall back
   if (!bodyOk) return { type: "fallback" };
