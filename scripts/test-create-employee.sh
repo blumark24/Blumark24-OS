@@ -26,10 +26,15 @@ ADMIN_EMAIL="${ADMIN_EMAIL:?set ADMIN_EMAIL}"
 ADMIN_PASS="${ADMIN_PASS:?set ADMIN_PASS}"
 APP_URL="${APP_URL:-http://localhost:3000}"
 
-TEST_EMAIL="j3b.sa.2030+test01@gmail.com"
-TEST_PASS="Test@123456"
-TEST_NAME="اختبار حفظ"
-TEST_ROLE="super_admin"
+# Test-row data — every field overridable via env so QA can pin a specific case
+TEST_EMAIL="${TEST_EMAIL:-j3b.sa.2030+test01@gmail.com}"
+TEST_PASS="${TEST_PASS:-Test@123456}"
+TEST_NAME="${TEST_NAME:-اختبار حفظ}"
+TEST_ROLE="${TEST_ROLE:-super_admin}"
+TEST_DEPT="${TEST_DEPT:-الإدارة}"
+TEST_PHONE="${TEST_PHONE:-0551673433}"
+TEST_SALARY="${TEST_SALARY:-0}"
+TEST_STATUS="${TEST_STATUS:-نشط}"
 
 PASS=0; FAIL=0
 
@@ -93,10 +98,10 @@ CREATE_RESP=$(curl -s -w "\n__STATUS__%{http_code}" -X POST \
     \"password\":   \"$TEST_PASS\",
     \"name\":       \"$TEST_NAME\",
     \"role\":       \"$TEST_ROLE\",
-    \"department\": \"الإدارة\",
-    \"phone\":      \"0551673433\",
-    \"salary\":     0,
-    \"status\":     \"نشط\"
+    \"department\": \"$TEST_DEPT\",
+    \"phone\":      \"$TEST_PHONE\",
+    \"salary\":     $TEST_SALARY,
+    \"status\":     \"$TEST_STATUS\"
   }")
 
 HTTP_STATUS=$(echo "$CREATE_RESP" | grep __STATUS__ | sed 's/__STATUS__//')
