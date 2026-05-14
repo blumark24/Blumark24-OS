@@ -12,7 +12,7 @@ import { useAuth } from "./AuthContext";
 import { getAllProfiles, updateProfileRole, toggleProfileStatus } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────[...]
 
 export type UserRole =
   | "super_admin"
@@ -34,15 +34,17 @@ export type Permission =
   | "manage_settings"
   | "manage_automations";
 
+// Flexible labels mapping — keep labels for known internal roles,
+// also include friendly labels for 'admin' / 'manager' strings.
 export const ROLE_LABELS: Record<string, string> = {
-  super_admin: "مدير أعلى",
-  admin: "مدير",
-  manager: "مدير قسم",
-  board_member: "عضو مجلس الإدارة",
-  defense_manager: "مدير وكالة الدفاع",
-  attack_manager: "مدير وكالة الهجوم",
-  finance_manager: "مدير مالي",
-  employee: "موظف",
+  super_admin:      "مدير أعلى",
+  admin:            "مدير",
+  manager:          "مدير قسم",
+  board_member:     "عضو مجلس الإدارة",
+  defense_manager:  "مدير وكالة الدفاع",
+  attack_manager:   "مدير وكالة الهجوم",
+  finance_manager:  "مدير مالي",
+  employee:         "موظف",
 };
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
@@ -150,7 +152,7 @@ export interface ManagedUser {
   department: string;
 }
 
-// ─── Context value ────────────────────────────────────────────────────────────
+// ─── Context value ────────────────────────────────────────────────────────[...]
 
 interface PermissionsContextValue {
   userRole:              UserRole;
@@ -183,7 +185,7 @@ const PermissionsContext = createContext<PermissionsContextValue>({
   savePermissions:       async () => {},
 });
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
+// ─── Provider ─────────────────────────────────────────────────────────��[...]
 
 export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
