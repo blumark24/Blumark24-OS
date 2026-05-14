@@ -1,28 +1,57 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PREFIXES = ["/auth", "/_next/", "/favicon.ico", "/api/"];
+const PROTECTED_PATHS = [
+  "/dashboard",
+  "/employees",
+  "/tasks",
+  "/clients",
+  "/finance",
+  "/reports",
+  "/automation",
+  "/assistant",
+  "/settings",
+  "/profile",
+];
+
+function isProtectedPath(pathname: string) {
+  return PROTECTED_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`)
+  );
+}
+
+function hasAuthSession(request: NextRequest) {
+  const hasSupabaseCookie = request.cookies
+    .getAll()
+    .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.endsWith("-auth-token"));
+
+  const hasSessionMarker = request.cookies.get("blumark_session")?.value === "1";
+
+  return hasSupabaseCookie || hasSessionMarker;
+}
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
+  const isAuthenticated = hasAuthSession(request);
 
-  // Always allow public paths and API routes (APIs verify JWT themselves)
-  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
+  if (pathname === "/") {
     return NextResponse.next();
   }
 
-  // Check Supabase native session cookie (sb-<project-ref>-auth-token)
-  const cookies = request.cookies.getAll();
-  const hasSupabaseCookie = cookies.some(
-    (c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token")
-  );
+  if (pathname.startsWith("/auth")) {
+    if (isAuthenticated) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    return NextResponse.next();
+  }
 
-  // Check our lightweight session signal set by AuthContext
-  const hasSessionMarker = request.cookies.get("blumark_session")?.value === "1";
+  if (!isProtectedPath(pathname)) {
+    return NextResponse.next();
+  }
 
-  if (!hasSupabaseCookie && !hasSessionMarker) {
+  if (!isAuthenticated) {
     const loginUrl = new URL("/auth", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
+    loginUrl.searchParams.set("redirect", `${pathname}${search}`);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -31,6 +60,16 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico).*)",
+    "/auth/:path*",
+    "/dashboard/:path*",
+    "/employees/:path*",
+    "/tasks/:path*",
+    "/clients/:path*",
+    "/finance/:path*",
+    "/reports/:path*",
+    "/automation/:path*",
+    "/assistant/:path*",
+    "/settings/:path*",
+    "/profile/:path*",
   ],
 };
