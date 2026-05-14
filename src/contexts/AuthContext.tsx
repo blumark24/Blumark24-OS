@@ -11,9 +11,6 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-// Known admin emails — ALWAYS get super_admin regardless of DB state
-const ADMIN_EMAILS = ["blumark24@gmail.com", "blumark.sa@gmail.com"];
-
 export interface AuthUser {
   id: string;
   name: string;
@@ -29,7 +26,7 @@ interface AuthContextValue {
   logout: () => void;
 }
 
-const PUBLIC_PATHS = ["/auth"];
+const PUBLIC_PATHS = ["/", "/auth"];
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
@@ -47,64 +44,53 @@ function setSessionCookie(value: string) {
   }
 }
 
-// Build AuthUser:
-// 1. Fetch profile from DB using auth user ID
-// 2. If missing, upsert it (handles trigger-not-fired edge case)
-// 3. Admin emails ALWAYS get super_admin — final authority
 async function buildUser(id: string, email: string): Promise<AuthUser> {
-  const isAdmin = ADMIN_EMAILS.includes(email);
+  let profile: { name?: string | null; full_name?: string | null; role?: string | null; avatar?: string | null; avatar_url?: string | null } | null = null;
 
-  // Step 1: try reading existing profile
-  let profile: { name: string; role: string; avatar?: string } | null = null;
   const { data: existing } = await supabase
     .from("profiles")
-    .select("name, role, avatar")
+    .select("name, full_name, role, avatar, avatar_url")
     .eq("id", id)
     .maybeSingle();
+
   profile = existing;
 
-  // Step 2: create profile if it doesn't exist
   if (!profile) {
+    const safeProfile = {
+      id,
+      email,
+      name: email.split("@")[0],
+      full_name: email.split("@")[0],
+      role: "employee",
+      is_active: true,
+      department: "",
+    };
+
     const { data: created } = await supabase
       .from("profiles")
-      .upsert(
-        {
-          id,
-          email,
-          name: email.split("@")[0],
-          role: isAdmin ? "super_admin" : "employee",
-          is_active: true,
-          department: isAdmin ? "الإدارة العليا" : "",
-        },
-        { onConflict: "id" }
-      )
-      .select("name, role, avatar")
+      .upsert(safeProfile, { onConflict: "id" })
+      .select("name, full_name, role, avatar, avatar_url")
       .maybeSingle();
-    profile = created;
+
+    profile = created ?? safeProfile;
   }
 
-  // Step 3: admin emails always override to super_admin
-  const role = isAdmin ? "super_admin" : (profile?.role ?? "employee");
-
-  // Fix DB silently if admin email has wrong role
-  if (isAdmin && profile?.role !== "super_admin") {
-    supabase.from("profiles").update({ role: "super_admin" }).eq("id", id).then(() => {});
-  }
+  const displayName = profile?.full_name ?? profile?.name ?? email.split("@")[0];
 
   return {
     id,
     email,
-    name:   profile?.name ?? email.split("@")[0],
-    role,
-    avatar: profile?.avatar,
+    name: displayName,
+    role: profile?.role ?? "employee",
+    avatar: profile?.avatar_url ?? profile?.avatar ?? undefined,
   };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const router   = useRouter();
+  const router = useRouter();
   const pathname = usePathname();
 
-  const [user,    setUser]    = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -117,40 +103,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (session?.user) {
-          const u = await buildUser(session.user.id, session.user.email ?? "");
-          setUser(u);
-          setSessionCookie("1");
-        } else {
-          setUser(null);
-          setSessionCookie("");
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const u = await buildUser(session.user.id, session.user.email ?? "");
+        setUser(u);
+        setSessionCookie("1");
+      } else {
+        setUser(null);
+        setSessionCookie("");
       }
-    );
+    });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Route guard
   useEffect(() => {
     if (loading) return;
-    const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+
+    const isPublic = PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+    const isAuthPage = pathname.startsWith("/auth");
+
     if (!user && !isPublic) {
-      router.replace("/auth");
-    } else if (user && isPublic) {
-      router.replace("/");
+      router.replace(`/auth?redirect=${encodeURIComponent(pathname)}`);
+    } else if (user && isAuthPage) {
+      router.replace("/dashboard");
     }
   }, [user, loading, pathname, router]);
 
   const login = useCallback(
     async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
+
       if (error) {
         return { ok: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
       }
-      router.replace("/");
+
+      const redirect = typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("redirect")
+        : null;
+
+      router.replace(redirect || "/dashboard");
       return { ok: true };
     },
     [router]
