@@ -1,35 +1,35 @@
 import { supabase } from "@/lib/supabaseClient";
-import type { Task } from "@/types";
+import type { Client } from "@/types";
 
-export async function fetchTasks(): Promise<{ data: Task[] | null; error: any }>{
+export async function fetchClients(): Promise<{ data: Client[] | null; error: any }>{
   const { data, error } = await supabase
-    .from("tasks")
+    .from("clients")
     .select("*")
     .order("created_at", { ascending: false });
-  return { data: data as Task[] | null, error };
+  return { data: data as Client[] | null, error };
 }
 
-export async function fetchTaskById(id: string){
+export async function fetchClientById(id: string){
   const { data, error } = await supabase
-    .from("tasks")
+    .from("clients")
     .select("*")
     .eq("id", id)
     .single();
   return { data, error };
 }
 
-export async function createTask(payload: Partial<Task>){
+export async function createClient(payload: Partial<Client>){
   const { data, error } = await supabase
-    .from("tasks")
+    .from("clients")
     .insert([payload])
     .select()
     .single();
   return { data, error };
 }
 
-export async function updateTask(id: string, payload: Partial<Task>){
+export async function updateClient(id: string, payload: Partial<Client>){
   const { data, error } = await supabase
-    .from("tasks")
+    .from("clients")
     .update(payload)
     .eq("id", id)
     .select()
@@ -37,9 +37,9 @@ export async function updateTask(id: string, payload: Partial<Task>){
   return { data, error };
 }
 
-export async function deleteTask(id: string){
+export async function deleteClient(id: string){
   const { data, error } = await supabase
-    .from("tasks")
+    .from("clients")
     .delete()
     .eq("id", id)
     .select();
