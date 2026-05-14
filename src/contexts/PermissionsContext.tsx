@@ -12,7 +12,7 @@ import { useAuth } from "./AuthContext";
 import { getAllProfiles, updateProfileRole, toggleProfileStatus } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────[...]
 
 export type UserRole =
   | "super_admin"
@@ -34,8 +34,12 @@ export type Permission =
   | "manage_settings"
   | "manage_automations";
 
-export const ROLE_LABELS: Record<UserRole, string> = {
+// Flexible labels mapping — keep labels for known internal roles,
+// also include friendly labels for 'admin' / 'manager' strings.
+export const ROLE_LABELS: Record<string, string> = {
   super_admin:      "مدير أعلى",
+  admin:            "مدير",
+  manager:          "مدير قسم",
   board_member:     "عضو مجلس الإدارة",
   defense_manager:  "مدير وكالة الدفاع",
   attack_manager:   "مدير وكالة الهجوم",
@@ -112,17 +116,30 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 };
 
 export function mapAuthRoleToUserRole(role: string): UserRole {
-  switch (role) {
+  const normalizedRole = String(role ?? "").trim();
+
+  switch (normalizedRole) {
+    case "super_admin":
     case "مدير_عام":
-    case "super_admin":      return "super_admin";
+      return "super_admin";
+    case "admin":
+      return "super_admin";
+    case "manager":
+    case "مدير_قسم":
+      return "defense_manager";
+    case "finance_manager":
     case "مدير_مالي":
-    case "finance_manager":  return "finance_manager";
+      return "finance_manager";
+    case "attack_manager":
     case "مدير_مبيعات":
-    case "attack_manager":   return "attack_manager";
+      return "attack_manager";
+    case "defense_manager":
     case "مدير":
-    case "defense_manager":  return "defense_manager";
-    case "board_member":     return "board_member";
-    default:                 return "employee";
+      return "defense_manager";
+    case "board_member":
+      return "board_member";
+    default:
+      return "employee";
   }
 }
 
@@ -135,7 +152,7 @@ export interface ManagedUser {
   department: string;
 }
 
-// ─── Context value ────────────────────────────────────────────────────────────
+// ─── Context value ────────────────────────────────────────────────────────[...]
 
 interface PermissionsContextValue {
   userRole:              UserRole;
@@ -168,7 +185,7 @@ const PermissionsContext = createContext<PermissionsContextValue>({
   savePermissions:       async () => {},
 });
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
+// ─── Provider ─────────────────────────────────────────────────────────��[...]
 
 export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();

@@ -45,16 +45,30 @@ function setSessionCookie(value: string) {
 }
 
 async function buildUser(id: string, email: string): Promise<AuthUser> {
-  let profile: { name?: string | null; full_name?: string | null; role?: string | null; avatar?: string | null; avatar_url?: string | null } | null = null;
+  let profile: { name?: string | null; full_name?: string | null; role?: string | null; avatar?: string | null; avatar_url?: string | null; email?: string | null } | null = null;
 
-  const { data: existing } = await supabase
+  // 1) Try by auth user id (authoritative)
+  const { data: byId } = await supabase
     .from("profiles")
-    .select("name, full_name, role, avatar, avatar_url")
+    .select("name, full_name, role, avatar, avatar_url, email")
     .eq("id", id)
     .maybeSingle();
+  profile = byId ?? null;
 
-  profile = existing;
+  // 2) If not found by id, try by email (case-insensitive)
+  if (!profile) {
+    const e = (email || "").trim().toLowerCase();
+    if (e) {
+      const { data: byEmail } = await supabase
+        .from("profiles")
+        .select("name, full_name, role, avatar, avatar_url, email")
+        .ilike("email", e)
+        .maybeSingle();
+      profile = byEmail ?? null;
+    }
+  }
 
+  // 3) If still not found, create a safe profile for new users
   if (!profile) {
     const safeProfile = {
       id,
@@ -65,13 +79,11 @@ async function buildUser(id: string, email: string): Promise<AuthUser> {
       is_active: true,
       department: "",
     };
-
     const { data: created } = await supabase
       .from("profiles")
       .upsert(safeProfile, { onConflict: "id" })
       .select("name, full_name, role, avatar, avatar_url")
       .maybeSingle();
-
     profile = created ?? safeProfile;
   }
 
@@ -81,6 +93,7 @@ async function buildUser(id: string, email: string): Promise<AuthUser> {
     id,
     email,
     name: displayName,
+    // authoritative role from profiles table
     role: profile?.role ?? "employee",
     avatar: profile?.avatar_url ?? profile?.avatar ?? undefined,
   };
@@ -98,6 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         const u = await buildUser(session.user.id, session.user.email ?? "");
         setUser(u);
+        if (process.env.NODE_ENV === "development") {
+          console.log("Auth role loaded:", session.user.email, u.role);
+        }
         setSessionCookie("1");
       }
       setLoading(false);
@@ -109,6 +125,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         const u = await buildUser(session.user.id, session.user.email ?? "");
         setUser(u);
+        if (process.env.NODE_ENV === "development") {
+          console.log("Auth role loaded:", session.user.email, u.role);
+        }
         setSessionCookie("1");
       } else {
         setUser(null);
@@ -134,16 +153,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (error) {
+      const { error: signErr } = await supabase.auth.signInWithPassword({ email, password });
+      if (signErr) {
         return { ok: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
+      }
+
+      // Ensure we rebuild the user from profiles after sign-in so role is correct
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const u = await buildUser(session.user.id, session.user.email ?? "");
+        setUser(u);
+        setSessionCookie("1");
+        if (process.env.NODE_ENV === "development") {
+          console.log("Auth role loaded:", session.user.email, u.role);
+        }
       }
 
       const redirect = typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("redirect")
         : null;
-
       router.replace(redirect || "/");
       return { ok: true };
     },
