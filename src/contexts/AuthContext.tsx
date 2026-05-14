@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user && !isPublic) {
       router.replace(`/auth?redirect=${encodeURIComponent(pathname)}`);
     } else if (user && isAuthPage) {
-      router.replace("/dashboard");
+      router.replace("/");
     }
   }, [user, loading, pathname, router]);
 
@@ -144,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ? new URLSearchParams(window.location.search).get("redirect")
         : null;
 
-      router.replace(redirect || "/dashboard");
+      router.replace(redirect || "/");
       return { ok: true };
     },
     [router]
