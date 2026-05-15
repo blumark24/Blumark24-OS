@@ -12,6 +12,7 @@ const PROTECTED_PATHS = [
   "/assistant",
   "/settings",
   "/profile",
+  "/admin-recovery",
 ];
 
 function isProtectedPath(pathname: string) {
@@ -38,10 +39,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/auth")) {
+  if (pathname === "/auth") {
     if (isAuthenticated) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
+    return NextResponse.next();
+  }
+
+  // Allow /auth/* sub-paths (e.g. /auth/reset-password) through regardless of auth state
+  if (pathname.startsWith("/auth/")) {
     return NextResponse.next();
   }
 
@@ -60,6 +66,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/auth",
     "/auth/:path*",
     "/dashboard/:path*",
     "/employees/:path*",
@@ -71,5 +78,6 @@ export const config = {
     "/assistant/:path*",
     "/settings/:path*",
     "/profile/:path*",
+    "/admin-recovery/:path*",
   ],
 };
