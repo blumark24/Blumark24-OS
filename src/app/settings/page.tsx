@@ -8,6 +8,7 @@ import {
   Settings, Users, Shield, Building2, Palette, Link2, Bell, Save,
   Check, Zap, ExternalLink, Clock, ToggleLeft, ToggleRight,
   Plus, Pencil, UserX, UserCheck, X, Key, Loader2,
+  Lock, Eye, EyeOff,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -22,6 +23,8 @@ import {
   ManagedUser,
 } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 import { getSystemSettings, setSystemSetting } from "@/lib/db";
 import { useAutomations } from "@/hooks/useData";
 import { withTimeout } from "@/lib/asyncHelpers";
@@ -30,6 +33,7 @@ import { withTimeout } from "@/lib/asyncHelpers";
 
 const TABS = [
   { id: "general",      label: "عام",              icon: Building2 },
+  { id: "account",      label: "الحساب",            icon: Lock      },
   { id: "users",        label: "المستخدمون",        icon: Users     },
   { id: "permissions",  label: "الصلاحيات والأدوار",icon: Shield    },
   { id: "integrations", label: "التكاملات",         icon: Link2     },
@@ -279,8 +283,18 @@ function PermissionsTab() {
 function SettingsContent() {
   const toast = useToast();
   const { hasPermission } = usePermissions();
+  const { user } = useAuth();
 
   const [activeTab,  setActiveTab]  = useState("general");
+
+  // Password change state
+  const [pwForm,       setPwForm]       = useState({ currPw: "", newPw: "", confirmPw: "" });
+  const [pwLoading,    setPwLoading]    = useState(false);
+  const [pwError,      setPwError]      = useState("");
+  const [pwSuccess,    setPwSuccess]    = useState(false);
+  const [showCurrPw,   setShowCurrPw]   = useState(false);
+  const [showNewPw,    setShowNewPw]    = useState(false);
+  const [showConfirmPw,setShowConfirmPw]= useState(false);
   const [saved,      setSaved]      = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [companyForm, setCompanyForm] = useState({
@@ -309,6 +323,13 @@ function SettingsContent() {
     }).catch(console.error);
   }, []);
 
+  // Read ?tab= from URL on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab) setActiveTab(tab);
+  }, []);
+
   // Apply theme to DOM whenever appearance state changes
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
@@ -318,6 +339,47 @@ function SettingsContent() {
       localStorage.setItem("blumark-theme", JSON.stringify({ darkMode, accentColor, language }));
     } catch { /* storage may be unavailable */ }
   }, [darkMode, accentColor, language]);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwError("");
+    setPwSuccess(false);
+    if (pwForm.newPw !== pwForm.confirmPw) {
+      setPwError("كلمات المرور الجديدة غير متطابقة");
+      return;
+    }
+    if (pwForm.newPw.length < 8) {
+      setPwError("كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل");
+      return;
+    }
+    if (!user?.email) {
+      setPwError("لا يمكن تحديد المستخدم الحالي");
+      return;
+    }
+    setPwLoading(true);
+    try {
+      const { error: signErr } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: pwForm.currPw,
+      });
+      if (signErr) {
+        setPwError("كلمة المرور الحالية غير صحيحة");
+        return;
+      }
+      const { error: updErr } = await supabase.auth.updateUser({ password: pwForm.newPw });
+      if (updErr) {
+        setPwError(`فشل تحديث كلمة المرور: ${updErr.message}`);
+        return;
+      }
+      setPwSuccess(true);
+      setPwForm({ currPw: "", newPw: "", confirmPw: "" });
+      toast.success("تم تغيير كلمة المرور بنجاح");
+    } catch {
+      setPwError("حدث خطأ غير متوقع");
+    } finally {
+      setPwLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -363,7 +425,7 @@ function SettingsContent() {
             </h1>
             <p className="text-[#8ba3c7] text-sm mt-1">إدارة إعدادات النظام والتفضيلات</p>
           </div>
-          {activeTab !== "permissions" && (
+          {activeTab !== "permissions" && activeTab !== "account" && (
             <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2 disabled:opacity-50">
               {saving
                 ? <Loader2 size={16} className="animate-spin" />
@@ -415,6 +477,111 @@ function SettingsContent() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* ── Account ── */}
+            {activeTab === "account" && (
+              <div className="space-y-4">
+                <div className="glass-card p-6">
+                  <h3 className="text-white font-medium text-lg mb-1 flex items-center gap-2">
+                    <Lock size={18} className="text-[#22d3ee]" />
+                    تغيير كلمة المرور
+                  </h3>
+                  <p className="text-[#8ba3c7] text-sm mb-6">يجب إدخال كلمة المرور الحالية للتحقق قبل تعيين كلمة مرور جديدة</p>
+
+                  {pwSuccess && (
+                    <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm text-center">
+                      تم تغيير كلمة المرور بنجاح
+                    </div>
+                  )}
+                  {pwError && (
+                    <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm text-center">
+                      {pwError}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
+                    <div>
+                      <label className="block text-sm text-[#8ba3c7] mb-1.5">كلمة المرور الحالية</label>
+                      <div className="relative">
+                        <input
+                          type={showCurrPw ? "text" : "password"}
+                          className="input-dark pl-10"
+                          value={pwForm.currPw}
+                          onChange={(e) => setPwForm({ ...pwForm, currPw: e.target.value })}
+                          required
+                        />
+                        <button type="button" onClick={() => setShowCurrPw(!showCurrPw)}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] hover:text-[#22d3ee] transition-colors">
+                          {showCurrPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-[#8ba3c7] mb-1.5">كلمة المرور الجديدة</label>
+                      <div className="relative">
+                        <input
+                          type={showNewPw ? "text" : "password"}
+                          className="input-dark pl-10"
+                          value={pwForm.newPw}
+                          onChange={(e) => setPwForm({ ...pwForm, newPw: e.target.value })}
+                          required
+                        />
+                        <button type="button" onClick={() => setShowNewPw(!showNewPw)}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] hover:text-[#22d3ee] transition-colors">
+                          {showNewPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-[#8ba3c7] mb-1.5">تأكيد كلمة المرور الجديدة</label>
+                      <div className="relative">
+                        <input
+                          type={showConfirmPw ? "text" : "password"}
+                          className="input-dark pl-10"
+                          value={pwForm.confirmPw}
+                          onChange={(e) => setPwForm({ ...pwForm, confirmPw: e.target.value })}
+                          required
+                        />
+                        <button type="button" onClick={() => setShowConfirmPw(!showConfirmPw)}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] hover:text-[#22d3ee] transition-colors">
+                          {showConfirmPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={pwLoading}
+                      className="btn-primary flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {pwLoading ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />}
+                      {pwLoading ? "جارٍ التحديث..." : "تحديث كلمة المرور"}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Admin Emergency Link — super_admin only */}
+                {user?.role === "super_admin" && (
+                  <div className="glass-card p-5 border border-amber-500/20">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-white font-medium text-sm flex items-center gap-2">
+                          <Shield size={14} className="text-amber-400" />
+                          الوصول الإداري الطارئ
+                        </div>
+                        <div className="text-xs text-[#8ba3c7] mt-0.5">للمديرين الأعلى فقط — أدوات الاسترداد الطارئة</div>
+                      </div>
+                      <Link
+                        href="/admin-recovery"
+                        className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
+                      >
+                        <ExternalLink size={12} />
+                        فتح لوحة الاسترداد
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
