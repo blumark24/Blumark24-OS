@@ -355,10 +355,11 @@ function SettingsContent() {
       setPwError("كلمات المرور الجديدة غير متطابقة");
       return;
     }
-    if (pwForm.newPw.length < 8) {
-      setPwError("كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل");
-      return;
-    }
+    if (pwForm.newPw.length < 8)            { setPwError("كلمة المرور يجب أن تكون 8 أحرف على الأقل");            return; }
+    if (!/[A-Z]/.test(pwForm.newPw))        { setPwError("كلمة المرور يجب أن تحتوي على حرف كبير (A-Z)");       return; }
+    if (!/[a-z]/.test(pwForm.newPw))        { setPwError("كلمة المرور يجب أن تحتوي على حرف صغير (a-z)");       return; }
+    if (!/[0-9]/.test(pwForm.newPw))        { setPwError("كلمة المرور يجب أن تحتوي على رقم (0-9)");             return; }
+    if (!/[^A-Za-z0-9]/.test(pwForm.newPw)) { setPwError("كلمة المرور يجب أن تحتوي على رمز (!@#$...)");          return; }
     if (!user?.email) {
       setPwError("لا يمكن تحديد المستخدم الحالي");
       return;

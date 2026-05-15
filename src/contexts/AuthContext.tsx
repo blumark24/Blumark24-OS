@@ -49,30 +49,33 @@ function setSessionCookie(value: string) {
 
 async function buildUser(id: string, email: string): Promise<AuthUser> {
   type ProfileRow = { name?: string | null; full_name?: string | null; role?: string | null; avatar?: string | null; avatar_url?: string | null; email?: string | null; force_password_change?: boolean | null };
+
+  const FULL_COLS  = "name, full_name, role, avatar, avatar_url, email, force_password_change";
+  const SAFE_COLS  = "name, role, avatar, email, force_password_change";
+
+  async function queryEmail(cols: string): Promise<ProfileRow | null> {
+    const e = (email || "").trim().toLowerCase();
+    if (!e) return null;
+    const { data, error } = await supabase.from("profiles").select(cols).ilike("email", e).maybeSingle();
+    return error ? null : ((data as ProfileRow) ?? null);
+  }
+
+  async function queryId(cols: string): Promise<ProfileRow | null> {
+    const { data, error } = await supabase.from("profiles").select(cols).eq("id", id).maybeSingle();
+    return error ? null : ((data as ProfileRow) ?? null);
+  }
+
   let profile: ProfileRow | null = null;
 
-  // 1) Email-first lookup (authoritative when id/email mismatch exists)
-  const normalizedEmail = (email || "").trim().toLowerCase();
-  if (normalizedEmail) {
-    const { data: byEmail } = await supabase
-      .from("profiles")
-      .select("name, full_name, role, avatar, avatar_url, email, force_password_change")
-      .ilike("email", normalizedEmail)
-      .maybeSingle();
-    profile = byEmail ?? null;
-  }
+  // 1) Email-first with full columns; retry with safe columns if schema error
+  profile = await queryEmail(FULL_COLS) ?? await queryEmail(SAFE_COLS);
 
-  // 2) Fallback: lookup by auth user id
+  // 2) Fallback: by auth user id
   if (!profile) {
-    const { data: byId } = await supabase
-      .from("profiles")
-      .select("name, full_name, role, avatar, avatar_url, email, force_password_change")
-      .eq("id", id)
-      .maybeSingle();
-    profile = byId ?? null;
+    profile = await queryId(FULL_COLS) ?? await queryId(SAFE_COLS);
   }
 
-  // 3) Still not found — create a safe default profile
+  // 3) Not found — upsert a safe default
   if (!profile) {
     const safeProfile = {
       id,
@@ -86,7 +89,7 @@ async function buildUser(id: string, email: string): Promise<AuthUser> {
     const { data: created } = await supabase
       .from("profiles")
       .upsert(safeProfile, { onConflict: "id" })
-      .select("name, full_name, role, avatar, avatar_url, force_password_change")
+      .select(SAFE_COLS)
       .maybeSingle();
     profile = created ?? safeProfile;
   }
