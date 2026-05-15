@@ -8,6 +8,7 @@ import {
   Settings, Users, Shield, Building2, Palette, Link2, Bell, Save,
   Check, Zap, ExternalLink, Clock, ToggleLeft, ToggleRight,
   Plus, Pencil, UserX, UserCheck, X, Key, Loader2, Lock, Eye, EyeOff,
+  AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -282,7 +283,10 @@ function PermissionsTab() {
 function SettingsContent() {
   const toast = useToast();
   const { hasPermission } = usePermissions();
-  const { user } = useAuth();
+  const { user, clearForcePasswordChange } = useAuth();
+  const router = useRouter();
+
+  const forcedAccount = user?.forcePasswordChange === true;
 
   const [activeTab,  setActiveTab]  = useState("general");
   const [saved,      setSaved]      = useState(false);
@@ -331,6 +335,19 @@ function SettingsContent() {
       localStorage.setItem("blumark-theme", JSON.stringify({ darkMode, accentColor, language }));
     } catch { /* storage may be unavailable */ }
   }, [darkMode, accentColor, language]);
+
+  // Read ?tab= from URL on mount (e.g. when redirected with ?tab=account)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab && TABS.some((t) => t.id === tab)) setActiveTab(tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Always force the account tab when password change is required; overrides URL param
+  useEffect(() => {
+    if (forcedAccount) setActiveTab("account");
+  }, [forcedAccount]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -383,6 +400,9 @@ function SettingsContent() {
       return;
     }
 
+    // Capture before async ops — state may change during await calls
+    const wasForcedAccount = user?.forcePasswordChange === true;
+
     setPwLoading(true);
     try {
       // Re-authenticate to verify the current password
@@ -403,6 +423,12 @@ function SettingsContent() {
       setPwSuccess(true);
       setPwForm({ current: "", newPw: "", confirm: "" });
       toast.success("تم تحديث كلمة المرور بنجاح");
+
+      // If this was a forced password change, clear the flag and redirect to dashboard
+      if (wasForcedAccount) {
+        await clearForcePasswordChange();
+        setTimeout(() => router.replace("/"), 1500);
+      }
     } catch {
       setPwError("حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.");
     } finally {
@@ -432,19 +458,32 @@ function SettingsContent() {
           )}
         </div>
 
+        {/* Forced password-change notice */}
+        {forcedAccount && (
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm flex items-center gap-3">
+            <AlertTriangle size={18} className="flex-shrink-0" />
+            <span>يجب تغيير كلمة المرور المؤقتة للمتابعة — لن تتمكن من الوصول إلى لوحة التحكم حتى تقوم بتغيير كلمة المرور</span>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Tabs */}
           <div className="glass-card p-2 h-fit">
-            {TABS.filter((t) => t.id !== "permissions" || hasPermission("manage_roles")).map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all mb-1 last:mb-0 ${activeTab === tab.id ? "sidebar-active" : "text-[#8ba3c7] hover:text-white hover:bg-[#1a3356]/50"}`}
-              >
-                <tab.icon size={16} className={activeTab === tab.id ? "text-[#22d3ee]" : ""} />
-                {tab.label}
-              </button>
-            ))}
+            {TABS.filter((t) => t.id !== "permissions" || hasPermission("manage_roles")).map((tab) => {
+              const isLocked = forcedAccount && tab.id !== "account";
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => { if (!isLocked) setActiveTab(tab.id); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all mb-1 last:mb-0 ${
+                    activeTab === tab.id ? "sidebar-active" : "text-[#8ba3c7] hover:text-white hover:bg-[#1a3356]/50"
+                  } ${isLocked ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
+                >
+                  <tab.icon size={16} className={activeTab === tab.id ? "text-[#22d3ee]" : ""} />
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Content */}
@@ -483,6 +522,14 @@ function SettingsContent() {
                   <Lock size={18} className="text-[#22d3ee]" />
                   <h3 className="text-white font-medium text-lg">تغيير كلمة المرور</h3>
                 </div>
+
+                {/* Forced-change inline notice */}
+                {forcedAccount && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs flex items-center gap-2">
+                    <AlertTriangle size={14} className="flex-shrink-0" />
+                    يجب تغيير كلمة المرور المؤقتة للمتابعة
+                  </div>
+                )}
 
                 {/* Current user info */}
                 <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#0d1f3c]/60 border border-[#1e3a5f]">
