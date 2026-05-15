@@ -91,10 +91,6 @@ async function buildUser(id: string, email: string): Promise<AuthUser> {
     profile = created ?? safeProfile;
   }
 
-  // DEBUG: always log the final role value fetched from profiles table
-  // IMPORTANT: this prints the raw value from the DB (may be null/undefined)
-  console.log("FINAL ROLE:", profile?.role);
-
   const displayName = profile?.full_name ?? profile?.name ?? email.split("@")[0];
 
   return {

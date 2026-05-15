@@ -1,15 +1,24 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { Shield, AlertTriangle, ShieldOff } from "lucide-react";
 
 export default function AdminRecoveryPage() {
   const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (loading) return null;
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/auth");
+    }
+  }, [loading, user, router]);
 
-  if (user?.role !== "super_admin") {
+  if (loading || !user) return null;
+
+  if (user.role !== "super_admin") {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
