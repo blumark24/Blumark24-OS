@@ -101,9 +101,9 @@ export default function LandingPage() {
               <Link href="/auth" className="inline-flex items-center justify-center rounded-2xl font-medium h-10 px-4 text-sm text-[#AAB7C7] hover:text-white hover:bg-white/[0.04] transition">
                 تسجيل الدخول
               </Link>
-              <a href="#contact" className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-10 px-4 text-sm bg-gradient-to-l from-[#1E6FD9] to-[#22D3EE] text-white shadow-[0_8px_32px_-8px_rgba(34,211,238,0.55)] hover:brightness-110 transition">
+              <Link href="/demo" className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-10 px-4 text-sm bg-gradient-to-l from-[#1E6FD9] to-[#22D3EE] text-white shadow-[0_8px_32px_-8px_rgba(34,211,238,0.55)] hover:brightness-110 transition">
                 طلب عرض تجريبي
-              </a>
+              </Link>
             </div>
 
             <button
@@ -167,9 +167,9 @@ export default function LandingPage() {
             >
               تسجيل الدخول
             </Link>
-            <a href="#contact" onClick={() => { setMobileMenuOpen(false); document.body.style.overflow = ""; }} className="inline-flex items-center justify-center rounded-2xl font-medium h-12 px-6 text-[15px] bg-gradient-to-l from-[#1E6FD9] to-[#22D3EE] text-white shadow-[0_8px_32px_-8px_rgba(34,211,238,0.55)] w-full">
+            <Link href="/demo" onClick={() => { setMobileMenuOpen(false); document.body.style.overflow = ""; }} className="inline-flex items-center justify-center rounded-2xl font-medium h-12 px-6 text-[15px] bg-gradient-to-l from-[#1E6FD9] to-[#22D3EE] text-white shadow-[0_8px_32px_-8px_rgba(34,211,238,0.55)] w-full">
               طلب عرض تجريبي
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -223,15 +223,15 @@ export default function LandingPage() {
             </p>
 
             <div className="mt-7 sm:mt-9 flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-up" style={{ animationDelay: "300ms" }}>
-              <a
-                href="#contact"
+              <Link
+                href="/demo"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-14 px-8 text-base bg-gradient-to-l from-[#1E6FD9] to-[#22D3EE] text-white shadow-[0_8px_32px_-8px_rgba(34,211,238,0.55)] hover:brightness-110 transition w-full sm:w-auto"
               >
                 طلب عرض تجريبي
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M19 12H5" /><path d="m12 5-7 7 7 7" />
                 </svg>
-              </a>
+              </Link>
               <Link
                 href="/auth"
                 className="inline-flex items-center justify-center rounded-2xl font-medium h-14 px-8 text-base bg-white/[0.04] text-white border border-[rgba(34,211,238,0.34)] backdrop-blur-md hover:bg-white/[0.08] transition w-full sm:w-auto"
