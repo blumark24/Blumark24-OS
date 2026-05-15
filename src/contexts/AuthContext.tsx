@@ -17,6 +17,7 @@ export interface AuthUser {
   email: string;
   role: string;
   avatar?: string;
+  forcePasswordChange: boolean;
 }
 
 interface AuthContextValue {
@@ -24,6 +25,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
+  clearForcePasswordChange: () => Promise<void>;
 }
 
 const PUBLIC_PATHS = ["/", "/auth"];
@@ -33,6 +35,7 @@ const AuthContext = createContext<AuthContextValue>({
   loading: true,
   login: async () => ({ ok: false }),
   logout: () => {},
+  clearForcePasswordChange: async () => {},
 });
 
 function setSessionCookie(value: string) {
@@ -45,31 +48,31 @@ function setSessionCookie(value: string) {
 }
 
 async function buildUser(id: string, email: string): Promise<AuthUser> {
-  let profile: { name?: string | null; full_name?: string | null; role?: string | null; avatar?: string | null; avatar_url?: string | null; email?: string | null } | null = null;
+  type ProfileRow = { name?: string | null; full_name?: string | null; role?: string | null; avatar?: string | null; avatar_url?: string | null; email?: string | null; force_password_change?: boolean | null };
+  let profile: ProfileRow | null = null;
 
+  // 1) Email-first lookup (authoritative when id/email mismatch exists)
   const normalizedEmail = (email || "").trim().toLowerCase();
-
-  // 1) Try by email first (prevents stale id-matched rows from overriding correct role)
   if (normalizedEmail) {
     const { data: byEmail } = await supabase
       .from("profiles")
-      .select("name, full_name, role, avatar, avatar_url, email")
+      .select("name, full_name, role, avatar, avatar_url, email, force_password_change")
       .ilike("email", normalizedEmail)
       .maybeSingle();
     profile = byEmail ?? null;
   }
 
-  // 2) If not found by email, try by auth user id
+  // 2) Fallback: lookup by auth user id
   if (!profile) {
     const { data: byId } = await supabase
       .from("profiles")
-      .select("name, full_name, role, avatar, avatar_url, email")
+      .select("name, full_name, role, avatar, avatar_url, email, force_password_change")
       .eq("id", id)
       .maybeSingle();
     profile = byId ?? null;
   }
 
-  // 3) If still not found, create a safe profile for new users
+  // 3) Still not found — create a safe default profile
   if (!profile) {
     const safeProfile = {
       id,
@@ -83,7 +86,7 @@ async function buildUser(id: string, email: string): Promise<AuthUser> {
     const { data: created } = await supabase
       .from("profiles")
       .upsert(safeProfile, { onConflict: "id" })
-      .select("name, full_name, role, avatar, avatar_url")
+      .select("name, full_name, role, avatar, avatar_url, force_password_change")
       .maybeSingle();
     profile = created ?? safeProfile;
   }
@@ -98,9 +101,9 @@ async function buildUser(id: string, email: string): Promise<AuthUser> {
     id,
     email,
     name: displayName,
-    // authoritative role from profiles table - ONLY fallback is when no profile exists
     role: profile?.role ?? "employee",
     avatar: profile?.avatar_url ?? profile?.avatar ?? undefined,
+    forcePasswordChange: profile?.force_password_change === true,
   };
 }
 
@@ -147,12 +150,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (loading) return;
 
     const isPublic = PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
-    const isAuthPage = pathname.startsWith("/auth");
+    const isAuthPage = pathname === "/auth";
 
     if (!user && !isPublic) {
       router.replace(`/auth?redirect=${encodeURIComponent(pathname)}`);
     } else if (user && isAuthPage) {
       router.replace("/");
+    } else if (user?.forcePasswordChange && pathname !== "/settings") {
+      router.replace("/settings?tab=account");
     }
   }, [user, loading, pathname, router]);
 
@@ -172,6 +177,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (process.env.NODE_ENV === "development") {
           console.log("Auth role loaded:", session.user.email, u.role);
         }
+        if (u.forcePasswordChange) {
+          router.replace("/settings?tab=account");
+          return { ok: true };
+        }
       }
 
       const redirect = typeof window !== "undefined"
@@ -190,8 +199,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.replace("/auth");
   }, [router]);
 
+  const clearForcePasswordChange = useCallback(async () => {
+    if (!user) return;
+    const normalizedEmail = user.email.trim().toLowerCase();
+    try {
+      await supabase
+        .from("profiles")
+        .update({ force_password_change: false })
+        .ilike("email", normalizedEmail);
+    } catch { /* ignore — local state cleared regardless */ }
+    setUser((prev) => (prev ? { ...prev, forcePasswordChange: false } : null));
+  }, [user]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, clearForcePasswordChange }}>
       {children}
     </AuthContext.Provider>
   );

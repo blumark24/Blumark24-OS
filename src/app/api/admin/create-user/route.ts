@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
 
     // ── 7. upsert profile (await; rollback auth user on failure) ──────────
     const profUpsert = await admin.from("profiles").upsert(
-      { id: userId, email, name, role, department, is_active: true },
+      { id: userId, email, name, role, department, is_active: true, force_password_change: true },
       { onConflict: "id" },
     );
     if (profUpsert.error) {

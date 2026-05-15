@@ -8,7 +8,7 @@ import {
   Settings, Users, Shield, Building2, Palette, Link2, Bell, Save,
   Check, Zap, ExternalLink, Clock, ToggleLeft, ToggleRight,
   Plus, Pencil, UserX, UserCheck, X, Key, Loader2,
-  Lock, Eye, EyeOff,
+  Lock, Eye, EyeOff, AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -283,7 +283,9 @@ function PermissionsTab() {
 function SettingsContent() {
   const toast = useToast();
   const { hasPermission } = usePermissions();
-  const { user } = useAuth();
+  const { user, clearForcePasswordChange } = useAuth();
+  const router = useRouter();
+  const forcedAccount = user?.forcePasswordChange === true;
 
   const [activeTab,  setActiveTab]  = useState("general");
 
@@ -330,6 +332,11 @@ function SettingsContent() {
     if (tab) setActiveTab(tab);
   }, []);
 
+  // Lock to account tab when forced password change is required
+  useEffect(() => {
+    if (forcedAccount) setActiveTab("account");
+  }, [forcedAccount]);
+
   // Apply theme to DOM whenever appearance state changes
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
@@ -371,9 +378,14 @@ function SettingsContent() {
         setPwError(`فشل تحديث كلمة المرور: ${updErr.message}`);
         return;
       }
+      const wasForcedAccount = forcedAccount;
       setPwSuccess(true);
       setPwForm({ currPw: "", newPw: "", confirmPw: "" });
       toast.success("تم تغيير كلمة المرور بنجاح");
+      if (wasForcedAccount) {
+        await clearForcePasswordChange();
+        setTimeout(() => router.replace("/"), 1500);
+      }
     } catch {
       setPwError("حدث خطأ غير متوقع");
     } finally {
@@ -417,6 +429,16 @@ function SettingsContent() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {forcedAccount && (
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+            <AlertTriangle size={18} className="text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <div className="text-amber-300 font-medium text-sm">يجب تغيير كلمة المرور المؤقتة للمتابعة</div>
+              <div className="text-amber-400/70 text-xs mt-0.5">لا يمكن الوصول إلى لوحة التحكم حتى تقوم بتعيين كلمة مرور جديدة</div>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-heading font-bold text-white flex items-center gap-2">
@@ -439,16 +461,19 @@ function SettingsContent() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Tabs */}
           <div className="glass-card p-2 h-fit">
-            {TABS.filter((t) => t.id !== "permissions" || hasPermission("manage_roles")).map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all mb-1 last:mb-0 ${activeTab === tab.id ? "sidebar-active" : "text-[#8ba3c7] hover:text-white hover:bg-[#1a3356]/50"}`}
-              >
-                <tab.icon size={16} className={activeTab === tab.id ? "text-[#22d3ee]" : ""} />
-                {tab.label}
-              </button>
-            ))}
+            {TABS.filter((t) => t.id !== "permissions" || hasPermission("manage_roles")).map((tab) => {
+              const locked = forcedAccount && tab.id !== "account";
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => !locked && setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all mb-1 last:mb-0 ${locked ? "opacity-40 cursor-not-allowed pointer-events-none" : ""} ${activeTab === tab.id ? "sidebar-active" : "text-[#8ba3c7] hover:text-white hover:bg-[#1a3356]/50"}`}
+                >
+                  <tab.icon size={16} className={activeTab === tab.id ? "text-[#22d3ee]" : ""} />
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Content */}
@@ -488,7 +513,13 @@ function SettingsContent() {
                     <Lock size={18} className="text-[#22d3ee]" />
                     تغيير كلمة المرور
                   </h3>
-                  <p className="text-[#8ba3c7] text-sm mb-6">يجب إدخال كلمة المرور الحالية للتحقق قبل تعيين كلمة مرور جديدة</p>
+                  <p className="text-[#8ba3c7] text-sm mb-4">يجب إدخال كلمة المرور الحالية للتحقق قبل تعيين كلمة مرور جديدة</p>
+                  {forcedAccount && (
+                    <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2 text-amber-300 text-sm">
+                      <AlertTriangle size={14} className="flex-shrink-0" />
+                      أدخل كلمة المرور المؤقتة في حقل «كلمة المرور الحالية»
+                    </div>
+                  )}
 
                   {pwSuccess && (
                     <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm text-center">
