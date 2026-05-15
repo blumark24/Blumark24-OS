@@ -1,5 +1,6 @@
 "use client";
 
+import LandingPage from "@/components/landing/LandingPage";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import JellyfishBackground from "@/components/jellyfish/JellyfishBackground";
 import {
@@ -66,7 +67,7 @@ function todayArabic() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { user }                               = useAuth();
+  const { user, loading }                      = useAuth();
   const { kpi, loading: kpiLoading }           = useDashboardKPI();
   const { data: projects, loading: projLoad }  = useProjects();
   const { data: activities, loading: actLoad } = useActivities();
@@ -108,6 +109,9 @@ export default function DashboardPage() {
   const roleLabel = user?.role
     ? ROLE_LABELS[user.role as UserRole] ?? user.role
     : "—";
+
+  if (loading) return null;
+  if (!user) return <LandingPage />;
 
   // KPI card definitions — values from Supabase, no fake change percentages
   const kpiCards = [

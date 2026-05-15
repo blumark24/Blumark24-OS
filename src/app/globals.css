@@ -309,3 +309,28 @@ html, body {
   font-size: 10px;
   font-weight: 700;
 }
+
+/* ─── Landing page animations ───────────────────────────────────────────────── */
+@keyframes landing-fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes landing-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+@keyframes landing-pulse-slow {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 0.8; }
+}
+.animate-fade-up {
+  opacity: 0;
+  animation: landing-fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.animate-float {
+  animation: landing-float 6s ease-in-out infinite;
+  animation-delay: 1s;
+}
+.animate-pulse-slow {
+  animation: landing-pulse-slow 4s ease-in-out infinite;
+}
