@@ -110,7 +110,11 @@ export default function DashboardPage() {
     ? ROLE_LABELS[user.role as UserRole] ?? user.role
     : "—";
 
-  if (loading) return null;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: "#0a1628" }}>
+      <div className="w-8 h-8 rounded-full border-2 border-[#1e3a5f] border-t-[#22d3ee] animate-spin" />
+    </div>
+  );
   if (!user) return <LandingPage />;
 
   // KPI card definitions — values from Supabase, no fake change percentages

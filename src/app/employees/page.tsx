@@ -53,7 +53,7 @@ type FormState = {
 };
 
 function EmployeesContent() {
-  const { data: employees, loading, error, update, remove, refetch } = useEmployees();
+  const { data: employees, loading, error, update, remove, refetch, setData } = useEmployees();
   const { userRole } = usePermissions();
   const toast = useToast();
   const isAdmin = userRole === "super_admin";
@@ -147,7 +147,7 @@ function EmployeesContent() {
       } else {
         // Hard 15-second client timeout — button NEVER hangs beyond this.
         // (Network AbortController in db.ts fires at 12 s; this is the fallback.)
-        await withTimeout(
+        const created = await withTimeout(
           createAuthUser({
             email:      cleanEmail,
             password:   form.password,
@@ -161,7 +161,24 @@ function EmployeesContent() {
           15_000,
           "انتهت مهلة الحفظ (15 ثانية) — تحقق من اتصالك بالإنترنت وحاول مرة أخرى",
         );
-        // Refresh the list with a soft timeout so a slow DB read never blocks the modal
+        // Optimistically prepend to the list so the new employee appears immediately
+        // even if the background refetch times out or is delayed.
+        setData((prev) => [{
+          id:             created.id,
+          name:           form.name.trim(),
+          email:          cleanEmail,
+          role:           form.role,
+          department:     form.department,
+          status:         form.status,
+          joinDate:       new Date().toISOString().split("T")[0],
+          performance:    3,
+          phone:          form.phone || undefined,
+          salary:         form.salary ? Number(form.salary) : undefined,
+          tasks:          0,
+          completedTasks: 0,
+          avatar:         undefined,
+        }, ...prev]);
+        // Background sync with the actual DB state (soft timeout — non-blocking)
         await withSoftTimeout(refetch(), 6_000);
         toast.success(`تم إنشاء حساب ${form.name.trim()} بنجاح`);
       }

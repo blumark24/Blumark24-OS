@@ -170,10 +170,19 @@ export async function POST(req: NextRequest) {
     console.log(`[create-user] auth create success userId=${userId}`);
 
     // ── 7. upsert profile (await; rollback auth user on failure) ──────────
-    const profUpsert = await admin.from("profiles").upsert(
+    // Try with force_password_change first; fall back without it if the column
+    // is absent (migration 005 not yet applied in this Supabase project).
+    let profUpsert = await admin.from("profiles").upsert(
       { id: userId, email, name, role, department, is_active: true, force_password_change: true },
       { onConflict: "id" },
     );
+    if (profUpsert.error?.message?.toLowerCase().includes("force_password_change")) {
+      console.warn("[create-user] force_password_change column missing — retrying without it");
+      profUpsert = await admin.from("profiles").upsert(
+        { id: userId, email, name, role, department, is_active: true },
+        { onConflict: "id" },
+      );
+    }
     if (profUpsert.error) {
       console.error(`[create-user] profile upsert failed: ${profUpsert.error.message} — rolling back`);
       const rb = await admin.auth.admin.deleteUser(userId);
