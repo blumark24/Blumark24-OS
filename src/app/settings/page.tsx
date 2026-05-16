@@ -484,7 +484,7 @@ function SettingsContent() {
             {activeTab === "general" && (
               <div className="glass-card p-6 space-y-4">
                 <h3 className="text-white font-medium text-lg mb-4">معلومات الشركة</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
                     { label: "اسم الشركة",      key: "name"    },
                     { label: "شعار الشركة",      key: "tagline" },
@@ -696,7 +696,7 @@ function SettingsContent() {
                   </Link>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {[
                     { label: "قواعد مفعّلة",  value: automationsDB.filter((r) => r.enabled).length,  color: "#22d3ee" },
                     { label: "قواعد موقوفة",  value: automationsDB.filter((r) => !r.enabled).length, color: "#ff7a3d" },

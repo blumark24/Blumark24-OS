@@ -179,7 +179,7 @@ export default function AIPage() {
         </div>
 
         {/* AI Insight Cards — real data */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {aiCards.map((card) => (
             <div key={card.label} className="glass-card p-4 flex items-center gap-3">
               <div className="p-2 rounded-xl flex-shrink-0" style={{ background: `${card.color}20` }}>

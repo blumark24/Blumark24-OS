@@ -619,10 +619,11 @@ export interface DashboardKPI {
   completedTasksPct: number;
   incompleteTasks: number;
   netProfit: number;
+  overdueTasks: number;
 }
 
 export function useDashboardKPI() {
-  const [kpi, setKpi]         = useState<DashboardKPI>({ activeClients: 0, completedTasksPct: 0, incompleteTasks: 0, netProfit: 0 });
+  const [kpi, setKpi]         = useState<DashboardKPI>({ activeClients: 0, completedTasksPct: 0, incompleteTasks: 0, netProfit: 0, overdueTasks: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
 
@@ -634,14 +635,17 @@ export function useDashboardKPI() {
         fetchTransactions(),
       ]);
 
+      const today             = new Date();
+      today.setHours(0, 0, 0, 0);
       const activeClients     = clients.filter((c) => c.status === "نشط").length;
       const completed         = tasks.filter((t) => t.status === "مكتملة").length;
       const completedTasksPct = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
       const incompleteTasks   = tasks.filter((t) => t.status !== "مكتملة").length;
+      const overdueTasks      = tasks.filter((t) => t.status !== "مكتملة" && t.dueDate && new Date(t.dueDate) < today).length;
       const totalIncome       = transactions.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0);
       const totalExpense      = transactions.filter((t) => t.type === "مصروف").reduce((s, t) => s + t.amount, 0);
 
-      setKpi({ activeClients, completedTasksPct, incompleteTasks, netProfit: totalIncome - totalExpense });
+      setKpi({ activeClients, completedTasksPct, incompleteTasks, netProfit: totalIncome - totalExpense, overdueTasks });
     } catch (err) {
       setError(err instanceof Error ? err.message : "خطأ في تحميل البيانات");
     } finally {
