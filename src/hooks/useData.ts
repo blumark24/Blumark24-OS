@@ -641,7 +641,8 @@ export function useDashboardKPI() {
       const completed         = tasks.filter((t) => t.status === "مكتملة").length;
       const completedTasksPct = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
       const incompleteTasks   = tasks.filter((t) => t.status !== "مكتملة").length;
-      const overdueTasks      = tasks.filter((t) => t.status !== "مكتملة" && t.dueDate && new Date(t.dueDate) < today).length;
+      // overdue = explicitly labelled متأخرة, OR not complete with a past due-date
+      const overdueTasks      = tasks.filter((t) => t.status === "متأخرة" || (t.status !== "مكتملة" && t.dueDate && new Date(t.dueDate) < today)).length;
       const totalIncome       = transactions.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0);
       const totalExpense      = transactions.filter((t) => t.type === "مصروف").reduce((s, t) => s + t.amount, 0);
 
