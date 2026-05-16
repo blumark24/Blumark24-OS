@@ -5,6 +5,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import { useToast } from "@/contexts/ToastContext";
 import { useTasks, useClients, useTransactions, useAutomations, useAutomationLogs } from "@/hooks/useData";
+import { supabase } from "@/lib/supabase";
 import { FUND_DISTRIBUTION, formatCurrency } from "@/lib/utils";
 import type { Task, Client, Transaction } from "@/types";
 import {
@@ -129,12 +130,58 @@ const LOG_COLORS = {
   error:   { badge: "status-inactive", dot: "bg-red-400"     },
 };
 
+// ─── Real DB effects per rule ────────────────────────────────────────────────
+// Each function executes the actual side-effect in Supabase and returns a
+// summary string that overrides the template result when successful.
+
+async function effectLateTasks(tasks: Task[]): Promise<string | null> {
+  const now = new Date().toISOString();
+  const lateIds = tasks
+    .filter((t) => t.status !== "مكتملة" && t.status !== "متأخرة" && t.dueDate < now)
+    .map((t) => t.id);
+  if (!lateIds.length) return null;
+  const { error } = await supabase
+    .from("tasks")
+    .update({ status: "متأخرة" })
+    .in("id", lateIds);
+  if (error) {
+    console.error("[automation late-tasks]", error.message);
+    return null;
+  }
+  return `تم تحديث ${lateIds.length} مهمة كـ "متأخرة" في قاعدة البيانات`;
+}
+
+async function effectWorkload(tasks: Task[]): Promise<string | null> {
+  const counts: Record<string, number> = {};
+  tasks.forEach((t) => {
+    if (t.assigneeId && t.status !== "مكتملة") {
+      counts[t.assigneeId] = (counts[t.assigneeId] ?? 0) + 1;
+    }
+  });
+  const updates = Object.entries(counts);
+  if (!updates.length) return null;
+  const results = await Promise.all(
+    updates.map(([id, cnt]) =>
+      supabase.from("employees").update({ tasks: cnt }).eq("id", id)
+    )
+  );
+  const failed = results.filter((r) => r.error).length;
+  if (failed === results.length) return null;
+  return `تم تحديث عبء العمل لـ ${results.length - failed} موظف في قاعدة البيانات`;
+}
+
+async function applyRuleEffect(ruleId: string, tasks: Task[]): Promise<string | null> {
+  if (ruleId === "late-tasks") return effectLateTasks(tasks);
+  if (ruleId === "workload")   return effectWorkload(tasks);
+  return null;
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function AutomationContent() {
   const toast = useToast();
 
-  const { data: tasks }   = useTasks();
+  const { data: tasks, refetch: refetchTasks }   = useTasks();
   const { data: clients } = useClients();
   const { data: txs }     = useTransactions();
 
@@ -179,9 +226,22 @@ function AutomationContent() {
     setRunningId(id);
     try {
       await new Promise((r) => setTimeout(r, 700));
-      const { result, status } = runnerFor(id, tasks, clients, txs);
+
+      // Run real DB effect first; override log result if it returns text
+      const [{ result: templateResult, status }, dbResult] = await Promise.all([
+        Promise.resolve(runnerFor(id, tasks, clients, txs)),
+        applyRuleEffect(id, tasks),
+      ]);
+      const result = dbResult ?? templateResult;
+
       await updateRunStats(id, currentCount, { rule_title: title, result, status });
       await refetchLogs();
+
+      // Refresh tasks data if this rule may have mutated task rows
+      if (id === "late-tasks" || id === "workload") {
+        refetchTasks();
+      }
+
       toast.success(`${title}: تم التنفيذ بنجاح`);
     } catch (err) {
       toast.error("حدث خطأ أثناء التنفيذ");
