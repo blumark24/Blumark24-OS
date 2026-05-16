@@ -7,6 +7,39 @@ import {
   Map, CheckCircle2, Clock, Target, Lightbulb, TrendingUp,
   Edit2, X, Save, Loader2,
 } from "lucide-react";
+
+const ROADMAP_PHASES = [
+  {
+    phase: 0, color: "#22d3ee", title: "التأسيس الذكي",
+    desc: "بناء شركة منظمة قبل دخول السوق — أنظمة المهام والفريق وتجربة الخدمات.",
+    tags: ["نظام المهام", "بناء الفريق", "Idea Lab"],
+  },
+  {
+    phase: 1, color: "#10b981", title: "إثبات الكفاءة",
+    desc: "استهداف أول 10 عملاء عبر Google Maps وواتساب — مواقع ذكية وبوت AI.",
+    tags: ["10 عملاء", "Google Maps", "بوت واتساب"],
+  },
+  {
+    phase: 2, color: "#f59e0b", title: "التوسع والنظام",
+    desc: "الوصول لـ25 عميل وإطلاق Blumark OS كخدمة SaaS للشركات.",
+    tags: ["25 عميل", "Blumark OS", "SaaS"],
+  },
+  {
+    phase: 3, color: "#a855f7", title: "التوسع الذكي",
+    desc: "فتح مقر رسمي وخدمة قطاع المطاعم والكافيهات بحلول رقمية هندسية.",
+    tags: ["مقر رسمي", "مطاعم & كافيهات", "حلول رقمية"],
+  },
+  {
+    phase: 4, color: "#ff7a3d", title: "الشركاء التنفيذيين",
+    desc: "إشراف ذكي على شبكة مقاولين وأتمتة تقارير الجودة والتسليم.",
+    tags: ["شبكة مقاولين", "تقارير الجودة", "إشراف AI"],
+  },
+  {
+    phase: 5, color: "#1e6fd9", title: "المشاريع الحكومية",
+    desc: "دخول قطاع B2G عبر منصة Furas وتطبيقات AI سيادية مع أتمتة شاملة.",
+    tags: ["B2G", "منصة Furas", "AI سيادي"],
+  },
+];
 import type { StrategyPhase } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -186,6 +219,33 @@ function StrategyContent() {
         <div className="glass-card p-4 border border-red-500/30 text-red-400 text-sm">{error}</div>
       )}
 
+      {/* Roadmap: static vision from Blumark AI strategic plan */}
+      <div className="glass-card p-5 border border-[#1e3a5f]">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp size={18} className="text-[#22d3ee]" />
+          <div>
+            <h3 className="text-white font-medium">خارطة التحول الاستراتيجي</h3>
+            <p className="text-xs text-[#8ba3c7]">من التأسيس إلى المشاريع الكبرى</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {ROADMAP_PHASES.map((rp) => (
+            <div key={rp.phase} className="p-3 rounded-xl bg-[#0d1f3c]/60 border border-[#1e3a5f] hover:border-[#22d3ee]/30 transition-all">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: `${rp.color}20`, color: rp.color }}>م{rp.phase}</span>
+                <span className="text-xs font-medium text-white">{rp.title}</span>
+              </div>
+              <p className="text-xs text-[#8ba3c7] leading-relaxed mb-2">{rp.desc}</p>
+              <div className="flex flex-wrap gap-1">
+                {rp.tags.map((tag) => (
+                  <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#1a3356]/60 text-[#6b87ab]">{tag}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* AI Recommendations */}
       <div className="glass-card p-5 border border-[#22d3ee]/20">
         <div className="flex items-center gap-2 mb-4">
@@ -193,7 +253,7 @@ function StrategyContent() {
           <h3 className="text-white font-medium">توصيات الذكاء الاصطناعي</h3>
           <span className="badge bg-[#22d3ee]/20 text-[#22d3ee] text-xs mr-auto">محدّث تلقائياً</span>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {recommendations.map((rec) => (
             <div key={rec.title} className="p-3 rounded-xl bg-[#0d1f3c]/60 border border-[#1e3a5f] hover:border-[#22d3ee]/30 transition-all">
               <div className="text-2xl mb-2">{rec.icon}</div>
@@ -254,7 +314,7 @@ function StrategyContent() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                    <div className="grid grid-cols-2 gap-4 mb-4">
                       <div>
                         <div className="text-xs text-[#8ba3c7] mb-1">التقدم</div>
                         <div className="flex items-center gap-2">

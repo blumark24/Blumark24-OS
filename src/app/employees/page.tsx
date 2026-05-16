@@ -251,7 +251,7 @@ function EmployeesContent() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 sm:grid-cols-3 gap-4">
           {[
             { label: "إجمالي الموظفين",  value: stats.total,  color: "#22d3ee" },
             { label: "الموظفون النشطون", value: stats.active, color: "#10b981" },
@@ -305,7 +305,8 @@ function EmployeesContent() {
 
         {!loading && (
           <div className="glass-card overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[700px]">
               <thead>
                 <tr className="border-b border-[#1e3a5f]">
                   {["الموظف", "القسم", "الدور", "الأداء", "المهام", "تاريخ الانضمام", "الحالة", ""].map((h) => (
@@ -369,6 +370,7 @@ function EmployeesContent() {
                 ))}
               </tbody>
             </table>
+            </div>
             {filtered.length === 0 && (
               <div className="text-center py-12 text-[#8ba3c7]">لا توجد نتائج</div>
             )}

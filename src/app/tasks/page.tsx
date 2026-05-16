@@ -166,7 +166,7 @@ function TasksContent() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: "إجمالي المهام",  value: stats.total,      color: "#22d3ee" },
             { label: "مكتملة",         value: stats.completed,  color: "#10b981" },
@@ -260,7 +260,8 @@ function TasksContent() {
         {/* List View */}
         {!loading && view === "list" && (
           <div className="glass-card overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="border-b border-[#1e3a5f]">
                   {["المهمة", "المُكلَّف", "العميل", "الأولوية", "الموعد", "الحالة"].map((h) => (
@@ -299,6 +300,7 @@ function TasksContent() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>

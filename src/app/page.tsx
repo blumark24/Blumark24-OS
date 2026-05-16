@@ -9,7 +9,7 @@ import {
 } from "recharts";
 import {
   Users, CheckCircle2, ArrowUpRight, XCircle,
-  DollarSign, Activity, Clock, UserCheck,
+  AlertTriangle, Activity, Clock, UserCheck, DollarSign,
 } from "lucide-react";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import { useDashboardKPI, useProjects, useActivities, useTransactions, useEmployees, useClients } from "@/hooks/useData";
@@ -147,15 +147,13 @@ export default function DashboardPage() {
       iconColor: "text-amber-400",
     },
     {
-      label:    "صافي الأرباح",
-      value:    kpi.netProfit >= 1_000_000
-        ? `${(kpi.netProfit / 1_000_000).toFixed(2)}M`
-        : `${formatCurrency(kpi.netProfit)}`,
-      subtitle:  "SAR — دخل - مصروف",
-      icon:      DollarSign,
-      gradient:  "from-[#22d3ee] to-[#1e6fd9]",
-      iconBg:    "bg-cyan-500/20",
-      iconColor: "text-cyan-400",
+      label:     "المهام المتأخرة",
+      value:     kpi.overdueTasks.toString(),
+      subtitle:  "مهمة تجاوزت الموعد المحدد",
+      icon:      AlertTriangle,
+      gradient:  kpi.overdueTasks > 0 ? "from-[#ef4444] to-[#dc2626]" : "from-[#10b981] to-[#059669]",
+      iconBg:    kpi.overdueTasks > 0 ? "bg-red-500/20" : "bg-emerald-500/20",
+      iconColor: kpi.overdueTasks > 0 ? "text-red-400" : "text-emerald-400",
     },
   ] as const;
 
