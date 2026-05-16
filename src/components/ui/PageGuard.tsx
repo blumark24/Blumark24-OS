@@ -1,6 +1,6 @@
 "use client";
 
-import { usePermissions, Permission } from "@/contexts/PermissionsContext";
+import { usePermissions, Permission, mapAuthRoleToUserRole } from "@/contexts/PermissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { ShieldOff } from "lucide-react";
@@ -11,12 +11,34 @@ interface PageGuardProps {
 }
 
 export default function PageGuard({ permission, children }: PageGuardProps) {
-  const { hasPermission, userRole } = usePermissions();
-  const { loading } = useAuth();
+  const { rolePermissions } = usePermissions();
+  const { loading, user } = useAuth();
 
-  // While auth is hydrating, render children optimistically — avoids a flash
-  // of the access-denied screen before the real role is known.
-  if (loading || userRole === "super_admin" || hasPermission(permission)) {
+  // While auth is resolving show a branded spinner.
+  // We must NOT render protected children before the real role is known, and
+  // we must NOT show the access-denied screen before we know the user lacks
+  // access — both would be wrong (security / UX respectively).
+  if (loading) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "#0a1628" }}
+      >
+        <div className="w-8 h-8 rounded-full border-2 border-[#1e3a5f] border-t-[#22d3ee] animate-spin" />
+      </div>
+    );
+  }
+
+  // Derive role directly from AuthContext.user rather than PermissionsContext
+  // state.  PermissionsContext updates userRole in a useEffect that fires one
+  // render after user.role becomes available, so using it here would cause a
+  // brief access-denied flash for super_admin on hard refresh.
+  const resolvedRole = user ? mapAuthRoleToUserRole(user.role) : "employee";
+  const hasPerm =
+    resolvedRole === "super_admin" ||
+    (rolePermissions[resolvedRole] ?? []).includes(permission);
+
+  if (hasPerm) {
     return <>{children}</>;
   }
 

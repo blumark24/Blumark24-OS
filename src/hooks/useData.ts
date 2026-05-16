@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   getBoardMembers,
@@ -199,15 +199,26 @@ function useAsyncData<T>(fetcher: () => Promise<T>, fallback: T) {
   const [data, setData]       = useState<T>(fallback);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
+  // Track whether at least one successful fetch has completed.
+  // On the very first load we clear to fallback on error so the empty-state UI
+  // shows correctly.  On subsequent refetches (e.g. after a write) we keep the
+  // existing data so optimistic entries are never wiped by a transient timeout.
+  const hasLoaded = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setData(await withTimeout(fetcher(), DB_READ_TIMEOUT, "انتهت مهلة تحميل البيانات — تحقق من الاتصال"));
+      const result = await withTimeout(fetcher(), DB_READ_TIMEOUT, "انتهت مهلة تحميل البيانات — تحقق من الاتصال");
+      setData(result);
+      hasLoaded.current = true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "حدث خطأ في تحميل البيانات");
-      setData(fallback);
+      // Only reset to empty fallback on the very first load.
+      // On refetch failures, keep existing data so optimistic UI is preserved.
+      if (!hasLoaded.current) {
+        setData(fallback);
+      }
     } finally {
       setLoading(false);
     }

@@ -290,7 +290,17 @@ function EmployeesContent() {
           </div>
         </div>
 
-        {error && <div className="glass-card p-4 border border-red-500/30 text-red-400 text-sm">{error}</div>}
+        {error && (
+          <div className="glass-card p-4 border border-red-500/30 text-red-400 text-sm flex items-center justify-between gap-3">
+            <span>{error}</span>
+            <button
+              onClick={() => refetch()}
+              className="px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 transition-colors text-xs whitespace-nowrap"
+            >
+              إعادة المحاولة
+            </button>
+          </div>
+        )}
         {loading && <div className="text-center py-8 text-[#8ba3c7] text-sm">جارٍ التحميل...</div>}
 
         {!loading && (
