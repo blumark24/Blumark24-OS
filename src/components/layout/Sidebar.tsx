@@ -93,7 +93,7 @@ export default function Sidebar({
             </svg>
           </div>
         ) : (
-          <OfficialBlumarkLogo maxHeight={30} />
+          <OfficialBlumarkLogo className="w-[140px] lg:w-[155px]" />
         )}
         {/* Desktop collapse toggle */}
         <button

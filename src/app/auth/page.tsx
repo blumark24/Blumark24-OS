@@ -74,7 +74,7 @@ export default function AuthPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex flex-col items-center gap-3 mb-4">
-            <OfficialBlumarkLogo maxHeight={48} />
+            <OfficialBlumarkLogo className="w-[155px] sm:w-[190px]" />
             <div className="text-sm text-[#22d3ee] font-medium">OS – نظام إدارة الأعمال</div>
           </div>
           <p className="text-[#8ba3c7] text-sm">منصة متكاملة بالذكاء الاصطناعي للشركات السعودية</p>
