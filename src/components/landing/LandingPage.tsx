@@ -27,7 +27,7 @@ function OfficialLandingLogo() {
       width={240}
       height={96}
       alt="Blumark24 Marketing Agency"
-      className="object-contain h-auto w-auto max-h-[36px] sm:max-h-[46px] max-w-[150px] sm:max-w-[220px]"
+      className="object-contain h-auto w-[150px] sm:w-[170px] lg:w-[190px]"
       priority
       unoptimized
     />
