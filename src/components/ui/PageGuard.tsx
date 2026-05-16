@@ -1,6 +1,7 @@
 "use client";
 
 import { usePermissions, Permission } from "@/contexts/PermissionsContext";
+import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { ShieldOff } from "lucide-react";
 
@@ -11,8 +12,11 @@ interface PageGuardProps {
 
 export default function PageGuard({ permission, children }: PageGuardProps) {
   const { hasPermission, userRole } = usePermissions();
+  const { loading } = useAuth();
 
-  if (userRole === "super_admin" || hasPermission(permission)) {
+  // While auth is hydrating, render children optimistically — avoids a flash
+  // of the access-denied screen before the real role is known.
+  if (loading || userRole === "super_admin" || hasPermission(permission)) {
     return <>{children}</>;
   }
 
