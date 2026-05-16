@@ -107,7 +107,7 @@ export default function LandingPage() {
       {/* ━━━━━━━━━━ HEADER ━━━━━━━━━━ */}
       <header className="fixed inset-x-0 top-0 z-50 py-2 sm:py-3">
         <div className="mx-auto max-w-7xl px-2 sm:px-6">
-          <div className="flex items-center justify-between rounded-2xl border border-[rgba(34,211,238,0.16)] bg-[rgba(5,11,22,0.82)] backdrop-blur-2xl px-3 sm:px-5 h-[64px] sm:h-[72px] min-w-0 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.5)]">
+          <div className="flex flex-row-reverse lg:flex-row items-center justify-between rounded-2xl border border-[rgba(34,211,238,0.16)] bg-[rgba(5,11,22,0.82)] backdrop-blur-2xl px-3 sm:px-5 h-[64px] sm:h-[72px] min-w-0 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.5)]">
 
             <a href="#" className="flex items-center flex-shrink-0" aria-label="Blumark24 Marketing Agency">
               <OfficialLandingLogo />
