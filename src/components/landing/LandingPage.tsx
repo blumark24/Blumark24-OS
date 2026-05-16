@@ -18,23 +18,19 @@ function LogoSvg({ className = "h-8 w-8" }: { className?: string }) {
   );
 }
 
-// ─── Official landing header logo (full brand mark PNG) ────────────────────────
-// TODO: if image appears broken, ensure public/brand/blumark24-logo-official.png
-//       has been committed to the repository.
+// ─── Official landing header logo (full transparent brand mark PNG) ───────────
 
 function OfficialLandingLogo() {
   return (
-    <span className="inline-flex items-center rounded-2xl bg-white/95 px-2.5 py-1 shadow-md">
-      <Image
-        src="/brand/blumark24-logo-official.png"
-        width={240}
-        height={96}
-        alt="Blumark24 Marketing Agency"
-        className="h-auto w-auto object-contain max-h-[36px] sm:max-h-[46px] max-w-[150px] sm:max-w-[220px]"
-        priority
-        unoptimized
-      />
-    </span>
+    <Image
+      src="/brand/blumark24-logo-transparent.png"
+      width={240}
+      height={96}
+      alt="Blumark24 Marketing Agency"
+      className="object-contain h-auto w-auto max-h-[36px] sm:max-h-[46px] max-w-[150px] sm:max-w-[220px]"
+      priority
+      unoptimized
+    />
   );
 }
 
