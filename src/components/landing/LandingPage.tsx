@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 
 // ─── Logo SVG ──────────────────────────────────────────────────────────────────
@@ -20,7 +21,14 @@ function LogoSvg({ className = "h-8 w-8" }: { className?: string }) {
 function LogoText() {
   return (
     <span className="inline-flex items-center gap-2.5" dir="ltr">
-      <LogoSvg />
+      <Image
+        src="/brand/blumark24-logo.svg"
+        width={32}
+        height={32}
+        alt="Blumark24 OS"
+        className="object-contain w-8 h-8"
+        unoptimized
+      />
       <span className="font-semibold text-white tracking-tight text-[15px] leading-none">
         Blumark<span className="text-[#22D3EE]">24</span>
         <span className="text-[#AAB7C7] font-normal ms-1.5 text-[12px]">OS</span>
@@ -79,8 +87,8 @@ export default function LandingPage() {
 
       {/* ━━━━━━━━━━ HEADER ━━━━━━━━━━ */}
       <header className="fixed inset-x-0 top-0 z-50 py-3 sm:py-4">
-        <div className="mx-auto max-w-7xl px-3 sm:px-6">
-          <div className="flex items-center justify-between rounded-2xl border border-[rgba(34,211,238,0.16)] bg-[rgba(5,11,22,0.78)] backdrop-blur-2xl px-3 sm:px-5 h-16">
+        <div className="mx-auto max-w-7xl px-2 sm:px-6">
+          <div className="flex items-center justify-between rounded-2xl border border-[rgba(34,211,238,0.16)] bg-[rgba(5,11,22,0.82)] backdrop-blur-2xl px-3 sm:px-5 h-16 min-w-0 overflow-hidden shadow-[0_4px_24px_-4px_rgba(0,0,0,0.5)]">
 
             <a href="#" className="flex items-center" aria-label="Blumark24 OS">
               <LogoText />
@@ -177,7 +185,7 @@ export default function LandingPage() {
       <main>
 
         {/* ━━━━━━━━━━ HERO ━━━━━━━━━━ */}
-        <section id="home" className="relative pt-28 sm:pt-32 lg:pt-36 pb-12 sm:pb-20 lg:pb-28 overflow-hidden">
+        <section id="home" className="relative pt-24 sm:pt-28 pb-4 sm:pb-8 overflow-hidden">
           <div aria-hidden="true" className="absolute inset-0 -z-10">
             <div
               className="absolute inset-0 opacity-[0.18]"
@@ -205,7 +213,7 @@ export default function LandingPage() {
             </div>
 
             <h1
-              className="mt-6 sm:mt-8 text-center text-[34px] leading-[1.18] sm:text-5xl sm:leading-[1.15] md:text-6xl lg:text-7xl font-bold text-white tracking-tight max-w-5xl mx-auto animate-fade-up"
+              className="mt-5 sm:mt-6 text-center text-[32px] leading-[1.18] sm:text-5xl sm:leading-[1.15] md:text-6xl lg:text-7xl font-bold text-white tracking-tight max-w-5xl mx-auto animate-fade-up"
               style={{ animationDelay: "100ms" }}
             >
               نظام إدارة أعمال ذكي يقود شركتك
@@ -216,13 +224,13 @@ export default function LandingPage() {
             </h1>
 
             <p
-              className="mt-5 sm:mt-6 text-center text-[15.5px] sm:text-lg md:text-xl text-[#AAB7C7] leading-relaxed max-w-3xl mx-auto animate-fade-up"
+              className="mt-4 sm:mt-5 text-center text-[15px] sm:text-lg md:text-xl text-[#AAB7C7] leading-relaxed max-w-3xl mx-auto animate-fade-up"
               style={{ animationDelay: "200ms" }}
             >
               Blumark24 OS يجمع الموظفين، المهام، العملاء، المالية، التقارير، والأتمتة داخل منصة عربية مدعومة بالذكاء الاصطناعي لتقليل الفوضى ورفع كفاءة التشغيل.
             </p>
 
-            <div className="mt-7 sm:mt-9 flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-up" style={{ animationDelay: "300ms" }}>
+            <div className="mt-6 sm:mt-7 flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-up" style={{ animationDelay: "300ms" }}>
               <Link
                 href="/demo"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-14 px-8 text-base bg-gradient-to-l from-[#1E6FD9] to-[#22D3EE] text-white shadow-[0_8px_32px_-8px_rgba(34,211,238,0.55)] hover:brightness-110 transition w-full sm:w-auto"
@@ -240,7 +248,7 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12.5px] text-[#AAB7C7] animate-fade-up" style={{ animationDelay: "400ms" }}>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12.5px] text-[#AAB7C7] animate-fade-up" style={{ animationDelay: "400ms" }}>
               {["بدون بطاقة ائتمان", "إعداد سريع", "دعم عربي كامل"].map((item) => (
                 <span key={item} className="flex items-center gap-1.5">
                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-[#22D3EE]" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
@@ -249,14 +257,8 @@ export default function LandingPage() {
               ))}
             </div>
 
-            <div className="mt-8 sm:mt-10 flex flex-wrap items-center justify-center gap-2 animate-fade-up" style={{ animationDelay: "500ms" }}>
-              {["Arabic-first SaaS", "AI Business OS", "Built for Saudi Companies"].map((tag) => (
-                <span key={tag} dir="ltr" className="inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11.5px] text-[#AAB7C7]">{tag}</span>
-              ))}
-            </div>
-
             {/* Dashboard preview */}
-            <div className="mt-12 sm:mt-16 lg:mt-20 animate-fade-up animate-float" style={{ animationDelay: "600ms" }}>
+            <div className="mt-8 sm:mt-10 animate-fade-up animate-float" style={{ animationDelay: "500ms" }}>
               <div className="relative">
                 <div aria-hidden="true" className="absolute -inset-x-8 -inset-y-12 -z-10 rounded-[40px] bg-[radial-gradient(ellipse_at_center,rgba(34,211,238,0.25),transparent_60%)] blur-2xl" />
                 <div className="relative rounded-[20px] sm:rounded-[24px] border border-[rgba(34,211,238,0.24)] bg-[rgba(10,22,40,0.92)] backdrop-blur-2xl overflow-hidden shadow-[0_30px_80px_-20px_rgba(0,0,0,0.6),0_0_0_1px_rgba(34,211,238,0.08)_inset]">
