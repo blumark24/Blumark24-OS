@@ -16,37 +16,12 @@ const KPIS = [
   { label: "التقارير الذكية", value: "36", delta: "+9", w: "84%", icon: FileBarChart, tone: "cyan" as const },
 ];
 
-const BADGES = [
-  { label: "AI Business OS", pos: "top-right" as const },
-  { label: "Arabic-first SaaS", pos: "bottom-left" as const },
-  { label: "Built for Saudi Companies", pos: "middle-right" as const },
-];
-
 const ACTIVITY = [
   { label: "تم اعتماد تقرير المبيعات", time: "قبل ٣ دقائق" },
   { label: "اكتمل سير أتمتة المتأخرات", time: "قبل ١٢ دقيقة" },
   { label: "عميل جديد: شركة الواحة", time: "قبل ساعة" },
   { label: "تحديث في خطة الفريق", time: "قبل ٣ ساعات" },
 ];
-
-function FloatingBadge({ label, position }: { label: string; position: "top-right" | "bottom-left" | "middle-right" }) {
-  const placement = {
-    "top-right": "top-3 right-3 lg:-top-4 lg:-right-4",
-    "bottom-left": "bottom-3 left-3 lg:-bottom-4 lg:-left-4",
-    "middle-right": "top-1/2 -translate-y-1/2 right-2 lg:-right-6",
-  }[position];
-
-  return (
-    <span
-      aria-hidden="true"
-      dir="ltr"
-      className={`pointer-events-none absolute z-20 hidden md:inline-flex items-center gap-1.5 rounded-full border border-[rgba(34,211,238,0.34)] bg-[rgba(8,18,37,0.85)] backdrop-blur-md px-3 py-1.5 text-[11px] font-medium text-[#22D3EE] shadow-[0_8px_24px_-8px_rgba(34,211,238,0.45)] ${placement}`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] shadow-[0_0_8px_#22D3EE]" />
-      {label}
-    </span>
-  );
-}
 
 function KpiCard({ label, value, delta, w, icon: Icon, tone }: (typeof KPIS)[number]) {
   const deltaColor = tone === "warn" ? "text-[#FF7A3D]" : "text-[#22D3EE]";
@@ -58,7 +33,7 @@ function KpiCard({ label, value, delta, w, icon: Icon, tone }: (typeof KPIS)[num
   return (
     <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5 sm:p-3 lg:p-3.5 min-w-0">
       <div className="flex items-center justify-between mb-1">
-        <Icon className="h-3.5 w-3.5 text-[#22D3EE]/80" strokeWidth={1.8} />
+        <Icon className="h-3.5 w-3.5 text-[#22D3EE]/80" strokeWidth={1.6} />
         <span className={`text-[10px] font-medium tabular-nums ${deltaColor}`}>{delta}</span>
       </div>
       <div className="text-[10px] sm:text-[11px] text-[#AAB7C7] truncate mb-0.5">{label}</div>
@@ -111,15 +86,11 @@ export default function HeroVisual() {
     <div className="relative mx-auto w-full max-w-5xl">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -inset-x-6 -inset-y-10 -z-10 rounded-[40px] bg-[radial-gradient(ellipse_at_center,rgba(34,211,238,0.22),transparent_60%)] blur-2xl"
+        className="pointer-events-none absolute -inset-x-8 -inset-y-12 -z-10 rounded-[40px] bg-[radial-gradient(ellipse_at_center,rgba(34,211,238,0.25),transparent_60%)] blur-2xl"
       />
 
-      {BADGES.map((b) => (
-        <FloatingBadge key={b.label} label={b.label} position={b.pos} />
-      ))}
-
-      <div className="relative rounded-[20px] sm:rounded-[24px] border border-[rgba(34,211,238,0.18)] bg-[rgba(8,18,37,0.92)] backdrop-blur-xl overflow-hidden shadow-[0_30px_80px_-20px_rgba(0,0,0,0.6),0_0_0_1px_rgba(34,211,238,0.06)_inset] min-h-[320px] sm:min-h-[420px] lg:min-h-[520px] flex flex-col">
-        <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-white/[0.06] bg-[rgba(2,6,23,0.6)]">
+      <div className="relative rounded-[20px] sm:rounded-[24px] border border-[rgba(34,211,238,0.24)] bg-[rgba(10,22,40,0.92)] backdrop-blur-2xl overflow-hidden shadow-[0_30px_80px_-20px_rgba(0,0,0,0.6),0_0_0_1px_rgba(34,211,238,0.08)_inset] min-h-[320px] sm:min-h-[420px] lg:min-h-[520px] flex flex-col">
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-white/5 bg-[rgba(5,11,22,0.6)]">
           <div className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-[#FF5F57]" />
             <span className="h-2.5 w-2.5 rounded-full bg-[#FEBC2E]" />
@@ -140,13 +111,13 @@ export default function HeroVisual() {
         <div className="flex-1 p-3 sm:p-4 lg:p-5 flex flex-col gap-3 lg:gap-4 min-w-0">
           <div className="flex items-center justify-between min-w-0">
             <div className="min-w-0">
-              <div className="text-[10px] sm:text-[11px] text-[#AAB7C7]">لوحة التحكم</div>
+              <div className="text-[11px] text-[#AAB7C7]">لوحة التحكم</div>
               <div className="text-[13px] sm:text-sm lg:text-base font-semibold text-white truncate">
-                نظرة عامة — Blumark24 OS
+                أهلاً، عبدالله 👋
               </div>
             </div>
             <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.03] border border-white/[0.06]">
-              <Sparkles className="h-3 w-3 text-[#22D3EE]" strokeWidth={1.8} />
+              <Sparkles className="h-3 w-3 text-[#22D3EE]" strokeWidth={1.6} />
               <span className="text-[10px] text-[#AAB7C7]">AI</span>
             </div>
           </div>
@@ -206,7 +177,7 @@ export default function HeroVisual() {
         aria-hidden="true"
         className="mt-3 sm:mt-4 hidden md:flex items-center justify-center gap-2 text-[10.5px] text-[#AAB7C7]"
       >
-        <Activity className="h-3 w-3 text-[#22D3EE]" strokeWidth={1.8} />
+        <Activity className="h-3 w-3 text-[#22D3EE]" strokeWidth={1.6} />
         <span>عرض حيّ مبسّط — البيانات الفعلية تظهر بعد تسجيل الدخول</span>
       </div>
     </div>

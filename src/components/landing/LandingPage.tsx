@@ -8,10 +8,9 @@ import {
   Bot,
   Briefcase,
   Check,
+  Cloud,
   DollarSign,
-  Eye,
-  Gauge,
-  Layers,
+  Languages,
   ListChecks,
   LogIn,
   Menu,
@@ -19,7 +18,6 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
-  TrendingUp,
   Users,
   Workflow,
   X,
@@ -29,93 +27,103 @@ import HeroVisual from "./HeroVisual";
 
 const NAV = [
   { href: "#home", label: "الرئيسية" },
-  { href: "#why", label: "لماذا نحن" },
+  { href: "#features", label: "المزايا" },
   { href: "#modules", label: "الوحدات" },
-  { href: "#roi", label: "القيمة" },
   { href: "#contact", label: "تواصل" },
 ];
 
 const TRUST_BULLETS = ["بدون بطاقة ائتمان", "إعداد سريع", "دعم عربي كامل"];
 
-const WHY_CARDS = [
+const BRAND_PILLS = ["Arabic-first SaaS", "AI Business OS", "Built for Saudi Companies"];
+
+const TRUST_CARDS = [
   {
-    icon: Workflow,
-    title: "أتمتة العمليات",
-    desc: "سير عمل ذكي يقلّل العمل اليدوي ويربط بين الأقسام تلقائياً.",
+    icon: ShieldCheck,
+    label: "آمن وموثوق",
+    desc: "حماية بيانات على أعلى مستوى مع صلاحيات دقيقة.",
   },
   {
-    icon: Users,
-    title: "إدارة المهام والفريق",
-    desc: "تخطيط، توزيع، ومتابعة لحظية لمهام الفريق بدون فوضى.",
+    icon: Cloud,
+    label: "سحابي 100%",
+    desc: "الوصول من أي مكان وفي أي وقت، بدون إعدادات معقّدة.",
+  },
+  {
+    icon: Languages,
+    label: "صنع للسعودية",
+    desc: "عربي بالكامل، مرتبط بقطاع الأعمال السعودي ورؤية 2030.",
+  },
+];
+
+const PROBLEMS = [
+  { n: "01", title: "البيانات متفرقة", desc: "بين ملفات ورسائل يصعب تتبعها." },
+  { n: "02", title: "المهام تضيع", desc: "بدون متابعة واضحة للمسؤوليات." },
+  { n: "03", title: "العملاء يحتاجون CRM منظم", desc: "حتى لا تضيع الفرص وسجل التواصل." },
+  { n: "04", title: "القرارات المالية تحتاج لحظية", desc: "لتحليل الأداء واتخاذ قرارات دقيقة." },
+];
+
+const FEATURES = [
+  {
+    icon: Sparkles,
+    title: "ذكاء اصطناعي مدمج",
+    desc: "مساعد ذكي يحلّل البيانات ويلخّص التقارير ويقترح خطوات تشغيلية.",
+  },
+  {
+    icon: Workflow,
+    title: "أتمتة عمليات شاملة",
+    desc: "سيناريوهات تشغيل ذكية تربط بين الوحدات وتقلّل العمل اليدوي.",
   },
   {
     icon: BarChart3,
-    title: "تقارير ذكية",
-    desc: "تقارير فورية مدعومة بالذكاء الاصطناعي وقابلة للتخصيص.",
+    title: "تقارير حيّة ومرنة",
+    desc: "نظرة فورية على الأداء والمؤشرات مع تخصيص كامل لكل قسم.",
   },
   {
     icon: ShieldCheck,
-    title: "خصوصية وأمان",
-    desc: "صلاحيات دقيقة وتشفير على مستوى المؤسسات لكل بياناتك.",
+    title: "أمان مؤسسي",
+    desc: "صلاحيات دقيقة، تشفير على مستوى الصف، وسجل تدقيق شفاف.",
   },
 ];
 
 const MODULES = [
-  { icon: Users, title: "الموظفين", desc: "ملفات، صلاحيات، وحضور موحّد." },
-  { icon: ListChecks, title: "المهام", desc: "تخطيط ومتابعة بسرعة." },
-  { icon: Briefcase, title: "CRM", desc: "إدارة العملاء والفرص." },
-  { icon: DollarSign, title: "المالية", desc: "إيرادات ومصروفات وتقارير." },
-  { icon: Target, title: "الاستراتيجية", desc: "أهداف ومؤشرات أداء." },
-  { icon: Workflow, title: "مركز الأتمتة", desc: "سيناريوهات تشغيل ذكية." },
-  { icon: Bot, title: "المساعد الذكي", desc: "ذكاء اصطناعي على بياناتك." },
-  { icon: BarChart3, title: "التقارير", desc: "نظرة شاملة وفورية." },
-];
-
-const ROI_CARDS = [
-  {
-    icon: Layers,
-    title: "تقليل الفوضى التشغيلية",
-    desc: "أوقف القفز بين أدوات متفرقة. كل عمليات شركتك في مكان واحد.",
-  },
-  {
-    icon: Gauge,
-    title: "رفع سرعة القرار",
-    desc: "بيانات لحظية وتقارير ذكية تختصر الوقت بين الفكرة والقرار.",
-  },
-  {
-    icon: Eye,
-    title: "متابعة الأداء من مكان واحد",
-    desc: "لوحة موحّدة تعرض الموظفين، المهام، المالية، والعملاء جنباً إلى جنب.",
-  },
-  {
-    icon: TrendingUp,
-    title: "جاهز لنمو الشركات السعودية",
-    desc: "عربي بالكامل، مرتبط بقطاع الأعمال السعودي، ومصمم للتوسع المستقبلي.",
-  },
+  { icon: Users, title: "الموظفين", route: "/employees", desc: "إدارة الأعضاء والصلاحيات والأدوار من مكان واحد." },
+  { icon: ListChecks, title: "المهام", route: "/tasks", desc: "توزيع المهام، متابعة الحالة، وربط الإنجاز بالمسؤوليات." },
+  { icon: Briefcase, title: "العملاء CRM", route: "/clients", desc: "تنظيم العملاء، الفرص، مراحل البيع، وسجل التواصل." },
+  { icon: DollarSign, title: "المالية", route: "/finance", desc: "متابعة الإيرادات، المصروفات، الفواتير، وصافي الأداء." },
+  { icon: Target, title: "الاستراتيجية", route: "/strategy", desc: "أهداف ومؤشرات أداء واضحة وقابلة للقياس لكل فريق." },
+  { icon: Workflow, title: "مركز الأتمتة", route: "/automation", desc: "سيناريوهات تشغيل تربط الوحدات وتقلّل التدخل اليدوي." },
+  { icon: Bot, title: "المساعد الذكي", route: "/ai", desc: "ذكاء اصطناعي على بيانات شركتك يجاوب ويلخّص ويقترح." },
+  { icon: BarChart3, title: "التقارير", route: "/reports", desc: "تقارير حيّة قابلة للتخصيص بنظرة شاملة وفورية." },
 ];
 
 function PrimaryCta({ className = "", label = "طلب عرض تجريبي" }: { className?: string; label?: string }) {
   return (
     <Link
       href="/demo"
-      className={`group inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-12 sm:h-13 px-6 sm:px-7 text-sm sm:text-base bg-gradient-to-l from-[#1E6FD9] to-[#22D3EE] text-white shadow-[0_8px_32px_-8px_rgba(34,211,238,0.55)] hover:brightness-110 hover:shadow-[0_12px_40px_-8px_rgba(34,211,238,0.65)] transition-all ${className}`}
+      className={`group inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-14 px-8 text-base bg-gradient-to-l from-[#1E6FD9] to-[#22D3EE] text-white shadow-[0_8px_32px_-8px_rgba(34,211,238,0.55)] hover:brightness-110 transition ${className}`}
     >
-      <Send className="h-4 w-4" strokeWidth={1.8} />
-      <span>{label}</span>
+      {label}
       <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" strokeWidth={1.8} />
     </Link>
   );
 }
 
-function SecondaryCta({ className = "" }: { className?: string }) {
+function SecondaryCta({ className = "", label = "تسجيل الدخول" }: { className?: string; label?: string }) {
   return (
     <Link
       href="/auth"
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-12 sm:h-13 px-6 sm:px-7 text-sm sm:text-base bg-white/[0.04] text-white border border-[rgba(34,211,238,0.34)] backdrop-blur-md hover:bg-white/[0.08] transition ${className}`}
+      className={`inline-flex items-center justify-center rounded-2xl font-medium h-14 px-8 text-base bg-white/[0.04] text-white border border-[rgba(34,211,238,0.34)] backdrop-blur-md hover:bg-white/[0.08] transition ${className}`}
     >
-      <LogIn className="h-4 w-4" strokeWidth={1.8} />
-      <span>تسجيل الدخول</span>
+      {label}
     </Link>
+  );
+}
+
+function EyebrowChip({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(34,211,238,0.34)] bg-[rgba(34,211,238,0.06)] px-4 py-1.5 text-xs font-medium text-[#22D3EE] mb-4">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] shadow-[0_0_8px_#22D3EE]" />
+      {children}
+    </div>
   );
 }
 
@@ -123,21 +131,25 @@ function SectionHeading({
   eyebrow,
   title,
   desc,
+  titleAccent,
 }: {
   eyebrow: string;
   title: string;
   desc: string;
+  titleAccent?: string;
 }) {
   return (
-    <div className="max-w-2xl mx-auto text-center">
-      <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(34,211,238,0.28)] bg-[rgba(34,211,238,0.05)] px-3 py-1 text-[11.5px] font-medium text-[#22D3EE] mb-3">
-        <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] shadow-[0_0_8px_#22D3EE]" />
-        {eyebrow}
-      </div>
-      <h2 className="text-[26px] sm:text-[32px] lg:text-[40px] leading-tight font-bold text-white tracking-tight">
-        {title}
+    <div className="max-w-3xl text-center mx-auto">
+      <EyebrowChip>{eyebrow}</EyebrowChip>
+      <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-[1.2] tracking-tight">
+        {title}{" "}
+        {titleAccent && (
+          <span className="bg-gradient-to-l from-[#22D3EE] to-[#1E6FD9] bg-clip-text text-transparent">
+            {titleAccent}
+          </span>
+        )}
       </h2>
-      <p className="mt-3 text-[14px] sm:text-[15.5px] text-[#AAB7C7] leading-relaxed">{desc}</p>
+      <p className="mt-4 text-base sm:text-lg text-[#AAB7C7] leading-relaxed">{desc}</p>
     </div>
   );
 }
@@ -156,24 +168,24 @@ export default function LandingPage() {
 
   return (
     <div
-      className="min-h-screen bg-[#020617] text-white antialiased overflow-x-hidden"
+      className="min-h-screen bg-[#050B16] text-white antialiased overflow-x-hidden"
       style={{ fontFamily: "'IBM Plex Sans Arabic', system-ui, sans-serif" }}
     >
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(8,18,37,1),rgba(2,6,23,1))]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(10,22,40,1),rgba(5,11,22,1))]" />
         <div
-          className="absolute inset-0 opacity-[0.45]"
+          className="absolute inset-0 opacity-[0.4]"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 18% 12%, rgba(34,211,238,0.07), transparent 40%), radial-gradient(circle at 82% 30%, rgba(30,111,217,0.07), transparent 42%), radial-gradient(circle at 50% 85%, rgba(34,211,238,0.04), transparent 50%)",
+              "radial-gradient(circle at 20% 10%, rgba(34,211,238,0.06), transparent 40%), radial-gradient(circle at 80% 30%, rgba(30,111,217,0.06), transparent 40%), radial-gradient(circle at 50% 80%, rgba(34,211,238,0.04), transparent 50%)",
           }}
         />
       </div>
 
       {/* ━━━━━━━━━━ HEADER ━━━━━━━━━━ */}
-      <header className="fixed inset-x-0 top-0 z-50 py-2 sm:py-3">
-        <div className="mx-auto max-w-7xl px-2 sm:px-6">
-          <div className="flex flex-row-reverse lg:flex-row items-center justify-between rounded-2xl border border-[rgba(34,211,238,0.14)] bg-[rgba(2,6,23,0.78)] backdrop-blur-2xl px-3 sm:px-5 h-[60px] sm:h-[68px] min-w-0 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.6)]">
+      <header className="fixed inset-x-0 top-0 z-50 py-3 sm:py-4">
+        <div className="mx-auto max-w-7xl px-3 sm:px-6">
+          <div className="flex flex-row-reverse lg:flex-row items-center justify-between rounded-2xl border border-[rgba(34,211,238,0.16)] bg-[rgba(5,11,22,0.78)] backdrop-blur-2xl px-3 sm:px-5 h-16 min-w-0 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.5)]">
             <Link
               href="/"
               className="flex items-center flex-shrink-0"
@@ -227,10 +239,10 @@ export default function LandingPage() {
         }`}
       >
         <div
-          className="absolute inset-0 bg-[#020617]/85 backdrop-blur-md"
+          className="absolute inset-0 bg-[#050B16]/85 backdrop-blur-md"
           onClick={closeMenu}
         />
-        <div className="absolute inset-x-3 top-3 rounded-3xl border border-[rgba(34,211,238,0.24)] bg-[rgba(8,18,37,0.96)] backdrop-blur-2xl shadow-[0_20px_80px_-20px_rgba(0,0,0,0.7)]">
+        <div className="absolute inset-x-3 top-3 rounded-3xl border border-[rgba(34,211,238,0.24)] bg-[rgba(10,22,40,0.95)] backdrop-blur-2xl shadow-[0_20px_80px_-20px_rgba(0,0,0,0.7)]">
           <div className="flex flex-row-reverse items-center justify-between p-4 border-b border-white/5">
             <OfficialBlumarkLogo className="w-[140px]" />
             <button
@@ -280,28 +292,31 @@ export default function LandingPage() {
         {/* ━━━━━━━━━━ HERO ━━━━━━━━━━ */}
         <section
           id="home"
-          className="relative pt-[84px] sm:pt-[100px] pb-10 sm:pb-14 lg:pb-16 overflow-hidden"
+          className="relative pt-28 sm:pt-32 lg:pt-36 pb-12 sm:pb-20 lg:pb-28 overflow-hidden"
         >
           <div aria-hidden="true" className="absolute inset-0 -z-10">
             <div
-              className="absolute inset-0 opacity-[0.16]"
+              className="absolute inset-0 opacity-[0.18]"
               style={{
                 backgroundImage:
                   "linear-gradient(rgba(34,211,238,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.08) 1px, transparent 1px)",
                 backgroundSize: "56px 56px",
-                WebkitMaskImage: "radial-gradient(ellipse at top, black 35%, transparent 75%)",
-                maskImage: "radial-gradient(ellipse at top, black 35%, transparent 75%)",
+                WebkitMaskImage: "radial-gradient(ellipse at top, black 40%, transparent 75%)",
+                maskImage: "radial-gradient(ellipse at top, black 40%, transparent 75%)",
               }}
             />
-            <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[520px] w-[760px] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.18),transparent_60%)] blur-3xl" />
-            <div className="absolute top-40 -right-32 h-[360px] w-[360px] rounded-full bg-[radial-gradient(circle,rgba(30,111,217,0.22),transparent_60%)] blur-3xl" />
-            <div className="absolute top-60 -left-32 h-[360px] w-[360px] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.14),transparent_60%)] blur-3xl" />
+            <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[600px] w-[800px] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.18),transparent_60%)] blur-3xl animate-pulse-slow" />
+            <div className="absolute top-40 -right-32 h-[400px] w-[400px] rounded-full bg-[radial-gradient(circle,rgba(30,111,217,0.22),transparent_60%)] blur-3xl" />
+            <div className="absolute top-60 -left-32 h-[400px] w-[400px] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.15),transparent_60%)] blur-3xl" />
           </div>
 
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
             <div className="flex justify-center animate-fade-up">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(34,211,238,0.34)] bg-[rgba(34,211,238,0.06)] px-3.5 py-1.5 backdrop-blur-md">
-                <Sparkles className="h-3.5 w-3.5 text-[#22D3EE]" strokeWidth={1.8} />
+              <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(34,211,238,0.34)] bg-[rgba(34,211,238,0.06)] px-4 py-1.5 backdrop-blur-md">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-[#22D3EE] opacity-75 animate-ping" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#22D3EE]" />
+                </span>
                 <span className="text-[12px] sm:text-[13px] font-medium text-[#22D3EE]">
                   نظام إدارة الأعمال بالذكاء الاصطناعي
                 </span>
@@ -309,7 +324,7 @@ export default function LandingPage() {
             </div>
 
             <h1
-              className="mt-5 sm:mt-6 text-center text-[30px] leading-[1.18] sm:text-[44px] sm:leading-[1.15] md:text-[56px] lg:text-[68px] lg:leading-[1.08] font-bold text-white tracking-tight max-w-5xl mx-auto animate-fade-up"
+              className="mt-6 sm:mt-8 text-center text-[34px] leading-[1.18] sm:text-5xl sm:leading-[1.15] md:text-6xl lg:text-7xl font-bold text-white tracking-tight max-w-5xl mx-auto animate-fade-up"
               style={{ animationDelay: "100ms" }}
             >
               نظام إدارة أعمال ذكي يقود شركتك{" "}
@@ -325,15 +340,15 @@ export default function LandingPage() {
             </h1>
 
             <p
-              className="mt-4 sm:mt-5 text-center text-[15px] sm:text-[17px] lg:text-[19px] text-[#AAB7C7] leading-relaxed max-w-3xl mx-auto animate-fade-up"
+              className="mt-5 sm:mt-6 text-center text-[15.5px] sm:text-lg md:text-xl text-[#AAB7C7] leading-relaxed max-w-3xl mx-auto animate-fade-up"
               style={{ animationDelay: "200ms" }}
             >
-              منصة عربية متكاملة بالذكاء الاصطناعي: موظفين، مهام، عملاء، مالية،
-              تقارير، وأتمتة — في تجربة واحدة سريعة وآمنة ومصمّمة للشركات السعودية.
+              Blumark24 OS يجمع الموظفين، المهام، العملاء، المالية، التقارير، والأتمتة
+              داخل منصة عربية مدعومة بالذكاء الاصطناعي لتقليل الفوضى ورفع كفاءة التشغيل.
             </p>
 
             <div
-              className="mt-6 sm:mt-7 flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-up"
+              className="mt-7 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-up"
               style={{ animationDelay: "300ms" }}
             >
               <PrimaryCta className="w-full sm:w-auto" />
@@ -341,7 +356,7 @@ export default function LandingPage() {
             </div>
 
             <div
-              className="mt-4 sm:mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12.5px] text-[#AAB7C7] animate-fade-up"
+              className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12.5px] text-[#AAB7C7] animate-fade-up"
               style={{ animationDelay: "400ms" }}
             >
               {TRUST_BULLETS.map((item) => (
@@ -353,7 +368,22 @@ export default function LandingPage() {
             </div>
 
             <div
-              className="mt-8 sm:mt-10 lg:mt-12 animate-fade-up"
+              className="mt-6 flex flex-wrap items-center justify-center gap-2 animate-fade-up"
+              style={{ animationDelay: "450ms" }}
+            >
+              {BRAND_PILLS.map((label) => (
+                <span
+                  key={label}
+                  dir="ltr"
+                  className="inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11.5px] text-[#AAB7C7]"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            <div
+              className="mt-10 sm:mt-14 animate-fade-up animate-float"
               style={{ animationDelay: "500ms" }}
             >
               <HeroVisual />
@@ -361,36 +391,26 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ━━━━━━━━━━ WHY BLUMARK24 OS ━━━━━━━━━━ */}
-        <section id="why" className="relative py-12 sm:py-16 lg:py-20">
+        {/* ━━━━━━━━━━ TRUST BAR ━━━━━━━━━━ */}
+        <section className="relative py-10 sm:py-14">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
-            <SectionHeading
-              eyebrow="لماذا Blumark24 OS"
-              title="كل ما تحتاجه شركتك — في نظام واحد"
-              desc="أربعة أعمدة بُني عليها النظام لتقدم تجربة سعودية ذكية وآمنة."
-            />
-
-            <div className="mt-8 sm:mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {WHY_CARDS.map((card) => {
-                const Icon = card.icon;
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              {TRUST_CARDS.map((item) => {
+                const Icon = item.icon;
                 return (
                   <div
-                    key={card.title}
-                    className="group relative rounded-2xl border border-[rgba(34,211,238,0.14)] bg-[rgba(8,18,37,0.72)] backdrop-blur-xl p-5 sm:p-6 overflow-hidden hover:border-[rgba(34,211,238,0.34)] hover:-translate-y-0.5 transition"
+                    key={item.label}
+                    className="relative rounded-2xl border border-[rgba(34,211,238,0.16)] bg-[rgba(10,22,40,0.72)] backdrop-blur-xl hover:border-[rgba(34,211,238,0.34)] hover:-translate-y-0.5 transition p-4 sm:p-5 flex items-center gap-4 min-w-0"
                   >
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 -z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-[radial-gradient(ellipse_at_top_right,rgba(34,211,238,0.12),transparent_55%)]"
-                    />
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[rgba(34,211,238,0.24)] bg-gradient-to-br from-[rgba(34,211,238,0.18)] to-[rgba(30,111,217,0.10)] text-[#22D3EE] mb-4">
-                      <Icon className="h-5 w-5" strokeWidth={1.7} />
-                    </span>
-                    <h3 className="text-[16px] sm:text-[17px] font-semibold text-white leading-snug">
-                      {card.title}
-                    </h3>
-                    <p className="mt-2 text-[13px] sm:text-[14px] text-[#AAB7C7] leading-relaxed">
-                      {card.desc}
-                    </p>
+                    <div className="shrink-0 h-11 w-11 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-br from-[rgba(34,211,238,0.18)] to-[rgba(30,111,217,0.12)] border border-[rgba(34,211,238,0.24)] flex items-center justify-center text-[#22D3EE]">
+                      <Icon className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.6} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[15px] sm:text-base font-semibold text-white">{item.label}</div>
+                      <div className="mt-0.5 text-[12.5px] sm:text-[13px] text-[#AAB7C7] leading-relaxed">
+                        {item.desc}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -398,82 +418,130 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ━━━━━━━━━━ MODULES PREVIEW ━━━━━━━━━━ */}
-        <section id="modules" className="relative py-12 sm:py-16 lg:py-20">
+        {/* ━━━━━━━━━━ PROBLEMS ━━━━━━━━━━ */}
+        <section className="relative py-16 sm:py-24">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
             <SectionHeading
-              eyebrow="وحدات النظام"
-              title="منظومة متكاملة تغطي كل عمليات شركتك"
-              desc="ثماني وحدات تتكامل ببعضها بسلاسة، مع لمسة ذكاء اصطناعي في كل مكان."
+              eyebrow="المشكلة"
+              title="المشاكل اللي تواجه الشركات كل يوم"
+              desc="الفوضى التشغيلية تكلّف الشركات وقتاً وأموالاً وفرصاً ضائعة كل يوم."
             />
 
-            <div className="mt-8 sm:mt-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3 lg:gap-4">
+            <div className="mt-10 sm:mt-14 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              {PROBLEMS.map((p) => (
+                <div
+                  key={p.n}
+                  className="rounded-2xl border border-[rgba(34,211,238,0.16)] bg-[rgba(10,22,40,0.72)] backdrop-blur-xl hover:border-[rgba(34,211,238,0.34)] hover:-translate-y-0.5 transition p-5 sm:p-6"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="shrink-0 h-10 w-10 rounded-xl border border-[rgba(255,122,61,0.34)] bg-[rgba(255,122,61,0.08)] flex items-center justify-center font-mono text-[#FF7A3D] text-sm font-semibold">
+                      {p.n}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-[16px] sm:text-[17px] font-semibold text-white mb-1.5">
+                        {p.title}
+                      </h3>
+                      <p className="text-[13.5px] sm:text-[14px] text-[#AAB7C7] leading-relaxed">
+                        {p.desc}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-10 sm:mt-12 mx-auto max-w-3xl">
+              <div className="relative rounded-2xl border border-[rgba(34,211,238,0.34)] bg-gradient-to-l from-[rgba(34,211,238,0.08)] via-[rgba(30,111,217,0.04)] to-[rgba(34,211,238,0.08)] p-5 sm:p-6 text-center backdrop-blur-md">
+                <div
+                  aria-hidden="true"
+                  className="absolute -inset-x-10 -inset-y-4 -z-10 bg-[radial-gradient(ellipse,rgba(34,211,238,0.15),transparent_70%)] blur-2xl"
+                />
+                <p className="text-[15px] sm:text-base text-white leading-relaxed">
+                  <span className="font-semibold">Blumark24 OS</span> يحوّل هذا التشتت إلى{" "}
+                  <span className="text-[#22D3EE]">نظام واحد واضح وقابل للقياس</span>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ━━━━━━━━━━ FEATURES ━━━━━━━━━━ */}
+        <section id="features" className="relative py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <SectionHeading
+              eyebrow="المميزات"
+              title="المميزات الرئيسية"
+              desc="قدرات مصمّمة لتحويل بيانات شركتك إلى قرارات ذكية وإجراءات تشغيلية."
+            />
+
+            <div className="mt-10 sm:mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              {FEATURES.map((f) => {
+                const Icon = f.icon;
+                return (
+                  <div
+                    key={f.title}
+                    className="relative rounded-2xl border border-[rgba(34,211,238,0.16)] bg-[rgba(10,22,40,0.72)] backdrop-blur-xl hover:border-[rgba(34,211,238,0.34)] hover:-translate-y-0.5 transition p-5 sm:p-6 group overflow-hidden"
+                  >
+                    <div
+                      aria-hidden="true"
+                      className="absolute -top-12 -left-12 h-32 w-32 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.18),transparent_70%)] opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                    />
+                    <div className="relative">
+                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[rgba(34,211,238,0.18)] to-[rgba(30,111,217,0.08)] border border-[rgba(34,211,238,0.24)] flex items-center justify-center text-[#22D3EE] mb-4 group-hover:scale-110 transition-transform duration-500">
+                        <Icon className="h-6 w-6" strokeWidth={1.6} />
+                      </div>
+                      <h3 className="text-[16px] sm:text-[17px] font-semibold text-white mb-1.5 leading-snug">
+                        {f.title}
+                      </h3>
+                      <p className="text-[13.5px] sm:text-[14px] text-[#AAB7C7] leading-relaxed">
+                        {f.desc}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* ━━━━━━━━━━ MODULES ━━━━━━━━━━ */}
+        <section id="modules" className="relative py-16 sm:py-24">
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 opacity-50"
+            style={{
+              background: "radial-gradient(ellipse at top, rgba(34,211,238,0.06), transparent 60%)",
+            }}
+          />
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <SectionHeading
+              eyebrow="الوحدات"
+              title="كل أقسام شركتك داخل منصة واحدة"
+              desc="ثماني وحدات تشغيلية متكاملة، مصمّمة للعمل معاً كمنظومة موحّدة."
+            />
+
+            <div className="mt-10 sm:mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {MODULES.map((m) => {
                 const Icon = m.icon;
                 return (
                   <div
                     key={m.title}
-                    className="group relative rounded-2xl border border-[rgba(34,211,238,0.14)] bg-[rgba(8,18,37,0.72)] backdrop-blur-xl p-4 sm:p-5 min-w-0 overflow-hidden hover:border-[rgba(34,211,238,0.34)] hover:-translate-y-0.5 transition"
+                    className="rounded-2xl border border-[rgba(34,211,238,0.16)] bg-[rgba(10,22,40,0.72)] backdrop-blur-xl hover:border-[rgba(34,211,238,0.34)] hover:-translate-y-0.5 transition p-5 sm:p-6 group relative overflow-hidden min-w-0"
                   >
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 -z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-[radial-gradient(ellipse_at_top_right,rgba(34,211,238,0.10),transparent_55%)]"
-                    />
-                    <div className="flex items-center gap-2.5">
-                      <span className="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-[rgba(34,211,238,0.24)] bg-gradient-to-br from-[rgba(34,211,238,0.16)] to-[rgba(30,111,217,0.08)] text-[#22D3EE] shrink-0">
-                        <Icon className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={1.7} />
-                      </span>
-                      <h3 className="text-[14px] sm:text-[15px] font-semibold text-white truncate">
-                        {m.title}
-                      </h3>
-                    </div>
-                    <p className="mt-2.5 text-[12px] sm:text-[13px] text-[#AAB7C7] leading-relaxed line-clamp-2">
-                      {m.desc}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* ━━━━━━━━━━ OPERATIONAL ROI ━━━━━━━━━━ */}
-        <section id="roi" className="relative py-12 sm:py-16 lg:py-20">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6">
-            <SectionHeading
-              eyebrow="القيمة التشغيلية"
-              title="نتائج ملموسة على عمليات شركتك"
-              desc="Blumark24 OS لا يعرض الأرقام فقط — يغيّر كيف تشتغل شركتك يومياً."
-            />
-
-            <div className="mt-8 sm:mt-10 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              {ROI_CARDS.map((card, i) => {
-                const Icon = card.icon;
-                return (
-                  <div
-                    key={card.title}
-                    className="group relative rounded-2xl border border-[rgba(34,211,238,0.16)] bg-[rgba(8,18,37,0.72)] backdrop-blur-xl p-5 sm:p-6 lg:p-7 overflow-hidden hover:border-[rgba(34,211,238,0.34)] transition"
-                  >
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,rgba(34,211,238,0.08),transparent_55%)]"
-                    />
                     <div className="flex items-start gap-4">
-                      <div className="flex flex-col items-center gap-2 shrink-0">
-                        <span className="inline-flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl border border-[rgba(34,211,238,0.24)] bg-gradient-to-br from-[rgba(34,211,238,0.18)] to-[rgba(30,111,217,0.10)] text-[#22D3EE]">
-                          <Icon className="h-5 w-5" strokeWidth={1.7} />
-                        </span>
-                        <span className="text-[10.5px] font-mono text-[#7A8FAB] tabular-nums">
-                          0{i + 1}
-                        </span>
+                      <div className="shrink-0 h-11 w-11 rounded-xl bg-gradient-to-br from-[rgba(34,211,238,0.18)] to-[rgba(30,111,217,0.08)] border border-[rgba(34,211,238,0.24)] flex items-center justify-center text-[#22D3EE] group-hover:scale-110 transition-transform duration-500">
+                        <Icon className="h-5 w-5" strokeWidth={1.6} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-[16px] sm:text-[18px] font-semibold text-white leading-snug">
-                          {card.title}
-                        </h3>
-                        <p className="mt-2 text-[13px] sm:text-[14px] text-[#AAB7C7] leading-relaxed">
-                          {card.desc}
-                        </p>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <h3 className="text-[15.5px] sm:text-base font-semibold text-white">
+                            {m.title}
+                          </h3>
+                          <span className="text-[10px] text-[#AAB7C7]/60 font-mono" dir="ltr">
+                            {m.route}
+                          </span>
+                        </div>
+                        <p className="text-[13.5px] text-[#AAB7C7] leading-relaxed">{m.desc}</p>
                       </div>
                     </div>
                   </div>
@@ -484,32 +552,43 @@ export default function LandingPage() {
         </section>
 
         {/* ━━━━━━━━━━ FINAL CTA ━━━━━━━━━━ */}
-        <section id="contact" className="relative py-12 sm:py-16 lg:py-20">
-          <div className="mx-auto max-w-5xl px-4 sm:px-6">
-            <div className="relative overflow-hidden rounded-3xl border border-[rgba(34,211,238,0.24)] bg-[rgba(8,18,37,0.72)] backdrop-blur-xl px-6 sm:px-10 lg:px-14 py-10 sm:py-12 lg:py-14 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.6)]">
+        <section id="contact" className="relative py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="relative overflow-hidden rounded-3xl border border-[rgba(34,211,238,0.34)] bg-gradient-to-br from-[rgba(34,211,238,0.08)] via-[rgba(10,22,40,0.9)] to-[rgba(30,111,217,0.08)] backdrop-blur-2xl">
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.18),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(30,111,217,0.18),transparent_55%)]"
+                className="absolute -top-32 -right-32 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.28),transparent_60%)] blur-3xl"
               />
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 h-[260px] w-[480px] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.22),transparent_60%)] blur-3xl"
+                className="absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(30,111,217,0.28),transparent_60%)] blur-3xl"
+              />
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 opacity-[0.08]"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(rgba(34,211,238,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.4) 1px, transparent 1px)",
+                  backgroundSize: "32px 32px",
+                }}
               />
 
-              <div className="flex flex-col items-center text-center">
-                <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(34,211,238,0.34)] bg-[rgba(34,211,238,0.08)] px-3 py-1 text-[11.5px] font-medium text-[#22D3EE]">
-                  <Sparkles className="h-3.5 w-3.5" strokeWidth={1.8} />
-                  ابدأ مع Blumark24 OS اليوم
-                </div>
-                <h2 className="mt-4 text-[26px] sm:text-[34px] lg:text-[44px] leading-[1.15] font-bold text-white tracking-tight max-w-3xl">
-                  ابدأ تنظيم شركتك بنظام ذكي
+              <div className="relative p-7 sm:p-12 lg:p-16 text-center">
+                <EyebrowChip>ابدأ التحوّل الآن</EyebrowChip>
+
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-[1.2] tracking-tight max-w-3xl mx-auto">
+                  حوّل شركتك من إدارة متفرقة إلى{" "}
+                  <span className="bg-gradient-to-l from-[#22D3EE] to-[#1E6FD9] bg-clip-text text-transparent">
+                    نظام ذكي واحد
+                  </span>
                 </h2>
-                <p className="mt-3 sm:mt-4 text-[14px] sm:text-[16px] text-[#AAB7C7] leading-relaxed max-w-2xl">
-                  احصل على عرض تجريبي خاص بشركتك، أو ابدأ مباشرة بتسجيل الدخول وتجربة
-                  النظام كما هو يعمل اليوم.
+
+                <p className="mt-5 sm:mt-6 text-[15px] sm:text-lg text-[#AAB7C7] leading-relaxed max-w-2xl mx-auto">
+                  ابدأ بعرض تجريبي يوضح كيف يمكن لـ Blumark24 OS تنظيم التشغيل، تحسين
+                  المتابعة، ورفع كفاءة القرارات.
                 </p>
 
-                <div className="mt-6 sm:mt-7 flex flex-col sm:flex-row items-center justify-center gap-3 w-full sm:w-auto">
+                <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
                   <PrimaryCta className="w-full sm:w-auto" />
                   <SecondaryCta className="w-full sm:w-auto" />
                 </div>
@@ -529,29 +608,114 @@ export default function LandingPage() {
       </main>
 
       {/* ━━━━━━━━━━ FOOTER ━━━━━━━━━━ */}
-      <footer className="relative border-t border-white/[0.06] bg-[rgba(2,6,23,0.6)]">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <OfficialBlumarkLogo className="w-[120px]" />
-            <span className="hidden sm:inline text-[12px] text-[#7A8FAB]">
-              AI Business OS للشركات السعودية
-            </span>
+      <footer className="relative border-t border-white/[0.06] bg-[rgba(5,11,22,0.6)] backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-10 sm:py-14">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10">
+            <div className="lg:col-span-1">
+              <OfficialBlumarkLogo className="w-[140px]" />
+              <p className="mt-4 text-[13.5px] text-[#AAB7C7] leading-relaxed">
+                نظام إدارة الأعمال بالذكاء الاصطناعي للشركات السعودية. منصة عربية لتنظيم
+                التشغيل ورفع الكفاءة من مكان واحد.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-[13px] font-semibold text-white uppercase tracking-wider mb-4">
+                المنتج
+              </h3>
+              <ul className="space-y-2.5">
+                <li>
+                  <a href="#features" className="text-[13.5px] text-[#AAB7C7] hover:text-[#22D3EE] transition">
+                    المزايا
+                  </a>
+                </li>
+                <li>
+                  <a href="#modules" className="text-[13.5px] text-[#AAB7C7] hover:text-[#22D3EE] transition">
+                    الوحدات
+                  </a>
+                </li>
+                <li>
+                  <Link href="/demo" className="text-[13.5px] text-[#AAB7C7] hover:text-[#22D3EE] transition">
+                    عرض تجريبي
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/auth" className="text-[13.5px] text-[#AAB7C7] hover:text-[#22D3EE] transition">
+                    تسجيل الدخول
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-[13px] font-semibold text-white uppercase tracking-wider mb-4">
+                الشركة
+              </h3>
+              <ul className="space-y-2.5">
+                <li>
+                  <a href="#contact" className="text-[13.5px] text-[#AAB7C7] hover:text-[#22D3EE] transition">
+                    تواصل معنا
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-[13.5px] text-[#AAB7C7] hover:text-[#22D3EE] transition">
+                    الشروط والأحكام
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-[13.5px] text-[#AAB7C7] hover:text-[#22D3EE] transition">
+                    سياسة الخصوصية
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-[13px] font-semibold text-white uppercase tracking-wider mb-4">
+                تواصل
+              </h3>
+              <ul className="space-y-2.5">
+                <li>
+                  <a
+                    href="https://www.blumark24.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    dir="ltr"
+                    className="text-[13.5px] text-[#AAB7C7] hover:text-[#22D3EE] transition block"
+                  >
+                    www.blumark24.com
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="mailto:info@blumark.sa"
+                    dir="ltr"
+                    className="text-[13.5px] text-[#AAB7C7] hover:text-[#22D3EE] transition block"
+                  >
+                    info@blumark.sa
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://wa.me/966507006849"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    dir="ltr"
+                    className="text-[13.5px] text-[#AAB7C7] hover:text-[#22D3EE] transition block"
+                  >
+                    +966 0507006849
+                  </a>
+                </li>
+              </ul>
+            </div>
           </div>
-          <div className="flex items-center gap-4 text-[12px] text-[#AAB7C7]">
-            <a href="#why" className="hover:text-white transition">
-              لماذا نحن
-            </a>
-            <a href="#modules" className="hover:text-white transition">
-              الوحدات
-            </a>
-            <a href="#roi" className="hover:text-white transition">
-              القيمة
-            </a>
-            <a href="#contact" className="hover:text-white transition">
-              تواصل
-            </a>
+
+          <div className="mt-10 sm:mt-12 pt-6 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-[12.5px] text-[#AAB7C7]">© Blumark24 OS. جميع الحقوق محفوظة.</p>
+            <p className="text-[12px] text-[#AAB7C7]/70" dir="ltr">
+              Built for Saudi companies · صنع للسعودية
+            </p>
           </div>
-          <div className="text-[11.5px] text-[#7A8FAB]">© Blumark24 OS</div>
         </div>
       </footer>
     </div>
