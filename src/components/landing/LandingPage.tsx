@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import HeroVisual from "./HeroVisual";
 
 // ─── Logo SVG (used only in the dashboard preview mockup inside Hero) ─────────
 
@@ -274,149 +275,9 @@ export default function LandingPage() {
                 </span>
               ))}
             </div>
-
-            {/* Dashboard preview */}
+            {/* Hero visual — dashboard mockup */}
             <div className="mt-8 sm:mt-10 animate-fade-up animate-float" style={{ animationDelay: "500ms" }}>
-              <div className="relative">
-                <div aria-hidden="true" className="absolute -inset-x-8 -inset-y-12 -z-10 rounded-[40px] bg-[radial-gradient(ellipse_at_center,rgba(34,211,238,0.25),transparent_60%)] blur-2xl" />
-                <div className="relative rounded-[20px] sm:rounded-[24px] border border-[rgba(34,211,238,0.24)] bg-[rgba(10,22,40,0.92)] backdrop-blur-2xl overflow-hidden shadow-[0_30px_80px_-20px_rgba(0,0,0,0.6),0_0_0_1px_rgba(34,211,238,0.08)_inset]">
-                  {/* Window bar */}
-                  <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-white/5 bg-[rgba(5,11,22,0.6)]">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-full bg-[#FF5F57]" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-[#FEBC2E]" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-[#28C840]" />
-                    </div>
-                    <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-md bg-white/[0.04] text-[10px] text-[#AAB7C7] font-mono">blumark24-os.app/dashboard</div>
-                    <span className="inline-flex items-center gap-1.5 scale-90" dir="ltr">
-                      <svg viewBox="0 0 40 40" className="h-5 w-5">
-                        <rect x="3" y="3" width="34" height="34" rx="8" fill="url(#blu-grad)" opacity="0.18" />
-                        <rect x="3" y="3" width="34" height="34" rx="8" fill="none" stroke="url(#blu-grad)" strokeWidth="1.4" />
-                        <path d="M14 12h7a4 4 0 0 1 0 8h-7Z" fill="url(#blu-grad)" />
-                        <path d="M14 20h8a4 4 0 0 1 0 8h-8Z" fill="url(#blu-grad)" />
-                        <circle cx="29" cy="13" r="2" fill="#FF7A3D" />
-                      </svg>
-                      <span className="font-semibold text-white text-[12px]">Blumark<span className="text-[#22D3EE]">24</span></span>
-                    </span>
-                  </div>
-
-                  <div className="flex">
-                    {/* Sidebar */}
-                    <aside className="hidden sm:block w-[150px] md:w-[170px] shrink-0 border-s border-white/5 bg-[rgba(5,11,22,0.4)] p-2.5">
-                      <div className="text-[10px] text-[#AAB7C7]/70 px-2 pb-2 uppercase tracking-wider">القائمة</div>
-                      <nav className="space-y-1">
-                        <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11.5px] bg-gradient-to-l from-[#22D3EE]/15 to-[#1E6FD9]/10 text-white border border-[rgba(34,211,238,0.24)]">
-                          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-[#22D3EE]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11 12 4l9 7" /><path d="M5 10v9a1 1 0 0 0 1 1h4v-5h4v5h4a1 1 0 0 0 1-1v-9" /></svg>
-                          <span>الرئيسية</span>
-                        </div>
-                        {[
-                          { label: "الموظفين", d: "M9 8a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm-6 12c.6-3.4 3.1-5.5 6-5.5s5.4 2.1 6 5.5M17 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" },
-                          { label: "المهام", d: "M3 4h18v16a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V4Zm5 8 3 3 5-6" },
-                          { label: "العملاء CRM", d: "M3 7h18v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 20V7ZM8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7" },
-                          { label: "المالية", d: "M3 6h18v14a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 20V6Zm14 7a1.3 1.3 0 1 0 0-2.6A1.3 1.3 0 0 0 17 13Z" },
-                        ].map((item) => (
-                          <div key={item.label} className="flex items-center gap-2 px-2 py-1.5 text-[11.5px] text-[#AAB7C7]">
-                            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d={item.d} /></svg>
-                            <span>{item.label}</span>
-                          </div>
-                        ))}
-                      </nav>
-                    </aside>
-
-                    {/* Content */}
-                    <main className="flex-1 p-3 sm:p-4 min-w-0">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <div className="text-[11px] text-[#AAB7C7]">لوحة التحكم</div>
-                          <div className="text-[13px] sm:text-[14px] font-semibold text-white">أهلاً، عبدالله 👋</div>
-                        </div>
-                        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(34,211,238,0.08)] border border-[rgba(34,211,238,0.24)]">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] animate-pulse" />
-                          <span className="text-[10px] text-[#22D3EE]">مباشر</span>
-                        </div>
-                      </div>
-
-                      {/* KPIs */}
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
-                        {[
-                          { label: "إجمالي الموظفين", value: "128", pct: "+12%", w: "60%" },
-                          { label: "المهام المكتملة", value: "320", pct: "+8%", w: "68%" },
-                          { label: "إجمالي العملاء", value: "1,250", pct: "+24%", w: "76%" },
-                          { label: "إجمالي الإيرادات", value: "2.45M", pct: "+18%", w: "84%" },
-                        ].map((kpi) => (
-                          <div key={kpi.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5">
-                            <div className="text-[9.5px] text-[#AAB7C7] mb-1">{kpi.label}</div>
-                            <div className="flex items-baseline justify-between gap-1">
-                              <div className="text-[14px] sm:text-[15px] font-semibold text-white">{kpi.value}</div>
-                              <div className="text-[9px] text-[#22D3EE] font-medium">{kpi.pct}</div>
-                            </div>
-                            <div className="mt-2 h-0.5 bg-white/[0.04] rounded-full overflow-hidden">
-                              <div className="h-full bg-gradient-to-l from-[#22D3EE] to-[#1E6FD9]" style={{ width: kpi.w }} />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Chart + AI */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
-                        <div className="md:col-span-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="text-[11px] font-medium text-white">أداء الشركة</div>
-                            <div className="flex gap-1">
-                              <span className="text-[9px] px-1.5 py-0.5 rounded text-[#AAB7C7]">أسبوع</span>
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(34,211,238,0.12)] text-[#22D3EE]">شهر</span>
-                              <span className="text-[9px] px-1.5 py-0.5 rounded text-[#AAB7C7]">سنة</span>
-                            </div>
-                          </div>
-                          <svg viewBox="0 0 480 120" className="w-full h-[80px] sm:h-[100px]" preserveAspectRatio="none">
-                            <defs>
-                              <linearGradient id="ch-area" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#22D3EE" stopOpacity="0.35" />
-                                <stop offset="100%" stopColor="#22D3EE" stopOpacity="0" />
-                              </linearGradient>
-                              <linearGradient id="ch-line" x1="0" y1="0" x2="1" y2="0">
-                                <stop offset="0%" stopColor="#1E6FD9" />
-                                <stop offset="100%" stopColor="#22D3EE" />
-                              </linearGradient>
-                            </defs>
-                            <path d="M 0 65 L 44 49 L 87 58 L 131 40 L 175 48 L 218 34 L 262 38 L 305 24 L 349 28 L 393 14 L 436 18 L 480 5 L 480 120 L 0 120 Z" fill="url(#ch-area)" />
-                            <path d="M 0 65 L 44 49 L 87 58 L 131 40 L 175 48 L 218 34 L 262 38 L 305 24 L 349 28 L 393 14 L 436 18 L 480 5" fill="none" stroke="url(#ch-line)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            <circle cx="480" cy="5" r="3" fill="#22D3EE" />
-                          </svg>
-                        </div>
-                        <div className="rounded-xl border border-[rgba(34,211,238,0.18)] bg-gradient-to-br from-[rgba(34,211,238,0.08)] to-transparent p-3 flex flex-col">
-                          <div className="flex items-center gap-1.5 mb-2">
-                            <div className="h-5 w-5 rounded-md bg-gradient-to-br from-[#22D3EE] to-[#1E6FD9] flex items-center justify-center">
-                              <svg viewBox="0 0 24 24" className="h-3 w-3 text-white" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a4 4 0 0 1 4 4v1h1a3 3 0 0 1 0 6h-1v1a4 4 0 0 1-8 0v-1H7a3 3 0 0 1 0-6h1V7a4 4 0 0 1 4-4Z" /></svg>
-                            </div>
-                            <div className="text-[10.5px] font-medium text-white">المساعد الذكي</div>
-                          </div>
-                          <div className="text-[11px] text-white/85 leading-relaxed flex-1">كيف يمكنني مساعدتك اليوم؟</div>
-                          <div className="mt-2 flex items-center gap-1 px-2 py-1 rounded-md bg-white/[0.04] border border-white/[0.06]">
-                            <span className="text-[9.5px] text-[#AAB7C7] flex-1">اسأل أي شيء...</span>
-                            <span className="text-[9px] text-[#22D3EE]">↵</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Mini cards */}
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                        {[
-                          { label: "مركز الأتمتة", value: "12", color: "text-[#22D3EE]" },
-                          { label: "العملاء الجدد", value: "45", color: "text-[#22D3EE]" },
-                          { label: "التقارير هذا الشهر", value: "24", color: "text-[#22D3EE]" },
-                          { label: "المهام المتأخرة", value: "8", color: "text-[#FF7A3D]" },
-                        ].map((c) => (
-                          <div key={c.label} className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
-                            <div className="text-[9px] text-[#AAB7C7] mb-0.5">{c.label}</div>
-                            <div className={`text-[14px] font-semibold ${c.color}`}>{c.value}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </main>
-                  </div>
-                </div>
-              </div>
+              <HeroVisual />
             </div>
           </div>
         </section>
