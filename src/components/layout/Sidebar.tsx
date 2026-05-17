@@ -116,7 +116,7 @@ export default function Sidebar({
 
       {/* Nav */}
       <nav className="flex-1 py-3 overflow-y-auto">
-        <ul className="space-y-0.5 px-2">
+        <ul className="space-y-1 px-2">
           {visibleItems.map(({ href, label, icon: Icon }) => {
             const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
@@ -125,7 +125,7 @@ export default function Sidebar({
                   href={href}
                   onClick={onMobileClose}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
                     isActive
                       ? "sidebar-active"
                       : "text-[#8ba3c7] hover:text-white hover:bg-[#1a3356]/40"
@@ -139,7 +139,18 @@ export default function Sidebar({
                       isActive ? "text-[#22d3ee]" : "group-hover:text-[#22d3ee]"
                     )}
                   />
-                  {!collapsed && <span className="text-[13px] font-medium tracking-tight">{label}</span>}
+                  {!collapsed && (
+                    <>
+                      <span className="text-sm font-medium tracking-tight flex-1">{label}</span>
+                      <ChevronLeft
+                        size={14}
+                        className={cn(
+                          "flex-shrink-0 transition-colors",
+                          isActive ? "text-[#22d3ee]" : "text-[#3e5879] group-hover:text-[#8ba3c7]"
+                        )}
+                      />
+                    </>
+                  )}
                 </Link>
               </li>
             );
@@ -149,28 +160,33 @@ export default function Sidebar({
 
       {/* User */}
       <div className="border-t border-[#1e3a5f] p-3">
-        <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold text-white"
-            style={{ background: "linear-gradient(135deg,#ff7a3d,#ff5722)" }}
-          >
-            {user?.name?.slice(0, 2) ?? "؟"}
-          </div>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-white truncate">{user?.name ?? "المستخدم"}</div>
-              <div className="text-xs text-[#8ba3c7] truncate">{ROLE_LABELS[userRole] ?? userRole.replace(/_/g, " ")}</div>
-            </div>
+        <div
+          className={cn(
+            "flex items-center gap-3 rounded-xl border border-[#1e3a5f]/70 bg-[#0d1f3c]/40 px-3 py-2.5",
+            collapsed && "justify-center"
           )}
+        >
           {!collapsed && (
             <button
               onClick={handleLogout}
-              className="text-[#8ba3c7] hover:text-red-400 transition-colors"
+              className="text-[#8ba3c7] hover:text-red-400 transition-colors flex-shrink-0"
               title="تسجيل الخروج"
             >
               <LogOut size={15} />
             </button>
           )}
+          {!collapsed && (
+            <div className="flex-1 min-w-0 text-right">
+              <div className="text-sm font-semibold text-white truncate">{user?.name ?? "المستخدم"}</div>
+              <div className="text-xs text-[#8ba3c7] truncate">{ROLE_LABELS[userRole] ?? userRole.replace(/_/g, " ")}</div>
+            </div>
+          )}
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold text-white"
+            style={{ background: "linear-gradient(135deg,#22d3ee,#1e6fd9)" }}
+          >
+            {user?.name?.slice(0, 2) ?? "؟"}
+          </div>
         </div>
         {collapsed && (
           <button
