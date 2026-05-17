@@ -29,7 +29,7 @@ interface AuthContextValue {
 }
 
 const PUBLIC_PATHS = ["/", "/auth", "/demo"];
-const APP_HOME_PATH = "/clients";
+const APP_HOME_PATH = "/dashboard";
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,

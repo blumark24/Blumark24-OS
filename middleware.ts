@@ -14,7 +14,7 @@ const PROTECTED_PATHS = [
   "/profile",
   "/admin-recovery",
 ];
-const APP_HOME_PATH = "/clients";
+const APP_HOME_PATH = "/dashboard";
 
 function isProtectedPath(pathname: string) {
   return PROTECTED_PATHS.some(
