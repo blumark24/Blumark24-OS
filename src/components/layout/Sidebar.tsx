@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, CheckSquare, UserCircle,
   DollarSign, Map, Bot, BarChart3, Settings, LogOut,
-  ChevronLeft, Network, Zap, X, ArrowLeft,
+  ChevronLeft, Network, Zap, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,33 +13,39 @@ import { useToast } from "@/contexts/ToastContext";
 import { usePermissions, Permission, ROLE_LABELS } from "@/contexts/PermissionsContext";
 import OfficialBlumarkLogo from "@/components/brand/OfficialBlumarkLogo";
 
+// ─── Nav items ─────────────────────────────────────────────────────────────────
+
 interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ElementType;
+  href:       string;
+  label:      string;
+  icon:       React.ElementType;
   permission: Permission;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard",   label: "الرئيسية",         icon: LayoutDashboard, permission: "view_dashboard" },
-  { href: "/employees",   label: "الموظفين",          icon: Users,           permission: "manage_users" },
-  { href: "/tasks",       label: "المهام",             icon: CheckSquare,     permission: "manage_tasks" },
-  { href: "/clients",     label: "العملاء (CRM)",      icon: UserCircle,      permission: "manage_clients" },
-  { href: "/finance",     label: "المالية",            icon: DollarSign,      permission: "manage_finance" },
-  { href: "/strategy",    label: "الاستراتيجية",      icon: Map,             permission: "manage_reports" },
-  { href: "/org",         label: "الهيكل الإداري",    icon: Network,         permission: "view_dashboard" },
-  { href: "/automation",  label: "مركز الأتمتة",      icon: Zap,             permission: "manage_automations" },
-  { href: "/assistant",   label: "المساعد الذكي",     icon: Bot,             permission: "view_dashboard" },
-  { href: "/reports",     label: "التقارير",           icon: BarChart3,       permission: "manage_reports" },
-  { href: "/settings",    label: "الإعدادات",         icon: Settings,        permission: "manage_settings" },
+  { href: "/",           label: "الرئيسية",         icon: LayoutDashboard, permission: "view_dashboard"    },
+  { href: "/employees",  label: "الموظفين",          icon: Users,           permission: "manage_users"      },
+  { href: "/tasks",      label: "المهام",             icon: CheckSquare,     permission: "manage_tasks"      },
+  { href: "/clients",    label: "العملاء (CRM)",      icon: UserCircle,      permission: "manage_clients"    },
+  { href: "/finance",    label: "المالية",            icon: DollarSign,      permission: "manage_finance"    },
+  { href: "/strategy",   label: "الاستراتيجية",      icon: Map,             permission: "manage_reports"    },
+  { href: "/org",        label: "الهيكل الإداري",    icon: Network,         permission: "view_dashboard"    },
+  { href: "/automation", label: "مركز الأتمتة",      icon: Zap,             permission: "manage_automations"},
+  { href: "/ai",         label: "المساعد الذكي",     icon: Bot,             permission: "view_dashboard"    },
+  { href: "/reports",    label: "التقارير",           icon: BarChart3,       permission: "manage_reports"    },
+  { href: "/settings",   label: "الإعدادات",         icon: Settings,        permission: "manage_settings"   },
 ];
 
+// ─── Props ─────────────────────────────────────────────────────────────────────
+
 interface SidebarProps {
-  collapsed?: boolean;
-  onToggle?: () => void;
-  mobileOpen?: boolean;
-  onMobileClose?: () => void;
+  collapsed?:   boolean;
+  onToggle?:    () => void;
+  mobileOpen?:  boolean;
+  onMobileClose?:() => void;
 }
+
+// ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function Sidebar({
   collapsed = false,
@@ -47,9 +53,9 @@ export default function Sidebar({
   mobileOpen = false,
   onMobileClose,
 }: SidebarProps) {
-  const pathname = usePathname();
+  const pathname    = usePathname();
   const { user, loading: authLoading, logout } = useAuth();
-  const toast = useToast();
+  const toast       = useToast();
   const { hasPermission, userRole } = usePermissions();
 
   const handleLogout = () => {
@@ -57,6 +63,8 @@ export default function Sidebar({
     setTimeout(() => logout(), 600);
   };
 
+  // While auth is loading: show all items (avoids flash of limited sidebar)
+  // After auth: super_admin gets all, others get filtered items
   const visibleItems = authLoading
     ? NAV_ITEMS
     : userRole === "super_admin"
@@ -67,69 +75,70 @@ export default function Sidebar({
     <aside
       className={cn(
         "flex flex-col h-screen sticky top-0 transition-all duration-300 z-40",
-        "border-l border-white/[0.08]",
-        collapsed ? "w-20" : "w-64 lg:w-64 w-[min(72vw,360px)]"
+        "border-l border-[#1e3a5f]",
+        collapsed ? "w-16" : "w-56"
       )}
-      style={{ background: "rgba(10,22,40,0.58)", backdropFilter: "blur(18px)" }}
+      style={{ background: "rgba(10,22,40,0.95)", backdropFilter: "blur(20px)" }}
     >
-      <div className="flex items-center px-3 py-4 border-b border-white/[0.08]">
+      {/* Logo */}
+      <div className="flex items-center px-3 py-4 border-b border-[#1e3a5f]">
         {collapsed ? (
-          <div className="w-10 h-10 rounded-2xl border border-white/[0.12] bg-white/[0.03] flex items-center justify-center">
-            <OfficialBlumarkLogo className="w-8" />
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "linear-gradient(135deg,#22d3ee,#1e6fd9)" }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L3 7v10l9 5 9-5V7L12 2z" fill="white" fillOpacity="0.9"/>
+              <path d="M12 2v20M3 7l9 5 9-5" stroke="rgba(255,255,255,0.4)" strokeWidth="1"/>
+            </svg>
           </div>
         ) : (
-          <OfficialBlumarkLogo className="w-[145px]" />
+          <OfficialBlumarkLogo className="w-[140px] lg:w-[155px]" />
         )}
-
+        {/* Desktop collapse toggle */}
         <button
           onClick={onToggle}
-          className="mr-auto ms-2 text-white/55 hover:text-[#22d3ee] transition-colors hidden lg:block"
-          aria-label="طي الشريط الجانبي"
+          className="mr-auto ms-2 text-[#8ba3c7] hover:text-[#22d3ee] transition-colors hidden lg:block"
         >
-          <ChevronLeft size={17} className={cn("transition-transform", collapsed && "rotate-180")} />
+          <ChevronLeft size={16} className={cn("transition-transform", collapsed && "rotate-180")} />
         </button>
-
+        {/* Mobile close button */}
         {onMobileClose && (
           <button
             onClick={onMobileClose}
-            className="mr-auto ms-2 text-white/55 hover:text-[#22d3ee] transition-colors lg:hidden"
-            aria-label="إغلاق القائمة"
+            className="mr-auto ms-2 text-[#8ba3c7] hover:text-[#22d3ee] transition-colors lg:hidden"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         )}
       </div>
 
+      {/* Nav */}
       <nav className="flex-1 py-4 overflow-y-auto">
-        <ul className="space-y-1.5 px-2.5">
+        <ul className="space-y-1 px-2">
           {visibleItems.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href || pathname.startsWith(`${href}/`);
+            const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
               <li key={href}>
                 <Link
                   href={href}
                   onClick={onMobileClose}
                   className={cn(
-                    "flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl border transition-all duration-200 group",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group",
                     isActive
-                      ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#3B82F6]/15 to-transparent border-[rgba(34,211,238,0.24)] text-white shadow-[0_4px_16px_-4px_rgba(34,211,238,0.35)]"
-                      : "border-transparent text-white/70 hover:text-white hover:bg-white/[0.04]"
+                      ? "sidebar-active"
+                      : "text-[#8ba3c7] hover:text-white hover:bg-[#1a3356]/50"
                   )}
                   title={collapsed ? label : undefined}
                 >
-                  {!collapsed ? (
-                    <>
-                      <ArrowLeft className={cn("h-3.5 w-3.5", isActive ? "text-[#22D3EE]" : "text-white/35 group-hover:text-white/60")} strokeWidth={1.6} />
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="truncate text-sm font-medium">{label}</span>
-                        <Icon size={17} className={cn(isActive ? "text-[#22D3EE]" : "text-white/55 group-hover:text-[#22D3EE]")} />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="w-full flex justify-center">
-                      <Icon size={18} className={cn(isActive ? "text-[#22D3EE]" : "text-white/60 group-hover:text-[#22D3EE]")} />
-                    </div>
-                  )}
+                  <Icon
+                    size={18}
+                    className={cn(
+                      "flex-shrink-0 transition-colors",
+                      isActive ? "text-[#22d3ee]" : "group-hover:text-[#22d3ee]"
+                    )}
+                  />
+                  {!collapsed && <span className="text-sm font-medium">{label}</span>}
                 </Link>
               </li>
             );
@@ -137,40 +146,59 @@ export default function Sidebar({
         </ul>
       </nav>
 
-      <div className="border-t border-white/[0.08] p-3">
-        <div className={cn("rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5", collapsed && "flex justify-center") }>
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#22D3EE] to-[#1E6FD9] text-[12px] font-semibold text-white shrink-0">
-              {user?.name?.slice(0, 2) ?? "؟"}
-            </span>
-            {!collapsed && (
-              <>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[12.5px] font-semibold text-white truncate">{user?.name ?? "المستخدم"}</div>
-                  <div className="text-[11px] text-white/55 truncate">{ROLE_LABELS[userRole] ?? userRole.replace(/_/g, " ")}</div>
-                </div>
-                <button onClick={handleLogout} className="text-white/60 hover:text-red-400 transition-colors" title="تسجيل الخروج">
-                  <LogOut size={15} />
-                </button>
-              </>
-            )}
+      {/* User */}
+      <div className="border-t border-[#1e3a5f] p-3">
+        <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold text-white"
+            style={{ background: "linear-gradient(135deg,#ff7a3d,#ff5722)" }}
+          >
+            {user?.name?.slice(0, 2) ?? "؟"}
           </div>
-          {collapsed && (
-            <button onClick={handleLogout} className="mt-2 w-full flex justify-center text-white/60 hover:text-red-400 transition-colors" title="تسجيل الخروج">
+          {!collapsed && (
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-white truncate">{user?.name ?? "المستخدم"}</div>
+              <div className="text-xs text-[#8ba3c7] truncate">{ROLE_LABELS[userRole] ?? userRole.replace(/_/g, " ")}</div>
+            </div>
+          )}
+          {!collapsed && (
+            <button
+              onClick={handleLogout}
+              className="text-[#8ba3c7] hover:text-red-400 transition-colors"
+              title="تسجيل الخروج"
+            >
               <LogOut size={15} />
             </button>
           )}
         </div>
+        {collapsed && (
+          <button
+            onClick={handleLogout}
+            className="mt-2 w-full flex justify-center text-[#8ba3c7] hover:text-red-400 transition-colors"
+            title="تسجيل الخروج"
+          >
+            <LogOut size={15} />
+          </button>
+        )}
       </div>
     </aside>
   );
 
   return (
     <>
+      {/* Desktop sidebar */}
       <div className="hidden lg:block">{sidebarContent}</div>
+
+      {/* Mobile sidebar overlay */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onMobileClose} />
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0"
+            style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(2px)" }}
+            onClick={onMobileClose}
+          />
+          {/* Sidebar panel - RTL: slides in from right */}
           <div className="absolute top-0 right-0 h-full sidebar-mobile-enter" style={{ zIndex: 51 }}>
             {sidebarContent}
           </div>
