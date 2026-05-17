@@ -334,3 +334,28 @@ html, body {
 .animate-pulse-slow {
   animation: landing-pulse-slow 4s ease-in-out infinite;
 }
+
+@keyframes meshShift {
+  0%, 100% { transform: scale(1) translate3d(0,0,0); }
+  50% { transform: scale(1.08) translate3d(-1%, 1%, 0); }
+}
+
+@keyframes floatParticle {
+  0%, 100% { transform: translateY(0) translateX(0); opacity: .25; }
+  50% { transform: translateY(-18px) translateX(8px); opacity: .65; }
+}
+
+@keyframes glowPulse {
+  0%,100% { opacity: .4; }
+  50% { opacity: .8; }
+}
+
+@keyframes floatLayer {
+  0%,100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-mesh-shift { animation: meshShift 18s ease-in-out infinite; }
+.animate-float-particle { animation: floatParticle 10s ease-in-out infinite; }
+.animate-glow-pulse { animation: glowPulse 6s ease-in-out infinite; }
+.animate-float-layer { animation: floatLayer 8s ease-in-out infinite; }

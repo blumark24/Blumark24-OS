@@ -9,8 +9,9 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#050816] text-white">
       <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#07101F,#050816_55%)]" />
-        <div className="absolute inset-0 opacity-80" style={{ backgroundImage: "radial-gradient(circle at 15% 15%, rgba(34,211,238,.10), transparent 35%), radial-gradient(circle at 85% 25%, rgba(30,111,217,.10), transparent 40%), radial-gradient(circle at 50% 80%, rgba(255,122,61,.08), transparent 48%)" }} />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#081126,#050816_55%)]" />
+        <div className="absolute inset-0 animate-mesh-shift opacity-85" style={{ backgroundImage: "radial-gradient(circle at 18% 14%, rgba(34,211,238,.22), transparent 38%), radial-gradient(circle at 84% 22%, rgba(59,130,246,.20), transparent 44%), radial-gradient(circle at 52% 78%, rgba(255,122,61,.11), transparent 48%), radial-gradient(circle at 70% 58%, rgba(34,211,238,.10), transparent 40%)" }} />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(90,220,255,0.20),transparent_40%)] blur-3xl" />
       </div>
       <LandingHeader />
       <LandingHero />
