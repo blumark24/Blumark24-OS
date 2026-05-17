@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/strategy",    label: "الاستراتيجية",      icon: Map,             permission: "manage_reports" },
   { href: "/org",         label: "الهيكل الإداري",    icon: Network,         permission: "view_dashboard" },
   { href: "/automation",  label: "مركز الأتمتة",      icon: Zap,             permission: "manage_automations" },
-  { href: "/ai",          label: "المساعد الذكي",     icon: Bot,             permission: "view_dashboard" },
+  { href: "/assistant",   label: "المساعد الذكي",     icon: Bot,             permission: "view_dashboard" },
   { href: "/reports",     label: "التقارير",           icon: BarChart3,       permission: "manage_reports" },
   { href: "/settings",    label: "الإعدادات",         icon: Settings,        permission: "manage_settings" },
 ];
@@ -68,7 +68,7 @@ export default function Sidebar({
       className={cn(
         "flex flex-col h-screen sticky top-0 transition-all duration-300 z-40",
         "border-l border-white/[0.08]",
-        collapsed ? "w-20" : "w-64"
+        collapsed ? "w-20" : "w-[300px] max-w-[300px] lg:w-[300px] w-[min(72vw,340px)]"
       )}
       style={{ background: "rgba(10,22,40,0.58)", backdropFilter: "blur(18px)" }}
     >
@@ -170,7 +170,7 @@ export default function Sidebar({
       <div className="hidden lg:block">{sidebarContent}</div>
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" onClick={onMobileClose} />
+          <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onMobileClose} />
           <div className="absolute top-0 right-0 h-full sidebar-mobile-enter" style={{ zIndex: 51 }}>
             {sidebarContent}
           </div>
