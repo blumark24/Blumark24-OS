@@ -14,6 +14,7 @@ const PROTECTED_PATHS = [
   "/profile",
   "/admin-recovery",
 ];
+const APP_HOME_PATH = "/clients";
 
 function isProtectedPath(pathname: string) {
   return PROTECTED_PATHS.some(
@@ -41,7 +42,7 @@ export function middleware(request: NextRequest) {
 
   if (pathname === "/auth") {
     if (isAuthenticated) {
-      return NextResponse.redirect(new URL("/", request.url));
+      return NextResponse.redirect(new URL(APP_HOME_PATH, request.url));
     }
     return NextResponse.next();
   }
