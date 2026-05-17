@@ -16,6 +16,10 @@ import {
   type DBNotification,
 } from "@/lib/db";
 import { useAuth } from "./AuthContext";
+import { withSoftTimeout } from "@/lib/asyncHelpers";
+
+// Background fetch must never hang the Header dropdown.
+const NOTIF_LOAD_TIMEOUT = 6_000;
 
 export interface AppNotification {
   id: string;
@@ -58,23 +62,27 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   const load = useCallback(async () => {
+    if (!user?.id) return;
     try {
-      const raw = await getNotifications(user?.id);
-      setNotifications(raw.map(mapDBToApp));
+      const raw = await withSoftTimeout(getNotifications(user.id), NOTIF_LOAD_TIMEOUT);
+      if (raw) setNotifications(raw.map(mapDBToApp));
     } catch {
       // silently keep empty on error
     }
   }, [user?.id]);
 
-  useEffect(() => { load(); }, [load]);
+  // Only fetch and subscribe once we have a user — avoids work on
+  // landing/auth pages and prevents queries during initial auth resolve.
+  useEffect(() => { if (user?.id) load(); }, [user?.id, load]);
 
   useEffect(() => {
+    if (!user?.id) return;
     const channel = supabase
       .channel("notifications-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [load]);
+  }, [user?.id, load]);
 
   const markRead = useCallback((id: string) => {
     setNotifications((prev) =>

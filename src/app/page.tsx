@@ -110,10 +110,22 @@ export default function DashboardPage() {
     ? ROLE_LABELS[user.role as UserRole] ?? user.role
     : "—";
 
+  // While auth resolves: render the dashboard chrome with skeletons so
+  // the user sees a live shell instead of a blank full-viewport spinner.
+  // Once auth resolves: if no user, render the public landing page.
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: "#0a1628" }}>
-      <div className="w-8 h-8 rounded-full border-2 border-[#1e3a5f] border-t-[#22d3ee] animate-spin" />
-    </div>
+    <DashboardLayout>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-4 lg:mb-6">
+        <KPICardSkeleton />
+        <KPICardSkeleton />
+        <KPICardSkeleton />
+        <KPICardSkeleton />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
+        <ChartSkeleton height={220} />
+        <ChartSkeleton height={220} />
+      </div>
+    </DashboardLayout>
   );
   if (!user) return <LandingPage />;
 

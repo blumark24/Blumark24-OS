@@ -11,6 +11,11 @@ import {
 import { useAuth } from "./AuthContext";
 import { getAllProfiles, updateProfileRole, toggleProfileStatus } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
+import { withSoftTimeout } from "@/lib/asyncHelpers";
+
+// Background queries in this provider must never block Sidebar/Header
+// from rendering.  Soft timeout = resolve with undefined on expiry.
+const PERMS_QUERY_TIMEOUT = 6_000;
 
 // ─── Types ───────────────────────────────────────────────────────────[...]
 
@@ -193,42 +198,56 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const [managedUsers,    setManagedUsers]    = useState<ManagedUser[]>([]);
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, Permission[]>>(DEFAULT_ROLE_PERMISSIONS);
 
-  // Load managed users from Supabase profiles — re-run when user signs in
+  // Load managed users from Supabase profiles — re-run when user signs in.
+  // Wrapped in withSoftTimeout so a slow Supabase never stalls the
+  // Sidebar/Header consumers of PermissionsContext.
   useEffect(() => {
     if (!user?.id) return;
-    getAllProfiles().then((profiles) => {
-      if (!profiles.length) return;
-      setManagedUsers(
-        profiles.map((p) => ({
-          userId:     p.id,
-          email:      p.email,
-          name:       p.name,
-          role:       mapAuthRoleToUserRole(p.role),
-          isActive:   p.is_active,
-          department: p.department,
-        }))
-      );
-    }).catch(console.error);
+    let cancelled = false;
+    withSoftTimeout(getAllProfiles(), PERMS_QUERY_TIMEOUT)
+      .then((profiles) => {
+        if (cancelled || !profiles?.length) return;
+        setManagedUsers(
+          profiles.map((p) => ({
+            userId:     p.id,
+            email:      p.email,
+            name:       p.name,
+            role:       mapAuthRoleToUserRole(p.role),
+            isActive:   p.is_active,
+            department: p.department,
+          }))
+        );
+      })
+      .catch(() => { /* silent — keep current managedUsers */ });
+    return () => { cancelled = true; };
   }, [user?.id]);
 
-  // Load persisted role permissions from DB
+  // Load persisted role permissions from DB.  Soft timeout — if Supabase
+  // is slow we silently fall back to DEFAULT_ROLE_PERMISSIONS.
   useEffect(() => {
     if (!user?.id) return;
-    Promise.resolve(
-      supabase.from("role_permissions").select("role, permissions")
-    ).then(({ data }) => {
-      if (!data?.length) return;
-      const loaded: Partial<Record<UserRole, Permission[]>> = {};
-      data.forEach((row: { role: string; permissions: string[] }) => {
-        const r = row.role as UserRole;
-        if (ALL_ROLES.includes(r)) {
-          loaded[r] = (row.permissions as Permission[]).filter((p) => ALL_PERMISSIONS.includes(p));
+    let cancelled = false;
+    withSoftTimeout(
+      Promise.resolve(supabase.from("role_permissions").select("role, permissions")),
+      PERMS_QUERY_TIMEOUT,
+    )
+      .then((res) => {
+        if (cancelled) return;
+        const data = res?.data as { role: string; permissions: string[] }[] | undefined;
+        if (!data?.length) return;
+        const loaded: Partial<Record<UserRole, Permission[]>> = {};
+        data.forEach((row) => {
+          const r = row.role as UserRole;
+          if (ALL_ROLES.includes(r)) {
+            loaded[r] = (row.permissions as Permission[]).filter((p) => ALL_PERMISSIONS.includes(p));
+          }
+        });
+        if (Object.keys(loaded).length > 0) {
+          setRolePermissions((prev) => ({ ...prev, ...loaded }));
         }
-      });
-      if (Object.keys(loaded).length > 0) {
-        setRolePermissions((prev) => ({ ...prev, ...loaded }));
-      }
-    }).catch(() => {}); // silently fall back to defaults
+      })
+      .catch(() => { /* silent — defaults remain */ });
+    return () => { cancelled = true; };
   }, [user?.id]);
 
   // ── userRole: single authoritative source is user.role from AuthContext

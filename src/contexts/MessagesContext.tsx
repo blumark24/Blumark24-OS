@@ -14,6 +14,11 @@ import {
   markMessageRead,
   markAllMessagesReadInDB,
 } from "@/lib/db";
+import { useAuth } from "./AuthContext";
+import { withSoftTimeout } from "@/lib/asyncHelpers";
+
+// Background fetch must never hang the Header messages dropdown.
+const MSG_LOAD_TIMEOUT = 6_000;
 
 export interface AppMessage {
   id: string;
@@ -40,11 +45,14 @@ const MsgContext = createContext<MsgContextValue>({
 });
 
 export function MessagesProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<AppMessage[]>([]);
 
   const load = useCallback(async () => {
+    if (!user?.id) return;
     try {
-      const raw = await getMessages();
+      const raw = await withSoftTimeout(getMessages(), MSG_LOAD_TIMEOUT);
+      if (!raw) return;
       setMessages(
         raw.map((m) => ({
           id:      m.id,
@@ -59,17 +67,20 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
     } catch {
       // silently keep empty on error
     }
-  }, []);
+  }, [user?.id]);
 
-  useEffect(() => { load(); }, [load]);
+  // Only fetch and subscribe once we have a user — avoids work on
+  // landing/auth pages and prevents queries during initial auth resolve.
+  useEffect(() => { if (user?.id) load(); }, [user?.id, load]);
 
   useEffect(() => {
+    if (!user?.id) return;
     const channel = supabase
       .channel("messages-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [load]);
+  }, [user?.id, load]);
 
   const markRead = useCallback((id: string) => {
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, read: true } : m)));

@@ -16,6 +16,10 @@ import { useMessages } from "@/contexts/MessagesContext";
 import { supabase } from "@/lib/supabase";
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { withTimeout } from "@/lib/asyncHelpers";
+
+// Header global-search timeout — a slow Supabase must never hang the dropdown.
+const SEARCH_TIMEOUT = 8_000;
 
 // ─── Search ──────────────────────────────────────────────────────────
 
@@ -32,11 +36,22 @@ async function searchSupabase(q: string): Promise<SearchResult[]> {
   const lq = `%${q.trim()}%`;
   const out: SearchResult[] = [];
 
-  const [clientsRes, tasksRes, employeesRes] = await Promise.all([
-    supabase.from("clients").select("id, name, city").or(`name.ilike.${lq},phone.ilike.${lq}`).limit(3),
-    supabase.from("tasks").select("id, title, assignee_name").ilike("title", lq).limit(3),
-    supabase.from("employees").select("id, name, department").or(`name.ilike.${lq},email.ilike.${lq}`).limit(2),
-  ]);
+  let clientsRes: { data: { id: string; name: string; city: string }[] | null };
+  let tasksRes:   { data: { id: string; title: string; assignee_name: string }[] | null };
+  let employeesRes:{ data: { id: string; name: string; department: string }[] | null };
+  try {
+    [clientsRes, tasksRes, employeesRes] = await withTimeout(
+      Promise.all([
+        supabase.from("clients").select("id, name, city").or(`name.ilike.${lq},phone.ilike.${lq}`).limit(3),
+        supabase.from("tasks").select("id, title, assignee_name").ilike("title", lq).limit(3),
+        supabase.from("employees").select("id, name, department").or(`name.ilike.${lq},email.ilike.${lq}`).limit(2),
+      ]),
+      SEARCH_TIMEOUT,
+    );
+  } catch {
+    // Timeout or network failure — silently return no results
+    return [];
+  }
 
   for (const c of clientsRes.data ?? []) {
     out.push({ id: `c-${c.id}`, label: c.name, sub: `عميل · ${c.city}`, href: "/clients", icon: UserCircle });

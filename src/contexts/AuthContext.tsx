@@ -127,15 +127,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Hard timeout: if Supabase takes > 10 s, unblock the UI so the page
-    // never hangs on a spinner indefinitely.  The user will see LandingPage
-    // and can refresh to try again.
+    // Hard timeout: if Supabase getSession() does not respond within 5 s,
+    // unblock the UI so the page never hangs on a spinner.  The user will
+    // see LandingPage (or be redirected to /auth) and can retry.
     const fallbackTimer = setTimeout(() => {
       if (mounted) {
-        console.warn("[AuthContext] getSession timed out after 10 s — unblocking UI");
+        console.warn("[AuthContext] getSession timed out after 5 s — unblocking UI");
         setLoading(false);
       }
-    }, 10_000);
+    }, 5_000);
 
     supabase.auth
       .getSession()
@@ -150,6 +150,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log("[Auth] role loaded:", session.user.email, u.role);
           }
           setSessionCookie("1");
+        } else {
+          // No live session — clear any stale cookie so middleware
+          // does not treat the user as authenticated.  Without this,
+          // a leftover blumark_session=1 cookie can pass middleware
+          // and then bounce the user between /auth and / forever.
+          setSessionCookie("");
         }
         setLoading(false);
       })
@@ -157,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearTimeout(fallbackTimer);
         if (!mounted) return;
         console.error("[AuthContext] getSession failed:", err);
+        setSessionCookie("");
         setLoading(false);
       });
 

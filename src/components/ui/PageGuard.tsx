@@ -4,6 +4,7 @@ import { usePermissions, Permission, mapAuthRoleToUserRole } from "@/contexts/Pe
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { ShieldOff } from "lucide-react";
+import { CardSkeleton } from "@/components/ui/Skeleton";
 
 interface PageGuardProps {
   permission: Permission;
@@ -14,18 +15,20 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
   const { rolePermissions } = usePermissions();
   const { loading, user } = useAuth();
 
-  // While auth is resolving show a branded spinner.
-  // We must NOT render protected children before the real role is known, and
-  // we must NOT show the access-denied screen before we know the user lacks
-  // access — both would be wrong (security / UX respectively).
+  // While auth is resolving render the dashboard chrome (sidebar + header)
+  // with a per-page skeleton instead of a blank full-viewport spinner.
+  // The chrome is cheap to render and shows the user the app is alive.
+  // We must NOT render protected children before the real role is known,
+  // and we must NOT show the access-denied screen before we know the user
+  // lacks access — both would be wrong (security / UX respectively).
   if (loading) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: "#0a1628" }}
-      >
-        <div className="w-8 h-8 rounded-full border-2 border-[#1e3a5f] border-t-[#22d3ee] animate-spin" />
-      </div>
+      <DashboardLayout>
+        <div className="space-y-4">
+          <CardSkeleton rows={3} />
+          <CardSkeleton rows={4} />
+        </div>
+      </DashboardLayout>
     );
   }
 
