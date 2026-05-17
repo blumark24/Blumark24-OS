@@ -1,214 +1,316 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
 import { useAuth } from "./AuthContext";
 import { getAllProfiles, updateProfileRole, toggleProfileStatus } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 
+// ─── Types ───────────────────────────────────────────────────────────[...]
+
 export type UserRole =
   | "super_admin"
   | "board_member"
-  | "owner"
-  | "general_manager"
   | "defense_manager"
   | "attack_manager"
-  | "manager"
   | "finance_manager"
-  | "sales_manager"
-  | "hr_manager"
   | "employee";
 
-export type Permission = string;
+export type Permission =
+  | "view_dashboard"
+  | "manage_board"
+  | "manage_users"
+  | "manage_roles"
+  | "manage_tasks"
+  | "manage_clients"
+  | "manage_finance"
+  | "manage_reports"
+  | "manage_settings"
+  | "manage_automations";
 
-export const ALL_ROLES: UserRole[] = [
-  "super_admin","board_member","owner","general_manager","defense_manager","attack_manager","manager","finance_manager","sales_manager","hr_manager","employee"
-];
-
-export const ALL_PERMISSIONS: Permission[] = [
-  "view_dashboard","manage_board","manage_users","manage_roles","manage_tasks","manage_clients","manage_finance","manage_reports","manage_settings","manage_automations",
-  "dashboard.view","users.view","users.create","users.update","users.delete","users.manage_roles",
-  "employees.view","employees.create","employees.update","employees.delete",
-  "tasks.view","tasks.create","tasks.update","tasks.delete","tasks.assign",
-  "clients.view","clients.create","clients.update","clients.delete",
-  "finance.view","finance.create","finance.update","finance.delete",
-  "invoices.view","invoices.create","invoices.update","invoices.delete",
-  "expenses.view","expenses.create","expenses.update","expenses.delete",
-  "strategy.view","strategy.create","strategy.update","strategy.delete",
-  "organization.view","organization.create","organization.update","organization.delete",
-  "automation.view","automation.create","automation.update","automation.delete","automation.run",
-  "reports.view","reports.create","reports.export","reports.print",
-  "settings.view","settings.update","activity_logs.view","profile.view","profile.update"
-];
-
-export const PERMISSION_LABELS: Record<string,string> = {};
-export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  super_admin: [], board_member: [], owner: [], general_manager: [], defense_manager: [],
-  attack_manager: [], manager: [], finance_manager: [], sales_manager: [], hr_manager: [], employee: []
+// Flexible labels mapping — keep labels for known internal roles,
+// also include friendly labels for 'admin' / 'manager' strings.
+export const ROLE_LABELS: Record<string, string> = {
+  super_admin:      "مدير أعلى",
+  admin:            "مدير",
+  manager:          "مدير قسم",
+  board_member:     "عضو مجلس الإدارة",
+  defense_manager:  "مدير وكالة الدفاع",
+  attack_manager:   "مدير وكالة الهجوم",
+  finance_manager:  "مدير مالي",
+  employee:         "موظف",
 };
 
-export const ROLE_LABELS: Record<string, string> = {
-  super_admin: "مدير أعلى",
-  chairman: "رئيس مجلس الإدارة",
-  board_member: "عضو مجلس الإدارة",
-  general_manager: "مدير عام",
-  department_manager: "مدير قسم",
-  accountant: "محاسب",
-  employee: "موظف",
-  viewer: "مشاهد",
-  admin: "مدير",
-  manager: "مدير قسم",
+export const PERMISSION_LABELS: Record<Permission, string> = {
+  view_dashboard:    "عرض لوحة التحكم",
+  manage_board:      "إدارة مجلس الإدارة",
+  manage_users:      "إدارة المستخدمين",
+  manage_roles:      "إدارة الأدوار",
+  manage_tasks:      "إدارة المهام",
+  manage_clients:    "إدارة العملاء",
+  manage_finance:    "إدارة المالية",
+  manage_reports:    "عرض التقارير",
+  manage_settings:   "إدارة الإعدادات",
+  manage_automations:"إدارة الأتمتة",
+};
+
+export const ALL_PERMISSIONS: Permission[] = [
+  "view_dashboard",
+  "manage_board",
+  "manage_users",
+  "manage_roles",
+  "manage_tasks",
+  "manage_clients",
+  "manage_finance",
+  "manage_reports",
+  "manage_settings",
+  "manage_automations",
+];
+
+export const ALL_ROLES: UserRole[] = [
+  "super_admin",
+  "board_member",
+  "defense_manager",
+  "attack_manager",
+  "finance_manager",
+  "employee",
+];
+
+export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  super_admin: [...ALL_PERMISSIONS],
+  board_member: [
+    "view_dashboard",
+    "manage_board",
+    "manage_reports",
+    "manage_finance",
+  ],
+  defense_manager: [
+    "view_dashboard",
+    "manage_board",
+    "manage_users",
+    "manage_tasks",
+    "manage_reports",
+    "manage_automations",
+  ],
+  attack_manager: [
+    "view_dashboard",
+    "manage_clients",
+    "manage_tasks",
+    "manage_reports",
+  ],
+  finance_manager: [
+    "view_dashboard",
+    "manage_finance",
+    "manage_reports",
+  ],
+  employee: [
+    "view_dashboard",
+    "manage_tasks",
+  ],
 };
 
 export function mapAuthRoleToUserRole(role: string): UserRole {
   const normalizedRole = String(role ?? "").trim();
-  if (["super_admin", "admin", "مدير_عام"].includes(normalizedRole)) return "super_admin";
-  if (["chairman","board_member"].includes(normalizedRole)) return "board_member";
-  if (normalizedRole === "general_manager") return "general_manager";
-  if (["department_manager", "manager", "مدير_قسم"].includes(normalizedRole)) return "manager";
-  if (["accountant", "finance_manager", "مدير_مالي"].includes(normalizedRole)) return "finance_manager";
-  if (normalizedRole === "viewer") return "employee";
-  return "employee";
+
+  switch (normalizedRole) {
+    case "super_admin":
+    case "مدير_عام":
+      return "super_admin";
+    case "admin":
+      return "super_admin";
+    case "manager":
+    case "مدير_قسم":
+      return "defense_manager";
+    case "finance_manager":
+    case "مدير_مالي":
+      return "finance_manager";
+    case "attack_manager":
+    case "مدير_مبيعات":
+      return "attack_manager";
+    case "defense_manager":
+    case "مدير":
+      return "defense_manager";
+    case "board_member":
+      return "board_member";
+    default:
+      return "employee";
+  }
 }
 
 export interface ManagedUser {
-  userId: string;
-  email: string;
-  name: string;
-  role: UserRole;
-  isActive: boolean;
+  userId:     string;
+  email:      string;
+  name:       string;
+  role:       UserRole;
+  isActive:   boolean;
   department: string;
 }
 
+// ─── Context value ────────────────────────────────────────────────────────[...]
+
 interface PermissionsContextValue {
-  userRole: UserRole;
-  permissions: string[];
-  hasPermission: (perm: Permission) => boolean;
-  managedUsers: ManagedUser[];
-  rolePermissions: Record<UserRole, string[]>;
-  updateUserRole: (userId: string, role: UserRole) => void;
-  toggleUserStatus: (userId: string) => void;
-  addManagedUser: (user: Omit<ManagedUser, "userId">) => void;
+  userRole:              UserRole;
+  hasPermission:         (perm: Permission) => boolean;
+  managedUsers:          ManagedUser[];
+  rolePermissions:       Record<UserRole, Permission[]>;
+  updateUserRole:        (userId: string, role: UserRole) => void;
+  toggleUserStatus:      (userId: string) => void;
+  addManagedUser:        (user: Omit<ManagedUser, "userId">) => void;
   updateRolePermissions: (role: UserRole, perms: Permission[]) => void;
-  saveAll: () => Promise<void>;
-  savePermissions: (perms: Record<UserRole, string[]>) => Promise<void>;
+  /** Save current rolePermissions state to DB */
+  saveAll:               () => Promise<void>;
+  /**
+   * Update all permissions from `perms` (bypasses React state lag) and
+   * persist to DB atomically.  Use this from the settings save handler.
+   */
+  savePermissions:       (perms: Record<UserRole, Permission[]>) => Promise<void>;
 }
 
 const PermissionsContext = createContext<PermissionsContextValue>({
-  userRole: "employee",
-  permissions: [],
-  hasPermission: () => false,
-  managedUsers: [],
-  rolePermissions: DEFAULT_ROLE_PERMISSIONS,
-  updateUserRole: () => {},
-  toggleUserStatus: () => {},
-  addManagedUser: () => {},
+  userRole:              "employee",
+  hasPermission:         () => false,
+  managedUsers:          [],
+  rolePermissions:       DEFAULT_ROLE_PERMISSIONS,
+  updateUserRole:        () => {},
+  toggleUserStatus:      () => {},
+  addManagedUser:        () => {},
   updateRolePermissions: () => {},
-  saveAll: async () => {},
-  savePermissions: async () => {},
+  saveAll:               async () => {},
+  savePermissions:       async () => {},
 });
 
-const LEGACY_TO_NEW: Record<string, string[]> = {
-  view_dashboard: ["dashboard.view"],
-  manage_users: ["users.view", "users.create", "users.update", "users.delete"],
-  manage_roles: ["users.manage_roles"],
-  manage_tasks: ["tasks.view", "tasks.create", "tasks.update", "tasks.delete", "tasks.assign"],
-  manage_clients: ["clients.view", "clients.create", "clients.update", "clients.delete"],
-  manage_finance: ["finance.view", "finance.create", "finance.update", "finance.delete"],
-  manage_reports: ["reports.view", "reports.create", "reports.export", "reports.print"],
-  manage_settings: ["settings.view", "settings.update"],
-  manage_automations: ["automation.view", "automation.create", "automation.update", "automation.delete", "automation.run"],
-};
-
-const NEW_TO_LEGACY: Record<string, string[]> = Object.entries(LEGACY_TO_NEW).reduce((acc, [legacy, news]) => {
-  news.forEach((n) => {
-    acc[n] = [...(acc[n] ?? []), legacy];
-  });
-  return acc;
-}, {} as Record<string, string[]>);
+// ─── Provider ─────────────────────────────────────────────────────────��[...]
 
 export function PermissionsProvider({ children }: { children: ReactNode }) {
-  const { user, role, permissions: authPermissions, hasPermission: authHasPermission } = useAuth();
+  const { user } = useAuth();
 
-  const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
-  const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(DEFAULT_ROLE_PERMISSIONS);
-  const [legacyPermsByRole, setLegacyPermsByRole] = useState<Record<string, string[]>>({});
+  const [managedUsers,    setManagedUsers]    = useState<ManagedUser[]>([]);
+  const [rolePermissions, setRolePermissions] = useState<Record<UserRole, Permission[]>>(DEFAULT_ROLE_PERMISSIONS);
 
+  // Load managed users from Supabase profiles — re-run when user signs in
   useEffect(() => {
     if (!user?.id) return;
-    getAllProfiles()
-      .then((profiles) => {
-        setManagedUsers(
-          profiles.map((p) => ({
-            userId: p.id,
-            email: p.email,
-            name: p.name,
-            role: mapAuthRoleToUserRole(p.role),
-            isActive: p.is_active,
-            department: p.department,
-          }))
-        );
-      })
-      .catch(console.error);
+    getAllProfiles().then((profiles) => {
+      if (!profiles.length) return;
+      setManagedUsers(
+        profiles.map((p) => ({
+          userId:     p.id,
+          email:      p.email,
+          name:       p.name,
+          role:       mapAuthRoleToUserRole(p.role),
+          isActive:   p.is_active,
+          department: p.department,
+        }))
+      );
+    }).catch(console.error);
   }, [user?.id]);
 
+  // Load persisted role permissions from DB
   useEffect(() => {
     if (!user?.id) return;
-    supabase.from("role_permissions").select("role, permissions").then(({ data }) => {
-      if (!data) return;
-      const next: Record<UserRole, string[]> = { ...DEFAULT_ROLE_PERMISSIONS };
-      (data as Array<{ role: string; permissions: string[] }>).forEach((r) => {
-        if ((ALL_ROLES as string[]).includes(r.role)) next[r.role as UserRole] = r.permissions ?? [];
+    Promise.resolve(
+      supabase.from("role_permissions").select("role, permissions")
+    ).then(({ data }) => {
+      if (!data?.length) return;
+      const loaded: Partial<Record<UserRole, Permission[]>> = {};
+      data.forEach((row: { role: string; permissions: string[] }) => {
+        const r = row.role as UserRole;
+        if (ALL_ROLES.includes(r)) {
+          loaded[r] = (row.permissions as Permission[]).filter((p) => ALL_PERMISSIONS.includes(p));
+        }
       });
-      setLegacyPermsByRole(next);
-      setRolePermissions(next);
-    });
+      if (Object.keys(loaded).length > 0) {
+        setRolePermissions((prev) => ({ ...prev, ...loaded }));
+      }
+    }).catch(() => {}); // silently fall back to defaults
   }, [user?.id]);
 
-  const userRole = mapAuthRoleToUserRole(role || user?.role || "employee");
+  // ── userRole: single authoritative source is user.role from AuthContext
+  //    (which reads directly from profiles table by auth user id).
+  //    managedUsers is used only for the admin panel — never to determine
+  //    the current user's own role, to avoid async race conditions.
+  // Ensure we derive the current user's role ONLY from AuthContext.user.role.
+  const [userRole, setUserRole] = useState<UserRole>(() => mapAuthRoleToUserRole(user?.role ?? ""));
+
+  useEffect(() => {
+    const mappedRole = mapAuthRoleToUserRole(user?.role ?? "");
+    // Temporary development-only debug log
+    console.log("Permissions userRole:", mappedRole);
+    setUserRole(mappedRole);
+  }, [user?.role]);
 
   const hasPermission = useCallback(
     (perm: Permission) => {
-      if (authHasPermission(perm)) return true;
-      const legacyNeeded = NEW_TO_LEGACY[perm] ?? [perm];
-      const currentLegacy = legacyPermsByRole[userRole] ?? [];
-      return legacyNeeded.some((p) => currentLegacy.includes(p));
+      if (userRole === "super_admin") return true;
+      return (rolePermissions[userRole] ?? []).includes(perm);
     },
-    [authHasPermission, legacyPermsByRole, userRole]
+    [userRole, rolePermissions]
   );
 
-  const updateUserRole = useCallback((userId: string, roleValue: UserRole) => {
-    setManagedUsers((prev) => prev.map((u) => (u.userId === userId ? { ...u, role: roleValue } : u)));
-    updateProfileRole(userId, roleValue).catch(console.error);
-  }, []);
+  const updateUserRole = useCallback(
+    (userId: string, role: UserRole) => {
+      setManagedUsers((prev) => prev.map((u) => (u.userId === userId ? { ...u, role } : u)));
+      updateProfileRole(userId, role).catch(console.error);
+    },
+    []
+  );
 
-  const toggleUserStatus = useCallback((userId: string) => {
-    setManagedUsers((prev) => {
-      const next = prev.map((u) => (u.userId === userId ? { ...u, isActive: !u.isActive } : u));
-      const target = next.find((u) => u.userId === userId);
-      if (target) toggleProfileStatus(userId, target.isActive).catch(console.error);
-      return next;
-    });
-  }, []);
+  const toggleUserStatus = useCallback(
+    (userId: string) => {
+      setManagedUsers((prev) => {
+        const next = prev.map((u) =>
+          u.userId === userId ? { ...u, isActive: !u.isActive } : u
+        );
+        const updated = next.find((u) => u.userId === userId);
+        if (updated) toggleProfileStatus(userId, updated.isActive).catch(console.error);
+        return next;
+      });
+    },
+    []
+  );
 
-  const addManagedUser = useCallback((u: Omit<ManagedUser, "userId">) => {
-    setManagedUsers((prev) => [...prev, { ...u, userId: Date.now().toString() }]);
-  }, []);
+  const addManagedUser = useCallback(
+    (u: Omit<ManagedUser, "userId">) => {
+      setManagedUsers((prev) => [...prev, { ...u, userId: Date.now().toString() }]);
+    },
+    []
+  );
 
-  const updateRolePermissions = useCallback((roleValue: UserRole, perms: Permission[]) => {
-    setRolePermissions((prev) => ({ ...prev, [roleValue]: perms }));
-  }, []);
+  const updateRolePermissions = useCallback(
+    (role: UserRole, perms: Permission[]) => {
+      setRolePermissions((prev) => ({ ...prev, [role]: perms }));
+    },
+    []
+  );
 
+  // Persist all role permissions to DB using the current state
   const saveAll = useCallback(async () => {
-    const rows = Object.entries(rolePermissions).map(([r, perms]) => ({ role: r, permissions: perms, updated_at: new Date().toISOString() }));
-    if (!rows.length) return;
+    const rows = ALL_ROLES.map((role) => ({
+      role,
+      permissions: rolePermissions[role] ?? [],
+      updated_at: new Date().toISOString(),
+    }));
     const { error } = await supabase.from("role_permissions").upsert(rows, { onConflict: "role" });
     if (error) throw new Error(error.message);
   }, [rolePermissions]);
 
-  const savePermissions = useCallback(async (perms: Record<UserRole, string[]>) => {
+  // Persist permissions from an explicit map (avoids React state lag when called
+  // immediately after multiple updateRolePermissions() calls)
+  const savePermissions = useCallback(async (perms: Record<UserRole, Permission[]>) => {
+    // Update state for all roles
     setRolePermissions((prev) => ({ ...prev, ...perms }));
-    const rows = Object.entries(perms).map(([r, list]) => ({ role: r, permissions: list, updated_at: new Date().toISOString() }));
-    if (!rows.length) return;
+    // Persist directly from the provided map — no state read lag
+    const rows = ALL_ROLES.map((role) => ({
+      role,
+      permissions: perms[role] ?? [],
+      updated_at: new Date().toISOString(),
+    }));
     const { error } = await supabase.from("role_permissions").upsert(rows, { onConflict: "role" });
     if (error) throw new Error(error.message);
   }, []);
@@ -217,7 +319,6 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     <PermissionsContext.Provider
       value={{
         userRole,
-        permissions: authPermissions,
         hasPermission,
         managedUsers,
         rolePermissions,
