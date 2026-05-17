@@ -25,7 +25,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard",  label: "الرئيسية",         icon: LayoutDashboard, permission: "view_dashboard" },
   { href: "/employees",  label: "الموظفين",         icon: Users,           permission: "manage_users" },
   { href: "/tasks",      label: "المهام",           icon: CheckSquare,     permission: "manage_tasks" },
-  { href: "/clients",    label: "العملاء (CRM)",    icon: UserCircle,      permission: "manage_clients" },
+  { href: "/dashboard/crm", label: "العملاء (CRM)",    icon: UserCircle,      permission: "manage_clients" },
   { href: "/finance",    label: "المالية",          icon: DollarSign,      permission: "manage_finance" },
   { href: "/strategy",   label: "الاستراتيجية",     icon: Map,             permission: "manage_reports" },
   { href: "/org",        label: "الهيكل الإداري",   icon: Network,         permission: "view_dashboard" },
@@ -99,7 +99,7 @@ export default function Sidebar({
         <ul className="space-y-1">
           {visibleItems.map(({ href, label, icon: Icon }) => {
             const isActive = href === "/dashboard"
-              ? pathname === "/dashboard" || pathname === "/clients"
+              ? pathname === "/dashboard"
               : pathname === href || pathname.startsWith(`${href}/`);
 
             return (

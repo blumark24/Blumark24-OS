@@ -1,14 +1,5 @@
-"use client";
+import DashboardHome from "@/components/dashboard/DashboardHome";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-
-export default function DashboardEntryPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace("/clients");
-  }, [router]);
-
-  return null;
+export default function DashboardPage() {
+  return <DashboardHome />;
 }
