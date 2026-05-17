@@ -76,12 +76,12 @@ export default function Sidebar({
       className={cn(
         "flex flex-col h-screen sticky top-0 transition-all duration-300 z-40",
         "border-l border-[#1e3a5f]",
-        collapsed ? "w-16" : "w-56"
+        collapsed ? "w-16" : "w-[72vw] max-w-[300px] lg:w-56 lg:max-w-none"
       )}
       style={{ background: "rgba(10,22,40,0.95)", backdropFilter: "blur(20px)" }}
     >
       {/* Logo */}
-      <div className="flex items-center px-3 py-4 border-b border-[#1e3a5f]">
+      <div className="relative flex items-center justify-center lg:justify-start px-3 py-4 border-b border-[#1e3a5f]">
         {collapsed ? (
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -102,11 +102,12 @@ export default function Sidebar({
         >
           <ChevronLeft size={16} className={cn("transition-transform", collapsed && "rotate-180")} />
         </button>
-        {/* Mobile close button */}
+        {/* Mobile close button — absolute so the logo can stay perfectly centered */}
         {onMobileClose && (
           <button
             onClick={onMobileClose}
-            className="mr-auto ms-2 text-[#8ba3c7] hover:text-[#22d3ee] transition-colors lg:hidden"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] hover:text-[#22d3ee] transition-colors lg:hidden"
+            aria-label="إغلاق القائمة"
           >
             <X size={16} />
           </button>
@@ -114,8 +115,8 @@ export default function Sidebar({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-4 overflow-y-auto">
-        <ul className="space-y-1 px-2">
+      <nav className="flex-1 py-3 overflow-y-auto">
+        <ul className="space-y-0.5 px-2">
           {visibleItems.map(({ href, label, icon: Icon }) => {
             const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
@@ -124,10 +125,10 @@ export default function Sidebar({
                   href={href}
                   onClick={onMobileClose}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group",
+                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group",
                     isActive
                       ? "sidebar-active"
-                      : "text-[#8ba3c7] hover:text-white hover:bg-[#1a3356]/50"
+                      : "text-[#8ba3c7] hover:text-white hover:bg-[#1a3356]/40"
                   )}
                   title={collapsed ? label : undefined}
                 >
@@ -138,7 +139,7 @@ export default function Sidebar({
                       isActive ? "text-[#22d3ee]" : "group-hover:text-[#22d3ee]"
                     )}
                   />
-                  {!collapsed && <span className="text-sm font-medium">{label}</span>}
+                  {!collapsed && <span className="text-[13px] font-medium tracking-tight">{label}</span>}
                 </Link>
               </li>
             );
