@@ -10,7 +10,7 @@ import {
 import {
   Users, CheckCircle2, ArrowUpRight, XCircle,
   AlertTriangle, Activity, Clock, UserCheck, DollarSign,
-  CheckCircle, X, MoreHorizontal, Sparkles, TrendingUp, Timer, Siren,
+  CheckCircle, X, Sparkles, TrendingUp, Timer, Siren,
 } from "lucide-react";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import { useDashboardKPI, useProjects, useActivities, useTransactions, useEmployees, useClients, useTasks } from "@/hooks/useData";
@@ -318,8 +318,8 @@ export default function DashboardPage() {
       value:     kpi.activeClients.toString(),
       subtitle:  "عميل نشط حالياً",
       icon:      Users,
-      gradient:  "from-[#1e6fd9] to-[#0d4fa0]",
-      iconBg:    "bg-blue-500/20",
+      gradient:  "from-cyan-300/65 via-sky-300/45 to-blue-400/65",
+      iconBg:    "bg-cyan-500/15",
       iconColor: "text-blue-400",
     },
     {
@@ -328,7 +328,7 @@ export default function DashboardPage() {
       value:     `${kpi.completedTasksPct}%`,
       subtitle:  "نسبة الإنجاز",
       icon:      CheckCircle2,
-      gradient:  "from-[#10b981] to-[#059669]",
+      gradient:  "from-emerald-300/65 via-green-300/45 to-teal-400/65",
       iconBg:    "bg-emerald-500/20",
       iconColor: "text-emerald-400",
     },
@@ -338,7 +338,7 @@ export default function DashboardPage() {
       value:     kpi.incompleteTasks.toString(),
       subtitle:  "مهمة لم تُكتمل",
       icon:      XCircle,
-      gradient:  "from-[#f59e0b] to-[#d97706]",
+      gradient:  "from-amber-200/65 via-yellow-300/45 to-amber-400/65",
       iconBg:    "bg-amber-500/20",
       iconColor: "text-amber-400",
     },
@@ -348,7 +348,7 @@ export default function DashboardPage() {
       value:     kpi.overdueTasks.toString(),
       subtitle:  "مهمة تجاوزت الموعد المحدد",
       icon:      AlertTriangle,
-      gradient:  kpi.overdueTasks > 0 ? "from-[#ef4444] to-[#dc2626]" : "from-[#10b981] to-[#059669]",
+      gradient:  kpi.overdueTasks > 0 ? "from-rose-300/70 via-red-300/45 to-rose-500/65" : "from-emerald-300/65 via-green-300/45 to-teal-400/65",
       iconBg:    kpi.overdueTasks > 0 ? "bg-red-500/20" : "bg-emerald-500/20",
       iconColor: kpi.overdueTasks > 0 ? "text-red-400" : "text-emerald-400",
     },
@@ -361,34 +361,43 @@ export default function DashboardPage() {
           {kpiLoading
             ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
             : kpiCards.map((card, i) => (
-                <div key={i} className={`glass-card p-5 relative overflow-hidden flex flex-col ${boardTheme[card.key].glow}`}>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className={`p-2.5 rounded-xl border ${boardTheme[card.key].iconTile}`}>
-                      <card.icon size={20} className={card.iconColor} />
+                <div key={i} className={`glass-card p-5 relative overflow-hidden flex flex-col bg-[#050b1f]/90 border border-white/10 ${boardTheme[card.key].glow}`}>
+                  <div className={`pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_52%_8%,rgba(255,255,255,0.18),transparent_38%),radial-gradient(circle_at_72%_32%,rgba(255,255,255,0.08),transparent_45%)]`} />
+                  <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0b1734]/95 via-[#071129]/95 to-[#050913]/95`} />
+                  <div className={`pointer-events-none absolute inset-[1px] rounded-[inherit] border border-white/5`} />
+                  <div className={`pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-br ${card.gradient} opacity-[0.10]`} />
+
+                  <div className="relative z-10 flex items-start justify-between mb-4">
+                    <button
+                      type="button"
+                      draggable={false}
+                      aria-label={`عرض تفاصيل ${card.label}`}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onTouchStart={(event) => event.currentTarget.blur()}
+                      onClick={() => setActiveBoard(card.key)}
+                      className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-[5px] rounded-full border leading-none select-none cursor-pointer touch-manipulation ${boardTheme[card.key].livePill}`}
+                      style={DISABLE_TEXT_SELECT_STYLE}
+                    >
+                      <ArrowUpRight size={11} style={DISABLE_TEXT_SELECT_STYLE} />
+                      <span className="select-none" style={DISABLE_TEXT_SELECT_STYLE}>مباشر</span>
+                    </button>
+                    <span className="text-white/70 text-lg leading-none tracking-[0.24em]">...</span>
+                  </div>
+
+                  <div className="relative z-10 flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-base font-semibold text-[#eef4ff] truncate">{card.label}</div>
+                      <div className="text-[11px] text-[#97abcb] truncate">{card.subtitle}</div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        draggable={false}
-                        aria-label={`عرض تفاصيل ${card.label}`}
-                        onMouseDown={(event) => event.preventDefault()}
-                        onTouchStart={(event) => event.currentTarget.blur()}
-                        onClick={() => setActiveBoard(card.key)}
-                        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full border select-none cursor-pointer touch-manipulation ${boardTheme[card.key].livePill}`}
-                        style={DISABLE_TEXT_SELECT_STYLE}
-                      >
-                        <ArrowUpRight size={12} style={DISABLE_TEXT_SELECT_STYLE} />
-                        <span className="select-none" style={DISABLE_TEXT_SELECT_STYLE}>مباشر</span>
-                      </button>
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-white/15 text-white/70 bg-white/5">
-                        <MoreHorizontal size={14} />
-                      </span>
+                    <div className={`shrink-0 p-2.5 rounded-2xl border backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,.22),0_8px_24px_rgba(0,0,0,.38)] ${boardTheme[card.key].iconTile}`}>
+                      <card.icon size={19} className={card.iconColor} />
                     </div>
                   </div>
-                  <div className="text-2xl font-heading font-bold text-white mb-1">{card.value}</div>
-                  <div className="text-sm text-[#c9d6eb] mb-1">{card.label}</div>
-                  <div className="text-xs text-[#89a2c4] truncate">{dashboardBoards[card.key].summary[1]}</div>
-                  <div className={`mt-3 pt-3 border-t ${boardTheme[card.key].divider} text-[11px] min-h-[34px]`}>
+
+                  <div className="relative z-10 mt-5 text-[58px] leading-[0.95] font-heading font-bold tracking-tight text-white">{card.value}</div>
+                  <div className="relative z-10 mt-1 text-sm text-[#ccdaef] truncate">{dashboardBoards[card.key].summary[1]}</div>
+
+                  <div className={`relative z-10 mt-4 pt-3 border-t ${boardTheme[card.key].divider} text-[11px] min-h-[34px]`}>
                     {card.key === "completedTasks" && (
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full border border-emerald-300/35 relative">
@@ -419,7 +428,7 @@ export default function DashboardPage() {
                       </div>
                     )}
                   </div>
-                  <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r ${card.gradient}`} />
+                  <div className={`absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r ${card.gradient}`} />
                 </div>
               ))}
         </div>
