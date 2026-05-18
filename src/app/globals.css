@@ -292,8 +292,51 @@ html, body {
   to   { transform: translateX(0);    }
 }
 .sidebar-mobile-enter {
-  animation: slideInFromRight 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: slideInFromRight 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;
+}
+
+/* ─── Mobile performance hardening ─────────────────────────────────────────
+   On phones (≤ 767 px) the GPU cost of layered backdrop-filters and large
+   blurs is what causes jank during sidebar open/close and on /auth.  These
+   rules:
+     1. Disable backdrop-filter on the dashboard glass-card (still tinted).
+     2. Reduce the heaviest filter blurs (.blur-3xl, .blur-2xl).
+     3. Reduce shadow intensity on glass cards.
+   Visual identity is preserved on desktop where the device can afford it.
+*/
+@media (max-width: 767px) {
+  .glass-card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  /* Tailwind's blur-3xl = 64px; blur-2xl = 40px.  Both are extreme on phones. */
+  .blur-3xl { --tw-blur: blur(24px); filter: var(--tw-blur); }
+  .blur-2xl { --tw-blur: blur(18px); filter: var(--tw-blur); }
+  /* Soften the glass-card hover lift so the GPU doesn't repaint a giant shadow. */
+  .glass-card-hover:hover {
+    box-shadow: 0 4px 14px rgba(34, 211, 238, 0.06);
+    transform: none;
+  }
+}
+
+/* ─── Respect prefers-reduced-motion ───────────────────────────────────────
+   Disable decorative animations + the sidebar slide-in for users who opt in.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .jellyfish-anim,
+  .jellyfish-anim-2,
+  .jellyfish-anim-3,
+  .jellyfish-pulse,
+  .shimmer,
+  .sidebar-mobile-enter {
+    animation: none !important;
+  }
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 /* Notification badge */

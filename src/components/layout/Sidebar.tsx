@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, CheckSquare, UserCircle,
   DollarSign, Map, Bot, BarChart3, Settings, LogOut,
-  ChevronLeft, Network, Zap, X,
+  ChevronLeft, Network, Zap, X, ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -71,21 +71,25 @@ export default function Sidebar({
       ? NAV_ITEMS
       : NAV_ITEMS.filter((item) => hasPermission(item.permission));
 
-  const sidebarContent = (
-    <aside
+  // ─── Inner card (the visible glass panel — matches DemoSidebar look) ─────
+  // Outer <aside> handles positioning (sticky/fixed); inner div is the actual
+  // styled card.  Mobile uses an opaque background and NO backdrop-filter so
+  // the panel paints cheaply.  Desktop layers the subtle translucent glass.
+  const innerCard = (
+    <div
       className={cn(
-        "flex flex-col h-screen sticky top-0 transition-all duration-300 z-40",
-        "border-l border-[#1e3a5f]",
-        collapsed ? "w-16" : "w-[72vw] max-w-[300px] lg:w-56 lg:max-w-none"
+        "flex flex-col flex-1 rounded-2xl border border-white/[0.08] overflow-hidden",
+        // Mobile: opaque navy so no expensive backdrop-filter is needed.
+        // Desktop (≥lg): translucent + blur for the glass effect.
+        "bg-[#0a1628] lg:bg-[rgba(10,22,40,0.55)] lg:backdrop-blur-xl",
       )}
-      style={{ background: "rgba(10,22,40,0.95)", backdropFilter: "blur(20px)" }}
     >
-      {/* Logo */}
-      <div className="relative flex items-center justify-center lg:justify-start px-3 py-4 border-b border-[#1e3a5f]">
+      {/* Header / logo */}
+      <div className="relative flex items-center justify-center lg:justify-start px-4 py-4 border-b border-white/[0.06]">
         {collapsed ? (
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "linear-gradient(135deg,#22d3ee,#1e6fd9)" }}
+            style={{ background: "linear-gradient(135deg,#22D3EE,#1E6FD9)" }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M12 2L3 7v10l9 5 9-5V7L12 2z" fill="white" fillOpacity="0.9"/>
@@ -93,20 +97,22 @@ export default function Sidebar({
             </svg>
           </div>
         ) : (
-          <OfficialBlumarkLogo className="w-[140px] lg:w-[155px]" />
+          <OfficialBlumarkLogo className="w-[140px] sm:w-[150px] lg:w-[150px]" />
         )}
         {/* Desktop collapse toggle */}
         <button
           onClick={onToggle}
-          className="mr-auto ms-2 text-[#8ba3c7] hover:text-[#22d3ee] transition-colors hidden lg:block"
+          className="mr-auto ms-2 p-1.5 -m-1.5 text-white/55 hover:text-[#22D3EE] transition-colors hidden lg:block"
+          aria-label="طي القائمة"
         >
           <ChevronLeft size={16} className={cn("transition-transform", collapsed && "rotate-180")} />
         </button>
-        {/* Mobile close button — absolute so the logo can stay perfectly centered */}
+        {/* Mobile close button — absolute so the logo stays centered.
+            Padding gives a ≥40px touch target without changing the visual size. */}
         {onMobileClose && (
           <button
             onClick={onMobileClose}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] hover:text-[#22d3ee] transition-colors lg:hidden"
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 text-white/55 hover:text-[#22D3EE] transition-colors lg:hidden"
             aria-label="إغلاق القائمة"
           >
             <X size={16} />
@@ -114,9 +120,9 @@ export default function Sidebar({
         )}
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 py-3 overflow-y-auto">
-        <ul className="space-y-0.5 px-2">
+      {/* Nav (scrollable) */}
+      <nav className="flex-1 overflow-y-auto px-3 py-3">
+        <ul className="space-y-1">
           {visibleItems.map(({ href, label, icon: Icon }) => {
             const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
@@ -125,21 +131,32 @@ export default function Sidebar({
                   href={href}
                   onClick={onMobileClose}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group",
+                    "flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-colors border",
                     isActive
-                      ? "sidebar-active"
-                      : "text-[#8ba3c7] hover:text-white hover:bg-[#1a3356]/40"
+                      ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#3B82F6]/15 to-transparent border-[rgba(34,211,238,0.24)] text-white shadow-[0_2px_10px_-4px_rgba(34,211,238,0.30)]"
+                      : "text-white/[0.72] hover:bg-white/[0.04] border-transparent"
                   )}
                   title={collapsed ? label : undefined}
                 >
-                  <Icon
-                    size={18}
-                    className={cn(
-                      "flex-shrink-0 transition-colors",
-                      isActive ? "text-[#22d3ee]" : "group-hover:text-[#22d3ee]"
-                    )}
-                  />
-                  {!collapsed && <span className="text-[13px] font-medium tracking-tight">{label}</span>}
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 flex-shrink-0",
+                        isActive ? "text-[#22D3EE]" : "text-white/55"
+                      )}
+                      strokeWidth={1.6}
+                    />
+                    {!collapsed && <span className="truncate">{label}</span>}
+                  </div>
+                  {!collapsed && (
+                    <ArrowLeft
+                      className={cn(
+                        "h-3.5 w-3.5 flex-shrink-0",
+                        isActive ? "text-[#22D3EE]" : "text-white/30"
+                      )}
+                      strokeWidth={1.6}
+                    />
+                  )}
                 </Link>
               </li>
             );
@@ -147,26 +164,32 @@ export default function Sidebar({
         </ul>
       </nav>
 
-      {/* User */}
-      <div className="border-t border-[#1e3a5f] p-3">
-        <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold text-white"
-            style={{ background: "linear-gradient(135deg,#ff7a3d,#ff5722)" }}
+      {/* User card — pinned at the bottom of the inner panel */}
+      <div className="px-3 pb-3 pt-2 border-t border-white/[0.06]">
+        <div
+          className={cn(
+            "flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5",
+            collapsed && "justify-center"
+          )}
+        >
+          <span
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-semibold text-white flex-shrink-0"
+            style={{ background: "linear-gradient(135deg,#22D3EE,#1E6FD9)" }}
           >
             {user?.name?.slice(0, 2) ?? "؟"}
-          </div>
+          </span>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-white truncate">{user?.name ?? "المستخدم"}</div>
-              <div className="text-xs text-[#8ba3c7] truncate">{ROLE_LABELS[userRole] ?? userRole.replace(/_/g, " ")}</div>
+              <div className="text-[12.5px] font-semibold text-white truncate">{user?.name ?? "المستخدم"}</div>
+              <div className="text-[11px] text-white/55 truncate">{ROLE_LABELS[userRole] ?? userRole.replace(/_/g, " ")}</div>
             </div>
           )}
           {!collapsed && (
             <button
               onClick={handleLogout}
-              className="text-[#8ba3c7] hover:text-red-400 transition-colors"
+              className="text-white/55 hover:text-red-400 transition-colors flex-shrink-0"
               title="تسجيل الخروج"
+              aria-label="تسجيل الخروج"
             >
               <LogOut size={15} />
             </button>
@@ -175,13 +198,26 @@ export default function Sidebar({
         {collapsed && (
           <button
             onClick={handleLogout}
-            className="mt-2 w-full flex justify-center text-[#8ba3c7] hover:text-red-400 transition-colors"
+            className="mt-2 w-full flex justify-center text-white/55 hover:text-red-400 transition-colors"
             title="تسجيل الخروج"
+            aria-label="تسجيل الخروج"
           >
             <LogOut size={15} />
           </button>
         )}
       </div>
+    </div>
+  );
+
+  // ─── Outer aside: positioning + sizing (NOT the visible card) ────────────
+  const sidebarContent = (
+    <aside
+      className={cn(
+        "flex flex-col h-screen sticky top-0 z-40 p-2 transition-[width] duration-300",
+        collapsed ? "w-16" : "w-[78vw] max-w-[300px] lg:w-60 lg:max-w-none"
+      )}
+    >
+      {innerCard}
     </aside>
   );
 
@@ -193,13 +229,12 @@ export default function Sidebar({
       {/* Mobile sidebar overlay */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
-          {/* Backdrop */}
+          {/* Backdrop — no blur on mobile (perf), just a tinted scrim */}
           <div
-            className="absolute inset-0"
-            style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(2px)" }}
+            className="absolute inset-0 bg-black/55"
             onClick={onMobileClose}
           />
-          {/* Sidebar panel - RTL: slides in from right */}
+          {/* Sidebar panel — RTL: slides in from right */}
           <div className="absolute top-0 right-0 h-full sidebar-mobile-enter" style={{ zIndex: 51 }}>
             {sidebarContent}
           </div>
