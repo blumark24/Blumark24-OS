@@ -163,16 +163,16 @@ export default function AIPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 h-full">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-heading font-bold text-white flex items-center gap-2">
-              <Bot size={24} className="text-[#22d3ee]" />
+      <div className="space-y-4 sm:space-y-6 h-full">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-heading font-bold text-white flex items-center gap-2">
+              <Bot size={22} className="text-[#22d3ee]" />
               المساعد الذكي
             </h1>
             <p className="text-[#8ba3c7] text-sm mt-1">مدعوم بالذكاء الاصطناعي لتحليل بيانات شركتك</p>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#22d3ee]/10 border border-[#22d3ee]/30">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#22d3ee]/10 border border-[#22d3ee]/30 self-start sm:self-auto">
             <div className="w-2 h-2 rounded-full bg-[#22d3ee] animate-pulse" />
             <span className="text-xs text-[#22d3ee] font-medium">متصل ونشط</span>
           </div>
@@ -181,42 +181,47 @@ export default function AIPage() {
         {/* AI Insight Cards — real data */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {aiCards.map((card) => (
-            <div key={card.label} className="glass-card p-4 flex items-center gap-3">
+            <div key={card.label} className="glass-card p-3 sm:p-4 flex items-center gap-3">
               <div className="p-2 rounded-xl flex-shrink-0" style={{ background: `${card.color}20` }}>
                 <card.icon size={16} style={{ color: card.color }} />
               </div>
               <div className="min-w-0">
-                <div className="text-xs text-[#8ba3c7] leading-tight">{card.label}</div>
-                <div className="text-sm font-medium mt-0.5" style={{ color: card.color }}>{card.value}</div>
+                <div className="text-[11px] sm:text-xs text-[#8ba3c7] leading-tight truncate">{card.label}</div>
+                <div className="text-sm font-medium mt-0.5 truncate" style={{ color: card.color }}>{card.value}</div>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4" style={{ height: "calc(100vh - 380px)", minHeight: "400px" }}>
-          {/* Quick Prompts */}
-          <div className="glass-card p-4 flex flex-col gap-2">
-            <div className="flex items-center gap-2 mb-2">
+        {/* Main grid.  Mobile: stacked + min-height so the input never gets
+            cut off by the keyboard.  Desktop (≥lg): 4-col with calc'd height. */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:[height:calc(100vh-380px)] lg:min-h-[400px]">
+          {/* Quick Prompts — 2-col grid on mobile (compact, tap-friendly),
+              vertical list on desktop. */}
+          <div className="glass-card p-4">
+            <div className="flex items-center gap-2 mb-3">
               <Sparkles size={14} className="text-[#22d3ee]" />
               <span className="text-xs font-medium text-[#8ba3c7]">أسئلة جاهزة</span>
             </div>
-            {QUICK_PROMPTS.map((p) => (
-              <button
-                key={p.label}
-                onClick={() => sendMessage(p.prompt)}
-                className="flex items-center gap-2 p-2.5 rounded-xl text-right text-sm bg-[#1a3356]/40 hover:bg-[#1a3356] hover:text-[#22d3ee] transition-all text-[#8ba3c7] group"
-              >
-                <span className="flex-shrink-0">{p.icon}</span>
-                <span className="leading-tight">{p.label}</span>
-              </button>
-            ))}
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
+              {QUICK_PROMPTS.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => sendMessage(p.prompt)}
+                  className="flex items-center gap-2 p-2.5 rounded-xl text-right text-[13px] sm:text-sm bg-[#1a3356]/40 hover:bg-[#1a3356] hover:text-[#22d3ee] transition-colors text-[#8ba3c7] min-h-[44px]"
+                >
+                  <span className="flex-shrink-0">{p.icon}</span>
+                  <span className="leading-tight min-w-0 truncate">{p.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Chat */}
-          <div className="lg:col-span-3 glass-card flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Chat — fixed mobile height so input stays in view; flex on desktop. */}
+          <div className="lg:col-span-3 glass-card flex flex-col overflow-hidden h-[60vh] min-h-[420px] lg:h-auto lg:min-h-0">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4">
               {messages.map((msg) => (
-                <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                <div key={msg.id} className={`flex gap-2 sm:gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${
                     msg.role === "assistant"
                       ? "bg-gradient-to-br from-[#22d3ee] to-[#1e6fd9] text-white"
@@ -224,9 +229,9 @@ export default function AIPage() {
                   }`}>
                     {msg.role === "assistant" ? <Bot size={14} /> : "أ"}
                   </div>
-                  <div className={`max-w-[80%] ${msg.role === "user" ? "items-end" : "items-start"} flex flex-col gap-1`}>
+                  <div className={`max-w-[85%] sm:max-w-[80%] min-w-0 ${msg.role === "user" ? "items-end" : "items-start"} flex flex-col gap-1`}>
                     <div
-                      className={`p-3 rounded-2xl text-sm leading-relaxed ${
+                      className={`p-3 rounded-2xl text-sm leading-relaxed break-words ${
                         msg.role === "assistant"
                           ? "bg-[#1a3356]/60 text-white rounded-tr-none"
                           : "bg-[#22d3ee]/20 text-white rounded-tl-none border border-[#22d3ee]/30"
@@ -241,7 +246,7 @@ export default function AIPage() {
               ))}
 
               {loading && (
-                <div className="flex gap-3">
+                <div className="flex gap-2 sm:gap-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-[#22d3ee] to-[#1e6fd9]">
                     <Bot size={14} className="text-white" />
                   </div>
@@ -255,26 +260,28 @@ export default function AIPage() {
               <div ref={endRef} />
             </div>
 
-            <div className="p-4 border-t border-[#1e3a5f]">
+            <div className="p-3 sm:p-4 border-t border-[#1e3a5f]">
               <div className="flex gap-2">
                 <textarea
-                  className="input-dark flex-1 resize-none text-sm py-3"
+                  className="input-dark flex-1 resize-none text-sm py-3 min-w-0"
                   rows={2}
                   placeholder="اسأل عن أداء فريقك، العملاء، التقارير..."
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                 />
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 flex-shrink-0">
                   <button
                     onClick={() => sendMessage()}
                     disabled={!input.trim() || loading}
+                    aria-label="إرسال"
                     className="btn-primary p-3 disabled:opacity-40"
                   >
                     <Send size={16} />
                   </button>
                   <button
                     onClick={() => setMessages([INITIAL_MESSAGE])}
+                    aria-label="محادثة جديدة"
                     className="p-3 rounded-xl bg-[#1a3356]/50 text-[#8ba3c7] hover:text-white transition-colors"
                     title="محادثة جديدة"
                   >
@@ -282,7 +289,7 @@ export default function AIPage() {
                   </button>
                 </div>
               </div>
-              <p className="text-[10px] text-[#6b87ab] mt-2">اضغط Enter للإرسال • Shift+Enter للسطر الجديد</p>
+              <p className="text-[10px] text-[#6b87ab] mt-2 hidden sm:block">اضغط Enter للإرسال • Shift+Enter للسطر الجديد</p>
             </div>
           </div>
         </div>
