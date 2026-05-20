@@ -7,7 +7,7 @@ import {
   Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import {
-  Users, CheckCircle2, ArrowUpRight, XCircle,
+  Users, CheckCircle2, XCircle,
   AlertTriangle, Activity, Clock, UserCheck, DollarSign,
   CheckCircle, X, Sparkles, TrendingUp, Timer, Siren,
 } from "lucide-react";
@@ -196,47 +196,52 @@ export default function DashboardPage() {
 
   const boardTheme: Record<BoardKey, {
     glow: string;
+    ambient: string;
+    orb: string;
+    iconColor: string;
+    accent: string;
     livePill: string;
     iconTile: string;
-    iconColor: string;
-    divider: string;
-    insight: string;
     panelBorder: string;
   }> = {
     activeClients: {
-      glow: "shadow-[0_0_28px_rgba(34,211,238,.2)]",
-      livePill: "bg-cyan-500/20 text-cyan-200 border-cyan-300/30",
-      iconTile: "bg-cyan-400/15 border-cyan-300/30",
+      glow: "shadow-[0_14px_44px_-18px_rgba(34,211,238,0.5)]",
+      ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(34,211,238,0.20),transparent_55%)]",
+      orb: "bg-cyan-400/10 ring-1 ring-cyan-300/25",
       iconColor: "text-cyan-300",
-      divider: "border-cyan-300/20",
-      insight: "text-cyan-100",
+      accent: "text-cyan-200/85",
+      livePill: "bg-cyan-400/10 text-cyan-200 ring-1 ring-cyan-300/25",
+      iconTile: "bg-cyan-400/15 border-cyan-300/30",
       panelBorder: "border-cyan-300/45 shadow-[0_0_50px_rgba(34,211,238,.18)]",
     },
     completedTasks: {
-      glow: "shadow-[0_0_28px_rgba(16,185,129,.2)]",
-      livePill: "bg-emerald-500/20 text-emerald-200 border-emerald-300/30",
-      iconTile: "bg-emerald-400/15 border-emerald-300/30",
+      glow: "shadow-[0_14px_44px_-18px_rgba(16,185,129,0.5)]",
+      ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(16,185,129,0.20),transparent_55%)]",
+      orb: "bg-emerald-400/10 ring-1 ring-emerald-300/25",
       iconColor: "text-emerald-300",
-      divider: "border-emerald-300/20",
-      insight: "text-emerald-100",
+      accent: "text-emerald-200/85",
+      livePill: "bg-emerald-400/10 text-emerald-200 ring-1 ring-emerald-300/25",
+      iconTile: "bg-emerald-400/15 border-emerald-300/30",
       panelBorder: "border-emerald-300/45 shadow-[0_0_50px_rgba(16,185,129,.18)]",
     },
     incompleteTasks: {
-      glow: "shadow-[0_0_28px_rgba(251,191,36,.2)]",
-      livePill: "bg-amber-500/20 text-amber-200 border-amber-300/30",
-      iconTile: "bg-amber-400/15 border-amber-300/30",
+      glow: "shadow-[0_14px_44px_-18px_rgba(251,191,36,0.45)]",
+      ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(251,191,36,0.18),transparent_55%)]",
+      orb: "bg-amber-400/10 ring-1 ring-amber-300/25",
       iconColor: "text-amber-300",
-      divider: "border-amber-300/20",
-      insight: "text-amber-100",
+      accent: "text-amber-200/85",
+      livePill: "bg-amber-400/10 text-amber-200 ring-1 ring-amber-300/25",
+      iconTile: "bg-amber-400/15 border-amber-300/30",
       panelBorder: "border-amber-300/45 shadow-[0_0_50px_rgba(251,191,36,.18)]",
     },
     overdueTasks: {
-      glow: "shadow-[0_0_28px_rgba(244,63,94,.2)]",
-      livePill: "bg-rose-500/20 text-rose-200 border-rose-300/30",
-      iconTile: "bg-rose-400/15 border-rose-300/30",
+      glow: "shadow-[0_14px_44px_-18px_rgba(244,63,94,0.45)]",
+      ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(244,63,94,0.18),transparent_55%)]",
+      orb: "bg-rose-400/10 ring-1 ring-rose-300/25",
       iconColor: "text-rose-300",
-      divider: "border-rose-300/20",
-      insight: "text-rose-100",
+      accent: "text-rose-200/85",
+      livePill: "bg-rose-400/10 text-rose-200 ring-1 ring-rose-300/25",
+      iconTile: "bg-rose-400/15 border-rose-300/30",
       panelBorder: "border-rose-300/45 shadow-[0_0_50px_rgba(244,63,94,.18)]",
     },
   };
@@ -359,78 +364,79 @@ export default function DashboardPage() {
           {kpiLoading
             ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
             : kpiCards.map((card, i) => (
-                <div key={i} className={`glass-card relative w-full aspect-square overflow-hidden bg-[#050b1f]/90 border border-white/10 ${boardTheme[card.key].glow}`}>
-                  <div className={`pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_52%_8%,rgba(255,255,255,0.18),transparent_38%),radial-gradient(circle_at_72%_32%,rgba(255,255,255,0.08),transparent_45%)]`} />
-                  <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0b1734]/95 via-[#071129]/95 to-[#050913]/95`} />
-                  <div className={`pointer-events-none absolute inset-[1px] rounded-[inherit] border border-white/5`} />
-                  <div className={`pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-br ${card.gradient} opacity-[0.10]`} />
+                <div
+                  key={i}
+                  className={`group relative w-full aspect-square overflow-hidden rounded-3xl border border-white/[0.06] bg-[#070d20]/80 backdrop-blur-xl transition-shadow duration-300 ${boardTheme[card.key].glow}`}
+                >
+                  {/* Soft ambient color glow + subtle top sheen — replaces stacked borders/overlays */}
+                  <div className={`pointer-events-none absolute inset-0 ${boardTheme[card.key].ambient}`} />
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_60%_at_50%_0%,rgba(255,255,255,0.05),transparent_60%)]" />
 
-                  <div className="relative z-10 h-full flex flex-col justify-between p-3 sm:p-4 min-w-0">
-                    <div className="space-y-3 sm:space-y-4">
-                      <div className="relative z-10 flex items-start justify-between">
-                    <button
-                      type="button"
-                      draggable={false}
-                      aria-label={`عرض تفاصيل ${card.label}`}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onTouchStart={(event) => event.currentTarget.blur()}
-                      onClick={() => setActiveBoard(card.key)}
-                      className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-[5px] rounded-full border leading-none select-none cursor-pointer touch-manipulation ${boardTheme[card.key].livePill}`}
-                      style={DISABLE_TEXT_SELECT_STYLE}
-                    >
-                      <ArrowUpRight size={11} style={DISABLE_TEXT_SELECT_STYLE} />
-                      <span className="select-none" style={DISABLE_TEXT_SELECT_STYLE}>مباشر</span>
-                    </button>
-                    <span className="text-white/70 text-lg leading-none tracking-[0.24em]">...</span>
-                  </div>
-
-                  <div className="relative z-10 flex items-start justify-between gap-2 min-w-0">
-                    <div className="min-w-0 line-clamp-1">
-                      <div className="text-base font-semibold text-[#eef4ff] truncate line-clamp-1">{card.label}</div>
-                      <div className="text-[11px] text-[#97abcb] truncate line-clamp-1">{card.subtitle}</div>
+                  <div className="relative z-10 flex h-full flex-col justify-between p-4 sm:p-5 min-w-0">
+                    {/* Top: icon orb + live drilldown trigger */}
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        draggable={false}
+                        aria-label={`عرض تفاصيل ${card.label}`}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onTouchStart={(event) => event.currentTarget.blur()}
+                        onClick={() => setActiveBoard(card.key)}
+                        className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full leading-none select-none cursor-pointer touch-manipulation transition-colors ${boardTheme[card.key].livePill}`}
+                        style={DISABLE_TEXT_SELECT_STYLE}
+                      >
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="absolute inline-flex h-full w-full rounded-full bg-current opacity-60 animate-ping" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
+                        </span>
+                        <span className="select-none" style={DISABLE_TEXT_SELECT_STYLE}>مباشر</span>
+                      </button>
+                      <div
+                        className={`grid place-items-center w-10 h-10 sm:w-11 sm:h-11 rounded-2xl backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] ${boardTheme[card.key].orb}`}
+                      >
+                        <card.icon size={19} className={card.iconColor} />
+                      </div>
                     </div>
-                    <div className={`shrink-0 p-2.5 rounded-2xl border backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,.22),0_8px_24px_rgba(0,0,0,.38)] ${boardTheme[card.key].iconTile}`}>
-                      <card.icon size={19} className={card.iconColor} />
+
+                    {/* Hero: dominant KPI value + caption */}
+                    <div className="min-w-0">
+                      <div className="font-heading font-bold tracking-tight text-white leading-[0.9] text-[36px] sm:text-[54px] drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]">
+                        {card.value}
+                      </div>
+                      <div className="mt-1.5 text-[12.5px] font-medium text-white/80 truncate">{card.label}</div>
+                      <div className="text-[10.5px] text-white/40 truncate">{card.subtitle}</div>
                     </div>
-                  </div>
 
-                  <div className="relative z-10 text-[58px] leading-[0.95] font-heading font-bold tracking-tight text-white">{card.value}</div>
-                  <div className="relative z-10 text-sm text-[#ccdaef] truncate line-clamp-1">{dashboardBoards[card.key].summary[1]}</div>
-
-                  <div className={`relative z-10 pt-3 border-t ${boardTheme[card.key].divider} text-[11px] min-w-0`}>
-                    {card.key === "completedTasks" && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full border border-emerald-300/35 relative">
-                          <div className="absolute inset-1 rounded-full border border-emerald-200/50" />
-                          <span className="absolute inset-0 flex items-center justify-center text-[10px] text-emerald-100">{kpi.completedTasksPct}%</span>
+                    {/* Footer: single clean live insight line */}
+                    <div className="min-w-0 text-[11px]">
+                      {card.key === "activeClients" && (
+                        <div className={`flex items-center gap-1.5 ${boardTheme[card.key].accent}`}>
+                          <TrendingUp size={13} className="shrink-0" />
+                          <span className="truncate">{latestClient ? `آخر عميل: ${latestClient.name}` : "لا يوجد عميل جديد"}</span>
                         </div>
-                        <span className={`truncate ${boardTheme[card.key].insight}`}>معدل إنجاز اليوم مستقر</span>
-                      </div>
-                    )}
-                    {card.key === "incompleteTasks" && (
-                      <div className="space-y-1">
-                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                          <div className="h-full bg-amber-300/80 rounded-full" style={{ width: `${Math.min(100, Math.max(8, (kpi.incompleteTasks / Math.max(tasks.length, 1)) * 100))}%` }} />
+                      )}
+                      {card.key === "completedTasks" && (
+                        <div className={`flex items-center gap-1.5 ${boardTheme[card.key].accent}`}>
+                          <CheckCircle2 size={13} className="shrink-0" />
+                          <span className="truncate">معدل إنجاز مستقر اليوم</span>
                         </div>
-                        <span className={`truncate block ${boardTheme[card.key].insight}`}>متبقي {kpi.incompleteTasks} من {tasks.length || 0}</span>
-                      </div>
-                    )}
-                    {card.key === "overdueTasks" && (
-                      <div className={`flex items-center gap-1.5 ${boardTheme[card.key].insight}`}>
-                        <Siren size={12} />
-                        <span className="truncate">{kpi.overdueTasks > 0 ? "تتطلب متابعة فورية" : "لا يوجد تعثر حرج"}</span>
-                      </div>
-                    )}
-                    {card.key === "activeClients" && (
-                      <div className={`flex items-center gap-1.5 ${boardTheme[card.key].insight}`}>
-                        <TrendingUp size={12} />
-                        <span className="truncate">{latestClient ? `آخر عميل: ${latestClient.name}` : "لا يوجد عميل جديد"}</span>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                      {card.key === "incompleteTasks" && (
+                        <div className={`flex items-center gap-2 ${boardTheme[card.key].accent}`}>
+                          <div className="h-1.5 w-12 shrink-0 rounded-full bg-white/10 overflow-hidden">
+                            <div className="h-full rounded-full bg-amber-300/80" style={{ width: `${Math.min(100, Math.max(8, (kpi.incompleteTasks / Math.max(tasks.length, 1)) * 100))}%` }} />
+                          </div>
+                          <span className="truncate">متبقي {kpi.incompleteTasks} من {tasks.length || 0}</span>
+                        </div>
+                      )}
+                      {card.key === "overdueTasks" && (
+                        <div className={`flex items-center gap-1.5 ${boardTheme[card.key].accent}`}>
+                          <Siren size={13} className="shrink-0" />
+                          <span className="truncate">{kpi.overdueTasks > 0 ? "تتطلب متابعة فورية" : "لا يوجد تعثر حرج"}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className={`absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r ${card.gradient}`} />
                 </div>
               ))}
         </div>
