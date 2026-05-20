@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import JellyfishBackground from "@/components/jellyfish/JellyfishBackground";
 import {
@@ -7,9 +8,10 @@ import {
   Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import {
-  Users, CheckCircle2, ArrowUpRight, XCircle,
-  AlertTriangle, Activity, Clock, UserCheck, DollarSign,
-  CheckCircle, X, Sparkles, TrendingUp, Timer, Siren,
+  Users, CheckCircle2, XCircle, AlertTriangle, Activity, Clock,
+  UserCheck, DollarSign, CheckCircle, X, Sparkles, TrendingUp, Timer, Siren,
+  Bot, CheckSquare, UserPlus, FileText, Wallet, BarChart3, Gauge, ListChecks,
+  ArrowLeft, ShieldCheck, Building2, CalendarDays,
 } from "lucide-react";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import { useDashboardKPI, useProjects, useActivities, useTransactions, useEmployees, useClients, useTasks } from "@/hooks/useData";
@@ -35,7 +37,7 @@ const CustomTooltip = ({
   if (!active || !payload?.length) return null;
   const now = new Date().getFullYear();
   return (
-    <div className="glass-card p-3 text-sm border border-[#1e3a5f]">
+    <div className="rounded-xl border border-white/10 bg-[#0d1f3c]/95 p-3 text-sm backdrop-blur-md">
       <p className="text-[#8ba3c7] mb-1">{label}</p>
       {payload.map((entry, i) => (
         <p key={i} className="font-medium" style={{ color: entry.name === "current" ? "#22d3ee" : "#8ba3c7" }}>
@@ -45,6 +47,125 @@ const CustomTooltip = ({
     </div>
   );
 };
+
+// ─── Local dashboard design tokens ──────────────────────────────────────────────
+// Scoped, reusable visual language for the dashboard (and future modules to follow).
+// Kept at module scope so these large static class strings are not recreated per render.
+
+const CARD_BASE     = "relative overflow-hidden rounded-3xl border border-white/[0.06] bg-[#070d20]/80 backdrop-blur-xl";
+const SURFACE_PANEL = "relative overflow-hidden rounded-3xl border border-white/[0.07] bg-[linear-gradient(150deg,rgba(13,25,48,0.85),rgba(7,15,32,0.92))] backdrop-blur-xl";
+const SECTION_TITLE = "text-white font-heading font-semibold";
+const ICON_ORB      = "grid place-items-center rounded-2xl backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]";
+
+type BoardKey = "activeClients" | "completedTasks" | "incompleteTasks" | "overdueTasks";
+
+// Per-KPI premium theme tokens. Fully static → defined once at module scope.
+const BOARD_THEME: Record<BoardKey, {
+  glow: string;
+  ambient: string;
+  orb: string;
+  iconColor: string;
+  accent: string;
+  livePill: string;
+  iconTile: string;
+  panelBorder: string;
+}> = {
+  activeClients: {
+    glow: "shadow-[0_14px_44px_-18px_rgba(34,211,238,0.5)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(34,211,238,0.20),transparent_55%)]",
+    orb: "bg-cyan-400/10 ring-1 ring-cyan-300/25",
+    iconColor: "text-cyan-300",
+    accent: "text-cyan-200/85",
+    livePill: "bg-cyan-400/10 text-cyan-200 ring-1 ring-cyan-300/25",
+    iconTile: "bg-cyan-400/15 border-cyan-300/30",
+    panelBorder: "border-cyan-300/45 shadow-[0_0_50px_rgba(34,211,238,.18)]",
+  },
+  completedTasks: {
+    glow: "shadow-[0_14px_44px_-18px_rgba(16,185,129,0.5)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(16,185,129,0.20),transparent_55%)]",
+    orb: "bg-emerald-400/10 ring-1 ring-emerald-300/25",
+    iconColor: "text-emerald-300",
+    accent: "text-emerald-200/85",
+    livePill: "bg-emerald-400/10 text-emerald-200 ring-1 ring-emerald-300/25",
+    iconTile: "bg-emerald-400/15 border-emerald-300/30",
+    panelBorder: "border-emerald-300/45 shadow-[0_0_50px_rgba(16,185,129,.18)]",
+  },
+  incompleteTasks: {
+    glow: "shadow-[0_14px_44px_-18px_rgba(251,191,36,0.45)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(251,191,36,0.18),transparent_55%)]",
+    orb: "bg-amber-400/10 ring-1 ring-amber-300/25",
+    iconColor: "text-amber-300",
+    accent: "text-amber-200/85",
+    livePill: "bg-amber-400/10 text-amber-200 ring-1 ring-amber-300/25",
+    iconTile: "bg-amber-400/15 border-amber-300/30",
+    panelBorder: "border-amber-300/45 shadow-[0_0_50px_rgba(251,191,36,.18)]",
+  },
+  overdueTasks: {
+    glow: "shadow-[0_14px_44px_-18px_rgba(244,63,94,0.45)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(244,63,94,0.18),transparent_55%)]",
+    orb: "bg-rose-400/10 ring-1 ring-rose-300/25",
+    iconColor: "text-rose-300",
+    accent: "text-rose-200/85",
+    livePill: "bg-rose-400/10 text-rose-200 ring-1 ring-rose-300/25",
+    iconTile: "bg-rose-400/15 border-rose-300/30",
+    panelBorder: "border-rose-300/45 shadow-[0_0_50px_rgba(244,63,94,.18)]",
+  },
+};
+
+// Neutral accent tints for hero stats + quick actions.
+const TINTS = {
+  cyan:    { orb: "bg-cyan-400/10 ring-1 ring-cyan-300/25",       icon: "text-cyan-300" },
+  emerald: { orb: "bg-emerald-400/10 ring-1 ring-emerald-300/25", icon: "text-emerald-300" },
+  amber:   { orb: "bg-amber-400/10 ring-1 ring-amber-300/25",     icon: "text-amber-300" },
+  rose:    { orb: "bg-rose-400/10 ring-1 ring-rose-300/25",       icon: "text-rose-300" },
+  violet:  { orb: "bg-violet-400/10 ring-1 ring-violet-300/25",   icon: "text-violet-300" },
+  sky:     { orb: "bg-sky-400/10 ring-1 ring-sky-300/25",         icon: "text-sky-300" },
+} as const;
+type TintKey = keyof typeof TINTS;
+
+// ─── Small presentational helpers (dashboard-scoped) ─────────────────────────────
+
+function StatPill({ icon: Icon, label, value, tint }: {
+  icon: React.ElementType; label: string; value: string; tint: TintKey;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3 min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={`${ICON_ORB} w-8 h-8 shrink-0 ${TINTS[tint].orb}`}>
+          <Icon size={15} className={TINTS[tint].icon} />
+        </span>
+        <span className="text-[11px] text-[#8ba3c7] truncate">{label}</span>
+      </div>
+      <div className="mt-2 text-base sm:text-lg font-bold text-white truncate">{value}</div>
+    </div>
+  );
+}
+
+function QuickAction({ href, label, icon: Icon, tint }: {
+  href: string; label: string; icon: React.ElementType; tint: TintKey;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`${CARD_BASE} group flex items-center gap-3 p-3 sm:p-4 transition-colors hover:border-white/15`}
+    >
+      <span className={`${ICON_ORB} w-10 h-10 shrink-0 ${TINTS[tint].orb}`}>
+        <Icon size={18} className={TINTS[tint].icon} />
+      </span>
+      <span className="flex-1 min-w-0 truncate text-sm font-medium text-white/90">{label}</span>
+      <ArrowLeft size={16} className="shrink-0 text-white/25 transition-colors group-hover:text-white/60" />
+    </Link>
+  );
+}
+
+const QUICK_ACTIONS: { href: string; label: string; icon: React.ElementType; tint: TintKey }[] = [
+  { href: "/tasks",     label: "مهمة جديدة",   icon: CheckSquare, tint: "cyan"    },
+  { href: "/clients",   label: "عميل جديد",    icon: UserPlus,    tint: "emerald" },
+  { href: "/finance",   label: "فاتورة جديدة", icon: FileText,    tint: "sky"     },
+  { href: "/finance",   label: "مصروف جديد",   icon: Wallet,      tint: "rose"    },
+  { href: "/employees", label: "موظف جديد",    icon: Users,       tint: "violet"  },
+  { href: "/reports",   label: "إنشاء تقرير",  icon: BarChart3,   tint: "amber"   },
+];
 
 // ─── Status colours ───────────────────────────────────────────────────────────
 
@@ -70,9 +191,6 @@ function todayArabic() {
   return `${d.getDate()} ${ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-
-
-type BoardKey = "activeClients" | "completedTasks" | "incompleteTasks" | "overdueTasks";
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -192,54 +310,28 @@ export default function DashboardPage() {
   const topFiveIncompleteTasks = incompleteTasks.slice().sort((a, b) => (a.dueDate || "9999-12-31").localeCompare(b.dueDate || "9999-12-31")).slice(0, 5);
   const topFiveOverdueTasks = overdueTasks.slice().sort((a, b) => (a.dueDate || "9999-12-31").localeCompare(b.dueDate || "9999-12-31")).slice(0, 5);
 
-  const [activeBoard, setActiveBoard] = useState<BoardKey | null>(null);
+  const activeEmployees = employees.filter((e) => e.status === "نشط").length;
 
-  const boardTheme: Record<BoardKey, {
-    glow: string;
-    livePill: string;
-    iconTile: string;
-    iconColor: string;
-    divider: string;
-    insight: string;
-    panelBorder: string;
-  }> = {
-    activeClients: {
-      glow: "shadow-[0_0_28px_rgba(34,211,238,.2)]",
-      livePill: "bg-cyan-500/20 text-cyan-200 border-cyan-300/30",
-      iconTile: "bg-cyan-400/15 border-cyan-300/30",
-      iconColor: "text-cyan-300",
-      divider: "border-cyan-300/20",
-      insight: "text-cyan-100",
-      panelBorder: "border-cyan-300/45 shadow-[0_0_50px_rgba(34,211,238,.18)]",
-    },
-    completedTasks: {
-      glow: "shadow-[0_0_28px_rgba(16,185,129,.2)]",
-      livePill: "bg-emerald-500/20 text-emerald-200 border-emerald-300/30",
-      iconTile: "bg-emerald-400/15 border-emerald-300/30",
-      iconColor: "text-emerald-300",
-      divider: "border-emerald-300/20",
-      insight: "text-emerald-100",
-      panelBorder: "border-emerald-300/45 shadow-[0_0_50px_rgba(16,185,129,.18)]",
-    },
-    incompleteTasks: {
-      glow: "shadow-[0_0_28px_rgba(251,191,36,.2)]",
-      livePill: "bg-amber-500/20 text-amber-200 border-amber-300/30",
-      iconTile: "bg-amber-400/15 border-amber-300/30",
-      iconColor: "text-amber-300",
-      divider: "border-amber-300/20",
-      insight: "text-amber-100",
-      panelBorder: "border-amber-300/45 shadow-[0_0_50px_rgba(251,191,36,.18)]",
-    },
-    overdueTasks: {
-      glow: "shadow-[0_0_28px_rgba(244,63,94,.2)]",
-      livePill: "bg-rose-500/20 text-rose-200 border-rose-300/30",
-      iconTile: "bg-rose-400/15 border-rose-300/30",
-      iconColor: "text-rose-300",
-      divider: "border-rose-300/20",
-      insight: "text-rose-100",
-      panelBorder: "border-rose-300/45 shadow-[0_0_50px_rgba(244,63,94,.18)]",
-    },
-  };
+  // Task distribution (derived only from existing task buckets — no new data logic).
+  // Plain computation: inputs are recomputed each render, so memoization adds no value.
+  const taskDistribution = (() => {
+    const completed = completedTasks.length;
+    const overdue = overdueTasks.length;
+    const pending = Math.max(0, incompleteTasks.length - overdue);
+    const total = tasks.length || 1;
+    const pct = (n: number) => `${(n / total) * 100}%`;
+    return { completed, overdue, pending, total: tasks.length, pct };
+  })();
+
+  // Lightweight AI insight line, derived only from existing KPI values.
+  const aiInsight =
+    kpi.overdueTasks > 0
+      ? `لديك ${kpi.overdueTasks} مهمة متأخرة تتطلب متابعة فورية الآن.`
+      : kpi.incompleteTasks > 0
+        ? `${kpi.incompleteTasks} مهمة قيد التنفيذ، ومعدل الإنجاز الحالي ${kpi.completedTasksPct}%.`
+        : "جميع المهام منجزة — أداء ممتاز اليوم! 🎯";
+
+  const [activeBoard, setActiveBoard] = useState<BoardKey | null>(null);
 
   const dashboardBoards = {
     activeClients: {
@@ -295,16 +387,18 @@ export default function DashboardPage() {
 
   if (loading || !user) return (
     <DashboardLayout>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-4 lg:mb-6">
-        <KPICardSkeleton />
-        <KPICardSkeleton />
-        <KPICardSkeleton />
-        <KPICardSkeleton />
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
-        <ChartSkeleton height={220} />
-        <ChartSkeleton height={220} />
-
+      <div className="space-y-5">
+        <div className="rounded-3xl border border-white/[0.06] bg-[#070d20]/70 h-40 animate-pulse" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+          <KPICardSkeleton />
+          <KPICardSkeleton />
+          <KPICardSkeleton />
+          <KPICardSkeleton />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
+          <ChartSkeleton height={220} />
+          <ChartSkeleton height={220} />
+        </div>
       </div>
     </DashboardLayout>
   );
@@ -316,9 +410,7 @@ export default function DashboardPage() {
       value:     kpi.activeClients.toString(),
       subtitle:  "عميل نشط حالياً",
       icon:      Users,
-      gradient:  "from-cyan-300/65 via-sky-300/45 to-blue-400/65",
-      iconBg:    "bg-cyan-500/15",
-      iconColor: "text-blue-400",
+      iconColor: "text-cyan-300",
     },
     {
       key:       "completedTasks" as const,
@@ -326,9 +418,7 @@ export default function DashboardPage() {
       value:     `${kpi.completedTasksPct}%`,
       subtitle:  "نسبة الإنجاز",
       icon:      CheckCircle2,
-      gradient:  "from-emerald-300/65 via-green-300/45 to-teal-400/65",
-      iconBg:    "bg-emerald-500/20",
-      iconColor: "text-emerald-400",
+      iconColor: "text-emerald-300",
     },
     {
       key:       "incompleteTasks" as const,
@@ -336,9 +426,7 @@ export default function DashboardPage() {
       value:     kpi.incompleteTasks.toString(),
       subtitle:  "مهمة لم تُكتمل",
       icon:      XCircle,
-      gradient:  "from-amber-200/65 via-yellow-300/45 to-amber-400/65",
-      iconBg:    "bg-amber-500/20",
-      iconColor: "text-amber-400",
+      iconColor: "text-amber-300",
     },
     {
       key:       "overdueTasks" as const,
@@ -346,125 +434,396 @@ export default function DashboardPage() {
       value:     kpi.overdueTasks.toString(),
       subtitle:  "مهمة تجاوزت الموعد المحدد",
       icon:      AlertTriangle,
-      gradient:  kpi.overdueTasks > 0 ? "from-rose-300/70 via-red-300/45 to-rose-500/65" : "from-emerald-300/65 via-green-300/45 to-teal-400/65",
-      iconBg:    kpi.overdueTasks > 0 ? "bg-red-500/20" : "bg-emerald-500/20",
-      iconColor: kpi.overdueTasks > 0 ? "text-red-400" : "text-emerald-400",
+      iconColor: kpi.overdueTasks > 0 ? "text-rose-300" : "text-emerald-300",
     },
   ] as const;
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="space-y-5 sm:space-y-6">
+
+        {/* ─── Hero: AI insight / welcome banner ─────────────────────────── */}
+        <section className={`${SURFACE_PANEL} p-4 sm:p-6 lg:p-7`}>
+          <JellyfishBackground />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_88%_-25%,rgba(34,211,238,0.18),transparent_55%),radial-gradient(110%_120%_at_8%_125%,rgba(124,58,237,0.16),transparent_55%)]" />
+
+          <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            {/* Welcome + identity + AI insight */}
+            <div className="min-w-0 flex-1">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-cyan-200">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-cyan-300 opacity-60 animate-ping" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-300" />
+                </span>
+                نظام بلومارك الذكي • مباشر
+              </div>
+
+              <h1 className="mt-3 text-2xl sm:text-3xl font-heading font-bold text-white">مرحباً بك 👋</h1>
+              <p className="mt-1 truncate text-lg sm:text-xl font-bold bg-gradient-to-l from-cyan-200 via-sky-200 to-blue-300 bg-clip-text text-transparent">
+                {user?.name ?? "..."}
+              </p>
+
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-[#8ba3c7]">
+                <span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} className="text-cyan-300" />{roleLabel}</span>
+                {user?.department && (
+                  <span className="inline-flex items-center gap-1.5"><Building2 size={13} className="text-cyan-300" />{user.department}</span>
+                )}
+                <span className="inline-flex items-center gap-1.5"><CalendarDays size={13} className="text-cyan-300" />{todayArabic()}</span>
+              </div>
+
+              <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3 max-w-xl">
+                <span className={`${ICON_ORB} w-8 h-8 shrink-0 bg-cyan-400/10 ring-1 ring-cyan-300/25`}>
+                  <Sparkles size={15} className="text-cyan-300" />
+                </span>
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase tracking-wide text-cyan-300/80">رؤية ذكية</div>
+                  <p className="text-sm text-[#dbe6f7] leading-snug">{aiInsight}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href="/ai"
+                  className="inline-flex items-center gap-2 rounded-xl border border-cyan-300/25 bg-cyan-400/10 px-3.5 py-2 text-sm font-medium text-cyan-100 transition-colors hover:bg-cyan-400/15"
+                >
+                  <Bot size={16} />
+                  المساعد الذكي
+                </Link>
+                <Link
+                  href="/reports"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/[0.08]"
+                >
+                  <BarChart3 size={16} />
+                  التقارير
+                </Link>
+              </div>
+            </div>
+
+            {/* Live performance mini-stats (real derived values only) */}
+            <div className="grid w-full grid-cols-2 gap-3 lg:w-[360px] lg:shrink-0">
+              <StatPill icon={Users}     label="العملاء النشطون"   value={String(activeClients)}                tint="cyan" />
+              <StatPill icon={UserCheck} label="الموظفون النشطون" value={String(activeEmployees)}              tint="violet" />
+              <StatPill icon={Gauge}     label="رضا العملاء"       value={`${satisfactionPct}%`}                tint="emerald" />
+              <StatPill icon={Wallet}    label="صافي الدخل"        value={`${formatCurrency(kpi.netProfit)} SAR`} tint="sky" />
+            </div>
+          </div>
+        </section>
+
+        {/* ─── KPI cards ─────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           {kpiLoading
             ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
-            : kpiCards.map((card, i) => (
-                <div key={i} className={`glass-card relative w-full aspect-square overflow-hidden bg-[#050b1f]/90 border border-white/10 ${boardTheme[card.key].glow}`}>
-                  <div className={`pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_52%_8%,rgba(255,255,255,0.18),transparent_38%),radial-gradient(circle_at_72%_32%,rgba(255,255,255,0.08),transparent_45%)]`} />
-                  <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0b1734]/95 via-[#071129]/95 to-[#050913]/95`} />
-                  <div className={`pointer-events-none absolute inset-[1px] rounded-[inherit] border border-white/5`} />
-                  <div className={`pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-br ${card.gradient} opacity-[0.10]`} />
+            : kpiCards.map((card, i) => {
+                // Overdue turns emerald (positive) when there is nothing overdue.
+                const theme = card.key === "overdueTasks" && kpi.overdueTasks === 0
+                  ? BOARD_THEME.completedTasks
+                  : BOARD_THEME[card.key];
+                return (
+                  <div
+                    key={i}
+                    className={`${CARD_BASE} group w-full aspect-square transition-shadow duration-300 ${theme.glow}`}
+                  >
+                    <div className={`pointer-events-none absolute inset-0 ${theme.ambient}`} />
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_60%_at_50%_0%,rgba(255,255,255,0.05),transparent_60%)]" />
 
-                  <div className="relative z-10 h-full flex flex-col justify-between p-3 sm:p-4 min-w-0">
-                    <div className="space-y-3 sm:space-y-4">
-                      <div className="relative z-10 flex items-start justify-between">
-                    <button
-                      type="button"
-                      draggable={false}
-                      aria-label={`عرض تفاصيل ${card.label}`}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onTouchStart={(event) => event.currentTarget.blur()}
-                      onClick={() => setActiveBoard(card.key)}
-                      className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-[5px] rounded-full border leading-none select-none cursor-pointer touch-manipulation ${boardTheme[card.key].livePill}`}
-                      style={DISABLE_TEXT_SELECT_STYLE}
-                    >
-                      <ArrowUpRight size={11} style={DISABLE_TEXT_SELECT_STYLE} />
-                      <span className="select-none" style={DISABLE_TEXT_SELECT_STYLE}>مباشر</span>
-                    </button>
-                    <span className="text-white/70 text-lg leading-none tracking-[0.24em]">...</span>
-                  </div>
-
-                  <div className="relative z-10 flex items-start justify-between gap-2 min-w-0">
-                    <div className="min-w-0 line-clamp-1">
-                      <div className="text-base font-semibold text-[#eef4ff] truncate line-clamp-1">{card.label}</div>
-                      <div className="text-[11px] text-[#97abcb] truncate line-clamp-1">{card.subtitle}</div>
-                    </div>
-                    <div className={`shrink-0 p-2.5 rounded-2xl border backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,.22),0_8px_24px_rgba(0,0,0,.38)] ${boardTheme[card.key].iconTile}`}>
-                      <card.icon size={19} className={card.iconColor} />
-                    </div>
-                  </div>
-
-                  <div className="relative z-10 text-[58px] leading-[0.95] font-heading font-bold tracking-tight text-white">{card.value}</div>
-                  <div className="relative z-10 text-sm text-[#ccdaef] truncate line-clamp-1">{dashboardBoards[card.key].summary[1]}</div>
-
-                  <div className={`relative z-10 pt-3 border-t ${boardTheme[card.key].divider} text-[11px] min-w-0`}>
-                    {card.key === "completedTasks" && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full border border-emerald-300/35 relative">
-                          <div className="absolute inset-1 rounded-full border border-emerald-200/50" />
-                          <span className="absolute inset-0 flex items-center justify-center text-[10px] text-emerald-100">{kpi.completedTasksPct}%</span>
+                    <div className="relative z-10 flex h-full flex-col justify-between p-3.5 sm:p-5 min-w-0">
+                      {/* Top: live drilldown trigger + icon orb */}
+                      <div className="flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          draggable={false}
+                          aria-label={`عرض تفاصيل ${card.label}`}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onTouchStart={(event) => event.currentTarget.blur()}
+                          onClick={() => setActiveBoard(card.key)}
+                          className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full leading-none select-none cursor-pointer touch-manipulation transition-colors ${theme.livePill}`}
+                          style={DISABLE_TEXT_SELECT_STYLE}
+                        >
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="absolute inline-flex h-full w-full rounded-full bg-current opacity-60 animate-ping" />
+                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
+                          </span>
+                          <span className="select-none" style={DISABLE_TEXT_SELECT_STYLE}>مباشر</span>
+                        </button>
+                        <div className={`${ICON_ORB} w-9 h-9 sm:w-11 sm:h-11 ${theme.orb}`}>
+                          <card.icon size={18} className={card.iconColor} />
                         </div>
-                        <span className={`truncate ${boardTheme[card.key].insight}`}>معدل إنجاز اليوم مستقر</span>
                       </div>
-                    )}
-                    {card.key === "incompleteTasks" && (
-                      <div className="space-y-1">
-                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                          <div className="h-full bg-amber-300/80 rounded-full" style={{ width: `${Math.min(100, Math.max(8, (kpi.incompleteTasks / Math.max(tasks.length, 1)) * 100))}%` }} />
+
+                      {/* Hero number + caption */}
+                      <div className="min-w-0">
+                        <div className="font-heading font-bold tracking-tight text-white leading-[0.9] text-[clamp(1.85rem,7vw,3.375rem)] drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]">
+                          {card.value}
                         </div>
-                        <span className={`truncate block ${boardTheme[card.key].insight}`}>متبقي {kpi.incompleteTasks} من {tasks.length || 0}</span>
+                        <div className="mt-1.5 truncate text-[12.5px] font-medium text-white/80">{card.label}</div>
+                        <div className="truncate text-[10.5px] text-white/40">{card.subtitle}</div>
                       </div>
-                    )}
-                    {card.key === "overdueTasks" && (
-                      <div className={`flex items-center gap-1.5 ${boardTheme[card.key].insight}`}>
-                        <Siren size={12} />
-                        <span className="truncate">{kpi.overdueTasks > 0 ? "تتطلب متابعة فورية" : "لا يوجد تعثر حرج"}</span>
+
+                      {/* Footer: single clean live insight */}
+                      <div className="min-w-0 text-[11px]">
+                        {card.key === "activeClients" && (
+                          <div className={`flex items-center gap-1.5 ${theme.accent}`}>
+                            <TrendingUp size={13} className="shrink-0" />
+                            <span className="truncate">{latestClient ? `آخر عميل: ${latestClient.name}` : "لا يوجد عميل جديد"}</span>
+                          </div>
+                        )}
+                        {card.key === "completedTasks" && (
+                          <div className={`flex items-center gap-1.5 ${theme.accent}`}>
+                            <CheckCircle2 size={13} className="shrink-0" />
+                            <span className="truncate">معدل إنجاز مستقر اليوم</span>
+                          </div>
+                        )}
+                        {card.key === "incompleteTasks" && (
+                          <div className={`flex items-center gap-2 ${theme.accent}`}>
+                            <div className="h-1.5 w-12 shrink-0 rounded-full bg-white/10 overflow-hidden">
+                              <div className="h-full rounded-full bg-amber-300/80" style={{ width: `${Math.min(100, Math.max(8, (kpi.incompleteTasks / Math.max(tasks.length, 1)) * 100))}%` }} />
+                            </div>
+                            <span className="truncate">متبقي {kpi.incompleteTasks} من {tasks.length || 0}</span>
+                          </div>
+                        )}
+                        {card.key === "overdueTasks" && (
+                          <div className={`flex items-center gap-1.5 ${theme.accent}`}>
+                            <Siren size={13} className="shrink-0" />
+                            <span className="truncate">{kpi.overdueTasks > 0 ? "تتطلب متابعة فورية" : "لا يوجد تعثر حرج"}</span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {card.key === "activeClients" && (
-                      <div className={`flex items-center gap-1.5 ${boardTheme[card.key].insight}`}>
-                        <TrendingUp size={12} />
-                        <span className="truncate">{latestClient ? `آخر عميل: ${latestClient.name}` : "لا يوجد عميل جديد"}</span>
-                      </div>
-                    )}
-                  </div>
                     </div>
                   </div>
-                  <div className={`absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r ${card.gradient}`} />
+                );
+              })}
+        </div>
+
+        {/* ─── Quick actions ─────────────────────────────────────────────── */}
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className={`${SECTION_TITLE} text-sm`}>إجراءات سريعة</h2>
+            <span className="text-[11px] text-[#6b87ab]">اختصارات لأهم العمليات</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {QUICK_ACTIONS.map((a) => (
+              <QuickAction key={a.label} href={a.href} label={a.label} icon={a.icon} tint={a.tint} />
+            ))}
+          </div>
+        </div>
+
+        {/* ─── Analytics: performance + task distribution ────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className={`${CARD_BASE} lg:col-span-2 p-5`}>
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className={`${SECTION_TITLE}`}>تحليلات الأداء — الإيرادات</h3>
+              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">آخر 12 شهر</span>
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={salesData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.4)" />
+                <XAxis dataKey="month" tick={{ fill: "#8ba3c7", fontSize: 11 }} />
+                <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend formatter={(v) => v === "current" ? String(currentYear) : String(currentYear - 1)} />
+                <Line type="monotone" dataKey="current" stroke="#22d3ee" strokeWidth={2.5} dot={false} name="current" />
+                <Line type="monotone" dataKey="previous" stroke="#1e3a5f" strokeWidth={1.5} dot={false} name="previous" strokeDasharray="4 2" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className={`${CARD_BASE} p-5`}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className={`${SECTION_TITLE} text-sm`}>توزيع المهام</h3>
+              <span className={`${ICON_ORB} w-8 h-8 bg-cyan-400/10 ring-1 ring-cyan-300/25`}>
+                <ListChecks size={15} className="text-cyan-300" />
+              </span>
+            </div>
+            <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-white/5">
+              <div className="bg-emerald-400/80" style={{ width: taskDistribution.pct(taskDistribution.completed) }} />
+              <div className="bg-amber-400/80"   style={{ width: taskDistribution.pct(taskDistribution.pending) }} />
+              <div className="bg-rose-400/80"    style={{ width: taskDistribution.pct(taskDistribution.overdue) }} />
+            </div>
+            <div className="mt-4 space-y-2.5">
+              {[
+                { label: "مكتملة", value: taskDistribution.completed, dot: "bg-emerald-400" },
+                { label: "متبقية", value: taskDistribution.pending,   dot: "bg-amber-400" },
+                { label: "متأخرة", value: taskDistribution.overdue,   dot: "bg-rose-400" },
+              ].map((row) => (
+                <div key={row.label} className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 text-[#8ba3c7]">
+                    <span className={`h-2 w-2 rounded-full ${row.dot}`} />
+                    {row.label}
+                  </span>
+                  <span className="font-bold text-white">{row.value}</span>
                 </div>
               ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-1 glass-card relative overflow-hidden p-6 min-h-[180px]">
-            <JellyfishBackground />
-            <div className="relative z-10"><div className="text-2xl mb-2">👋</div><h2 className="text-xl font-heading font-bold text-white mb-1">مرحباً {user?.name ?? "..."}</h2><p className="text-[#8ba3c7] text-sm mb-1">{roleLabel}</p><p className="text-xs text-[#6b87ab]">اليوم هو {todayArabic()}</p><p className="text-xs text-[#22d3ee] mt-2 font-medium">نحو إنجازات أكبر وأداء أفضل</p></div>
+              <div className="flex items-center justify-between border-t border-white/[0.06] pt-2.5 text-sm">
+                <span className="text-[#8ba3c7]">الإجمالي</span>
+                <span className="font-bold text-[#22d3ee]">{taskDistribution.total}</span>
+              </div>
+            </div>
           </div>
-          <div className="glass-card p-5 flex flex-col items-center justify-center"><h3 className="text-[#8ba3c7] text-sm mb-4">معدل رضا العملاء</h3>{kpiLoading ? <div className="w-32 h-32 rounded-full border-8 border-[#1e3a5f] flex items-center justify-center"><span className="text-[#8ba3c7] text-xs">جارٍ التحميل...</span></div> : <><div className="relative w-32 h-32"><svg viewBox="0 0 120 120" className="w-full h-full -rotate-90"><circle cx="60" cy="60" r="50" fill="none" stroke="#1e3a5f" strokeWidth="10" /><circle cx="60" cy="60" r="50" fill="none" stroke="url(#satGrad)" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 50 * (satisfactionPct / 100)} ${2 * Math.PI * 50 * (1 - satisfactionPct / 100)}`} /><defs><linearGradient id="satGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#22d3ee" /><stop offset="100%" stopColor="#10b981" /></linearGradient></defs></svg><div className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-3xl font-heading font-bold text-white">{satisfactionPct}%</span><span className="text-xs font-medium" style={{ color: satisfactionPct >= 70 ? "#10b981" : satisfactionPct >= 40 ? "#f59e0b" : "#ef4444" }}>{satisfactionPct >= 70 ? "ممتاز" : satisfactionPct >= 40 ? "متوسط" : "يحتاج تحسين"}</span></div></div><p className="text-xs text-[#8ba3c7] mt-3 text-center">{clients.filter((c) => c.status === "نشط" || c.status === "متعاقد").length} من {clients.length} عميل نشط/متعاقد</p></>}</div>
-          <div className="glass-card p-5"><div className="flex items-center justify-between mb-4"><h3 className="text-white font-medium text-sm">ملخص سريع</h3><span className="badge status-active">مباشر</span></div><div className="space-y-3"><div className="flex justify-between items-center py-2 border-b border-[#1e3a5f]"><span className="text-xs text-[#8ba3c7]">إجمالي الموظفين</span><span className="text-white font-bold text-sm">{employees.length}</span></div><div className="flex justify-between items-center py-2 border-b border-[#1e3a5f]"><span className="text-xs text-[#8ba3c7]">الموظفون النشطون</span><span className="text-emerald-400 font-bold text-sm">{employees.filter((e) => e.status === "نشط").length}</span></div><div className="flex justify-between items-center py-2 border-b border-[#1e3a5f]"><span className="text-xs text-[#8ba3c7]">إجمالي العملاء</span><span className="text-[#22d3ee] font-bold text-sm">{clients.length}</span></div><div className="flex justify-between items-center"><span className="text-xs text-[#8ba3c7]">صافي الدخل</span><span className="font-bold text-sm" style={{ color: kpi.netProfit >= 0 ? "#10b981" : "#ef4444" }}>{formatCurrency(kpi.netProfit)} SAR</span></div></div></div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 glass-card p-5"><div className="flex items-center justify-between mb-5"><h3 className="text-white font-medium">نظرة عامة على الإيرادات</h3><span className="text-xs text-[#8ba3c7] bg-[#1a3356]/50 px-2 py-1 rounded-lg">آخر 12 شهر</span></div><ResponsiveContainer width="100%" height={220}><LineChart data={salesData}><CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.5)" /><XAxis dataKey="month" tick={{ fill: "#8ba3c7", fontSize: 11 }} /><YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} /><Tooltip content={<CustomTooltip />} /><Legend formatter={(v) => v === "current" ? String(currentYear) : String(currentYear - 1)} /><Line type="monotone" dataKey="current" stroke="#22d3ee" strokeWidth={2.5} dot={false} name="current" /><Line type="monotone" dataKey="previous" stroke="#1e3a5f" strokeWidth={1.5} dot={false} name="previous" strokeDasharray="4 2" /></LineChart></ResponsiveContainer></div>
-          <div className="glass-card p-5"><div className="flex items-center justify-between mb-5"><h3 className="text-white font-medium text-sm">الموظفون بالقسم</h3><span className="text-xs text-[#8ba3c7] bg-[#1a3356]/50 px-2 py-1 rounded-lg">{employees.filter((e) => e.status === "نشط").length} نشط</span></div>{activeUsersData.length === 0 ? <div className="flex items-center justify-center h-[220px] text-[#8ba3c7] text-sm">لا توجد بيانات</div> : <ResponsiveContainer width="100%" height={220}><BarChart data={activeUsersData}><CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.5)" /><XAxis dataKey="date" tick={{ fill: "#8ba3c7", fontSize: 10 }} /><YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} /><Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#8ba3c7" }} /><Bar dataKey="users" fill="#1e6fd9" radius={[4, 4, 0, 0]} name="موظف نشط" /></BarChart></ResponsiveContainer>}</div>
+        {/* ─── Employees by dept + satisfaction + quick summary ──────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className={`${CARD_BASE} p-5`}>
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className={`${SECTION_TITLE} text-sm`}>الموظفون بالقسم</h3>
+              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">{activeEmployees} نشط</span>
+            </div>
+            {activeUsersData.length === 0 ? (
+              <div className="flex h-[220px] items-center justify-center text-sm text-[#8ba3c7]">لا توجد بيانات</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={activeUsersData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.4)" />
+                  <XAxis dataKey="date" tick={{ fill: "#8ba3c7", fontSize: 10 }} />
+                  <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#8ba3c7" }} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                  <Bar dataKey="users" fill="#1e6fd9" radius={[6, 6, 0, 0]} name="موظف نشط" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className={`${CARD_BASE} p-5 flex flex-col items-center justify-center`}>
+            <h3 className="mb-4 text-sm text-[#8ba3c7]">معدل رضا العملاء</h3>
+            {kpiLoading ? (
+              <div className="flex h-32 w-32 items-center justify-center rounded-full border-8 border-[#1e3a5f]">
+                <span className="text-xs text-[#8ba3c7]">جارٍ التحميل...</span>
+              </div>
+            ) : (
+              <>
+                <div className="relative h-32 w-32">
+                  <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="#1e3a5f" strokeWidth="10" />
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="url(#satGrad)" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 50 * (satisfactionPct / 100)} ${2 * Math.PI * 50 * (1 - satisfactionPct / 100)}`} />
+                    <defs>
+                      <linearGradient id="satGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#22d3ee" />
+                        <stop offset="100%" stopColor="#10b981" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-3xl font-heading font-bold text-white">{satisfactionPct}%</span>
+                    <span className="text-xs font-medium" style={{ color: satisfactionPct >= 70 ? "#10b981" : satisfactionPct >= 40 ? "#f59e0b" : "#ef4444" }}>
+                      {satisfactionPct >= 70 ? "ممتاز" : satisfactionPct >= 40 ? "متوسط" : "يحتاج تحسين"}
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-3 text-center text-xs text-[#8ba3c7]">
+                  {clients.filter((c) => c.status === "نشط" || c.status === "متعاقد").length} من {clients.length} عميل نشط/متعاقد
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className={`${CARD_BASE} p-5`}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className={`${SECTION_TITLE} text-sm`}>ملخص سريع</h3>
+              <span className="badge status-active">مباشر</span>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
+                <span className="text-xs text-[#8ba3c7]">إجمالي الموظفين</span>
+                <span className="text-sm font-bold text-white">{employees.length}</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
+                <span className="text-xs text-[#8ba3c7]">الموظفون النشطون</span>
+                <span className="text-sm font-bold text-emerald-400">{activeEmployees}</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
+                <span className="text-xs text-[#8ba3c7]">إجمالي العملاء</span>
+                <span className="text-sm font-bold text-[#22d3ee]">{clients.length}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#8ba3c7]">صافي الدخل</span>
+                <span className="text-sm font-bold" style={{ color: kpi.netProfit >= 0 ? "#10b981" : "#ef4444" }}>{formatCurrency(kpi.netProfit)} SAR</span>
+              </div>
+            </div>
+          </div>
         </div>
 
+        {/* ─── Projects + recent activity ────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 glass-card p-5"><div className="flex items-center justify-between mb-4"><h3 className="text-white font-medium">المشاريع النشطة</h3><button className="text-[#22d3ee] text-xs hover:underline">عرض الكل</button></div>{projLoad ? <ChartSkeleton height={180} /> : projects.length === 0 ? <div className="py-8 text-center text-[#8ba3c7] text-sm">لا توجد مشاريع بعد</div> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-[#1e3a5f]">{["المشروع", "العميل", "التقدم", "الميزانية", "الموعد", "الحالة"].map((h) => <th key={h} className="text-right text-[#8ba3c7] font-medium pb-3">{h}</th>)}</tr></thead><tbody>{projects.map((project) => <tr key={project.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0"><td className="py-3"><span className="text-white font-medium">{project.name}</span></td><td className="py-3 text-[#8ba3c7]">{project.clientName}</td><td className="py-3"><div className="flex items-center gap-2"><div className="progress-bar w-20"><div className="progress-fill" style={{ width: `${project.progress}%`, background: project.progress === 100 ? "#10b981" : "linear-gradient(90deg,#22d3ee,#1e6fd9)" }} /></div><span className="text-xs text-[#8ba3c7]">{project.progress}%</span></div></td><td className="py-3 text-[#8ba3c7] text-xs">{formatCurrency(project.budget)} SAR</td><td className="py-3 text-[#8ba3c7] text-xs">{project.deadline}</td><td className="py-3"><span className={`badge ${statusColors[project.status] ?? "status-pending"}`}>{project.status === "قيد_التنفيذ" ? "قيد التنفيذ" : project.status}</span></td></tr>)}</tbody></table></div>}</div>
-          <div className="glass-card p-5"><div className="flex items-center justify-between mb-4"><h3 className="text-white font-medium text-sm">النشاطات الأخيرة</h3></div>{actLoad ? <CardSkeleton rows={5} /> : activities.length === 0 ? <div className="py-8 text-center text-[#8ba3c7] text-sm">لا توجد نشاطات بعد</div> : <div className="space-y-3">{activities.map((activity) => <div key={activity.id} className="flex items-start gap-3 pb-3 border-b border-[#1e3a5f]/40 last:border-0 last:pb-0"><div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#1a3356] text-[#22d3ee]">{activityIcons[activity.type] ?? <Activity size={14} />}</div><div className="flex-1 min-w-0"><p className="text-sm text-white leading-snug">{activity.description}</p><div className="flex items-center gap-1 mt-1 text-xs text-[#6b87ab]"><Clock size={10} /><span>{timeAgo(activity.timestamp)}</span></div></div></div>)}</div>}</div>
+          <div className={`${CARD_BASE} lg:col-span-2 p-5`}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className={`${SECTION_TITLE}`}>المشاريع النشطة</h3>
+              <button className="text-xs text-[#22d3ee] hover:underline">عرض الكل</button>
+            </div>
+            {projLoad ? (
+              <ChartSkeleton height={180} />
+            ) : projects.length === 0 ? (
+              <div className="py-8 text-center text-sm text-[#8ba3c7]">لا توجد مشاريع بعد</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/[0.08]">
+                      {["المشروع", "العميل", "التقدم", "الميزانية", "الموعد", "الحالة"].map((h) => (
+                        <th key={h} className="pb-3 text-right font-medium text-[#8ba3c7]">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projects.map((project) => (
+                      <tr key={project.id} className="table-row border-b border-white/[0.05] last:border-0">
+                        <td className="py-3"><span className="font-medium text-white">{project.name}</span></td>
+                        <td className="py-3 text-[#8ba3c7]">{project.clientName}</td>
+                        <td className="py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="progress-bar w-20"><div className="progress-fill" style={{ width: `${project.progress}%`, background: project.progress === 100 ? "#10b981" : "linear-gradient(90deg,#22d3ee,#1e6fd9)" }} /></div>
+                            <span className="text-xs text-[#8ba3c7]">{project.progress}%</span>
+                          </div>
+                        </td>
+                        <td className="py-3 text-xs text-[#8ba3c7]">{formatCurrency(project.budget)} SAR</td>
+                        <td className="py-3 text-xs text-[#8ba3c7]">{project.deadline}</td>
+                        <td className="py-3"><span className={`badge ${statusColors[project.status] ?? "status-pending"}`}>{project.status === "قيد_التنفيذ" ? "قيد التنفيذ" : project.status}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className={`${CARD_BASE} p-5`}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className={`${SECTION_TITLE} text-sm`}>النشاطات الأخيرة</h3>
+            </div>
+            {actLoad ? (
+              <CardSkeleton rows={5} />
+            ) : activities.length === 0 ? (
+              <div className="py-8 text-center text-sm text-[#8ba3c7]">لا توجد نشاطات بعد</div>
+            ) : (
+              <div className="space-y-3">
+                {activities.map((activity) => (
+                  <div key={activity.id} className="flex items-start gap-3 border-b border-white/[0.05] pb-3 last:border-0 last:pb-0">
+                    <div className={`${ICON_ORB} w-8 h-8 shrink-0 bg-cyan-400/10 ring-1 ring-cyan-300/20 text-[#22d3ee]`}>
+                      {activityIcons[activity.type] ?? <Activity size={14} />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm leading-snug text-white">{activity.description}</p>
+                      <div className="mt-1 flex items-center gap-1 text-xs text-[#6b87ab]"><Clock size={10} /><span>{timeAgo(activity.timestamp)}</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* ─── Drilldown modal (unchanged behavior) ──────────────────────── */}
         {activeBoard && (
-          <div className="fixed inset-0 z-50 bg-[#030913]/65 backdrop-blur-md flex items-start sm:items-center justify-center p-3 sm:p-5" dir="rtl">
-            <div className={`w-[calc(100vw-24px)] sm:w-full sm:max-w-4xl rounded-[28px] border bg-[linear-gradient(145deg,rgba(16,29,50,.88),rgba(6,16,30,.9))] backdrop-blur-2xl p-4 sm:p-6 max-h-[82vh] overflow-y-auto mb-20 sm:mb-0 ${boardTheme[activeBoard].panelBorder}`}>
+          <div className="fixed inset-0 z-50 bg-[#030913]/65 backdrop-blur-md flex items-start sm:items-center justify-center px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5" dir="rtl">
+            <div className={`w-[calc(100vw-24px)] sm:w-full sm:max-w-4xl rounded-[28px] border bg-[linear-gradient(145deg,rgba(16,29,50,.88),rgba(6,16,30,.9))] backdrop-blur-2xl p-4 sm:p-6 max-h-[82dvh] overflow-y-auto ${BOARD_THEME[activeBoard].panelBorder}`}>
               <div className="flex items-start justify-between mb-5 gap-3">
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className={`w-11 h-11 rounded-2xl border flex items-center justify-center ${boardTheme[activeBoard].iconTile}`}>
-                    {activeBoard === "activeClients" ? <Users size={20} className={boardTheme[activeBoard].iconColor} /> : activeBoard === "completedTasks" ? <CheckCircle size={20} className={boardTheme[activeBoard].iconColor} /> : activeBoard === "incompleteTasks" ? <Timer size={20} className={boardTheme[activeBoard].iconColor} /> : <AlertTriangle size={20} className={boardTheme[activeBoard].iconColor} />}
+                  <div className={`w-11 h-11 rounded-2xl border flex items-center justify-center ${BOARD_THEME[activeBoard].iconTile}`}>
+                    {activeBoard === "activeClients" ? <Users size={20} className={BOARD_THEME[activeBoard].iconColor} /> : activeBoard === "completedTasks" ? <CheckCircle size={20} className={BOARD_THEME[activeBoard].iconColor} /> : activeBoard === "incompleteTasks" ? <Timer size={20} className={BOARD_THEME[activeBoard].iconColor} /> : <AlertTriangle size={20} className={BOARD_THEME[activeBoard].iconColor} />}
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-white font-bold text-lg truncate">{kpiCards.find((c) => c.key === activeBoard)?.label}</h3>
                     <p className="text-[#9db1cf] text-xs mt-0.5">لوحة تنفيذية مباشرة وتفاصيل مركزة</p>
-                    <span className={`inline-flex mt-2 items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${boardTheme[activeBoard].livePill}`}><Sparkles size={11} />مباشر</span>
+                    <span className={`inline-flex mt-2 items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${BOARD_THEME[activeBoard].livePill}`}><Sparkles size={11} />مباشر</span>
                   </div>
                 </div>
                 <button
@@ -486,7 +845,7 @@ export default function DashboardPage() {
                 ))}
               </div>
               <div className="rounded-2xl border border-white/10 bg-[#071426]/55 p-3 sm:p-4">
-                <h4 className="text-white text-sm mb-2">تفاصيل الصبورة</h4>
+                <h4 className="text-white text-sm mb-2">تفاصيل اللوحة</h4>
                 <div className="text-xs text-[#8ba3c7] mb-3 space-y-1">
                   {dashboardBoards[activeBoard].summary.map((line) => <p key={line} className="truncate">{line}</p>)}
                 </div>
@@ -507,7 +866,7 @@ export default function DashboardPage() {
                           <tr key={item} className="border-b border-white/5 last:border-0">
                             <td className="py-2 text-white/90">{item.split("•")[0].trim()}</td>
                             <td className="py-2">
-                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] border ${boardTheme[activeBoard].livePill}`}>{activeBoard === "overdueTasks" ? "حرج" : activeBoard === "completedTasks" ? "مكتمل" : activeBoard === "incompleteTasks" ? "قيد التنفيذ" : "عميل"}</span>
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] border ${BOARD_THEME[activeBoard].livePill}`}>{activeBoard === "overdueTasks" ? "حرج" : activeBoard === "completedTasks" ? "مكتمل" : activeBoard === "incompleteTasks" ? "قيد التنفيذ" : "عميل"}</span>
                             </td>
                           </tr>
                         ))}
