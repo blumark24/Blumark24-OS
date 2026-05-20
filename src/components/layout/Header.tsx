@@ -286,188 +286,191 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
     setOpenNotif(false); setOpenMsg(false); setOpenNew(false);
   }, [router]);
 
+  // Dark-glass icon button shared by both bars (44px touch target).
+  const ICON_BTN =
+    "inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all flex-shrink-0";
+
+  // Search results dropdown — reused by the desktop pill and the mobile overlay.
+  const renderSearchResults = () => (
+    <>
+      {openSearch && results.length > 0 && (
+        <div
+          className="absolute top-full mt-2 w-full rounded-2xl border border-[#1e3a5f] shadow-xl overflow-hidden z-50"
+          style={{ background: "rgba(13,31,60,0.98)", backdropFilter: "blur(16px)" }}
+        >
+          {results.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => { goTo(r.href); setQuery(""); setOpenSearch(false); setMobileSearchOpen(false); }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#1a3356] transition-colors text-right"
+            >
+              <div className="w-7 h-7 rounded-lg bg-[#1a3356] flex items-center justify-center flex-shrink-0">
+                <r.icon size={13} className="text-[#22d3ee]" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm text-white truncate">{r.label}</div>
+                <div className="text-xs text-[#8ba3c7]">{r.sub}</div>
+              </div>
+              <ChevronLeft size={12} className="text-[#8ba3c7] mr-auto flex-shrink-0" />
+            </button>
+          ))}
+        </div>
+      )}
+      {openSearch && query && results.length === 0 && (
+        <div
+          className="absolute top-full mt-2 w-full rounded-2xl border border-[#1e3a5f] px-4 py-3 text-sm text-[#8ba3c7] z-50"
+          style={{ background: "rgba(13,31,60,0.98)" }}
+        >
+          لا توجد نتائج لـ &quot;{query}&quot;
+        </div>
+      )}
+    </>
+  );
+
+  // Notifications button + dropdown — shared by both bars.
+  const renderNotifications = () => (
+    <div className="relative">
+      <button
+        onClick={() => { setOpenNotif(!openNotif); setOpenMsg(false); setOpenNew(false); }}
+        className={cn("relative", ICON_BTN)}
+        aria-label="الإشعارات"
+      >
+        <Bell size={18} />
+        {unreadNotif > 0 && (
+          <span className="notif-badge" style={{ background: "#ff7a3d" }}>{unreadNotif}</span>
+        )}
+      </button>
+      {openNotif && (
+        <div
+          className="absolute left-0 top-full mt-2 w-80 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-[#1e3a5f] shadow-xl z-50 overflow-hidden"
+          style={{ background: "rgba(13,31,60,0.98)", backdropFilter: "blur(16px)" }}
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e3a5f]">
+            <span className="text-white font-medium text-sm">الإشعارات</span>
+            <button onClick={markAllRead} className="text-xs text-[#22d3ee] hover:underline">تحديد الكل كمقروء</button>
+          </div>
+          <div className="max-h-72 overflow-y-auto">
+            {notifications.length === 0 && (
+              <div className="px-4 py-6 text-center text-sm text-[#8ba3c7]">لا توجد إشعارات</div>
+            )}
+            {notifications.map((n) => {
+              const cfg = NOTIF_ICONS[n.type];
+              return (
+                <button
+                  key={n.id}
+                  onClick={() => { markRead(n.id); goTo(n.href); }}
+                  className={cn("w-full flex items-start gap-3 px-4 py-3 hover:bg-[#1a3356]/60 transition-colors text-right border-b border-[#1e3a5f]/40 last:border-0", !n.read && "bg-[#1a3356]/60")}
+                >
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>
+                    <cfg.icon size={14} className={cfg.color} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium text-white">{n.title}</div>
+                    <div className="text-xs text-[#8ba3c7] mt-0.5 truncate">{n.body}</div>
+                    <div className="text-[10px] text-[#6b87ab] mt-1">{timeAgo(n.at)}</div>
+                  </div>
+                  {!n.read && <div className="w-2 h-2 rounded-full bg-[#22d3ee] flex-shrink-0 mt-1" />}
+                </button>
+              );
+            })}
+          </div>
+          <div className="px-4 py-2.5 border-t border-[#1e3a5f]">
+            <button onClick={() => goTo("/tasks")} className="text-xs text-[#22d3ee] hover:underline w-full text-center">
+              عرض جميع التنبيهات
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Profile avatar + dropdown — shared by both bars.
+  const renderProfile = () => (
+    <ProfileDropdown
+      user={user}
+      userRole={userRole}
+      loggingOut={loggingOut}
+      onLogout={handleLogout}
+      onNavigate={goTo}
+      open={openProfile}
+      onToggle={() => {
+        setOpenProfile(!openProfile);
+        setOpenNotif(false); setOpenMsg(false); setOpenNew(false);
+      }}
+    />
+  );
+
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-30 flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-[#1e3a5f]"
+      className="sticky top-0 z-30 border-b border-[#1e3a5f]"
       style={{ background: "rgba(10,22,40,0.9)", backdropFilter: "blur(16px)" }}
     >
-      {/* Mobile menu toggle */}
-      <button
-        onClick={onMobileMenuToggle}
-        className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all flex-shrink-0"
-        aria-label="القائمة"
-      >
-        <Menu size={18} />
-      </button>
+      {/* ─── Mobile bar (app-like): menu · avatar · bell | logo | search ── */}
+      <div className="relative flex items-center gap-2 px-3 py-2.5 lg:hidden">
+        {/* Search (visual right in RTL) */}
+        <button
+          onClick={() => { setMobileSearchOpen(true); setOpenSearch(true); }}
+          className={ICON_BTN}
+          aria-label="بحث"
+        >
+          <Search size={18} />
+        </button>
 
-      {/* Mobile brand (centered) — hidden when the mobile search is expanded */}
-      {!mobileSearchOpen && (
-        <Link href="/dashboard" className="lg:hidden flex min-w-0 flex-1 items-center justify-center" aria-label="Blumark24 OS">
-          <OfficialBlumarkLogo className="w-[118px]" />
+        {/* Centered brand */}
+        <Link href="/dashboard" className="flex min-w-0 flex-1 items-center justify-center" aria-label="Blumark24 OS">
+          <OfficialBlumarkLogo className="w-[112px]" />
         </Link>
-      )}
 
-      {/* ─── Search ─────────────────────────────────────────────── */}
-      <div className={cn("relative", mobileSearchOpen ? "block flex-1" : "hidden lg:block lg:max-w-md lg:flex-1")}>
-        <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] pointer-events-none" />
-        <input
-          type="text"
-          placeholder="ابحث في النظام أو اكتب أمراً..."
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpenSearch(true); }}
-          onFocus={() => setOpenSearch(true)}
-          className="input-dark pr-9 pl-12 py-2 text-sm w-full"
-        />
-        <kbd className="pointer-events-none absolute left-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[10px] font-medium text-[#8ba3c7] lg:inline-flex">
-          ⌘ K
-        </kbd>
-        {openSearch && results.length > 0 && (
-          <div
-            className="absolute top-full mt-2 w-full rounded-2xl border border-[#1e3a5f] shadow-xl overflow-hidden z-50"
-            style={{ background: "rgba(13,31,60,0.98)", backdropFilter: "blur(16px)" }}
-          >
-            {results.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => { goTo(r.href); setQuery(""); setOpenSearch(false); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#1a3356] transition-colors text-right"
-              >
-                <div className="w-7 h-7 rounded-lg bg-[#1a3356] flex items-center justify-center flex-shrink-0">
-                  <r.icon size={13} className="text-[#22d3ee]" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm text-white truncate">{r.label}</div>
-                  <div className="text-xs text-[#8ba3c7]">{r.sub}</div>
-                </div>
-                <ChevronLeft size={12} className="text-[#8ba3c7] mr-auto flex-shrink-0" />
-              </button>
-            ))}
-          </div>
-        )}
-        {openSearch && query && results.length === 0 && (
-          <div
-            className="absolute top-full mt-2 w-full rounded-2xl border border-[#1e3a5f] px-4 py-3 text-sm text-[#8ba3c7] z-50"
-            style={{ background: "rgba(13,31,60,0.98)" }}
-          >
-            لا توجد نتائج لـ &quot;{query}&quot;
+        {/* Left cluster (visual): menu · avatar · bell */}
+        {renderNotifications()}
+        {renderProfile()}
+        <button onClick={onMobileMenuToggle} className={ICON_BTN} aria-label="القائمة">
+          <Menu size={18} />
+        </button>
+
+        {/* Mobile search overlay */}
+        {mobileSearchOpen && (
+          <div className="absolute inset-0 z-20 flex items-center gap-2 px-3" style={{ background: "rgba(10,22,40,0.98)" }}>
+            <div className="relative flex-1">
+              <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] pointer-events-none" />
+              <input
+                type="text"
+                autoFocus
+                placeholder="ابحث في النظام..."
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setOpenSearch(true); }}
+                onFocus={() => setOpenSearch(true)}
+                className="input-dark pr-9 py-2 text-sm w-full"
+              />
+              {renderSearchResults()}
+            </div>
+            <button
+              onClick={() => { setMobileSearchOpen(false); setOpenSearch(false); }}
+              className={ICON_BTN}
+              aria-label="إغلاق البحث"
+            >
+              <X size={18} />
+            </button>
           </div>
         )}
       </div>
 
-      {/* ─── Actions ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1.5 flex-shrink-0">
+      {/* ─── Desktop bar: search · AI pill |…| + · bell · mail · settings · avatar ── */}
+      <div className="hidden items-center gap-2.5 px-6 py-3 lg:flex">
+        {/* Profile (visual right, beside the sidebar) */}
+        {renderProfile()}
 
-        {/* Mobile search toggle */}
-        <button
-          onClick={() => { setMobileSearchOpen((v) => !v); setOpenSearch(true); }}
-          className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition"
-          aria-label="بحث"
-        >
-          {mobileSearchOpen ? <X size={18} /> : <Search size={18} />}
+        {/* Settings */}
+        <button onClick={() => goTo("/settings")} className={ICON_BTN} title="الإعدادات" aria-label="الإعدادات">
+          <Settings size={18} />
         </button>
 
-        {/* AI assistant pill (desktop) */}
-        <Link
-          href="/ai"
-          className="hidden lg:inline-flex items-center gap-2 rounded-full border border-violet-300/25 bg-violet-500/10 px-3 py-2 text-xs font-medium text-violet-100 hover:bg-violet-500/15 transition"
-        >
-          <span className="grid h-5 w-5 place-items-center rounded-full bg-gradient-to-br from-violet-400 to-cyan-400 text-white">
-            <Bot size={12} />
-          </span>
-          مساعد AI
-        </Link>
-
-        {/* + New (desktop orb) */}
-        <div className="relative hidden lg:block">
-          <button
-            onClick={() => { setOpenNew(!openNew); setOpenNotif(false); setOpenMsg(false); }}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_8px_24px_-8px_rgba(124,58,237,0.6)] hover:opacity-90 transition"
-            aria-label="إنشاء جديد"
-          >
-            <Plus size={18} />
-          </button>
-          {openNew && (
-            <div
-              className="absolute left-0 top-full mt-2 w-48 rounded-2xl border border-[#1e3a5f] shadow-xl overflow-hidden z-50"
-              style={{ background: "rgba(13,31,60,0.98)", backdropFilter: "blur(16px)" }}
-            >
-              {QUICK_CREATE.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={() => { goTo(item.href); toast.info(`انتقلت إلى صفحة ${item.label.replace(" جديد", "")}`); }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#1a3356] transition-colors text-right"
-                >
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${item.color}20` }}>
-                    <item.icon size={13} style={{ color: item.color }} />
-                  </div>
-                  <span className="text-sm text-white">{item.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Notifications */}
+        {/* Messages */}
         <div className="relative">
           <button
-            onClick={() => { setOpenNotif(!openNotif); setOpenMsg(false); setOpenNew(false); }}
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all"
-            aria-label="الإشعارات"
-          >
-            <Bell size={18} />
-            {unreadNotif > 0 && (
-              <span className="notif-badge" style={{ background: "#ff7a3d" }}>{unreadNotif}</span>
-            )}
-          </button>
-          {openNotif && (
-            <div
-              className="absolute left-0 top-full mt-2 w-80 rounded-2xl border border-[#1e3a5f] shadow-xl z-50 overflow-hidden"
-              style={{ background: "rgba(13,31,60,0.98)", backdropFilter: "blur(16px)" }}
-            >
-              <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e3a5f]">
-                <span className="text-white font-medium text-sm">الإشعارات</span>
-                <button onClick={markAllRead} className="text-xs text-[#22d3ee] hover:underline">تحديد الكل كمقروء</button>
-              </div>
-              <div className="max-h-72 overflow-y-auto">
-                {notifications.length === 0 && (
-                  <div className="px-4 py-6 text-center text-sm text-[#8ba3c7]">لا توجد إشعارات</div>
-                )}
-                {notifications.map((n) => {
-                  const cfg = NOTIF_ICONS[n.type];
-                  return (
-                    <button
-                      key={n.id}
-                      onClick={() => { markRead(n.id); goTo(n.href); }}
-                      className={cn("w-full flex items-start gap-3 px-4 py-3 hover:bg-[#1a3356]/60 transition-colors text-right border-b border-[#1e3a5f]/40 last:border-0", !n.read && "bg-[#1a3356]/60")}
-                    >
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>
-                        <cfg.icon size={14} className={cfg.color} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium text-white">{n.title}</div>
-                        <div className="text-xs text-[#8ba3c7] mt-0.5 truncate">{n.body}</div>
-                        <div className="text-[10px] text-[#6b87ab] mt-1">{timeAgo(n.at)}</div>
-                      </div>
-                      {!n.read && <div className="w-2 h-2 rounded-full bg-[#22d3ee] flex-shrink-0 mt-1" />}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="px-4 py-2.5 border-t border-[#1e3a5f]">
-                <button onClick={() => goTo("/tasks")} className="text-xs text-[#22d3ee] hover:underline w-full text-center">
-                  عرض جميع التنبيهات
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Messages (desktop) */}
-        <div className="relative hidden lg:block">
-          <button
             onClick={() => { setOpenMsg(!openMsg); setOpenNotif(false); setOpenNew(false); }}
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all"
+            className={cn("relative", ICON_BTN)}
             aria-label="الرسائل"
           >
             <Mail size={18} />
@@ -510,29 +513,69 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
           )}
         </div>
 
-        {/* Settings (desktop) */}
-        <button
-          onClick={() => goTo("/settings")}
-          className="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all"
-          title="الإعدادات"
-          aria-label="الإعدادات"
-        >
-          <Settings size={18} />
-        </button>
+        {/* Notifications */}
+        {renderNotifications()}
 
-        {/* Profile dropdown */}
-        <ProfileDropdown
-          user={user}
-          userRole={userRole}
-          loggingOut={loggingOut}
-          onLogout={handleLogout}
-          onNavigate={goTo}
-          open={openProfile}
-          onToggle={() => {
-            setOpenProfile(!openProfile);
-            setOpenNotif(false); setOpenMsg(false); setOpenNew(false);
-          }}
-        />
+        {/* + create orb (premium purple) */}
+        <div className="relative">
+          <button
+            onClick={() => { setOpenNew(!openNew); setOpenNotif(false); setOpenMsg(false); }}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_8px_24px_-8px_rgba(124,58,237,0.6)] hover:opacity-90 transition flex-shrink-0"
+            aria-label="إنشاء جديد"
+          >
+            <Plus size={18} />
+          </button>
+          {openNew && (
+            <div
+              className="absolute left-0 top-full mt-2 w-48 rounded-2xl border border-[#1e3a5f] shadow-xl overflow-hidden z-50"
+              style={{ background: "rgba(13,31,60,0.98)", backdropFilter: "blur(16px)" }}
+            >
+              {QUICK_CREATE.map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => { goTo(item.href); toast.info(`انتقلت إلى صفحة ${item.label.replace(" جديد", "")}`); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#1a3356] transition-colors text-right"
+                >
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${item.color}20` }}>
+                    <item.icon size={13} style={{ color: item.color }} />
+                  </div>
+                  <span className="text-sm text-white">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Spacer creates the central gap */}
+        <div className="flex-1" />
+
+        {/* AI assistant pill */}
+        <Link
+          href="/ai"
+          className="inline-flex flex-shrink-0 items-center gap-2 rounded-full border border-violet-300/25 bg-violet-500/10 px-3.5 py-2.5 text-xs font-medium text-violet-100 hover:bg-violet-500/15 transition"
+        >
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-gradient-to-br from-violet-400 to-cyan-400 text-white">
+            <Bot size={12} />
+          </span>
+          مساعد AI
+        </Link>
+
+        {/* Search pill (visual left) */}
+        <div className="relative w-[240px] xl:w-[300px] flex-shrink-0">
+          <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] pointer-events-none" />
+          <input
+            type="text"
+            placeholder="ابحث في النظام أو اكتب أمراً..."
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setOpenSearch(true); }}
+            onFocus={() => setOpenSearch(true)}
+            className="input-dark pr-9 pl-12 py-2 text-sm w-full"
+          />
+          <kbd className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[10px] font-medium text-[#8ba3c7]">
+            ⌘ K
+          </kbd>
+          {renderSearchResults()}
+        </div>
       </div>
     </header>
   );
