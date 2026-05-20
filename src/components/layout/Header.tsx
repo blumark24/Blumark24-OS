@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Search, Bell, Mail, Plus, Settings,
   Users, CheckSquare, DollarSign, UserCircle,
   Clock, AlertTriangle, UserCheck, ChevronLeft, Menu,
-  LogOut, User, Building2, ShieldCheck,
+  LogOut, User, Building2, ShieldCheck, Bot, X,
 } from "lucide-react";
+import OfficialBlumarkLogo from "@/components/brand/OfficialBlumarkLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions, ROLE_LABELS } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -244,6 +246,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
   const [openNew,     setOpenNew]     = useState(false);
   const [openSearch,  setOpenSearch]  = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   // search
   const [query,   setQuery]   = useState("");
@@ -286,29 +289,39 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-30 flex items-center gap-3 px-6 py-3 border-b border-[#1e3a5f]"
+      className="sticky top-0 z-30 flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-[#1e3a5f]"
       style={{ background: "rgba(10,22,40,0.9)", backdropFilter: "blur(16px)" }}
     >
       {/* Mobile menu toggle */}
       <button
         onClick={onMobileMenuToggle}
-        className="lg:hidden p-2 rounded-xl text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356]/50 transition-all flex-shrink-0"
+        className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all flex-shrink-0"
         aria-label="القائمة"
       >
-        <Menu size={20} />
+        <Menu size={18} />
       </button>
 
+      {/* Mobile brand (centered) — hidden when the mobile search is expanded */}
+      {!mobileSearchOpen && (
+        <Link href="/dashboard" className="lg:hidden flex min-w-0 flex-1 items-center justify-center" aria-label="Blumark24 OS">
+          <OfficialBlumarkLogo className="w-[118px]" />
+        </Link>
+      )}
+
       {/* ─── Search ─────────────────────────────────────────────── */}
-      <div className="flex-1 max-w-md relative">
+      <div className={cn("relative", mobileSearchOpen ? "block flex-1" : "hidden lg:block lg:max-w-md lg:flex-1")}>
         <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] pointer-events-none" />
         <input
           type="text"
-          placeholder="بحث في العملاء والمهام والموظفين..."
+          placeholder="ابحث في النظام أو اكتب أمراً..."
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOpenSearch(true); }}
           onFocus={() => setOpenSearch(true)}
-          className="input-dark pr-9 py-2 text-sm w-full"
+          className="input-dark pr-9 pl-12 py-2 text-sm w-full"
         />
+        <kbd className="pointer-events-none absolute left-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[10px] font-medium text-[#8ba3c7] lg:inline-flex">
+          ⌘ K
+        </kbd>
         {openSearch && results.length > 0 && (
           <div
             className="absolute top-full mt-2 w-full rounded-2xl border border-[#1e3a5f] shadow-xl overflow-hidden z-50"
@@ -343,16 +356,36 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
       </div>
 
       {/* ─── Actions ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 flex-shrink-0">
 
-        {/* + New */}
-        <div className="relative">
+        {/* Mobile search toggle */}
+        <button
+          onClick={() => { setMobileSearchOpen((v) => !v); setOpenSearch(true); }}
+          className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition"
+          aria-label="بحث"
+        >
+          {mobileSearchOpen ? <X size={18} /> : <Search size={18} />}
+        </button>
+
+        {/* AI assistant pill (desktop) */}
+        <Link
+          href="/ai"
+          className="hidden lg:inline-flex items-center gap-2 rounded-full border border-violet-300/25 bg-violet-500/10 px-3 py-2 text-xs font-medium text-violet-100 hover:bg-violet-500/15 transition"
+        >
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-gradient-to-br from-violet-400 to-cyan-400 text-white">
+            <Bot size={12} />
+          </span>
+          مساعد AI
+        </Link>
+
+        {/* + New (desktop orb) */}
+        <div className="relative hidden lg:block">
           <button
             onClick={() => { setOpenNew(!openNew); setOpenNotif(false); setOpenMsg(false); }}
-            className="btn-primary flex items-center gap-1.5 py-2 px-3 text-sm"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_8px_24px_-8px_rgba(124,58,237,0.6)] hover:opacity-90 transition"
+            aria-label="إنشاء جديد"
           >
-            <Plus size={15} />
-            <span>جديد</span>
+            <Plus size={18} />
           </button>
           {openNew && (
             <div
@@ -379,7 +412,8 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
         <div className="relative">
           <button
             onClick={() => { setOpenNotif(!openNotif); setOpenMsg(false); setOpenNew(false); }}
-            className="relative p-2 rounded-xl text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356]/50 transition-all"
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all"
+            aria-label="الإشعارات"
           >
             <Bell size={18} />
             {unreadNotif > 0 && (
@@ -429,11 +463,12 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
           )}
         </div>
 
-        {/* Messages */}
-        <div className="relative">
+        {/* Messages (desktop) */}
+        <div className="relative hidden lg:block">
           <button
             onClick={() => { setOpenMsg(!openMsg); setOpenNotif(false); setOpenNew(false); }}
-            className="relative p-2 rounded-xl text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356]/50 transition-all"
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all"
+            aria-label="الرسائل"
           >
             <Mail size={18} />
             {unreadMsg > 0 && (
@@ -475,11 +510,12 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
           )}
         </div>
 
-        {/* Settings */}
+        {/* Settings (desktop) */}
         <button
           onClick={() => goTo("/settings")}
-          className="p-2 rounded-xl text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356]/50 transition-all"
+          className="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all"
           title="الإعدادات"
+          aria-label="الإعدادات"
         >
           <Settings size={18} />
         </button>
