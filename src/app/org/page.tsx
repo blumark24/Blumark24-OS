@@ -154,7 +154,7 @@ function TreeNode({ node, depth = 0 }: { node: OrgNode; depth?: number }) {
         <>
           <div className="h-5 w-px bg-[#2c4d73] mx-auto my-1" />
           <ul className={`grid gap-2 sm:gap-3 w-full ${depth < 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
-            {node.children!.map((child) => (
+            {node.children?.map((child) => (
               <TreeNode key={child.id} node={child} depth={depth + 1} />
             ))}
           </ul>
@@ -167,31 +167,34 @@ function TreeNode({ node, depth = 0 }: { node: OrgNode; depth?: number }) {
 export default function OrgPage() {
   const { data: employees, loading } = useEmployees();
 
-  const employeesByDepartment = React.useMemo(() => {
+  const { employeesByDepartment, activeEmployees } = React.useMemo(() => {
     const map = new Map<string, { total: number; active: number }>();
+    let activeCount = 0;
+
     employees.forEach((emp) => {
       const dept = (emp.department || "غير محدد").trim() || "غير محدد";
+      const isActive = emp.status === "نشط";
       const current = map.get(dept) ?? { total: 0, active: 0 };
-      const next = {
+
+      if (isActive) activeCount += 1;
+
+      map.set(dept, {
         total: current.total + 1,
-        active: current.active + (emp.status === "نشط" ? 1 : 0),
-      };
-      map.set(dept, next);
+        active: current.active + (isActive ? 1 : 0),
+      });
     });
-    return Array.from(map.entries())
+
+    const sortedDepartments = Array.from(map.entries())
       .map(([department, counts]) => ({ department, ...counts }))
       .sort((a, b) => b.total - a.total);
-  }, [employees]);
 
-  const activeEmployees = React.useMemo(
-    () => employees.filter((emp) => emp.status === "نشط").length,
-    [employees],
-  );
+    return { employeesByDepartment: sortedDepartments, activeEmployees: activeCount };
+  }, [employees]);
 
   return (
     <PageGuard permission="view_dashboard">
       <DashboardLayout>
-        <main className="space-y-5 sm:space-y-6 overflow-x-hidden" dir="rtl">
+        <div className="space-y-5 sm:space-y-6" dir="rtl">
           <section className="rounded-2xl border border-[#1f4168] bg-[linear-gradient(135deg,rgba(10,22,40,0.96),rgba(12,31,54,0.74))] p-4 sm:p-6 shadow-[0_22px_60px_-40px_rgba(34,211,238,0.4)]">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
@@ -208,14 +211,14 @@ export default function OrgPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-[#1f4168] bg-[#0c1f36]/80 p-4 sm:p-5 overflow-x-hidden">
+          <section className="rounded-2xl border border-[#1f4168] bg-[#0c1f36]/80 p-4 sm:p-5 overflow-x-auto">
             <h2 className="text-sm sm:text-base text-white font-semibold mb-3">التسلسل الهرمي</h2>
             {ORG_PLACEHOLDER_TREE.length === 0 ? (
               <div className="rounded-xl border border-dashed border-[#2a4c75] bg-[#0a1628]/50 p-6 text-center text-[#8ba3c7] text-sm">
                 لا توجد بيانات هيكل تنظيمي متاحة حالياً.
               </div>
             ) : (
-              <ul className="space-y-1 w-full">
+              <ul className="space-y-1 w-full min-w-0">
                 {ORG_PLACEHOLDER_TREE.map((node) => (
                   <TreeNode key={node.id} node={node} />
                 ))}
@@ -226,11 +229,17 @@ export default function OrgPage() {
           <section className="rounded-2xl border border-[#1f4168] bg-[#0c1f36]/80 p-4 sm:p-5">
             <h2 className="text-sm sm:text-base text-white font-semibold mb-3">توزيع الموظفين</h2>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
-              <StatCard label="إجمالي الموظفين" value={employees.length} />
-              <StatCard label="الموظفون النشطون" value={activeEmployees} />
-              <StatCard label="عدد الأقسام الحالية" value={employeesByDepartment.length} />
-            </div>
+            {loading ? (
+              <div className="rounded-xl border border-dashed border-[#2a4c75] bg-[#0a1628]/50 p-4 text-center text-sm text-[#8ba3c7] mb-4">
+                جارٍ التحميل...
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                <StatCard label="إجمالي الموظفين" value={employees.length} />
+                <StatCard label="الموظفون النشطون" value={activeEmployees} />
+                <StatCard label="عدد الأقسام الحالية" value={employeesByDepartment.length} />
+              </div>
+            )}
 
             <h3 className="text-xs sm:text-sm text-[#8ba3c7] mb-2">عدد الموظفين حسب الإدارة الحالية</h3>
             {loading ? (
@@ -263,7 +272,7 @@ export default function OrgPage() {
               هذه نسخة عرض أولية لا تغيّر قاعدة البيانات ولا تؤثر على الموظفين الحاليين.
             </p>
           </section>
-        </main>
+        </div>
       </DashboardLayout>
     </PageGuard>
   );
