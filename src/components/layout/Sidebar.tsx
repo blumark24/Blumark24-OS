@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, CheckSquare, UserCircle,
   DollarSign, Map, Bot, BarChart3, Settings, LogOut,
-  ChevronLeft, Network, Zap, X, ArrowLeft,
+  ChevronLeft, Network, Zap, Activity, X, ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/strategy",   label: "الاستراتيجية",      icon: Map,             permission: "manage_reports"    },
   { href: "/org",        label: "الهيكل الإداري",    icon: Network,         permission: "view_dashboard"    },
   { href: "/automation", label: "مركز الأتمتة",      icon: Zap,             permission: "manage_automations"},
+  { href: "/attack",     label: "وكالة الهجوم",       icon: Activity,        permission: "manage_clients"    },
   { href: "/ai",         label: "المساعد الذكي",     icon: Bot,             permission: "view_dashboard"    },
   { href: "/reports",    label: "التقارير",           icon: BarChart3,       permission: "manage_reports"    },
   { href: "/settings",   label: "الإعدادات",         icon: Settings,        permission: "manage_settings"   },

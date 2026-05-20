@@ -13,6 +13,7 @@ const PROTECTED_PATHS = [
   "/settings",
   "/profile",
   "/admin-recovery",
+  "/attack",
 ];
 
 function isProtectedPath(pathname: string) {
@@ -79,5 +80,6 @@ export const config = {
     "/settings/:path*",
     "/profile/:path*",
     "/admin-recovery/:path*",
+    "/attack/:path*",
   ],
 };
