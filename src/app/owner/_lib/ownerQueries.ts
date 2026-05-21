@@ -31,6 +31,16 @@ export interface DbOrganization {
   created_at: string;
 }
 
+export interface DbSubscription {
+  id: string;
+  organization_id: string;
+  plan_id: string;
+  status: "active" | "trialing" | "past_due" | "cancelled" | "suspended";
+  billing_cycle: "monthly" | "annual" | "internal";
+  started_at: string;
+  ends_at: string | null;
+}
+
 // ─── Normalized display types ────────────────────────────────────────────────
 
 export interface DisplayOrg {
@@ -53,12 +63,22 @@ export interface DisplayPlan {
   limits: string[];
 }
 
+export interface DisplaySubscription {
+  id: string;
+  statusAr: string;
+  isActive: boolean;
+  billingCycleAr: string;
+  planName: string;
+  startedAt: string;
+}
+
 export interface OwnerDashboardData {
   organizations: DisplayOrg[];
   plans: DisplayPlan[];
   activeOrgCount: number;
   internalOrg: DisplayOrg | null;
   internalPlanLimits: Record<string, number>;
+  internalSubscription: DisplaySubscription | null;
 }
 
 // ─── Static metadata maps (plan config, not from DB) ────────────────────────
@@ -154,10 +174,44 @@ function normalizePlan(plan: DbPlan, allLimits: DbPlanLimit[]): DisplayPlan {
   };
 }
 
+const SUB_STATUS_AR: Record<DbSubscription["status"], string> = {
+  active:    "نشطة",
+  trialing:  "تجريبية",
+  past_due:  "متأخرة",
+  cancelled: "ملغاة",
+  suspended: "معلقة",
+};
+
+const SUB_BILLING_AR: Record<DbSubscription["billing_cycle"], string> = {
+  monthly: "شهري",
+  annual:  "سنوي",
+  internal: "داخلي",
+};
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}/${m}/${day}`;
+}
+
+function normalizeSubscription(sub: DbSubscription, plans: DbPlan[]): DisplaySubscription {
+  const plan = plans.find((p) => p.id === sub.plan_id);
+  return {
+    id: sub.id,
+    statusAr: SUB_STATUS_AR[sub.status] ?? sub.status,
+    isActive: sub.status === "active",
+    billingCycleAr: SUB_BILLING_AR[sub.billing_cycle] ?? sub.billing_cycle,
+    planName: plan?.name ?? "—",
+    startedAt: formatDate(sub.started_at),
+  };
+}
+
 // ─── Main fetch ──────────────────────────────────────────────────────────────
 
 export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
-  const [orgsRes, plansRes, limitsRes] = await Promise.all([
+  const [orgsRes, plansRes, limitsRes, subsRes] = await Promise.all([
     supabase
       .from("organizations")
       .select("id, name, slug, owner_email, plan_id, status, notes, created_at")
@@ -168,15 +222,20 @@ export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
       .eq("is_active", true)
       .order("sort_order"),
     supabase.from("plan_limits").select("plan_id, limit_key, limit_value"),
+    supabase
+      .from("subscriptions")
+      .select("id, organization_id, plan_id, status, billing_cycle, started_at, ends_at"),
   ]);
 
-  if (orgsRes.error) console.error("[owner] organizations fetch error:", orgsRes.error.message);
+  if (orgsRes.error)  console.error("[owner] organizations fetch error:", orgsRes.error.message);
   if (plansRes.error) console.error("[owner] plans fetch error:", plansRes.error.message);
   if (limitsRes.error) console.error("[owner] plan_limits fetch error:", limitsRes.error.message);
+  if (subsRes.error)  console.error("[owner] subscriptions fetch error:", subsRes.error.message);
 
-  const rawOrgs = (orgsRes.data ?? []) as DbOrganization[];
+  const rawOrgs  = (orgsRes.data  ?? []) as DbOrganization[];
   const rawPlans = (plansRes.data ?? []) as DbPlan[];
   const rawLimits = (limitsRes.data ?? []) as DbPlanLimit[];
+  const rawSubs  = (subsRes.data  ?? []) as DbSubscription[];
 
   const organizations = rawOrgs.map((o) => normalizeOrg(o, rawPlans));
   const plans = rawPlans.map((p) => normalizePlan(p, rawLimits));
@@ -193,7 +252,21 @@ export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
       });
   }
 
+  const internalSubRaw = internalRaw
+    ? rawSubs.find((s) => s.organization_id === internalRaw.id) ?? null
+    : null;
+  const internalSubscription = internalSubRaw
+    ? normalizeSubscription(internalSubRaw, rawPlans)
+    : null;
+
   const activeOrgCount = rawOrgs.filter((o) => o.status === "active").length;
 
-  return { organizations, plans, activeOrgCount, internalOrg, internalPlanLimits };
+  return {
+    organizations,
+    plans,
+    activeOrgCount,
+    internalOrg,
+    internalPlanLimits,
+    internalSubscription,
+  };
 }

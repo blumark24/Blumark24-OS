@@ -52,6 +52,7 @@ export default function OwnerPageContent() {
           <PlanLimitsPreview
             internalOrg={data?.internalOrg}
             internalPlanLimits={data?.internalPlanLimits}
+            internalSubscription={data?.internalSubscription}
             loading={loading}
           />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

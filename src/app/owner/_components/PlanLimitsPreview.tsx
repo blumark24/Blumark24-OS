@@ -9,9 +9,10 @@ import {
   Sparkles,
   MessageCircle,
   ArrowLeftRight,
+  CreditCard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { DisplayOrg } from "../_lib/ownerQueries";
+import type { DisplayOrg, DisplaySubscription } from "../_lib/ownerQueries";
 
 const METRIC_ICONS: LucideIcon[] = [
   Users,
@@ -46,8 +47,16 @@ function Skeleton() {
         <div className="h-6 w-40 rounded bg-white/[0.06]" />
         <div className="h-6 w-20 rounded-full bg-white/[0.06]" />
       </div>
-      <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 mb-4">
+      <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 mb-3">
         <div className="h-4 w-32 rounded bg-white/[0.06] mr-auto" />
+      </div>
+      <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 mb-4">
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-16 rounded bg-white/[0.06]" />
+          <div className="h-5 w-12 rounded-full bg-white/[0.06]" />
+          <div className="h-5 w-14 rounded-full bg-white/[0.06]" />
+          <div className="h-3 w-20 rounded bg-white/[0.06] mr-auto" />
+        </div>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -64,17 +73,24 @@ function Skeleton() {
 interface Props {
   internalOrg?: DisplayOrg | null;
   internalPlanLimits?: Record<string, number>;
+  internalSubscription?: DisplaySubscription | null;
   loading?: boolean;
 }
 
-export default function PlanLimitsPreview({ internalOrg, internalPlanLimits, loading }: Props) {
+export default function PlanLimitsPreview({
+  internalOrg,
+  internalPlanLimits,
+  internalSubscription,
+  loading,
+}: Props) {
   if (loading) return <Skeleton />;
 
   const orgName = internalOrg?.name ?? "Blumark24";
   const planName = internalOrg?.planName ?? "—";
-  const metrics = internalPlanLimits && Object.keys(internalPlanLimits).length > 0
-    ? buildMetrics(internalPlanLimits)
-    : null;
+  const metrics =
+    internalPlanLimits && Object.keys(internalPlanLimits).length > 0
+      ? buildMetrics(internalPlanLimits)
+      : null;
 
   return (
     <section className="glass-card p-5 sm:p-6 border border-[#a855f7]/20">
@@ -88,7 +104,8 @@ export default function PlanLimitsPreview({ internalOrg, internalPlanLimits, loa
         </span>
       </div>
 
-      <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 mb-4">
+      {/* Org row */}
+      <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 mb-3">
         <div className="flex items-center justify-between text-[13px]">
           <span className="text-[#8ba3c7]">المنشأة</span>
           <div className="flex items-center gap-2">
@@ -101,6 +118,32 @@ export default function PlanLimitsPreview({ internalOrg, internalPlanLimits, loa
           </div>
         </div>
       </div>
+
+      {/* Subscription status strip */}
+      {internalSubscription && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 mb-4">
+          <CreditCard size={13} className="text-[#8ba3c7] flex-shrink-0" />
+          <span className="text-[12px] text-[#8ba3c7]">الاشتراك:</span>
+          <span
+            className={
+              internalSubscription.isActive
+                ? "rounded-full bg-[#10b981]/15 border border-[#10b981]/30 px-2.5 py-0.5 text-[11px] text-[#34d399]"
+                : "rounded-full bg-[#f59e0b]/15 border border-[#f59e0b]/30 px-2.5 py-0.5 text-[11px] text-[#fbbf24]"
+            }
+          >
+            {internalSubscription.statusAr}
+          </span>
+          <span className="rounded-full bg-[#22d3ee]/12 border border-[#22d3ee]/25 px-2.5 py-0.5 text-[11px] text-[#22d3ee]">
+            {internalSubscription.billingCycleAr}
+          </span>
+          <span className="rounded-full bg-[#a855f7]/12 border border-[#a855f7]/25 px-2.5 py-0.5 text-[11px] text-[#c084fc]">
+            {internalSubscription.planName}
+          </span>
+          <span className="text-[11px] text-[#8ba3c7] mr-auto tabular-nums">
+            منذ {internalSubscription.startedAt}
+          </span>
+        </div>
+      )}
 
       {metrics ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
