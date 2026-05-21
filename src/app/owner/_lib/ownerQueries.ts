@@ -120,6 +120,7 @@ export interface DisplayOrgFull {
   subStatusAr: string;
   subIsActive: boolean;
   subBillingCycleAr: string;
+  hasClientLogin: boolean;
   createdAt: string;
 }
 
@@ -405,7 +406,7 @@ export async function fetchPlansPage(): Promise<DisplayPlanFull[]> {
 // ─── Organizations page fetch ────────────────────────────────────────────────
 
 export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
-  const [orgsRes, plansRes, subsRes] = await Promise.all([
+  const [orgsRes, plansRes, subsRes, linksRes] = await Promise.all([
     supabase
       .from("organizations")
       .select("id, name, slug, owner_email, plan_id, status, notes, created_at")
@@ -417,15 +418,28 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
     supabase
       .from("subscriptions")
       .select("organization_id, plan_id, status, billing_cycle"),
+    // Linked client logins (profiles.organization_id). Wrapped so a project
+    // that has not yet applied migration 010 (missing column) degrades to
+    // "no links" instead of failing the whole organizations list.
+    supabase
+      .from("profiles")
+      .select("organization_id")
+      .not("organization_id", "is", null),
   ]);
 
   if (orgsRes.error)  console.error("[owner] orgs page fetch error:", orgsRes.error.message);
   if (plansRes.error) console.error("[owner] plans page fetch error:", plansRes.error.message);
   if (subsRes.error)  console.error("[owner] subs page fetch error:", subsRes.error.message);
+  if (linksRes.error) console.warn("[owner] client-login links fetch skipped:", linksRes.error.message);
 
   const rawOrgs  = (orgsRes.data  ?? []) as DbOrganization[];
   const rawPlans = (plansRes.data ?? []) as Pick<DbPlan, "id" | "name" | "slug">[];
   const rawSubs  = (subsRes.data  ?? []) as Pick<DbSubscription, "organization_id" | "plan_id" | "status" | "billing_cycle">[];
+  const linkedOrgIds = new Set(
+    ((linksRes.data ?? []) as { organization_id: string | null }[])
+      .map((r) => r.organization_id)
+      .filter((id): id is string => !!id),
+  );
 
   return rawOrgs.map((org) => {
     const plan = rawPlans.find((p) => p.id === org.plan_id);
@@ -445,6 +459,7 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
       subStatusAr: sub ? (SUB_STATUS_AR[sub.status] ?? sub.status) : "—",
       subIsActive: sub?.status === "active",
       subBillingCycleAr: sub ? (SUB_BILLING_AR[sub.billing_cycle] ?? sub.billing_cycle) : "—",
+      hasClientLogin: linkedOrgIds.has(org.id),
       createdAt: formatDate(org.created_at),
     };
   });
@@ -690,4 +705,59 @@ export async function activateSubscription(input: ActivateSubscriptionInput): Pr
   }
 
   return { ok: true, id: newId };
+}
+
+// ─── Create client login (owner-only mutation, server-side) ───────────────────
+// Calls the service-role server route /api/owner/create-client-login. The
+// service-role key never reaches the browser — this only forwards the owner's
+// access token so the server can verify the caller is the platform owner.
+
+export interface CreateClientLoginInput {
+  organizationId: string;
+  password: string;
+}
+
+export interface CreateClientLoginResult {
+  ok: boolean;
+  id?: string;
+  error?: string;
+}
+
+export async function createClientLogin(
+  input: CreateClientLoginInput,
+): Promise<CreateClientLoginResult> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) {
+    return { ok: false, error: "انتهت الجلسة — سجّل الدخول مجدداً" };
+  }
+
+  let resp: Response;
+  try {
+    resp = await fetch("/api/owner/create-client-login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        organizationId: input.organizationId,
+        password: input.password,
+      }),
+    });
+  } catch {
+    return { ok: false, error: "تعذّر الاتصال بالخادم — حاول مجدداً" };
+  }
+
+  let payload: { success?: boolean; id?: string; error?: string } = {};
+  try {
+    payload = (await resp.json()) as typeof payload;
+  } catch {
+    /* non-JSON response */
+  }
+
+  if (!resp.ok || !payload.success) {
+    return { ok: false, error: payload.error ?? "تعذّر إنشاء حساب الدخول" };
+  }
+  return { ok: true, id: payload.id };
 }

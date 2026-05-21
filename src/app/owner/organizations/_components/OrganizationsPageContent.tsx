@@ -9,12 +9,15 @@ import {
   Layers,
   RefreshCw,
   Power,
+  KeyRound,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { fetchOrganizationsPage, type DisplayOrgFull } from "../../_lib/ownerQueries";
 import CreateOrganizationModal from "./CreateOrganizationModal";
 import ActivateSubscriptionModal from "./ActivateSubscriptionModal";
+import CreateClientLoginModal from "./CreateClientLoginModal";
 
 // ─── Badge helpers ────────────────────────────────────────────────────────────
 
@@ -89,10 +92,18 @@ function CardSkeleton() {
 }
 
 // ─── Row actions ───────────────────────────────────────────────────────────────
-// Only "تفعيل الاشتراك" is enabled, and only for organizations that have no
-// subscription yet. تعديل / تغيير الباقة / تعليق remain disabled in this phase.
+// Enabled: "تفعيل الاشتراك" (orgs without a subscription) and "إنشاء حساب دخول"
+// (orgs that have an owner_email and are not yet linked to a login). Once linked
+// the login button becomes a disabled "تم الربط". تعديل / تغيير الباقة / تعليق
+// remain disabled in this phase.
 
-function RowActions({ org, onActivate }: { org: DisplayOrgFull; onActivate: (org: DisplayOrgFull) => void }) {
+interface RowActionsProps {
+  org: DisplayOrgFull;
+  onActivate: (org: DisplayOrgFull) => void;
+  onCreateClientLogin: (org: DisplayOrgFull) => void;
+}
+
+function RowActions({ org, onActivate, onCreateClientLogin }: RowActionsProps) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {!org.hasSubscription && (
@@ -104,6 +115,22 @@ function RowActions({ org, onActivate }: { org: DisplayOrgFull; onActivate: (org
           <Power size={11} /> تفعيل الاشتراك
         </button>
       )}
+      {org.hasClientLogin ? (
+        <span
+          title="تم إنشاء حساب الدخول وربطه"
+          className="inline-flex items-center gap-1 rounded-lg border border-[#10b981]/25 bg-[#10b981]/10 px-2.5 py-1 text-[11px] text-[#34d399]/70 cursor-default"
+        >
+          <CheckCircle2 size={11} /> تم الربط
+        </span>
+      ) : org.ownerEmail ? (
+        <button
+          type="button"
+          onClick={() => onCreateClientLogin(org)}
+          className="inline-flex items-center gap-1 rounded-lg border border-[#1e6fd9]/40 bg-[#1e6fd9]/15 px-2.5 py-1 text-[11px] text-[#5b9bf0] hover:bg-[#1e6fd9]/25 hover:border-[#1e6fd9]/60 transition-colors"
+        >
+          <KeyRound size={11} /> إنشاء حساب دخول
+        </button>
+      ) : null}
       <button
         disabled
         title="قريباً"
@@ -131,7 +158,7 @@ function RowActions({ org, onActivate }: { org: DisplayOrgFull; onActivate: (org
 
 // ─── Mobile card ──────────────────────────────────────────────────────────────
 
-function OrgCard({ org, onActivate }: { org: DisplayOrgFull; onActivate: (org: DisplayOrgFull) => void }) {
+function OrgCard({ org, onActivate, onCreateClientLogin }: RowActionsProps) {
   return (
     <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -187,7 +214,7 @@ function OrgCard({ org, onActivate }: { org: DisplayOrgFull; onActivate: (org: D
         )}
       </div>
 
-      <RowActions org={org} onActivate={onActivate} />
+      <RowActions org={org} onActivate={onActivate} onCreateClientLogin={onCreateClientLogin} />
     </div>
   );
 }
@@ -201,6 +228,7 @@ export default function OrganizationsPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [activateOrg, setActivateOrg] = useState<DisplayOrgFull | null>(null);
+  const [clientLoginOrg, setClientLoginOrg] = useState<DisplayOrgFull | null>(null);
 
   const loadOrgs = useCallback(async () => {
     try {
@@ -225,6 +253,11 @@ export default function OrganizationsPageContent() {
 
   const handleActivated = useCallback(() => {
     toast.success("تم تفعيل الاشتراك بنجاح");
+    void loadOrgs();
+  }, [toast, loadOrgs]);
+
+  const handleClientLoginCreated = useCallback(() => {
+    toast.success("تم إنشاء حساب الدخول وربطه بالمنشأة");
     void loadOrgs();
   }, [toast, loadOrgs]);
 
@@ -381,7 +414,7 @@ export default function OrganizationsPageContent() {
                         </td>
                         {/* Actions */}
                         <td className="py-3.5">
-                          <RowActions org={org} onActivate={setActivateOrg} />
+                          <RowActions org={org} onActivate={setActivateOrg} onCreateClientLogin={setClientLoginOrg} />
                         </td>
                       </tr>
                     ))
@@ -401,7 +434,7 @@ export default function OrganizationsPageContent() {
               {loading ? (
                 <CardSkeleton />
               ) : orgs && orgs.length > 0 ? (
-                orgs.map((org) => <OrgCard key={org.id} org={org} onActivate={setActivateOrg} />)
+                orgs.map((org) => <OrgCard key={org.id} org={org} onActivate={setActivateOrg} onCreateClientLogin={setClientLoginOrg} />)
               ) : (
                 <p className="py-8 text-center text-[13px] text-[#8ba3c7]">
                   لا توجد منشآت بعد
@@ -422,6 +455,12 @@ export default function OrganizationsPageContent() {
         org={activateOrg}
         onClose={() => setActivateOrg(null)}
         onActivated={handleActivated}
+      />
+
+      <CreateClientLoginModal
+        org={clientLoginOrg}
+        onClose={() => setClientLoginOrg(null)}
+        onCreated={handleClientLoginCreated}
       />
     </div>
   );
