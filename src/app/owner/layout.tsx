@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import OwnerSidebar from "./_components/OwnerSidebar";
 import OwnerHeader from "./_components/OwnerHeader";
 import OwnerGuard from "./_components/OwnerGuard";
@@ -11,7 +12,14 @@ import OwnerGuard from "./_components/OwnerGuard";
 // navigation. The shared mobile-sidebar state lives here so the header's menu
 // button can drive the sidebar overlay.
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // The owner login route is the one public page within the owner area: it has
+  // no guard (it's how you authenticate) and no shell chrome.
+  if (pathname === "/owner/login") {
+    return <>{children}</>;
+  }
 
   return (
     <OwnerGuard>

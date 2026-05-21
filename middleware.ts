@@ -14,7 +14,6 @@ const PROTECTED_PATHS = [
   "/profile",
   "/admin-recovery",
   "/attack",
-  "/owner",
 ];
 
 function isProtectedPath(pathname: string) {
@@ -50,6 +49,24 @@ export function middleware(request: NextRequest) {
 
   // Allow /auth/* sub-paths (e.g. /auth/reset-password) through regardless of auth state
   if (pathname.startsWith("/auth/")) {
+    return NextResponse.next();
+  }
+
+  // ── Owner Command Center: independent auth flow ────────────────────────────
+  // The owner area has its own login route (/owner/login). Unauthenticated
+  // visitors to /owner are sent there — never to the client /auth page. The
+  // owner-identity check itself runs client-side in OwnerGuard.
+  if (pathname === "/owner/login") {
+    if (isAuthenticated) {
+      return NextResponse.redirect(new URL("/owner", request.url));
+    }
+    return NextResponse.next();
+  }
+
+  if (pathname === "/owner" || pathname.startsWith("/owner/")) {
+    if (!isAuthenticated) {
+      return NextResponse.redirect(new URL("/owner/login", request.url));
+    }
     return NextResponse.next();
   }
 

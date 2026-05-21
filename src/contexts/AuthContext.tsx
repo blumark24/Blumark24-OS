@@ -266,6 +266,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading) return;
 
+    // The Owner Command Center runs its own auth flow (OwnerGuard + /owner/login)
+    // and must never be redirected to the client /auth page. Leave it untouched.
+    if (pathname === "/owner" || pathname.startsWith("/owner/")) return;
+
     const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
     const isAuthPg = pathname === "/auth" || pathname.startsWith("/auth/");
 
