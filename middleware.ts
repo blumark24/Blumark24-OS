@@ -53,6 +53,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Owner login page is always accessible — it IS the auth boundary for /owner
+  if (pathname === "/owner/login") {
+    return NextResponse.next();
+  }
+
+  // /owner and all its sub-paths redirect to the dedicated owner login, not /auth
+  if (pathname === "/owner" || pathname.startsWith("/owner/")) {
+    if (!isAuthenticated) {
+      return NextResponse.redirect(new URL("/owner/login", request.url));
+    }
+    return NextResponse.next();
+  }
+
   if (!isProtectedPath(pathname)) {
     return NextResponse.next();
   }
