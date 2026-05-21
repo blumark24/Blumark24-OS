@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Building2,
   Plus,
@@ -10,7 +10,9 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/contexts/ToastContext";
 import { fetchOrganizationsPage, type DisplayOrgFull } from "../../_lib/ownerQueries";
+import CreateOrganizationModal from "./CreateOrganizationModal";
 
 // ─── Badge helpers ────────────────────────────────────────────────────────────
 
@@ -180,16 +182,32 @@ function OrgCard({ org }: { org: DisplayOrgFull }) {
 // ─── Main page component ──────────────────────────────────────────────────────
 
 export default function OrganizationsPageContent() {
+  const toast = useToast();
   const [orgs, setOrgs] = useState<DisplayOrgFull[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const loadOrgs = useCallback(async () => {
+    try {
+      const data = await fetchOrganizationsPage();
+      setOrgs(data);
+      setError(null);
+    } catch {
+      setError("فشل تحميل بيانات المنشآت");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchOrganizationsPage()
-      .then(setOrgs)
-      .catch(() => setError("فشل تحميل بيانات المنشآت"))
-      .finally(() => setLoading(false));
-  }, []);
+    void loadOrgs();
+  }, [loadOrgs]);
+
+  const handleCreated = useCallback(() => {
+    toast.success("تم إنشاء المنشأة بنجاح");
+    void loadOrgs();
+  }, [toast, loadOrgs]);
 
   const activeCount  = orgs?.filter((o) => o.statusRaw === "active").length ?? 0;
   const internalCount = orgs?.filter((o) => o.isInternal).length ?? 0;
@@ -210,9 +228,9 @@ export default function OrganizationsPageContent() {
           </p>
         </div>
         <button
-          disabled
-          title="قريباً"
-          className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/[0.08] px-4 py-2.5 text-[13px] font-medium text-[#22d3ee]/40 cursor-not-allowed flex-shrink-0"
+          type="button"
+          onClick={() => setCreateOpen(true)}
+          className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/15 px-4 py-2.5 text-[13px] font-medium text-[#22d3ee] hover:bg-[#22d3ee]/25 hover:border-[#22d3ee]/60 transition-colors flex-shrink-0"
         >
           <Plus size={15} />
           إنشاء منشأة
@@ -374,6 +392,12 @@ export default function OrganizationsPageContent() {
           </>
         )}
       </div>
+
+      <CreateOrganizationModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={handleCreated}
+      />
     </div>
   );
 }
