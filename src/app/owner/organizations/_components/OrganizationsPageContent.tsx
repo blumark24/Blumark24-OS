@@ -8,11 +8,13 @@ import {
   PauseCircle,
   Layers,
   RefreshCw,
+  Power,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { fetchOrganizationsPage, type DisplayOrgFull } from "../../_lib/ownerQueries";
 import CreateOrganizationModal from "./CreateOrganizationModal";
+import ActivateSubscriptionModal from "./ActivateSubscriptionModal";
 
 // ─── Badge helpers ────────────────────────────────────────────────────────────
 
@@ -86,11 +88,22 @@ function CardSkeleton() {
   );
 }
 
-// ─── Row actions (all disabled — read-only phase) ─────────────────────────────
+// ─── Row actions ───────────────────────────────────────────────────────────────
+// Only "تفعيل الاشتراك" is enabled, and only for organizations that have no
+// subscription yet. تعديل / تغيير الباقة / تعليق remain disabled in this phase.
 
-function RowActions() {
+function RowActions({ org, onActivate }: { org: DisplayOrgFull; onActivate: (org: DisplayOrgFull) => void }) {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
+      {!org.hasSubscription && (
+        <button
+          type="button"
+          onClick={() => onActivate(org)}
+          className="inline-flex items-center gap-1 rounded-lg border border-[#10b981]/40 bg-[#10b981]/15 px-2.5 py-1 text-[11px] text-[#34d399] hover:bg-[#10b981]/25 hover:border-[#10b981]/60 transition-colors"
+        >
+          <Power size={11} /> تفعيل الاشتراك
+        </button>
+      )}
       <button
         disabled
         title="قريباً"
@@ -118,7 +131,7 @@ function RowActions() {
 
 // ─── Mobile card ──────────────────────────────────────────────────────────────
 
-function OrgCard({ org }: { org: DisplayOrgFull }) {
+function OrgCard({ org, onActivate }: { org: DisplayOrgFull; onActivate: (org: DisplayOrgFull) => void }) {
   return (
     <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -174,7 +187,7 @@ function OrgCard({ org }: { org: DisplayOrgFull }) {
         )}
       </div>
 
-      <RowActions />
+      <RowActions org={org} onActivate={onActivate} />
     </div>
   );
 }
@@ -187,6 +200,7 @@ export default function OrganizationsPageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [activateOrg, setActivateOrg] = useState<DisplayOrgFull | null>(null);
 
   const loadOrgs = useCallback(async () => {
     try {
@@ -206,6 +220,11 @@ export default function OrganizationsPageContent() {
 
   const handleCreated = useCallback(() => {
     toast.success("تم إنشاء المنشأة بنجاح");
+    void loadOrgs();
+  }, [toast, loadOrgs]);
+
+  const handleActivated = useCallback(() => {
+    toast.success("تم تفعيل الاشتراك بنجاح");
     void loadOrgs();
   }, [toast, loadOrgs]);
 
@@ -362,7 +381,7 @@ export default function OrganizationsPageContent() {
                         </td>
                         {/* Actions */}
                         <td className="py-3.5">
-                          <RowActions />
+                          <RowActions org={org} onActivate={setActivateOrg} />
                         </td>
                       </tr>
                     ))
@@ -382,7 +401,7 @@ export default function OrganizationsPageContent() {
               {loading ? (
                 <CardSkeleton />
               ) : orgs && orgs.length > 0 ? (
-                orgs.map((org) => <OrgCard key={org.id} org={org} />)
+                orgs.map((org) => <OrgCard key={org.id} org={org} onActivate={setActivateOrg} />)
               ) : (
                 <p className="py-8 text-center text-[13px] text-[#8ba3c7]">
                   لا توجد منشآت بعد
@@ -397,6 +416,12 @@ export default function OrganizationsPageContent() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={handleCreated}
+      />
+
+      <ActivateSubscriptionModal
+        org={activateOrg}
+        onClose={() => setActivateOrg(null)}
+        onActivated={handleActivated}
       />
     </div>
   );
