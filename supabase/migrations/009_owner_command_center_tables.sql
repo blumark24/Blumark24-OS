@@ -19,6 +19,7 @@ RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
 STABLE
+SET search_path = public, auth
 AS $$
   SELECT (auth.jwt() ->> 'email') = ANY(
     ARRAY['blumark24@gmail.com', 'blumark.sa@gmail.com']
