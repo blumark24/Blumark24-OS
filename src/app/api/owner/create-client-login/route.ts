@@ -5,11 +5,18 @@
 // the client. The caller must be the platform owner (is_owner allowlist).
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isOwnerEmail } from "@/lib/owner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// Stored profile role for a client login. MUST be a value allowed by the
+// profiles_role_check constraint (super_admin / board_member / defense_manager /
+// attack_manager / finance_manager / employee). "employee" is the safest
+// low-privilege role and already grants client-dashboard access; the account is
+// marked as a tenant purely by profiles.organization_id, not by the role.
+const CLIENT_ROLE = "employee";
 
 function passwordError(password: string): string | null {
   if (!password) return "كلمة المرور مطلوبة";
@@ -19,6 +26,42 @@ function passwordError(password: string): string | null {
   if (!/[a-z]/.test(password)) return "كلمة المرور يجب أن تحتوي على حرف صغير (a-z)";
   if (!/[0-9]/.test(password)) return "كلمة المرور يجب أن تحتوي على رقم (0-9)";
   if (!/[^A-Za-z0-9]/.test(password)) return "كلمة المرور يجب أن تحتوي على رمز (!@#$...)";
+  return null;
+}
+
+// Upserts the organization-linked profile row. Falls back without
+// force_password_change if that column is not present in the project yet.
+async function upsertLinkedProfile(
+  admin: SupabaseClient,
+  args: { userId: string; email: string; name: string; organizationId: string },
+): Promise<{ error: string | null }> {
+  const base = {
+    id: args.userId,
+    email: args.email,
+    name: args.name,
+    role: CLIENT_ROLE,
+    is_active: true,
+    organization_id: args.organizationId,
+  };
+  let res = await admin.from("profiles").upsert({ ...base, force_password_change: true }, { onConflict: "id" });
+  if (res.error?.message?.toLowerCase().includes("force_password_change")) {
+    res = await admin.from("profiles").upsert(base, { onConflict: "id" });
+  }
+  return { error: res.error ? res.error.message : null };
+}
+
+// Locates an existing auth user id by email (used to safely recover from a
+// previous attempt that created the auth user but failed to link a profile).
+async function findAuthUserIdByEmail(admin: SupabaseClient, email: string): Promise<string | null> {
+  const target = email.toLowerCase();
+  const perPage = 1000;
+  for (let page = 1; page <= 5; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error || !data) return null;
+    const found = data.users.find((u) => (u.email ?? "").toLowerCase() === target);
+    if (found) return found.id;
+    if (data.users.length < perPage) break;
+  }
   return null;
 }
 
@@ -99,47 +142,85 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "تم إنشاء حساب دخول لهذه المنشأة بالفعل" }, { status: 409 });
     }
 
-    // ── 6. create the auth user ───────────────────────────────────────────
+    // ── 6. create (or safely adopt) the auth user ─────────────────────────
     const name = orgName || ownerEmail.split("@")[0];
+    let userId: string;
+    let adopted = false;
+
     const createResp = await admin.auth.admin.createUser({
       email: ownerEmail,
       password,
       email_confirm: true,
       user_metadata: { name },
     });
-    if (createResp.error || !createResp.data?.user) {
-      const msg = createResp.error?.message ?? "تعذّر إنشاء حساب المصادقة";
-      const dup = /already|registered|exists|duplicate/i.test(msg);
-      return NextResponse.json(
-        { success: false, error: dup ? `البريد (${ownerEmail}) مسجّل مسبقاً` : `فشل إنشاء الحساب: ${msg}` },
-        { status: 400 },
-      );
-    }
-    const userId = createResp.data.user.id;
 
-    // ── 7. upsert the linked profile (rollback auth user on failure) ──────
-    // role 'organization_owner' is a tenant role; the client app's role mapper
-    // treats any unknown role as least-privilege "employee", so this account
-    // can reach the client dashboard but never owner/admin surfaces.
-    const baseProfile = {
-      id: userId,
-      email: ownerEmail,
-      name,
-      role: "organization_owner",
-      is_active: true,
-      organization_id: organizationId,
-    };
-    let profUpsert = await admin
-      .from("profiles")
-      .upsert({ ...baseProfile, force_password_change: true }, { onConflict: "id" });
-    if (profUpsert.error?.message?.toLowerCase().includes("force_password_change")) {
-      profUpsert = await admin.from("profiles").upsert(baseProfile, { onConflict: "id" });
+    if (createResp.error || !createResp.data?.user) {
+      const msg = createResp.error?.message ?? "";
+      const dup = /already|registered|exists|duplicate/i.test(msg);
+      if (!dup) {
+        return NextResponse.json({ success: false, error: `فشل إنشاء الحساب: ${msg}` }, { status: 400 });
+      }
+
+      // The email already has an auth user. This happens when a previous
+      // attempt created the user but the profile link failed and the rollback
+      // did not complete (e.g. the old role-check bug). Recover safely: adopt
+      // the user ONLY if it has no profile yet — never hijack a real account.
+      const existingId = await findAuthUserIdByEmail(admin, ownerEmail);
+      if (!existingId) {
+        return NextResponse.json(
+          { success: false, error: `البريد (${ownerEmail}) مسجّل مسبقاً ولا يمكن ربطه تلقائياً` },
+          { status: 409 },
+        );
+      }
+
+      const existingProf = await admin
+        .from("profiles")
+        .select("id, organization_id")
+        .eq("id", existingId)
+        .maybeSingle();
+      if (existingProf.error) {
+        return NextResponse.json({ success: false, error: "تعذّر التحقق من الحساب الحالي" }, { status: 500 });
+      }
+      if (existingProf.data) {
+        if (existingProf.data.organization_id === organizationId) {
+          return NextResponse.json({ success: false, error: "تم إنشاء حساب دخول لهذه المنشأة بالفعل" }, { status: 409 });
+        }
+        return NextResponse.json(
+          { success: false, error: `البريد (${ownerEmail}) مستخدم لحساب آخر — لا يمكن ربطه بهذه المنشأة` },
+          { status: 409 },
+        );
+      }
+
+      // Orphaned auth user (no profile): reset its password to the new temp
+      // password, confirm the email, then link it below.
+      const upd = await admin.auth.admin.updateUserById(existingId, {
+        password,
+        email_confirm: true,
+        user_metadata: { name },
+      });
+      if (upd.error) {
+        return NextResponse.json(
+          { success: false, error: `تعذّر تحديث الحساب الحالي: ${upd.error.message}` },
+          { status: 500 },
+        );
+      }
+      userId = existingId;
+      adopted = true;
+    } else {
+      userId = createResp.data.user.id;
     }
-    if (profUpsert.error) {
-      const rb = await admin.auth.admin.deleteUser(userId);
-      if (rb.error) console.error("[create-client-login] rollback failed:", rb.error.message);
+
+    // ── 7. upsert the linked profile ──────────────────────────────────────
+    const linkRes = await upsertLinkedProfile(admin, { userId, email: ownerEmail, name, organizationId });
+    if (linkRes.error) {
+      // Only roll back a user WE created in this request — never delete an
+      // adopted pre-existing auth user.
+      if (!adopted) {
+        const rb = await admin.auth.admin.deleteUser(userId);
+        if (rb.error) console.error("[create-client-login] rollback failed:", rb.error.message);
+      }
       return NextResponse.json(
-        { success: false, error: `فشل ربط الحساب بالمنشأة: ${profUpsert.error.message}` },
+        { success: false, error: `فشل ربط الحساب بالمنشأة: ${linkRes.error}` },
         { status: 500 },
       );
     }
@@ -151,13 +232,13 @@ export async function POST(req: NextRequest) {
         action: "create_client_login",
         target_type: "organization",
         target_id: organizationId,
-        metadata: { owner_email: ownerEmail, auth_user_id: userId },
+        metadata: { owner_email: ownerEmail, auth_user_id: userId, adopted },
       });
     } catch (logErr) {
       console.warn("[create-client-login] audit log insert failed:", logErr);
     }
 
-    return NextResponse.json({ success: true, id: userId, email: ownerEmail });
+    return NextResponse.json({ success: true, id: userId, email: ownerEmail, adopted });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[CREATE_CLIENT_LOGIN_FATAL]", error);
