@@ -113,8 +113,10 @@ export interface DisplayOrgFull {
   isInternal: boolean;
   statusRaw: DbOrganization["status"];
   statusAr: string;
+  planId: string | null;
   planName: string;
   planSlug: string;
+  hasSubscription: boolean;
   subStatusAr: string;
   subIsActive: boolean;
   subBillingCycleAr: string;
@@ -436,8 +438,10 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
       isInternal: org.slug === "blumark24-internal",
       statusRaw: org.status,
       statusAr: ORG_STATUS_AR[org.status] ?? org.status,
+      planId: org.plan_id,
       planName: plan?.name ?? "—",
       planSlug: plan?.slug ?? "",
+      hasSubscription: !!sub,
       subStatusAr: sub ? (SUB_STATUS_AR[sub.status] ?? sub.status) : "—",
       subIsActive: sub?.status === "active",
       subBillingCycleAr: sub ? (SUB_BILLING_AR[sub.billing_cycle] ?? sub.billing_cycle) : "—",
@@ -586,6 +590,100 @@ export async function createOrganization(input: NewOrganizationInput): Promise<C
       target_type: "organization",
       target_id: newId,
       metadata: { name, slug, owner_email: ownerEmail, plan_id: planId, status },
+    });
+  } catch (logErr) {
+    console.warn("[owner] audit log insert failed:", logErr);
+  }
+
+  return { ok: true, id: newId };
+}
+
+// ─── Activate subscription (owner-only mutation) ──────────────────────────────
+// Creates the first subscription for an organization that has none. Requires
+// the organization to already have a plan_id. Because `subscriptions` has no
+// unique constraint on organization_id, duplicates are prevented with an
+// existence check before insert. Both the insert and the audit-log write are
+// gated by the existing is_owner() RLS WITH CHECK policies.
+
+export interface ActivateSubscriptionInput {
+  organizationId: string;
+  planId: string | null;
+  status: "active" | "trialing";
+  billingCycle: "monthly" | "annual";
+  endsAt: string | null;
+}
+
+export type ActivateSubErrorCode = "no_plan" | "already_exists" | "unknown";
+
+export interface ActivateSubResult {
+  ok: boolean;
+  id?: string;
+  errorCode?: ActivateSubErrorCode;
+  error?: string;
+}
+
+export async function activateSubscription(input: ActivateSubscriptionInput): Promise<ActivateSubResult> {
+  if (!input.planId) {
+    return { ok: false, errorCode: "no_plan", error: "يجب اختيار باقة قبل تفعيل الاشتراك" };
+  }
+
+  // Guard against a second subscription for the same organization.
+  const { data: existing, error: checkErr } = await supabase
+    .from("subscriptions")
+    .select("id")
+    .eq("organization_id", input.organizationId)
+    .limit(1);
+
+  if (checkErr) {
+    console.error("[owner] subscription existence check error:", checkErr.message);
+    return { ok: false, errorCode: "unknown", error: "تعذّر التحقق من الاشتراك الحالي" };
+  }
+  if (existing && existing.length > 0) {
+    return { ok: false, errorCode: "already_exists", error: "يوجد اشتراك لهذه المنشأة بالفعل" };
+  }
+
+  const payload: {
+    organization_id: string;
+    plan_id: string;
+    status: ActivateSubscriptionInput["status"];
+    billing_cycle: ActivateSubscriptionInput["billingCycle"];
+    ends_at?: string;
+  } = {
+    organization_id: input.organizationId,
+    plan_id: input.planId,
+    status: input.status,
+    billing_cycle: input.billingCycle,
+  };
+  if (input.endsAt) payload.ends_at = input.endsAt;
+
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .insert(payload)
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("[owner] activate subscription error:", error.message);
+    return { ok: false, errorCode: "unknown", error: "تعذّر تفعيل الاشتراك — حاول مجدداً" };
+  }
+
+  const newId = data.id as string;
+
+  // Best-effort audit trail — a logging failure must not undo activation.
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from("owner_audit_logs").insert({
+      owner_email: user?.email ?? "unknown",
+      action: "activate_subscription",
+      target_type: "subscription",
+      target_id: newId,
+      metadata: {
+        organization_id: input.organizationId,
+        plan_id: input.planId,
+        status: input.status,
+        billing_cycle: input.billingCycle,
+        ends_at: input.endsAt ?? null,
+      },
     });
   } catch (logErr) {
     console.warn("[owner] audit log insert failed:", logErr);
