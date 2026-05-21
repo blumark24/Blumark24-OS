@@ -72,6 +72,22 @@ export interface DisplaySubscription {
   startedAt: string;
 }
 
+export interface DisplayOrgFull {
+  id: string;
+  name: string;
+  slug: string | null;
+  ownerEmail: string | null;
+  isInternal: boolean;
+  statusRaw: DbOrganization["status"];
+  statusAr: string;
+  planName: string;
+  planSlug: string;
+  subStatusAr: string;
+  subIsActive: boolean;
+  subBillingCycleAr: string;
+  createdAt: string;
+}
+
 export interface OwnerDashboardData {
   organizations: DisplayOrg[];
   plans: DisplayPlan[];
@@ -174,6 +190,13 @@ function normalizePlan(plan: DbPlan, allLimits: DbPlanLimit[]): DisplayPlan {
   };
 }
 
+const ORG_STATUS_AR: Record<DbOrganization["status"], string> = {
+  active:    "نشطة",
+  trial:     "تجريبية",
+  suspended: "معلقة",
+  cancelled: "ملغاة",
+};
+
 const SUB_STATUS_AR: Record<DbSubscription["status"], string> = {
   active:    "نشطة",
   trialing:  "تجريبية",
@@ -269,4 +292,50 @@ export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
     internalPlanLimits,
     internalSubscription,
   };
+}
+
+// ─── Organizations page fetch ────────────────────────────────────────────────
+
+export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
+  const [orgsRes, plansRes, subsRes] = await Promise.all([
+    supabase
+      .from("organizations")
+      .select("id, name, slug, owner_email, plan_id, status, notes, created_at")
+      .order("created_at"),
+    supabase
+      .from("plans")
+      .select("id, name, slug")
+      .eq("is_active", true),
+    supabase
+      .from("subscriptions")
+      .select("organization_id, plan_id, status, billing_cycle"),
+  ]);
+
+  if (orgsRes.error)  console.error("[owner] orgs page fetch error:", orgsRes.error.message);
+  if (plansRes.error) console.error("[owner] plans page fetch error:", plansRes.error.message);
+  if (subsRes.error)  console.error("[owner] subs page fetch error:", subsRes.error.message);
+
+  const rawOrgs  = (orgsRes.data  ?? []) as DbOrganization[];
+  const rawPlans = (plansRes.data ?? []) as Pick<DbPlan, "id" | "name" | "slug">[];
+  const rawSubs  = (subsRes.data  ?? []) as Pick<DbSubscription, "organization_id" | "plan_id" | "status" | "billing_cycle">[];
+
+  return rawOrgs.map((org) => {
+    const plan = rawPlans.find((p) => p.id === org.plan_id);
+    const sub  = rawSubs.find((s) => s.organization_id === org.id);
+    return {
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      ownerEmail: org.owner_email,
+      isInternal: org.slug === "blumark24-internal",
+      statusRaw: org.status,
+      statusAr: ORG_STATUS_AR[org.status] ?? org.status,
+      planName: plan?.name ?? "—",
+      planSlug: plan?.slug ?? "",
+      subStatusAr: sub ? (SUB_STATUS_AR[sub.status] ?? sub.status) : "—",
+      subIsActive: sub?.status === "active",
+      subBillingCycleAr: sub ? (SUB_BILLING_AR[sub.billing_cycle] ?? sub.billing_cycle) : "—",
+      createdAt: formatDate(org.created_at),
+    };
+  });
 }

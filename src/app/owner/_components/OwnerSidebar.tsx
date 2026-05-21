@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Building2,
@@ -23,11 +24,12 @@ interface NavItem {
   id: string;
   label: string;
   icon: LucideIcon;
+  href?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: "command",   label: "القيادة الرئيسية",          icon: LayoutDashboard },
-  { id: "orgs",      label: "المنشآت",                   icon: Building2 },
+  { id: "command",   label: "القيادة الرئيسية",          icon: LayoutDashboard, href: "/owner" },
+  { id: "orgs",      label: "المنشآت",                   icon: Building2,       href: "/owner/organizations" },
   { id: "plans",     label: "الباقات",                   icon: Layers },
   { id: "subs",      label: "الاشتراكات",                icon: CreditCard },
   { id: "invoices",  label: "الفواتير",                  icon: Receipt },
@@ -44,8 +46,13 @@ interface OwnerSidebarProps {
 }
 
 export default function OwnerSidebar({ mobileOpen, onMobileClose }: OwnerSidebarProps) {
-  // Phase 1 is a single page — nav highlight is purely visual (no routing yet).
-  const [active, setActive] = useState("command");
+  const pathname = usePathname();
+
+  function isNavActive(item: NavItem): boolean {
+    if (!item.href) return false;
+    if (item.href === "/owner") return pathname === "/owner";
+    return pathname.startsWith(item.href);
+  }
 
   const innerCard = (
     <div className="flex flex-col flex-1 rounded-2xl border border-white/[0.08] overflow-hidden bg-[#0a1628] lg:bg-[rgba(10,22,40,0.6)] lg:backdrop-blur-xl">
@@ -89,35 +96,41 @@ export default function OwnerSidebar({ mobileOpen, onMobileClose }: OwnerSidebar
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-3">
         <ul className="space-y-1">
-          {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
-            const isActive = id === active;
-            return (
-              <li key={id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActive(id);
-                    onMobileClose();
-                  }}
-                  className={cn(
-                    "w-full flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-colors border text-right",
-                    isActive
-                      ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#22d3ee]/12 to-transparent border-[rgba(34,211,238,0.24)] text-white shadow-[0_2px_10px_-4px_rgba(34,211,238,0.30)]"
-                      : "text-white/[0.72] hover:bg-white/[0.04] border-transparent",
-                  )}
-                >
-                  <span className="flex items-center gap-2.5 min-w-0">
-                    <Icon
-                      className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-[#22D3EE]" : "text-white/55")}
-                      strokeWidth={1.6}
-                    />
-                    <span className="truncate">{label}</span>
-                  </span>
-                  <ChevronLeft
-                    className={cn("h-3.5 w-3.5 flex-shrink-0", isActive ? "text-[#22D3EE]" : "text-white/25")}
+          {NAV_ITEMS.map((item) => {
+            const { id, label, icon: Icon, href } = item;
+            const isActive = isNavActive(item);
+            const itemClass = cn(
+              "w-full flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-colors border text-right",
+              isActive
+                ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#22d3ee]/12 to-transparent border-[rgba(34,211,238,0.24)] text-white shadow-[0_2px_10px_-4px_rgba(34,211,238,0.30)]"
+                : "text-white/[0.72] hover:bg-white/[0.04] border-transparent",
+            );
+            const inner = (
+              <>
+                <span className="flex items-center gap-2.5 min-w-0">
+                  <Icon
+                    className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-[#22D3EE]" : "text-white/55")}
                     strokeWidth={1.6}
                   />
-                </button>
+                  <span className="truncate">{label}</span>
+                </span>
+                <ChevronLeft
+                  className={cn("h-3.5 w-3.5 flex-shrink-0", isActive ? "text-[#22D3EE]" : "text-white/25")}
+                  strokeWidth={1.6}
+                />
+              </>
+            );
+            return (
+              <li key={id}>
+                {href ? (
+                  <Link href={href} onClick={onMobileClose} className={itemClass}>
+                    {inner}
+                  </Link>
+                ) : (
+                  <button type="button" onClick={onMobileClose} className={itemClass}>
+                    {inner}
+                  </button>
+                )}
               </li>
             );
           })}
