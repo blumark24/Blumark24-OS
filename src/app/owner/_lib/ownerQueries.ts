@@ -498,3 +498,98 @@ export async function fetchSubscriptionsPage(): Promise<DisplaySubscriptionFull[
     };
   });
 }
+
+// ─── Plan options (for the create-organization form) ──────────────────────────
+// Active plans only, ordered by sort_order. Gated by is_owner() RLS.
+
+export interface PlanOption {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export async function fetchPlanOptions(): Promise<PlanOption[]> {
+  const { data, error } = await supabase
+    .from("plans")
+    .select("id, name, slug")
+    .eq("is_active", true)
+    .order("sort_order");
+
+  if (error) {
+    console.error("[owner] plan options fetch error:", error.message);
+    throw new Error(error.message);
+  }
+  return (data ?? []) as PlanOption[];
+}
+
+// ─── Create organization (owner-only mutation) ────────────────────────────────
+// Inserts a single row into `organizations` (no subscription is created here),
+// then writes a best-effort owner_audit_log entry. Both inserts rely on the
+// existing is_owner() RLS WITH CHECK policies — a non-owner session is rejected
+// by the database, never by this client code. Returns a typed result so the UI
+// can show field-level Arabic errors (duplicate slug / validation / unknown).
+
+export interface NewOrganizationInput {
+  name: string;
+  slug: string | null;
+  ownerEmail: string | null;
+  planId: string | null;
+  status: DbOrganization["status"];
+  notes: string | null;
+}
+
+export type CreateOrgErrorCode = "validation" | "duplicate_slug" | "unknown";
+
+export interface CreateOrgResult {
+  ok: boolean;
+  id?: string;
+  errorCode?: CreateOrgErrorCode;
+  error?: string;
+}
+
+export async function createOrganization(input: NewOrganizationInput): Promise<CreateOrgResult> {
+  const name = input.name.trim();
+  if (!name) {
+    return { ok: false, errorCode: "validation", error: "اسم المنشأة مطلوب" };
+  }
+
+  const slug = input.slug && input.slug.trim() ? input.slug.trim() : null;
+  const ownerEmail = input.ownerEmail && input.ownerEmail.trim()
+    ? input.ownerEmail.trim().toLowerCase()
+    : null;
+  const notes = input.notes && input.notes.trim() ? input.notes.trim() : null;
+  const planId = input.planId || null;
+  const status = input.status;
+
+  const { data, error } = await supabase
+    .from("organizations")
+    .insert({ name, slug, owner_email: ownerEmail, plan_id: planId, status, notes })
+    .select("id")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      return { ok: false, errorCode: "duplicate_slug", error: "المعرّف (slug) مستخدم مسبقًا" };
+    }
+    console.error("[owner] create organization error:", error.message);
+    return { ok: false, errorCode: "unknown", error: "تعذّر إنشاء المنشأة — حاول مجدداً" };
+  }
+
+  const newId = data.id as string;
+
+  // Best-effort audit trail — a logging failure must not undo a created org.
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from("owner_audit_logs").insert({
+      owner_email: user?.email ?? "unknown",
+      action: "create_organization",
+      target_type: "organization",
+      target_id: newId,
+      metadata: { name, slug, owner_email: ownerEmail, plan_id: planId, status },
+    });
+  } catch (logErr) {
+    console.warn("[owner] audit log insert failed:", logErr);
+  }
+
+  return { ok: true, id: newId };
+}
