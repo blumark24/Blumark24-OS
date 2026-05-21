@@ -20,6 +20,17 @@ export interface DbPlanLimit {
   limit_value: number;
 }
 
+export interface DbPlanFull {
+  id: string;
+  name: string;
+  slug: string;
+  price_monthly: number | null;
+  price_annual: number | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface DbOrganization {
   id: string;
   name: string;
@@ -70,6 +81,28 @@ export interface DisplaySubscription {
   billingCycleAr: string;
   planName: string;
   startedAt: string;
+}
+
+export interface PlanLimitsValues {
+  maxEmployees: number | null;
+  maxAgencies: number | null;
+  maxDepartments: number | null;
+  maxSections: number | null;
+  aiLevel: number | null;
+  whatsappEnabled: number | null;
+}
+
+export interface DisplayPlanFull {
+  id: string;
+  name: string;
+  slug: string;
+  accent: Accent;
+  priceMonthly: number | null;
+  priceAnnual: number | null;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  limits: PlanLimitsValues;
 }
 
 export interface DisplayOrgFull {
@@ -292,6 +325,61 @@ export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
     internalPlanLimits,
     internalSubscription,
   };
+}
+
+// ─── Plans page fetch ────────────────────────────────────────────────────────
+// Reads every plan (active and inactive) plus its key-value limits, both gated
+// by the is_owner() RLS policy — a non-owner session receives zero rows.
+// Throws on a plans query error so the page can surface its error state instead
+// of rendering an empty list for what is actually a failed/blocked read.
+
+export async function fetchPlansPage(): Promise<DisplayPlanFull[]> {
+  const [plansRes, limitsRes] = await Promise.all([
+    supabase
+      .from("plans")
+      .select("id, name, slug, price_monthly, price_annual, is_active, sort_order, created_at")
+      .order("sort_order"),
+    supabase.from("plan_limits").select("plan_id, limit_key, limit_value"),
+  ]);
+
+  if (plansRes.error) {
+    console.error("[owner] plans page fetch error:", plansRes.error.message);
+    throw new Error(plansRes.error.message);
+  }
+  if (limitsRes.error) console.error("[owner] plan_limits page fetch error:", limitsRes.error.message);
+
+  const rawPlans  = (plansRes.data  ?? []) as DbPlanFull[];
+  const rawLimits = (limitsRes.data ?? []) as DbPlanLimit[];
+
+  return rawPlans.map((plan) => {
+    const map: Record<string, number> = {};
+    rawLimits
+      .filter((l) => l.plan_id === plan.id)
+      .forEach((l) => {
+        map[l.limit_key] = l.limit_value;
+      });
+    const pick = (key: string): number | null => (key in map ? map[key] : null);
+
+    return {
+      id: plan.id,
+      name: plan.name,
+      slug: plan.slug,
+      accent: SLUG_ACCENT[plan.slug] ?? "cyan",
+      priceMonthly: plan.price_monthly,
+      priceAnnual: plan.price_annual,
+      isActive: plan.is_active,
+      sortOrder: plan.sort_order,
+      createdAt: formatDate(plan.created_at),
+      limits: {
+        maxEmployees:    pick("max_employees"),
+        maxAgencies:     pick("max_agencies"),
+        maxDepartments:  pick("max_departments"),
+        maxSections:     pick("max_sections"),
+        aiLevel:         pick("ai_level"),
+        whatsappEnabled: pick("whatsapp_enabled"),
+      },
+    };
+  });
 }
 
 // ─── Organizations page fetch ────────────────────────────────────────────────
