@@ -34,7 +34,7 @@ interface AuthContextValue {
   clearForcePasswordChange: () => Promise<void>;
 }
 
-const PUBLIC_PATHS = ["/", "/auth", "/demo"];
+const PUBLIC_PATHS = ["/", "/auth", "/demo", "/owner/login"];
 const PROFILE_RETRY_DELAYS_MS = [0, 250, 700, 1500];
 const PROFILE_LOAD_ERROR_MSG = "حدث خطأ أثناء تحميل الملف الشخصي — حاول مجدداً";
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import OwnerSidebar from "./_components/OwnerSidebar";
 import OwnerHeader from "./_components/OwnerHeader";
 import OwnerGuard from "./_components/OwnerGuard";
@@ -12,6 +13,12 @@ import OwnerGuard from "./_components/OwnerGuard";
 // button can drive the sidebar overlay.
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const pathname = usePathname();
+
+  // The login page is a standalone screen — no shell, no guard
+  if (pathname === "/owner/login") {
+    return <>{children}</>;
+  }
 
   return (
     <OwnerGuard>
