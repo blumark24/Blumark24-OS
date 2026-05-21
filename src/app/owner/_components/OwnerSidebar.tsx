@@ -31,7 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "command",   label: "القيادة الرئيسية",          icon: LayoutDashboard, href: "/owner" },
   { id: "orgs",      label: "المنشآت",                   icon: Building2,       href: "/owner/organizations" },
   { id: "plans",     label: "الباقات",                   icon: Layers,          href: "/owner/plans" },
-  { id: "subs",      label: "الاشتراكات",                icon: CreditCard },
+  { id: "subs",      label: "الاشتراكات",                icon: CreditCard,      href: "/owner/subscriptions" },
   { id: "invoices",  label: "الفواتير",                  icon: Receipt },
   { id: "ai",        label: "استخدام الذكاء الاصطناعي",  icon: Sparkles },
   { id: "whatsapp",  label: "واتساب بوت",                icon: MessageCircle },

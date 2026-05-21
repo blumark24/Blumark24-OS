@@ -121,6 +121,24 @@ export interface DisplayOrgFull {
   createdAt: string;
 }
 
+export interface DisplaySubscriptionFull {
+  id: string;
+  orgName: string;
+  orgSlug: string | null;
+  isInternal: boolean;
+  planName: string;
+  planSlug: string;
+  accent: Accent;
+  statusRaw: DbSubscription["status"];
+  statusAr: string;
+  isActive: boolean;
+  billingCycleRaw: DbSubscription["billing_cycle"];
+  billingCycleAr: string;
+  startedAt: string;
+  endsAt: string | null;
+  createdAt: string;
+}
+
 export interface OwnerDashboardData {
   organizations: DisplayOrg[];
   plans: DisplayPlan[];
@@ -424,6 +442,59 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
       subIsActive: sub?.status === "active",
       subBillingCycleAr: sub ? (SUB_BILLING_AR[sub.billing_cycle] ?? sub.billing_cycle) : "—",
       createdAt: formatDate(org.created_at),
+    };
+  });
+}
+
+// ─── Subscriptions page fetch ─────────────────────────────────────────────────
+// Joins each subscription to its organization and plan. All three tables are
+// gated by the is_owner() RLS policy — a non-owner session receives zero rows.
+// Throws on a subscriptions query error so the page can show its error state
+// instead of an empty list for what is actually a failed/blocked read.
+
+type DbSubscriptionRow = DbSubscription & { created_at: string };
+
+export async function fetchSubscriptionsPage(): Promise<DisplaySubscriptionFull[]> {
+  const [subsRes, orgsRes, plansRes] = await Promise.all([
+    supabase
+      .from("subscriptions")
+      .select("id, organization_id, plan_id, status, billing_cycle, started_at, ends_at, created_at")
+      .order("created_at"),
+    supabase.from("organizations").select("id, name, slug"),
+    supabase.from("plans").select("id, name, slug"),
+  ]);
+
+  if (subsRes.error) {
+    console.error("[owner] subscriptions page fetch error:", subsRes.error.message);
+    throw new Error(subsRes.error.message);
+  }
+  if (orgsRes.error)  console.error("[owner] subs orgs fetch error:", orgsRes.error.message);
+  if (plansRes.error) console.error("[owner] subs plans fetch error:", plansRes.error.message);
+
+  const rawSubs  = (subsRes.data  ?? []) as DbSubscriptionRow[];
+  const rawOrgs  = (orgsRes.data  ?? []) as Pick<DbOrganization, "id" | "name" | "slug">[];
+  const rawPlans = (plansRes.data ?? []) as Pick<DbPlan, "id" | "name" | "slug">[];
+
+  return rawSubs.map((sub) => {
+    const org  = rawOrgs.find((o) => o.id === sub.organization_id);
+    const plan = rawPlans.find((p) => p.id === sub.plan_id);
+    const planSlug = plan?.slug ?? "";
+    return {
+      id: sub.id,
+      orgName: org?.name ?? "—",
+      orgSlug: org?.slug ?? null,
+      isInternal: org?.slug === "blumark24-internal",
+      planName: plan?.name ?? "—",
+      planSlug,
+      accent: SLUG_ACCENT[planSlug] ?? "cyan",
+      statusRaw: sub.status,
+      statusAr: SUB_STATUS_AR[sub.status] ?? sub.status,
+      isActive: sub.status === "active",
+      billingCycleRaw: sub.billing_cycle,
+      billingCycleAr: SUB_BILLING_AR[sub.billing_cycle] ?? sub.billing_cycle,
+      startedAt: formatDate(sub.started_at),
+      endsAt: sub.ends_at ? formatDate(sub.ends_at) : null,
+      createdAt: formatDate(sub.created_at),
     };
   });
 }
