@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { isOwnerEmail } from "@/lib/owner";
@@ -14,6 +14,23 @@ export default function OwnerLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
+
+  // If a valid owner session already exists, skip the form and go straight to
+  // the command center. A non-owner / client session is intentionally left on
+  // this page so the owner can still sign in — a client session never grants
+  // owner access, and this page never redirects to /auth or the client app.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (active && isOwnerEmail(user?.email)) {
+        router.replace("/owner");
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -34,7 +34,9 @@ interface AuthContextValue {
   clearForcePasswordChange: () => Promise<void>;
 }
 
-const PUBLIC_PATHS = ["/", "/auth", "/demo", "/owner/login"];
+// The entire /owner subtree (including /owner/login) is handled by its own
+// early-return below, so it is intentionally absent from this client list.
+const PUBLIC_PATHS = ["/", "/auth", "/demo"];
 const PROFILE_RETRY_DELAYS_MS = [0, 250, 700, 1500];
 const PROFILE_LOAD_ERROR_MSG = "حدث خطأ أثناء تحميل الملف الشخصي — حاول مجدداً";
 
@@ -265,6 +267,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (loading) return;
+
+    // The /owner area is a fully independent surface with its own auth pipeline
+    // (middleware.ts → OwnerGuard → /owner/login). The client AuthContext must
+    // never redirect anywhere inside it — otherwise an owner route could bounce
+    // to /auth or the client dashboard, which is exactly the bug this guards
+    // against. Owner authentication is handled exclusively by OwnerGuard.
+    if (pathname === "/owner" || pathname.startsWith("/owner/")) return;
 
     const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
     const isAuthPg = pathname === "/auth" || pathname.startsWith("/auth/");

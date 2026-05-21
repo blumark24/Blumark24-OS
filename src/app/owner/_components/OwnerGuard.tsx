@@ -1,21 +1,61 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 import { isOwnerEmail } from "@/lib/owner";
 import AccessDenied from "@/components/ui/AccessDenied";
 
-// Restricts the entire /owner area to the Blumark24 platform owner.
-// Authentication (must be signed in) is enforced one layer up in middleware.ts;
-// this guard adds the identity check the edge middleware can't do without a DB
-// read. We never render owner content — or an access-denied screen — until the
-// AuthContext has finished resolving the profile, to avoid a wrong-state flash.
-export default function OwnerGuard({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+type GuardState = "checking" | "denied" | "authorized";
 
-  if (loading || !user) {
-    // Still resolving the session, or AuthContext is redirecting an
-    // unauthenticated visitor to /auth — show a neutral placeholder meanwhile.
+// Restricts the entire /owner area to the Blumark24 platform owner.
+//
+// This guard is deliberately independent of the client AuthContext: owner
+// access is decided purely from the Supabase auth identity vs. the owner
+// allowlist. A client session, a missing client profile row, or a
+// force-password-change flag therefore can never grant or block owner access.
+//
+//  • No valid session  → hand off to the dedicated /owner/login (never /auth).
+//  • Session, not owner → Access Denied (never the client dashboard).
+//  • Session + owner    → render the owner area.
+//
+// Edge-level "is signed in?" gating lives in middleware.ts; this adds the
+// identity check the edge can't do without reading the auth user.
+export default function OwnerGuard({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const [state, setState] = useState<GuardState>("checking");
+
+  useEffect(() => {
+    let active = true;
+
+    const evaluate = (email: string | null | undefined, hasSession: boolean) => {
+      if (!active) return;
+      if (!hasSession) {
+        router.replace("/owner/login");
+        return;
+      }
+      setState(isOwnerEmail(email) ? "authorized" : "denied");
+    };
+
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      evaluate(user?.email, !!user);
+    })();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => evaluate(session?.user?.email, !!session?.user),
+    );
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [router]);
+
+  if (state === "checking") {
+    // Resolving the owner session, or redirecting an unauthenticated visitor
+    // to /owner/login — show a neutral placeholder meanwhile.
     return (
       <div
         className="flex min-h-screen items-center justify-center"
@@ -26,7 +66,7 @@ export default function OwnerGuard({ children }: { children: React.ReactNode }) 
     );
   }
 
-  if (!isOwnerEmail(user.email)) {
+  if (state === "denied") {
     return (
       <div
         className="flex min-h-screen items-center justify-center px-4"
