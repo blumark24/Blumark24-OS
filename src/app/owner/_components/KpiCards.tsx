@@ -5,13 +5,21 @@ import { KPIS } from "../_data";
 import { ACCENT } from "../_accent";
 import { cn } from "@/lib/utils";
 
-export default function KpiCards() {
+interface Props {
+  activeOrgCount?: number;
+  loading?: boolean;
+}
+
+export default function KpiCards({ activeOrgCount, loading }: Props) {
   return (
     <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       {KPIS.map((kpi) => {
         const a = ACCENT[kpi.accent];
         const Icon = kpi.icon;
         const Trend = kpi.trendUp ? TrendingUp : TrendingDown;
+        const isOrgKpi = kpi.id === "orgs";
+        const displayValue =
+          isOrgKpi && activeOrgCount !== undefined ? String(activeOrgCount) : kpi.value;
         return (
           <div
             key={kpi.id}
@@ -39,7 +47,14 @@ export default function KpiCards() {
             </div>
 
             <div className="relative mt-4">
-              <div className="font-heading text-2xl font-bold text-white tracking-tight">{kpi.value}</div>
+              <div
+                className={cn(
+                  "font-heading text-2xl font-bold text-white tracking-tight",
+                  isOrgKpi && loading && "opacity-40 animate-pulse",
+                )}
+              >
+                {displayValue}
+              </div>
               <div className="mt-1 text-[12.5px] text-[#8ba3c7]">{kpi.label}</div>
             </div>
           </div>
