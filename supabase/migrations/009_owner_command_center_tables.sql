@@ -5,7 +5,7 @@
 -- ============================================================
 -- Creates: plans, plan_limits, organizations, subscriptions,
 --          owner_audit_logs
--- Seeds:   3 plans + plan_limits + 1 internal Blumark24 org
+-- Seeds:   3 plans + plan_limits + 1 internal Blumark24 org + 1 internal subscription
 -- RLS:     owner-only (blumark24@gmail.com + blumark.sa@gmail.com)
 -- ============================================================
 
@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   started_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   ends_at         TIMESTAMPTZ,
   billing_cycle   TEXT        NOT NULL DEFAULT 'monthly'
-                  CHECK (billing_cycle IN ('monthly', 'annual')),
+                  CHECK (billing_cycle IN ('monthly', 'annual', 'internal')),
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -261,15 +261,37 @@ ON CONFLICT (plan_id, limit_key) DO NOTHING;
 
 -- ─────────────────────────────────────────────────────────────
 -- SEED: organizations
--- Blumark24 itself as the default internal organization.
--- plan_id left NULL — can be linked to 'advanced' in Phase 2.
+-- Blumark24 itself as the default internal organization,
+-- assigned to the advanced plan from the start.
+-- DO UPDATE ensures plan_id is set even on a re-run where the
+-- row already exists with a NULL plan_id from an earlier draft.
 -- ─────────────────────────────────────────────────────────────
 INSERT INTO public.organizations (name, slug, owner_email, plan_id, status)
-VALUES (
+SELECT
   'Blumark24',
   'blumark24-internal',
   'blumark24@gmail.com',
-  NULL,
+  p.id,
   'active'
-)
-ON CONFLICT (slug) DO NOTHING;
+FROM public.plans p
+WHERE p.slug = 'advanced'
+ON CONFLICT (slug) DO UPDATE SET
+  plan_id = EXCLUDED.plan_id;
+
+-- ─────────────────────────────────────────────────────────────
+-- SEED: subscriptions
+-- One internal subscription for Blumark24 on the advanced plan.
+-- billing_cycle = 'internal' marks it as a non-billed account.
+-- WHERE NOT EXISTS is used because subscriptions has no unique
+-- constraint, so ON CONFLICT is not available here.
+-- ─────────────────────────────────────────────────────────────
+INSERT INTO public.subscriptions (organization_id, plan_id, status, billing_cycle)
+SELECT o.id, p.id, 'active', 'internal'
+FROM public.organizations o
+JOIN public.plans p ON p.slug = 'advanced'
+WHERE o.slug = 'blumark24-internal'
+  AND NOT EXISTS (
+    SELECT 1 FROM public.subscriptions s
+    WHERE s.organization_id = o.id
+      AND s.plan_id = p.id
+  );
