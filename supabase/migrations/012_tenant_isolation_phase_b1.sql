@@ -7,17 +7,27 @@
 -- and keeps its existing policies until a later phase.
 -- ============================================================
 -- WHAT THIS DOES
---   1. Replaces the legacy "any authenticated session can read/write
---      everything" policies on tasks / clients / employees with
---      organization-scoped policies:
+--   1. SELECT becomes organization-scoped for every org member:
 --          organization_id = public.current_org_id()
---      while preserving full platform-owner + super_admin bypass:
+--      so each tenant sees only its own rows.
+--   2. INSERT / UPDATE / DELETE stay tenant-scoped AND keep the existing
+--      per-table role restrictions (reconstructed from migrations 004 + 008),
+--      so enforcement does NOT broaden who may write:
+--          • clients   writes → board_member, attack_manager
+--          • employees writes → super_admin / owner only
+--          • tasks     writes → board_member, defense_manager, attack_manager,
+--                               finance_manager, or an employee on a task
+--                               assigned to themselves (delete: managers only)
+--      The role gate is AND-ed with the org scope; the new row/old row must
+--      belong to the caller's org.
+--   3. Platform-owner + internal super_admin keep a FULL bypass on every
+--      command (manage all rows across all tenants):
 --          public.is_owner() OR public.get_my_role() = 'super_admin'
---   2. Adds a BEFORE INSERT trigger that auto-stamps organization_id
+--   4. Adds a BEFORE INSERT trigger that auto-stamps organization_id
 --      with the caller's org (public.current_org_id()) when the app
 --      omits it, so authenticated inserts (tasks/clients) never fail
 --      the WITH CHECK and are always tenant-tagged correctly.
---   3. Safety backfill: any row still missing organization_id is
+--   5. Safety backfill: any row still missing organization_id is
 --      assigned to the internal Blumark24 org so enforcement never
 --      makes pre-existing data vanish.
 --
@@ -117,13 +127,19 @@ BEGIN
   END LOOP;
 END $$;
 
--- ── 3. Org-scoped policies (static for reviewability) ──────────────────
--- Pattern, applied to every command on all three tables:
---   organization_id = public.current_org_id()      -- same tenant
---   OR public.is_owner()                            -- platform owner
---   OR public.get_my_role() = 'super_admin'         -- internal super admin
+-- ── 3. Policies (static for reviewability) ─────────────────────────────
+-- SELECT  → org-scoped for all org members (+ owner / super_admin bypass).
+-- WRITES  → owner / super_admin full bypass, OR same-org AND a role that
+--           previously held write access (reconstructed from 004 + 008).
+--
+-- Bypass branch (every command):
+--   public.is_owner() OR public.get_my_role() = 'super_admin'
+-- Tenant branch (writes): organization_id = public.current_org_id() AND <role>
 
 -- ---- TASKS ----------------------------------------------------------------
+-- Writers: managers (board_member, defense_manager, attack_manager,
+-- finance_manager) for any org task; an employee only on a task assigned to
+-- themselves (insert/update). Delete: managers only (matches 004).
 CREATE POLICY "tasks: org select" ON public.tasks FOR SELECT
   USING (
     organization_id = public.current_org_id()
@@ -133,31 +149,53 @@ CREATE POLICY "tasks: org select" ON public.tasks FOR SELECT
 
 CREATE POLICY "tasks: org insert" ON public.tasks FOR INSERT
   WITH CHECK (
-    organization_id = public.current_org_id()
-    OR public.is_owner()
+    public.is_owner()
     OR public.get_my_role() = 'super_admin'
+    OR (
+      organization_id = public.current_org_id()
+      AND (
+        public.get_my_role() IN ('board_member','defense_manager','attack_manager','finance_manager')
+        OR (public.get_my_role() = 'employee' AND assignee_id = auth.uid()::text)
+      )
+    )
   );
 
 CREATE POLICY "tasks: org update" ON public.tasks FOR UPDATE
   USING (
-    organization_id = public.current_org_id()
-    OR public.is_owner()
+    public.is_owner()
     OR public.get_my_role() = 'super_admin'
+    OR (
+      organization_id = public.current_org_id()
+      AND (
+        public.get_my_role() IN ('board_member','defense_manager','attack_manager','finance_manager')
+        OR (public.get_my_role() = 'employee' AND assignee_id = auth.uid()::text)
+      )
+    )
   )
   WITH CHECK (
-    organization_id = public.current_org_id()
-    OR public.is_owner()
+    public.is_owner()
     OR public.get_my_role() = 'super_admin'
+    OR (
+      organization_id = public.current_org_id()
+      AND (
+        public.get_my_role() IN ('board_member','defense_manager','attack_manager','finance_manager')
+        OR (public.get_my_role() = 'employee' AND assignee_id = auth.uid()::text)
+      )
+    )
   );
 
 CREATE POLICY "tasks: org delete" ON public.tasks FOR DELETE
   USING (
-    organization_id = public.current_org_id()
-    OR public.is_owner()
+    public.is_owner()
     OR public.get_my_role() = 'super_admin'
+    OR (
+      organization_id = public.current_org_id()
+      AND public.get_my_role() IN ('board_member','defense_manager','attack_manager','finance_manager')
+    )
   );
 
 -- ---- CLIENTS --------------------------------------------------------------
+-- Writers: board_member, attack_manager (matches 004).
 CREATE POLICY "clients: org select" ON public.clients FOR SELECT
   USING (
     organization_id = public.current_org_id()
@@ -167,31 +205,46 @@ CREATE POLICY "clients: org select" ON public.clients FOR SELECT
 
 CREATE POLICY "clients: org insert" ON public.clients FOR INSERT
   WITH CHECK (
-    organization_id = public.current_org_id()
-    OR public.is_owner()
+    public.is_owner()
     OR public.get_my_role() = 'super_admin'
+    OR (
+      organization_id = public.current_org_id()
+      AND public.get_my_role() IN ('board_member','attack_manager')
+    )
   );
 
 CREATE POLICY "clients: org update" ON public.clients FOR UPDATE
   USING (
-    organization_id = public.current_org_id()
-    OR public.is_owner()
+    public.is_owner()
     OR public.get_my_role() = 'super_admin'
+    OR (
+      organization_id = public.current_org_id()
+      AND public.get_my_role() IN ('board_member','attack_manager')
+    )
   )
   WITH CHECK (
-    organization_id = public.current_org_id()
-    OR public.is_owner()
+    public.is_owner()
     OR public.get_my_role() = 'super_admin'
+    OR (
+      organization_id = public.current_org_id()
+      AND public.get_my_role() IN ('board_member','attack_manager')
+    )
   );
 
 CREATE POLICY "clients: org delete" ON public.clients FOR DELETE
   USING (
-    organization_id = public.current_org_id()
-    OR public.is_owner()
+    public.is_owner()
     OR public.get_my_role() = 'super_admin'
+    OR (
+      organization_id = public.current_org_id()
+      AND public.get_my_role() IN ('board_member','attack_manager')
+    )
   );
 
 -- ---- EMPLOYEES ------------------------------------------------------------
+-- SELECT org-scoped for all members (dashboard staff directory). Writes are
+-- super_admin / owner only (matches 008's hardening). Privileged creation
+-- already runs through the service-role /api/admin/create-user route.
 CREATE POLICY "employees: org select" ON public.employees FOR SELECT
   USING (
     organization_id = public.current_org_id()
@@ -201,27 +254,23 @@ CREATE POLICY "employees: org select" ON public.employees FOR SELECT
 
 CREATE POLICY "employees: org insert" ON public.employees FOR INSERT
   WITH CHECK (
-    organization_id = public.current_org_id()
-    OR public.is_owner()
+    public.is_owner()
     OR public.get_my_role() = 'super_admin'
   );
 
 CREATE POLICY "employees: org update" ON public.employees FOR UPDATE
   USING (
-    organization_id = public.current_org_id()
-    OR public.is_owner()
+    public.is_owner()
     OR public.get_my_role() = 'super_admin'
   )
   WITH CHECK (
-    organization_id = public.current_org_id()
-    OR public.is_owner()
+    public.is_owner()
     OR public.get_my_role() = 'super_admin'
   );
 
 CREATE POLICY "employees: org delete" ON public.employees FOR DELETE
   USING (
-    organization_id = public.current_org_id()
-    OR public.is_owner()
+    public.is_owner()
     OR public.get_my_role() = 'super_admin'
   );
 
