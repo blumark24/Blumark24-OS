@@ -17,7 +17,16 @@ export type TenantAccessCode =
   | "ORG_CANCELLED"
   | "SUB_SUSPENDED"
   | "SUB_CANCELLED"
-  | "ORG_NOT_FOUND";
+  | "ORG_NOT_FOUND"
+  | "LOOKUP_ERROR";
+
+/** PostgREST / Postgres error shape from supabase-js */
+export type SupabaseErrorLike = {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+};
 
 export interface TenantOrganizationSnapshot {
   status: OrganizationStatus;
@@ -54,7 +63,44 @@ const BLOCKED_BY_CODE: Partial<Record<TenantAccessCode, string>> = {
   SUB_CANCELLED: TENANT_BLOCKED_TITLE,
   ORG_NOT_FOUND:
     "تعذّر التحقق من حالة المنشأة — يرجى المحاولة لاحقاً أو التواصل مع الدعم.",
+  LOOKUP_ERROR:
+    "تعذّر التحقق من حالة المنشأة — يرجى المحاولة لاحقاً أو التواصل مع الدعم.",
 };
+
+const LOOKUP_ERROR_MSG =
+  "تعذّر التحقق من حالة المنشأة — يرجى المحاولة لاحقاً أو التواصل مع الدعم.";
+
+/** Fail-closed result when subscription/org lookup fails (non-missing-schema). */
+export function tenantAccessLookupError(): TenantAccessResult {
+  return {
+    allowed: false,
+    code: "LOOKUP_ERROR",
+    message: LOOKUP_ERROR_MSG,
+  };
+}
+
+/**
+ * True only when the subscriptions relation is absent (minimal schema).
+ * Any other error must fail closed in tenant-access.
+ */
+export function isSubscriptionsSchemaMissingError(
+  error: SupabaseErrorLike | null | undefined,
+): boolean {
+  if (!error) return false;
+
+  const code = String(error.code ?? "");
+  if (code === "42P01" || code === "PGRST205") return true;
+
+  const combined = `${error.message ?? ""} ${error.details ?? ""} ${error.hint ?? ""}`.toLowerCase();
+  if (!combined.includes("subscription")) return false;
+
+  return (
+    combined.includes("does not exist") ||
+    combined.includes("could not find") ||
+    combined.includes("not found") ||
+    combined.includes("schema cache")
+  );
+}
 
 /**
  * Pure tenant access rules for the client workspace.

@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import {
   evaluateTenantAccess,
   getAccessTokenFromRequest,
+  isSubscriptionsSchemaMissingError,
+  tenantAccessLookupError,
   TENANT_BLOCKED_BODY,
   TENANT_BLOCKED_TITLE,
   type OrganizationStatus,
@@ -163,15 +165,20 @@ export async function GET(req: NextRequest) {
       .maybeSingle();
 
     if (subResp.error) {
-      // Subscriptions table may be absent on minimal schemas — org rules still apply.
-      console.warn(`${TAG} subscriptions lookup skipped:`, subResp.error.message);
+      if (isSubscriptionsSchemaMissingError(subResp.error)) {
+        console.warn(`${TAG} subscriptions table absent — org rules only:`, subResp.error.message);
+      } else {
+        console.error(`${TAG} subscriptions query failed:`, subResp.error.message);
+        return jsonResult(tenantAccessLookupError(), 503);
+      }
     } else if (subResp.data) {
       subscription = {
         status: (subResp.data as { status: SubscriptionStatus }).status,
       };
     }
   } catch (err) {
-    console.warn(`${TAG} subscriptions exception (non-fatal):`, err);
+    console.error(`${TAG} subscriptions exception:`, err);
+    return jsonResult(tenantAccessLookupError(), 503);
   }
 
   const result = evaluateTenantAccess({
