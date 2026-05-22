@@ -317,12 +317,19 @@ export default function OrganizationsPageContent() {
   const [query, setQuery] = useState("");
 
   const loadOrgs = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const data = await fetchOrganizationsPage();
       setOrgs(data);
-      setError(null);
-    } catch {
-      setError("فشل تحميل بيانات المنشآت");
+    } catch (err) {
+      setOrgs(null);
+      const message =
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : "فشل تحميل بيانات المنشآت";
+      setError(message);
+      console.error("[owner] organizations page load failed:", err);
     } finally {
       setLoading(false);
     }
@@ -484,9 +491,19 @@ export default function OrganizationsPageContent() {
 
         {/* Error */}
         {error && (
-          <div className="flex items-center gap-2.5 rounded-xl border border-[#ff7a3d]/25 bg-[#ff7a3d]/[0.06] px-4 py-3 text-[13px] text-[#ff9a68]">
-            <RefreshCw size={14} className="flex-shrink-0" />
-            {error}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-[#ff7a3d]/25 bg-[#ff7a3d]/[0.06] px-4 py-3 text-[13px] text-[#ff9a68]">
+            <div className="flex items-start gap-2.5 flex-1 min-w-0">
+              <RefreshCw size={14} className="flex-shrink-0 mt-0.5" />
+              <span className="leading-relaxed break-words">{error}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadOrgs()}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#ff7a3d]/35 bg-[#ff7a3d]/10 px-3 py-1.5 text-[12px] font-medium text-[#ff9a68] hover:bg-[#ff7a3d]/20 transition-colors flex-shrink-0"
+            >
+              <RefreshCw size={13} />
+              إعادة المحاولة
+            </button>
           </div>
         )}
 

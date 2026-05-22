@@ -410,12 +410,84 @@ export async function fetchPlansPage(): Promise<DisplayPlanFull[]> {
 
 // ─── Organizations page fetch ────────────────────────────────────────────────
 
-export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
-  const [orgsRes, plansRes, subsRes, linksRes] = await Promise.all([
-    supabase
+type PostgrestErrorLike = {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+};
+
+const ORG_PAGE_SELECT_WITH_CODE =
+  "id, name, slug, customer_code, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at";
+const ORG_PAGE_SELECT_BASE =
+  "id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at";
+
+/** True when PostgREST/Postgres reports the optional customer_code column is absent. */
+export function isCustomerCodeColumnMissingError(
+  error: PostgrestErrorLike | null | undefined,
+): boolean {
+  if (!error) return false;
+
+  const code = String(error.code ?? "");
+  if (code === "42703" || code === "PGRST204") return true;
+
+  const combined = `${error.message ?? ""} ${error.details ?? ""} ${error.hint ?? ""}`.toLowerCase();
+  if (!combined.includes("customer_code")) return false;
+
+  return (
+    combined.includes("does not exist") ||
+    combined.includes("could not find") ||
+    combined.includes("not found") ||
+    combined.includes("schema cache")
+  );
+}
+
+function postgrestErrorMessage(error: PostgrestErrorLike): string {
+  return error.message?.trim() || error.details?.trim() || "تعذّر تحميل بيانات المنشآت";
+}
+
+/**
+ * Loads organizations for the owner list. Retries without customer_code when
+ * migration 014 is not applied; throws on any other org query failure.
+ */
+async function fetchOrganizationsPageRows(): Promise<DbOrganization[]> {
+  const withCode = await supabase
+    .from("organizations")
+    .select(ORG_PAGE_SELECT_WITH_CODE)
+    .order("created_at");
+
+  if (!withCode.error) {
+    return ((withCode.data ?? []) as DbOrganization[]).filter((o) => !o.deleted_at);
+  }
+
+  if (isCustomerCodeColumnMissingError(withCode.error)) {
+    console.warn(
+      "[owner] customer_code column absent — organizations list without code:",
+      withCode.error.message,
+    );
+    const fallback = await supabase
       .from("organizations")
-      .select("id, name, slug, customer_code, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at")
-      .order("created_at"),
+      .select(ORG_PAGE_SELECT_BASE)
+      .order("created_at");
+
+    if (fallback.error) {
+      console.error("[owner] orgs page fallback fetch error:", fallback.error.message);
+      throw new Error(postgrestErrorMessage(fallback.error));
+    }
+
+    return ((fallback.data ?? []) as DbOrganization[]).map((row) => ({
+      ...row,
+      customer_code: row.customer_code ?? null,
+    })).filter((o) => !o.deleted_at);
+  }
+
+  console.error("[owner] orgs page fetch error:", withCode.error.message);
+  throw new Error(postgrestErrorMessage(withCode.error));
+}
+
+export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
+  const [rawOrgs, plansRes, subsRes, linksRes] = await Promise.all([
+    fetchOrganizationsPageRows(),
     supabase
       .from("plans")
       .select("id, name, slug")
@@ -432,14 +504,13 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
       .not("organization_id", "is", null),
   ]);
 
-  if (orgsRes.error)  console.error("[owner] orgs page fetch error:", orgsRes.error.message);
-  if (plansRes.error) console.error("[owner] plans page fetch error:", plansRes.error.message);
+  if (plansRes.error) {
+    console.error("[owner] plans page fetch error:", plansRes.error.message);
+    throw new Error(postgrestErrorMessage(plansRes.error));
+  }
   if (subsRes.error)  console.error("[owner] subs page fetch error:", subsRes.error.message);
   if (linksRes.error) console.warn("[owner] client-login links fetch skipped:", linksRes.error.message);
 
-  // Soft-deleted tenants are hidden from the owner management list; their rows
-  // remain in the DB and can be restored by clearing deleted_at.
-  const rawOrgs  = ((orgsRes.data ?? []) as DbOrganization[]).filter((o) => !o.deleted_at);
   const rawPlans = (plansRes.data ?? []) as Pick<DbPlan, "id" | "name" | "slug">[];
   const rawSubs  = (subsRes.data  ?? []) as Pick<DbSubscription, "organization_id" | "plan_id" | "status" | "billing_cycle">[];
   const linkedOrgIds = new Set(
