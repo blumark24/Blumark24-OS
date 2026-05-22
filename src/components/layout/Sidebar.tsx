@@ -24,7 +24,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard",  label: "الرئيسية",         icon: LayoutDashboard, permission: "view_dashboard"    },
-  { href: "/employees",  label: "الموظفين",          icon: Users,           permission: "manage_users"      },
+  { href: "/employees",  label: "الموظفين",          icon: Users,           permission: "view_employees"    },
   { href: "/tasks",      label: "المهام",             icon: CheckSquare,     permission: "manage_tasks"      },
   { href: "/clients",    label: "العملاء (CRM)",      icon: UserCircle,      permission: "manage_clients"    },
   { href: "/finance",    label: "المالية",            icon: DollarSign,      permission: "manage_finance"    },
@@ -73,7 +73,12 @@ export default function Sidebar({
     ? NAV_ITEMS
     : userRole === "super_admin"
       ? NAV_ITEMS
-      : NAV_ITEMS.filter((item) => hasPermission(item.permission));
+      : NAV_ITEMS.filter((item) => {
+          if (item.href === "/employees") {
+            return hasPermission("view_employees") || hasPermission("manage_users");
+          }
+          return hasPermission(item.permission);
+        });
 
   const roleLabel = userRole ? (ROLE_LABELS[userRole] ?? userRole.replace(/_/g, " ")) : "";
 
