@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { normalizePlanSlug, type PlanSlug } from "@/lib/features/packageFeatures";
+import { isPlatformAdminEmail } from "@/lib/platformAdmins";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const PLATFORM_ADMIN_EMAILS = ["blumark24@gmail.com", "blumark.sa@gmail.com"];
 
 export async function GET(req: NextRequest) {
   try {
@@ -34,7 +33,7 @@ export async function GET(req: NextRequest) {
     }
 
     const userId = authData.user.id;
-    const email = (authData.user.email ?? "").toLowerCase();
+    const email = authData.user.email ?? "";
 
     const { data: profile, error: profErr } = await admin
       .from("profiles")
@@ -51,7 +50,7 @@ export async function GET(req: NextRequest) {
     const orgId = profile?.organization_id as string | null | undefined;
 
     const isPlatformAdmin =
-      PLATFORM_ADMIN_EMAILS.includes(email) || role === "super_admin";
+      isPlatformAdminEmail(email) || role === "super_admin";
 
     if (!orgId) {
       return NextResponse.json({

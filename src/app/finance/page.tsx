@@ -8,7 +8,7 @@ import { DollarSign, Plus, TrendingUp, TrendingDown, X, ArrowUpRight, Edit2, Tra
 import type { Transaction } from "@/types";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
-import { TENANT_EMPTY_STATE_MSG } from "@/lib/features/packageFeatures";
+import { TENANT_EMPTY_STATE_MSG, TENANT_EMPTY_STATE_HINT } from "@/lib/features/packageFeatures";
 import { useTransactions } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import {
@@ -323,7 +323,7 @@ function FinanceContent() {
                 ))}
                 {transactions.length === 0 && (
                   <tr><td colSpan={8} className="text-center py-8 text-[#8ba3c7]">
-                    {!isInternal ? TENANT_EMPTY_STATE_MSG : "لا توجد معاملات بعد"}
+                    {!isInternal ? (<><span className="block">{TENANT_EMPTY_STATE_MSG}</span><span className="block text-xs mt-2 text-[#6b87ab]">{TENANT_EMPTY_STATE_HINT}</span></>) : "لا توجد معاملات بعد"}
                   </td></tr>
                 )}
               </tbody>

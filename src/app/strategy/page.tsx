@@ -46,7 +46,7 @@ import { cn } from "@/lib/utils";
 import { useStrategyPhases } from "@/hooks/useData";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
-import { TENANT_EMPTY_STATE_MSG } from "@/lib/features/packageFeatures";
+import { TENANT_EMPTY_STATE_MSG, TENANT_EMPTY_STATE_HINT } from "@/lib/features/packageFeatures";
 import { useToast } from "@/contexts/ToastContext";
 
 const STATUS_CONFIG = {
@@ -280,6 +280,7 @@ function StrategyContent() {
       ) : !isInternal && phases.length === 0 ? (
         <div className="glass-card p-10 text-center border border-[#1e3a5f]">
           <p className="text-[#8ba3c7] text-sm">{TENANT_EMPTY_STATE_MSG}</p>
+          <p className="text-[#6b87ab] text-xs mt-2">{TENANT_EMPTY_STATE_HINT}</p>
         </div>
       ) : (
         <div className="relative">

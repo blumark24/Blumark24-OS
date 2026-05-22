@@ -17,6 +17,7 @@ import {
   filterNavRoutes,
   getRouteByPathname,
   normalizePlanSlug,
+  satisfiesPermission,
   type PlanSlug,
   type WorkspaceRouteDef,
 } from "@/lib/features/packageFeatures";
@@ -25,6 +26,8 @@ export interface TenantWorkspaceState {
   isInternal: boolean;
   planSlug: PlanSlug;
   isPlatformAdmin: boolean;
+  organizationId: string | null;
+  organizationStatus: string | null;
   loading: boolean;
   error: string | null;
   navRoutes: WorkspaceRouteDef[];
@@ -36,6 +39,8 @@ const defaultState: TenantWorkspaceState = {
   isInternal: false,
   planSlug: "basic",
   isPlatformAdmin: false,
+  organizationId: null,
+  organizationStatus: null,
   loading: true,
   error: null,
   navRoutes: [],
@@ -52,6 +57,8 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
   const [isInternal, setIsInternal] = useState(false);
   const [planSlug, setPlanSlug] = useState<PlanSlug>("basic");
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [organizationStatus, setOrganizationStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,11 +99,15 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
         isInternal?: boolean;
         planSlug?: string;
         isPlatformAdmin?: boolean;
+        organizationId?: string | null;
+        organizationStatus?: string | null;
       };
 
       setIsInternal(body.isInternal === true);
       setPlanSlug(normalizePlanSlug(body.planSlug));
       setIsPlatformAdmin(body.isPlatformAdmin === true);
+      setOrganizationId(body.organizationId ?? null);
+      setOrganizationStatus(body.organizationStatus ?? null);
     } catch {
       setError("تعذر تحميل سياق مساحة العمل");
       const rpc = await supabase.rpc("current_org_is_internal");
@@ -116,6 +127,8 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       setIsInternal(false);
       setPlanSlug("basic");
       setIsPlatformAdmin(false);
+      setOrganizationId(null);
+      setOrganizationStatus(null);
       return;
     }
     void load();
@@ -130,30 +143,28 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
     [isInternal, planSlug, isPlatformAdmin, userRole],
   );
 
-  const hasPermWithExtras = useCallback(
+  const checkPermission = useCallback(
     (perm: Permission) => {
       if (!userRole) return false;
       if (accessCtx.isPlatformAdmin) return true;
-      return hasPermission(perm);
+      return satisfiesPermission(perm, hasPermission);
     },
     [userRole, accessCtx.isPlatformAdmin, hasPermission],
   );
 
   const navRoutes = useMemo(() => {
     if (authLoading || !userRole) return [];
-    return filterNavRoutes(accessCtx, hasPermission);
-  }, [authLoading, userRole, accessCtx, hasPermission]);
+    return filterNavRoutes(accessCtx, checkPermission);
+  }, [authLoading, userRole, accessCtx, checkPermission]);
 
   const canAccessPath = useCallback(
     (pathname: string) => {
       const route = getRouteByPathname(pathname);
       if (!route) return true;
       if (!userRole && !accessCtx.isPlatformAdmin) return false;
-      return canAccessWorkspaceRoute(route, accessCtx, hasPermission, [
-        "view_employees",
-      ]);
+      return canAccessWorkspaceRoute(route, accessCtx, checkPermission);
     },
-    [userRole, accessCtx, hasPermission],
+    [userRole, accessCtx, checkPermission],
   );
 
   const value = useMemo<TenantWorkspaceState>(
@@ -161,6 +172,8 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       isInternal,
       planSlug,
       isPlatformAdmin: accessCtx.isPlatformAdmin,
+      organizationId,
+      organizationStatus,
       loading: authLoading || loading,
       error,
       navRoutes,
@@ -171,6 +184,8 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       isInternal,
       planSlug,
       accessCtx.isPlatformAdmin,
+      organizationId,
+      organizationStatus,
       authLoading,
       loading,
       error,

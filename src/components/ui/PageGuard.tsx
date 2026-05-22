@@ -11,6 +11,7 @@ import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import {
   canAccessWorkspaceRoute,
   getRouteByPathname,
+  satisfiesPermission,
 } from "@/lib/features/packageFeatures";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { ShieldOff } from "lucide-react";
@@ -25,12 +26,11 @@ function roleHasPermission(
   resolvedRole: ReturnType<typeof mapAuthRoleToUserRole>,
   rolePermissions: Record<string, Permission[]>,
   perm: Permission,
+  isPlatformAdmin: boolean,
 ): boolean {
-  if (resolvedRole === "super_admin") return true;
+  if (isPlatformAdmin || resolvedRole === "super_admin") return true;
   const perms = rolePermissions[resolvedRole] ?? [];
-  if (perms.includes(perm)) return true;
-  if (perm === "manage_users" && perms.includes("view_employees")) return true;
-  return false;
+  return satisfiesPermission(perm, (p) => perms.includes(p));
 }
 
 export default function PageGuard({ permission, children }: PageGuardProps) {
@@ -52,7 +52,15 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
   }
 
   const resolvedRole = mapAuthRoleToUserRole(user.role);
-  const hasPerm = roleHasPermission(resolvedRole, rolePermissions, permission);
+  const platformAdmin =
+    isPlatformAdmin || resolvedRole === "super_admin";
+
+  const hasPerm = roleHasPermission(
+    resolvedRole,
+    rolePermissions,
+    permission,
+    platformAdmin,
+  );
 
   const route = getRouteByPathname(pathname ?? "");
   const workspaceOk =
@@ -62,10 +70,10 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
       {
         isInternal,
         planSlug,
-        isPlatformAdmin: isPlatformAdmin || resolvedRole === "super_admin",
+        isPlatformAdmin: platformAdmin,
       },
-      (perm) => roleHasPermission(resolvedRole, rolePermissions, perm),
-      ["view_employees"],
+      (perm) =>
+        roleHasPermission(resolvedRole, rolePermissions, perm, platformAdmin),
     );
 
   if (hasPerm && workspaceOk) {

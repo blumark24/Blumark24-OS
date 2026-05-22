@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import { ShieldOff } from "lucide-react";
-import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { getRouteByPathname } from "@/lib/features/packageFeatures";
@@ -13,8 +12,7 @@ interface WorkspaceRouteGuardProps {
 }
 
 /**
- * Blocks deep links to internal-only or package-disabled routes for customer
- * tenants. Owner (/owner/*) routes are outside DashboardLayout and unaffected.
+ * Blocks deep links to internal-only or package-disabled routes before page content.
  */
 export default function WorkspaceRouteGuard({ children }: WorkspaceRouteGuardProps) {
   const pathname = usePathname();

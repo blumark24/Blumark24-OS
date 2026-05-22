@@ -76,7 +76,22 @@ export const PLAN_LABELS_AR: Record<PlanSlug, string> = {
   advanced: "متقدم",
 };
 
-/** Canonical route registry (single source of truth for nav + guards). */
+/** Customer tenant sidebar order (product spec). */
+export const TENANT_NAV_ORDER: WorkspaceRouteId[] = [
+  "dashboard",
+  "tasks",
+  "clients",
+  "employees",
+  "org",
+  "strategy",
+  "finance",
+  "automation",
+  "reports",
+  "ai",
+  "settings",
+];
+
+/** Canonical route registry — array order is default internal nav order. */
 export const WORKSPACE_ROUTES: WorkspaceRouteDef[] = [
   {
     id: "dashboard",
@@ -86,15 +101,6 @@ export const WORKSPACE_ROUTES: WorkspaceRouteDef[] = [
     internalOnly: false,
     audience: "shared",
     iconName: "LayoutDashboard",
-  },
-  {
-    id: "employees",
-    href: "/employees",
-    feature: "employees",
-    permission: "view_employees",
-    internalOnly: false,
-    audience: "client",
-    iconName: "Users",
   },
   {
     id: "tasks",
@@ -115,22 +121,13 @@ export const WORKSPACE_ROUTES: WorkspaceRouteDef[] = [
     iconName: "UserCircle",
   },
   {
-    id: "finance",
-    href: "/finance",
-    feature: "finance",
-    permission: "manage_finance",
+    id: "employees",
+    href: "/employees",
+    feature: "employees",
+    permission: "view_employees",
     internalOnly: false,
-    audience: "shared",
-    iconName: "DollarSign",
-  },
-  {
-    id: "strategy",
-    href: "/strategy",
-    feature: "strategy",
-    permission: "manage_reports",
-    internalOnly: false,
-    audience: "shared",
-    iconName: "Map",
+    audience: "client",
+    iconName: "Users",
   },
   {
     id: "org",
@@ -142,6 +139,24 @@ export const WORKSPACE_ROUTES: WorkspaceRouteDef[] = [
     iconName: "Network",
   },
   {
+    id: "strategy",
+    href: "/strategy",
+    feature: "strategy",
+    permission: "manage_reports",
+    internalOnly: false,
+    audience: "shared",
+    iconName: "Map",
+  },
+  {
+    id: "finance",
+    href: "/finance",
+    feature: "finance",
+    permission: "manage_finance",
+    internalOnly: false,
+    audience: "shared",
+    iconName: "DollarSign",
+  },
+  {
     id: "automation",
     href: "/automation",
     feature: "automation",
@@ -149,24 +164,6 @@ export const WORKSPACE_ROUTES: WorkspaceRouteDef[] = [
     internalOnly: false,
     audience: "shared",
     iconName: "Zap",
-  },
-  {
-    id: "attack",
-    href: "/attack",
-    feature: null,
-    permission: "manage_clients",
-    internalOnly: true,
-    audience: "internal",
-    iconName: "Activity",
-  },
-  {
-    id: "ai",
-    href: "/ai",
-    feature: "ai",
-    permission: "view_dashboard",
-    internalOnly: false,
-    audience: "shared",
-    iconName: "Bot",
   },
   {
     id: "reports",
@@ -178,6 +175,15 @@ export const WORKSPACE_ROUTES: WorkspaceRouteDef[] = [
     iconName: "BarChart3",
   },
   {
+    id: "ai",
+    href: "/ai",
+    feature: "ai",
+    permission: "view_dashboard",
+    internalOnly: false,
+    audience: "shared",
+    iconName: "Bot",
+  },
+  {
     id: "settings",
     href: "/settings",
     feature: null,
@@ -185,6 +191,15 @@ export const WORKSPACE_ROUTES: WorkspaceRouteDef[] = [
     internalOnly: false,
     audience: "shared",
     iconName: "Settings",
+  },
+  {
+    id: "attack",
+    href: "/attack",
+    feature: null,
+    permission: "manage_clients",
+    internalOnly: true,
+    audience: "internal",
+    iconName: "Activity",
   },
 ];
 
@@ -194,6 +209,10 @@ const ROUTE_BY_HREF = new Map(
 
 const ROUTE_BY_ID = new Map(
   WORKSPACE_ROUTES.map((r) => [r.id, r] as const),
+);
+
+const NAV_ORDER_INDEX = new Map(
+  TENANT_NAV_ORDER.map((id, i) => [id, i] as const),
 );
 
 export function normalizePlanSlug(slug: string | null | undefined): PlanSlug {
@@ -221,8 +240,18 @@ export function getRouteByPathname(pathname: string): WorkspaceRouteDef | null {
   return null;
 }
 
-export function getRouteById(id: WorkspaceRouteId): WorkspaceRouteDef {
-  return ROUTE_BY_ID.get(id)!;
+export function getRouteById(id: WorkspaceRouteId): WorkspaceRouteDef | null {
+  return ROUTE_BY_ID.get(id) ?? null;
+}
+
+/** True when `required` is granted directly or via permission hierarchy. */
+export function satisfiesPermission(
+  required: Permission,
+  hasPermission: (perm: Permission) => boolean,
+): boolean {
+  if (hasPermission(required)) return true;
+  if (required === "view_employees" && hasPermission("manage_users")) return true;
+  return false;
 }
 
 /** Nav labels: tenant-facing vs internal Blumark24 operations. */
@@ -247,12 +276,12 @@ export function getRouteLabel(routeId: WorkspaceRouteId, isInternal: boolean): s
 
   const tenantLabels: Record<WorkspaceRouteId, string> = {
     dashboard: "الرئيسية",
-    employees: "الموظفين",
+    employees: "الموظفون",
     tasks: "المهام",
     clients: "العملاء CRM",
     finance: "مالية المنشأة",
     strategy: "استراتيجية المنشأة",
-    org: "الهيكل الإداري",
+    org: "الهيكل الإداري للمنشأة",
     automation: "مركز الأتمتة",
     attack: "وكالة الهجوم",
     ai: "المساعد الذكي",
@@ -265,6 +294,9 @@ export function getRouteLabel(routeId: WorkspaceRouteId, isInternal: boolean): s
 export const TENANT_EMPTY_STATE_MSG =
   "لم يتم إعداد بيانات هذه المنشأة بعد";
 
+export const TENANT_EMPTY_STATE_HINT =
+  "ابدأ بإضافة البيانات من لوحة مدير المنشأة";
+
 export interface WorkspaceAccessContext {
   isInternal: boolean;
   planSlug: PlanSlug;
@@ -276,16 +308,12 @@ export function canAccessWorkspaceRoute(
   route: WorkspaceRouteDef,
   ctx: WorkspaceAccessContext,
   hasPermission: (perm: Permission) => boolean,
-  extraPerms: Permission[] = [],
 ): boolean {
   if (ctx.isPlatformAdmin) return true;
 
   if (route.internalOnly && !ctx.isInternal) return false;
 
-  const permOk =
-    hasPermission(route.permission) ||
-    extraPerms.some((p) => hasPermission(p));
-  if (!permOk) return false;
+  if (!satisfiesPermission(route.permission, hasPermission)) return false;
 
   if (ctx.isInternal) return true;
 
@@ -293,14 +321,26 @@ export function canAccessWorkspaceRoute(
   return planIncludesFeature(ctx.planSlug, route.feature);
 }
 
+function sortRoutesForNav(
+  routes: WorkspaceRouteDef[],
+  isInternal: boolean,
+): WorkspaceRouteDef[] {
+  if (isInternal) return routes;
+  return [...routes].sort((a, b) => {
+    const ai = NAV_ORDER_INDEX.get(a.id) ?? 999;
+    const bi = NAV_ORDER_INDEX.get(b.id) ?? 999;
+    return ai - bi;
+  });
+}
+
 export function filterNavRoutes(
   ctx: WorkspaceAccessContext,
   hasPermission: (perm: Permission) => boolean,
 ): WorkspaceRouteDef[] {
-  const extra: Permission[] = ["view_employees"];
-  return WORKSPACE_ROUTES.filter((route) =>
-    canAccessWorkspaceRoute(route, ctx, hasPermission, extra),
+  const filtered = WORKSPACE_ROUTES.filter((route) =>
+    canAccessWorkspaceRoute(route, ctx, hasPermission),
   );
+  return sortRoutesForNav(filtered, ctx.isInternal);
 }
 
 /** Route classification for docs / PR (audience column). */

@@ -11,6 +11,7 @@ import { usePermissions } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useBoardMembers } from "@/hooks/useData";
 import { supabase } from "@/lib/supabase";
+import { TENANT_EMPTY_STATE_MSG, TENANT_EMPTY_STATE_HINT } from "@/lib/features/packageFeatures";
 import type { BoardMember } from "@/lib/db";
 
 const MAX_BOARD = 3;
@@ -477,7 +478,8 @@ export default function OrgPage() {
             <div className="w-16 h-16 rounded-2xl bg-[#22d3ee]/10 border border-[#22d3ee]/25 flex items-center justify-center">
               <Network size={28} className="text-[#22d3ee]" />
             </div>
-            <h3 className="text-white font-heading font-bold text-lg">لم يتم إعداد بيانات هذه المنشأة بعد</h3>
+            <h3 className="text-white font-heading font-bold text-lg">{TENANT_EMPTY_STATE_MSG}</h3>
+              <p className="text-[#8ba3c7] text-sm mt-2">{TENANT_EMPTY_STATE_HINT}</p>
             <p className="text-[#8ba3c7] text-sm max-w-md leading-relaxed">
               سيظهر هنا الهيكل الإداري الخاص بمنشأتك عند إضافته. ابدأ بإضافة أعضاء مجلس الإدارة في الأعلى.
             </p>
