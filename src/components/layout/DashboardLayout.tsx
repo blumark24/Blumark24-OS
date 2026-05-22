@@ -6,6 +6,7 @@ import Header  from "./Header";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { AlertTriangle } from "lucide-react";
+import TenantAccessGuard from "@/components/ui/TenantAccessGuard";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
