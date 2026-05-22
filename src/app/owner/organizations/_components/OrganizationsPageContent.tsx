@@ -11,13 +11,22 @@ import {
   Power,
   KeyRound,
   CheckCircle2,
+  Trash2,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
-import { fetchOrganizationsPage, type DisplayOrgFull } from "../../_lib/ownerQueries";
+import {
+  fetchOrganizationsPage,
+  setOrganizationStatus,
+  softDeleteOrganization,
+  type DisplayOrgFull,
+} from "../../_lib/ownerQueries";
 import CreateOrganizationModal from "./CreateOrganizationModal";
 import ActivateSubscriptionModal from "./ActivateSubscriptionModal";
 import CreateClientLoginModal from "./CreateClientLoginModal";
+import EditOrganizationModal from "./EditOrganizationModal";
+import ChangePlanModal from "./ChangePlanModal";
 
 // ─── Badge helpers ────────────────────────────────────────────────────────────
 
@@ -92,18 +101,46 @@ function CardSkeleton() {
 }
 
 // ─── Row actions ───────────────────────────────────────────────────────────────
-// Enabled: "تفعيل الاشتراك" (orgs without a subscription) and "إنشاء حساب دخول"
-// (orgs that have an owner_email and are not yet linked to a login). Once linked
-// the login button becomes a disabled "تم الربط". تعديل / تغيير الباقة / تعليق
-// remain disabled in this phase.
+// Customer tenants (is_internal = false) get the full management set: activate
+// subscription, create client login, edit, change plan, suspend/reactivate, and
+// soft-delete. The internal Blumark24 org is action-protected — it shows a
+// "محمية" marker instead, and the DB trigger rejects any destructive change.
 
 interface RowActionsProps {
   org: DisplayOrgFull;
+  busy: boolean;
   onActivate: (org: DisplayOrgFull) => void;
   onCreateClientLogin: (org: DisplayOrgFull) => void;
+  onEdit: (org: DisplayOrgFull) => void;
+  onChangePlan: (org: DisplayOrgFull) => void;
+  onToggleStatus: (org: DisplayOrgFull) => void;
+  onDelete: (org: DisplayOrgFull) => void;
 }
 
-function RowActions({ org, onActivate, onCreateClientLogin }: RowActionsProps) {
+function RowActions({
+  org,
+  busy,
+  onActivate,
+  onCreateClientLogin,
+  onEdit,
+  onChangePlan,
+  onToggleStatus,
+  onDelete,
+}: RowActionsProps) {
+  // Internal org: protected, no customer-management actions.
+  if (org.isInternal) {
+    return (
+      <span
+        title="منشأة داخلية محمية — غير قابلة للتعديل أو الحذف كعميل"
+        className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/25 bg-[#22d3ee]/[0.06] px-2.5 py-1 text-[11px] text-[#22d3ee]/70 cursor-default"
+      >
+        <ShieldCheck size={11} /> محمية
+      </span>
+    );
+  }
+
+  const suspended = org.statusRaw === "suspended";
+
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {!org.hasSubscription && (
@@ -132,25 +169,47 @@ function RowActions({ org, onActivate, onCreateClientLogin }: RowActionsProps) {
         </button>
       ) : null}
       <button
-        disabled
-        title="قريباً"
-        className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/20 bg-[#22d3ee]/[0.06] px-2.5 py-1 text-[11px] text-[#22d3ee]/40 cursor-not-allowed"
+        type="button"
+        onClick={() => onEdit(org)}
+        disabled={busy}
+        className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/30 bg-[#22d3ee]/[0.10] px-2.5 py-1 text-[11px] text-[#22d3ee] hover:bg-[#22d3ee]/20 hover:border-[#22d3ee]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Edit2 size={11} /> تعديل
       </button>
       <button
-        disabled
-        title="قريباً"
-        className="inline-flex items-center gap-1 rounded-lg border border-[#a855f7]/20 bg-[#a855f7]/[0.06] px-2.5 py-1 text-[11px] text-[#c084fc]/40 cursor-not-allowed"
+        type="button"
+        onClick={() => onChangePlan(org)}
+        disabled={busy}
+        className="inline-flex items-center gap-1 rounded-lg border border-[#a855f7]/30 bg-[#a855f7]/[0.10] px-2.5 py-1 text-[11px] text-[#c084fc] hover:bg-[#a855f7]/20 hover:border-[#a855f7]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Layers size={11} /> تغيير الباقة
       </button>
+      {suspended ? (
+        <button
+          type="button"
+          onClick={() => onToggleStatus(org)}
+          disabled={busy}
+          className="inline-flex items-center gap-1 rounded-lg border border-[#10b981]/40 bg-[#10b981]/15 px-2.5 py-1 text-[11px] text-[#34d399] hover:bg-[#10b981]/25 hover:border-[#10b981]/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <Power size={11} /> إعادة تفعيل
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onToggleStatus(org)}
+          disabled={busy}
+          className="inline-flex items-center gap-1 rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/[0.10] px-2.5 py-1 text-[11px] text-[#fbbf24] hover:bg-[#f59e0b]/20 hover:border-[#f59e0b]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <PauseCircle size={11} /> تعليق
+        </button>
+      )}
       <button
-        disabled
-        title="قريباً"
-        className="inline-flex items-center gap-1 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/[0.06] px-2.5 py-1 text-[11px] text-[#fbbf24]/40 cursor-not-allowed"
+        type="button"
+        onClick={() => onDelete(org)}
+        disabled={busy}
+        className="inline-flex items-center gap-1 rounded-lg border border-[#ef4444]/30 bg-[#ef4444]/[0.10] px-2.5 py-1 text-[11px] text-[#f87171] hover:bg-[#ef4444]/20 hover:border-[#ef4444]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        <PauseCircle size={11} /> تعليق
+        <Trash2 size={11} /> حذف
       </button>
     </div>
   );
@@ -158,7 +217,8 @@ function RowActions({ org, onActivate, onCreateClientLogin }: RowActionsProps) {
 
 // ─── Mobile card ──────────────────────────────────────────────────────────────
 
-function OrgCard({ org, onActivate, onCreateClientLogin }: RowActionsProps) {
+function OrgCard(props: RowActionsProps) {
+  const { org } = props;
   return (
     <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -214,7 +274,7 @@ function OrgCard({ org, onActivate, onCreateClientLogin }: RowActionsProps) {
         )}
       </div>
 
-      <RowActions org={org} onActivate={onActivate} onCreateClientLogin={onCreateClientLogin} />
+      <RowActions {...props} />
     </div>
   );
 }
@@ -229,6 +289,9 @@ export default function OrganizationsPageContent() {
   const [createOpen, setCreateOpen] = useState(false);
   const [activateOrg, setActivateOrg] = useState<DisplayOrgFull | null>(null);
   const [clientLoginOrg, setClientLoginOrg] = useState<DisplayOrgFull | null>(null);
+  const [editOrg, setEditOrg] = useState<DisplayOrgFull | null>(null);
+  const [changePlanOrg, setChangePlanOrg] = useState<DisplayOrgFull | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const loadOrgs = useCallback(async () => {
     try {
@@ -258,6 +321,52 @@ export default function OrganizationsPageContent() {
 
   const handleClientLoginCreated = useCallback(() => {
     toast.success("تم إنشاء حساب الدخول وربطه بالمنشأة");
+    void loadOrgs();
+  }, [toast, loadOrgs]);
+
+  const handleSaved = useCallback(() => {
+    toast.success("تم تحديث بيانات المنشأة");
+    void loadOrgs();
+  }, [toast, loadOrgs]);
+
+  const handlePlanChanged = useCallback(() => {
+    toast.success("تم تغيير الباقة بنجاح");
+    void loadOrgs();
+  }, [toast, loadOrgs]);
+
+  // Suspend / reactivate — guarded against internal orgs and confirmed first.
+  const handleToggleStatus = useCallback(async (org: DisplayOrgFull) => {
+    if (org.isInternal) return;
+    const suspending = org.statusRaw !== "suspended";
+    const msg = suspending
+      ? `تعليق المنشأة "${org.name}"؟ ستظهر كمعلّقة حتى تعيد تفعيلها.`
+      : `إعادة تفعيل المنشأة "${org.name}"؟`;
+    if (!window.confirm(msg)) return;
+    setBusyId(org.id);
+    const res = await setOrganizationStatus({ id: org.id, status: suspending ? "suspended" : "active" });
+    setBusyId(null);
+    if (!res.ok) {
+      toast.error(res.error ?? "تعذّر تحديث حالة المنشأة");
+      return;
+    }
+    toast.success(suspending ? "تم تعليق المنشأة" : "تمت إعادة تفعيل المنشأة");
+    void loadOrgs();
+  }, [toast, loadOrgs]);
+
+  // Soft-delete — non-destructive (deleted_at), confirmed, internal-protected.
+  const handleDelete = useCallback(async (org: DisplayOrgFull) => {
+    if (org.isInternal) return;
+    if (!window.confirm(
+      `حذف المنشأة "${org.name}"؟\nهذا حذف ناعم — تبقى البيانات في قاعدة البيانات ويمكن استرجاعها. متابعة؟`,
+    )) return;
+    setBusyId(org.id);
+    const res = await softDeleteOrganization({ id: org.id });
+    setBusyId(null);
+    if (!res.ok) {
+      toast.error(res.error ?? "تعذّر حذف المنشأة");
+      return;
+    }
+    toast.success("تم حذف المنشأة (حذف ناعم)");
     void loadOrgs();
   }, [toast, loadOrgs]);
 
@@ -414,7 +523,16 @@ export default function OrganizationsPageContent() {
                         </td>
                         {/* Actions */}
                         <td className="py-3.5">
-                          <RowActions org={org} onActivate={setActivateOrg} onCreateClientLogin={setClientLoginOrg} />
+                          <RowActions
+                            org={org}
+                            busy={busyId === org.id}
+                            onActivate={setActivateOrg}
+                            onCreateClientLogin={setClientLoginOrg}
+                            onEdit={setEditOrg}
+                            onChangePlan={setChangePlanOrg}
+                            onToggleStatus={handleToggleStatus}
+                            onDelete={handleDelete}
+                          />
                         </td>
                       </tr>
                     ))
@@ -434,7 +552,19 @@ export default function OrganizationsPageContent() {
               {loading ? (
                 <CardSkeleton />
               ) : orgs && orgs.length > 0 ? (
-                orgs.map((org) => <OrgCard key={org.id} org={org} onActivate={setActivateOrg} onCreateClientLogin={setClientLoginOrg} />)
+                orgs.map((org) => (
+                  <OrgCard
+                    key={org.id}
+                    org={org}
+                    busy={busyId === org.id}
+                    onActivate={setActivateOrg}
+                    onCreateClientLogin={setClientLoginOrg}
+                    onEdit={setEditOrg}
+                    onChangePlan={setChangePlanOrg}
+                    onToggleStatus={handleToggleStatus}
+                    onDelete={handleDelete}
+                  />
+                ))
               ) : (
                 <p className="py-8 text-center text-[13px] text-[#8ba3c7]">
                   لا توجد منشآت بعد
@@ -461,6 +591,18 @@ export default function OrganizationsPageContent() {
         org={clientLoginOrg}
         onClose={() => setClientLoginOrg(null)}
         onCreated={handleClientLoginCreated}
+      />
+
+      <EditOrganizationModal
+        org={editOrg}
+        onClose={() => setEditOrg(null)}
+        onSaved={handleSaved}
+      />
+
+      <ChangePlanModal
+        org={changePlanOrg}
+        onClose={() => setChangePlanOrg(null)}
+        onChanged={handlePlanChanged}
       />
     </div>
   );

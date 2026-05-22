@@ -39,6 +39,8 @@ export interface DbOrganization {
   plan_id: string | null;
   status: "active" | "suspended" | "trial" | "cancelled";
   notes: string | null;
+  is_internal: boolean;
+  deleted_at: string | null;
   created_at: string;
 }
 
@@ -220,7 +222,7 @@ function normalizeOrg(org: DbOrganization, plans: DbPlan[]): DisplayOrg {
     planName: plan?.name ?? "—",
     planSlug: plan?.slug ?? "",
     statusAr: status,
-    isInternal: org.slug === "blumark24-internal",
+    isInternal: org.is_internal === true,
   };
 }
 
@@ -291,7 +293,7 @@ export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
   const [orgsRes, plansRes, limitsRes, subsRes] = await Promise.all([
     supabase
       .from("organizations")
-      .select("id, name, slug, owner_email, plan_id, status, notes, created_at")
+      .select("id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at")
       .order("created_at"),
     supabase
       .from("plans")
@@ -309,7 +311,8 @@ export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
   if (limitsRes.error) console.error("[owner] plan_limits fetch error:", limitsRes.error.message);
   if (subsRes.error)  console.error("[owner] subscriptions fetch error:", subsRes.error.message);
 
-  const rawOrgs  = (orgsRes.data  ?? []) as DbOrganization[];
+  // Exclude soft-deleted tenants from the active management surface.
+  const rawOrgs  = ((orgsRes.data ?? []) as DbOrganization[]).filter((o) => !o.deleted_at);
   const rawPlans = (plansRes.data ?? []) as DbPlan[];
   const rawLimits = (limitsRes.data ?? []) as DbPlanLimit[];
   const rawSubs  = (subsRes.data  ?? []) as DbSubscription[];
@@ -317,7 +320,7 @@ export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
   const organizations = rawOrgs.map((o) => normalizeOrg(o, rawPlans));
   const plans = rawPlans.map((p) => normalizePlan(p, rawLimits));
 
-  const internalRaw = rawOrgs.find((o) => o.slug === "blumark24-internal") ?? null;
+  const internalRaw = rawOrgs.find((o) => o.is_internal === true) ?? null;
   const internalOrg = internalRaw ? normalizeOrg(internalRaw, rawPlans) : null;
 
   const internalPlanLimits: Record<string, number> = {};
@@ -409,7 +412,7 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
   const [orgsRes, plansRes, subsRes, linksRes] = await Promise.all([
     supabase
       .from("organizations")
-      .select("id, name, slug, owner_email, plan_id, status, notes, created_at")
+      .select("id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at")
       .order("created_at"),
     supabase
       .from("plans")
@@ -432,7 +435,9 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
   if (subsRes.error)  console.error("[owner] subs page fetch error:", subsRes.error.message);
   if (linksRes.error) console.warn("[owner] client-login links fetch skipped:", linksRes.error.message);
 
-  const rawOrgs  = (orgsRes.data  ?? []) as DbOrganization[];
+  // Soft-deleted tenants are hidden from the owner management list; their rows
+  // remain in the DB and can be restored by clearing deleted_at.
+  const rawOrgs  = ((orgsRes.data ?? []) as DbOrganization[]).filter((o) => !o.deleted_at);
   const rawPlans = (plansRes.data ?? []) as Pick<DbPlan, "id" | "name" | "slug">[];
   const rawSubs  = (subsRes.data  ?? []) as Pick<DbSubscription, "organization_id" | "plan_id" | "status" | "billing_cycle">[];
   const linkedOrgIds = new Set(
@@ -449,7 +454,7 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
       name: org.name,
       slug: org.slug,
       ownerEmail: org.owner_email,
-      isInternal: org.slug === "blumark24-internal",
+      isInternal: org.is_internal === true,
       statusRaw: org.status,
       statusAr: ORG_STATUS_AR[org.status] ?? org.status,
       planId: org.plan_id,
@@ -479,7 +484,7 @@ export async function fetchSubscriptionsPage(): Promise<DisplaySubscriptionFull[
       .from("subscriptions")
       .select("id, organization_id, plan_id, status, billing_cycle, started_at, ends_at, created_at")
       .order("created_at"),
-    supabase.from("organizations").select("id, name, slug"),
+    supabase.from("organizations").select("id, name, slug, is_internal"),
     supabase.from("plans").select("id, name, slug"),
   ]);
 
@@ -491,7 +496,7 @@ export async function fetchSubscriptionsPage(): Promise<DisplaySubscriptionFull[
   if (plansRes.error) console.error("[owner] subs plans fetch error:", plansRes.error.message);
 
   const rawSubs  = (subsRes.data  ?? []) as DbSubscriptionRow[];
-  const rawOrgs  = (orgsRes.data  ?? []) as Pick<DbOrganization, "id" | "name" | "slug">[];
+  const rawOrgs  = (orgsRes.data  ?? []) as Pick<DbOrganization, "id" | "name" | "slug" | "is_internal">[];
   const rawPlans = (plansRes.data ?? []) as Pick<DbPlan, "id" | "name" | "slug">[];
 
   return rawSubs.map((sub) => {
@@ -502,7 +507,7 @@ export async function fetchSubscriptionsPage(): Promise<DisplaySubscriptionFull[
       id: sub.id,
       orgName: org?.name ?? "—",
       orgSlug: org?.slug ?? null,
-      isInternal: org?.slug === "blumark24-internal",
+      isInternal: org?.is_internal === true,
       planName: plan?.name ?? "—",
       planSlug,
       accent: SLUG_ACCENT[planSlug] ?? "cyan",
@@ -760,4 +765,143 @@ export async function createClientLogin(
     return { ok: false, error: payload.error ?? "تعذّر إنشاء حساب الدخول" };
   }
   return { ok: true, id: payload.id };
+}
+
+// ─── Customer-tenant management mutations (owner-only) ─────────────────────────
+// All four run client-side with the anon key; the existing is_owner() RLS UPDATE
+// policy on `organizations` is the real authorization boundary (a non-owner is
+// rejected by the database, never by this code). The protect_internal_organization
+// DB trigger (migration 013) is a second safety net that blocks suspend / cancel /
+// soft-delete / un-flag on the internal org. The UI additionally hides these
+// actions for internal orgs, so they are normally never attempted on one.
+
+export interface OwnerActionResult {
+  ok: boolean;
+  error?: string;
+}
+
+// Best-effort audit trail — a logging failure must never undo the action.
+async function logOwnerAction(
+  action: string,
+  targetId: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from("owner_audit_logs").insert({
+      owner_email: user?.email ?? "unknown",
+      action,
+      target_type: "organization",
+      target_id: targetId,
+      metadata,
+    });
+  } catch (logErr) {
+    console.warn(`[owner] audit log insert failed (${action}):`, logErr);
+  }
+}
+
+// Edit basic organization details (name / owner email / notes). Status and plan
+// are changed through their own dedicated actions below.
+export interface UpdateOrganizationInput {
+  id: string;
+  name: string;
+  ownerEmail: string | null;
+  notes: string | null;
+}
+
+export async function updateOrganization(input: UpdateOrganizationInput): Promise<OwnerActionResult> {
+  const name = input.name.trim();
+  if (!name) {
+    return { ok: false, error: "اسم المنشأة مطلوب" };
+  }
+  const ownerEmail = input.ownerEmail && input.ownerEmail.trim()
+    ? input.ownerEmail.trim().toLowerCase()
+    : null;
+  const notes = input.notes && input.notes.trim() ? input.notes.trim() : null;
+
+  const { error } = await supabase
+    .from("organizations")
+    .update({ name, owner_email: ownerEmail, notes, updated_at: new Date().toISOString() })
+    .eq("id", input.id);
+
+  if (error) {
+    console.error("[owner] update organization error:", error.message);
+    return { ok: false, error: "تعذّر تحديث بيانات المنشأة — حاول مجدداً" };
+  }
+
+  await logOwnerAction("update_organization", input.id, { name, owner_email: ownerEmail });
+  return { ok: true };
+}
+
+// Change a tenant's plan. Updates organizations.plan_id and best-effort syncs the
+// tenant's existing subscription plan so the two never drift.
+export async function changeOrganizationPlan(input: { id: string; planId: string | null }): Promise<OwnerActionResult> {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("organizations")
+    .update({ plan_id: input.planId, updated_at: now })
+    .eq("id", input.id);
+
+  if (error) {
+    console.error("[owner] change plan error:", error.message);
+    return { ok: false, error: "تعذّر تغيير الباقة — حاول مجدداً" };
+  }
+
+  if (input.planId) {
+    const { error: subErr } = await supabase
+      .from("subscriptions")
+      .update({ plan_id: input.planId, updated_at: now })
+      .eq("organization_id", input.id);
+    if (subErr) console.warn("[owner] subscription plan sync skipped:", subErr.message);
+  }
+
+  await logOwnerAction("change_plan", input.id, { plan_id: input.planId });
+  return { ok: true };
+}
+
+// Suspend or reactivate a customer tenant. Best-effort syncs the subscription
+// status. The protect_internal_organization trigger rejects this on internal orgs.
+export async function setOrganizationStatus(input: { id: string; status: "active" | "suspended" }): Promise<OwnerActionResult> {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("organizations")
+    .update({ status: input.status, updated_at: now })
+    .eq("id", input.id);
+
+  if (error) {
+    console.error("[owner] set status error:", error.message);
+    return { ok: false, error: "تعذّر تحديث حالة المنشأة — حاول مجدداً" };
+  }
+
+  const { error: subErr } = await supabase
+    .from("subscriptions")
+    .update({ status: input.status === "active" ? "active" : "suspended", updated_at: now })
+    .eq("organization_id", input.id);
+  if (subErr) console.warn("[owner] subscription status sync skipped:", subErr.message);
+
+  await logOwnerAction(
+    input.status === "suspended" ? "suspend_organization" : "reactivate_organization",
+    input.id,
+    { status: input.status },
+  );
+  return { ok: true };
+}
+
+// Soft-delete a customer tenant: mark deleted_at + status='cancelled'. No rows are
+// removed; the org simply leaves the active list and can be restored by clearing
+// deleted_at. The protect_internal_organization trigger rejects this on internal orgs.
+export async function softDeleteOrganization(input: { id: string }): Promise<OwnerActionResult> {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("organizations")
+    .update({ deleted_at: now, status: "cancelled", updated_at: now })
+    .eq("id", input.id);
+
+  if (error) {
+    console.error("[owner] soft delete error:", error.message);
+    return { ok: false, error: "تعذّر حذف المنشأة — حاول مجدداً" };
+  }
+
+  await logOwnerAction("soft_delete_organization", input.id, {});
+  return { ok: true };
 }
