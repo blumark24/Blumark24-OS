@@ -7,6 +7,7 @@ import { Eye, EyeOff, LogIn, Mail, ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { supabase } from "@/lib/supabase";
+import { TENANT_BLOCKED_BODY, TENANT_BLOCKED_TITLE } from "@/lib/tenantAccess";
 
 export default function AuthPage() {
   const { login } = useAuth();
@@ -36,9 +37,34 @@ export default function AuthPage() {
         setError(result.error ?? "خطأ في تسجيل الدخول");
         toast.error(result.error ?? "خطأ في تسجيل الدخول");
       } else {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          if (token) {
+            const accessRes = await fetch("/api/auth/tenant-access", {
+              method: "GET",
+              headers: { Authorization: `Bearer ${token}` },
+              credentials: "same-origin",
+              cache: "no-store",
+            });
+            const accessBody = (await accessRes.json()) as {
+              allowed?: boolean;
+              title?: string;
+              message?: string;
+            };
+            if (accessRes.ok && accessBody.allowed === false) {
+              await supabase.auth.signOut();
+              const msg = accessBody.title ?? accessBody.message ?? TENANT_BLOCKED_TITLE;
+              setError(`${msg} — ${TENANT_BLOCKED_BODY}`);
+              toast.error(msg);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch {
+          /* TenantAccessGuard enforces on dashboard if this check fails */
+        }
         toast.success("مرحباً! تم تسجيل الدخول بنجاح");
-        // On success login() performs the redirect; keep the button in its
-        // loading state so it cannot be re-submitted during navigation.
         return;
       }
     } catch {
