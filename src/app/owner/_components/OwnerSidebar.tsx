@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import OwnerLogoutButton from "./OwnerLogoutButton";
 
 interface NavItem {
   id: string;
@@ -138,7 +139,7 @@ export default function OwnerSidebar({ mobileOpen, onMobileClose }: OwnerSidebar
       </nav>
 
       {/* Owner card */}
-      <div className="px-3 pb-3 pt-2 border-t border-white/[0.06]">
+      <div className="px-3 pb-3 pt-2 border-t border-white/[0.06] space-y-2.5">
         <div className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5">
           <span
             className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-semibold text-white flex-shrink-0"
@@ -152,6 +153,7 @@ export default function OwnerSidebar({ mobileOpen, onMobileClose }: OwnerSidebar
           </div>
           <span className="h-2 w-2 rounded-full bg-[#10b981] shadow-[0_0_8px_2px_rgba(16,185,129,0.5)]" />
         </div>
+        <OwnerLogoutButton />
       </div>
     </div>
   );

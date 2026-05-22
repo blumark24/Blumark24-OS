@@ -10,9 +10,12 @@ import {
   RefreshCw,
   Power,
   KeyRound,
+  RotateCcw,
   CheckCircle2,
   Trash2,
   ShieldCheck,
+  Hash,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
@@ -25,6 +28,7 @@ import {
 import CreateOrganizationModal from "./CreateOrganizationModal";
 import ActivateSubscriptionModal from "./ActivateSubscriptionModal";
 import CreateClientLoginModal from "./CreateClientLoginModal";
+import ResetClientPasswordModal from "./ResetClientPasswordModal";
 import EditOrganizationModal from "./EditOrganizationModal";
 import ChangePlanModal from "./ChangePlanModal";
 
@@ -111,6 +115,7 @@ interface RowActionsProps {
   busy: boolean;
   onActivate: (org: DisplayOrgFull) => void;
   onCreateClientLogin: (org: DisplayOrgFull) => void;
+  onResetPassword: (org: DisplayOrgFull) => void;
   onEdit: (org: DisplayOrgFull) => void;
   onChangePlan: (org: DisplayOrgFull) => void;
   onToggleStatus: (org: DisplayOrgFull) => void;
@@ -122,6 +127,7 @@ function RowActions({
   busy,
   onActivate,
   onCreateClientLogin,
+  onResetPassword,
   onEdit,
   onChangePlan,
   onToggleStatus,
@@ -168,6 +174,17 @@ function RowActions({
           <KeyRound size={11} /> إنشاء حساب دخول
         </button>
       ) : null}
+      {org.ownerEmail && (
+        <button
+          type="button"
+          onClick={() => onResetPassword(org)}
+          disabled={busy}
+          title="إرسال رابط آمن لإعادة تعيين كلمة مرور مدير المنشأة"
+          className="inline-flex items-center gap-1 rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/[0.10] px-2.5 py-1 text-[11px] text-[#fbbf24] hover:bg-[#f59e0b]/20 hover:border-[#f59e0b]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <RotateCcw size={11} /> إعادة تعيين كلمة مرور المدير
+        </button>
+      )}
       <button
         type="button"
         onClick={() => onEdit(org)}
@@ -246,6 +263,10 @@ function OrgCard(props: RowActionsProps) {
       </div>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
+        <div className="col-span-2 flex items-center gap-1.5">
+          <span className="text-[#8ba3c7]">رقم العميل:</span>
+          <span className="font-mono tabular-nums text-[#22d3ee]">{org.customerCode ?? "—"}</span>
+        </div>
         <div className="flex items-center gap-1.5">
           <span className="text-[#8ba3c7]">الباقة:</span>
           <span className={cn("badge text-[10px]", PLAN_BADGE[org.planName] ?? "text-[#8ba3c7]")}>
@@ -289,9 +310,11 @@ export default function OrganizationsPageContent() {
   const [createOpen, setCreateOpen] = useState(false);
   const [activateOrg, setActivateOrg] = useState<DisplayOrgFull | null>(null);
   const [clientLoginOrg, setClientLoginOrg] = useState<DisplayOrgFull | null>(null);
+  const [resetPwOrg, setResetPwOrg] = useState<DisplayOrgFull | null>(null);
   const [editOrg, setEditOrg] = useState<DisplayOrgFull | null>(null);
   const [changePlanOrg, setChangePlanOrg] = useState<DisplayOrgFull | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   const loadOrgs = useCallback(async () => {
     try {
@@ -323,6 +346,10 @@ export default function OrganizationsPageContent() {
     toast.success("تم إنشاء حساب الدخول وربطه بالمنشأة");
     void loadOrgs();
   }, [toast, loadOrgs]);
+
+  const handlePasswordResetSent = useCallback(() => {
+    toast.success("تم إرسال رابط إعادة تعيين كلمة المرور إلى بريد مدير المنشأة");
+  }, [toast]);
 
   const handleSaved = useCallback(() => {
     toast.success("تم تحديث بيانات المنشأة");
@@ -374,6 +401,18 @@ export default function OrganizationsPageContent() {
   const internalCount = orgs?.filter((o) => o.isInternal).length ?? 0;
   const total = orgs?.length ?? 0;
 
+  // Client-side filter — matches name, customer code, slug, or owner email.
+  const q = query.trim().toLowerCase();
+  const visibleOrgs = !orgs
+    ? null
+    : !q
+      ? orgs
+      : orgs.filter((o) =>
+          [o.name, o.customerCode, o.slug, o.ownerEmail]
+            .some((field) => (field ?? "").toLowerCase().includes(q)),
+        );
+  const visibleCount = visibleOrgs?.length ?? 0;
+
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-5 lg:space-y-6">
 
@@ -416,14 +455,31 @@ export default function OrganizationsPageContent() {
 
       {/* Table card */}
       <div className="glass-card p-5 sm:p-6">
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
           <h2 className="font-heading text-base font-bold text-white flex items-center gap-2">
             <Building2 size={16} className="text-[#22d3ee]" />
             قائمة المنشآت
           </h2>
-          {!loading && orgs && (
-            <span className="text-[11px] text-[#8ba3c7]">{total} منشأة</span>
-          )}
+          <div className="flex items-center gap-3">
+            <div className="relative w-full sm:w-64">
+              <Search
+                size={14}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none"
+              />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="بحث: رقم العميل، الاسم، البريد..."
+                className="w-full rounded-xl bg-[rgba(13,31,60,0.7)] border border-white/[0.08] text-[12px] text-white placeholder:text-white/40 pr-9 pl-3 py-2 outline-none transition-colors focus:border-[#22d3ee]/50"
+              />
+            </div>
+            {!loading && orgs && (
+              <span className="text-[11px] text-[#8ba3c7] whitespace-nowrap">
+                {q ? `${visibleCount} / ${total}` : `${total} منشأة`}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Error */}
@@ -442,6 +498,7 @@ export default function OrganizationsPageContent() {
                 <thead>
                   <tr className="text-[11px] text-[#8ba3c7] border-b border-white/[0.07]">
                     <th className="font-medium pb-3 pr-1 text-right">المنشأة</th>
+                    <th className="font-medium pb-3 text-right">رقم العميل</th>
                     <th className="font-medium pb-3 text-right">المعرف</th>
                     <th className="font-medium pb-3 text-right">المالك</th>
                     <th className="font-medium pb-3 text-right">الباقة</th>
@@ -455,12 +512,12 @@ export default function OrganizationsPageContent() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={9} className="pt-2">
+                      <td colSpan={10} className="pt-2">
                         <TableSkeleton />
                       </td>
                     </tr>
-                  ) : orgs && orgs.length > 0 ? (
-                    orgs.map((org) => (
+                  ) : visibleOrgs && visibleOrgs.length > 0 ? (
+                    visibleOrgs.map((org) => (
                       <tr
                         key={org.id}
                         className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
@@ -482,6 +539,13 @@ export default function OrganizationsPageContent() {
                               </div>
                             </div>
                           </div>
+                        </td>
+                        {/* Customer code */}
+                        <td className="py-3.5">
+                          <span className="inline-flex items-center gap-1 text-[12px] text-[#22d3ee] font-mono tabular-nums">
+                            <Hash size={11} className="text-[#22d3ee]/60" />
+                            {org.customerCode ?? "—"}
+                          </span>
                         </td>
                         {/* Slug */}
                         <td className="py-3.5">
@@ -528,6 +592,7 @@ export default function OrganizationsPageContent() {
                             busy={busyId === org.id}
                             onActivate={setActivateOrg}
                             onCreateClientLogin={setClientLoginOrg}
+                            onResetPassword={setResetPwOrg}
                             onEdit={setEditOrg}
                             onChangePlan={setChangePlanOrg}
                             onToggleStatus={handleToggleStatus}
@@ -538,8 +603,8 @@ export default function OrganizationsPageContent() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-[13px] text-[#8ba3c7]">
-                        لا توجد منشآت بعد
+                      <td colSpan={10} className="py-12 text-center text-[13px] text-[#8ba3c7]">
+                        {q ? "لا توجد منشآت مطابقة للبحث" : "لا توجد منشآت بعد"}
                       </td>
                     </tr>
                   )}
@@ -551,14 +616,15 @@ export default function OrganizationsPageContent() {
             <div className="lg:hidden space-y-3">
               {loading ? (
                 <CardSkeleton />
-              ) : orgs && orgs.length > 0 ? (
-                orgs.map((org) => (
+              ) : visibleOrgs && visibleOrgs.length > 0 ? (
+                visibleOrgs.map((org) => (
                   <OrgCard
                     key={org.id}
                     org={org}
                     busy={busyId === org.id}
                     onActivate={setActivateOrg}
                     onCreateClientLogin={setClientLoginOrg}
+                    onResetPassword={setResetPwOrg}
                     onEdit={setEditOrg}
                     onChangePlan={setChangePlanOrg}
                     onToggleStatus={handleToggleStatus}
@@ -567,7 +633,7 @@ export default function OrganizationsPageContent() {
                 ))
               ) : (
                 <p className="py-8 text-center text-[13px] text-[#8ba3c7]">
-                  لا توجد منشآت بعد
+                  {q ? "لا توجد منشآت مطابقة للبحث" : "لا توجد منشآت بعد"}
                 </p>
               )}
             </div>
@@ -591,6 +657,12 @@ export default function OrganizationsPageContent() {
         org={clientLoginOrg}
         onClose={() => setClientLoginOrg(null)}
         onCreated={handleClientLoginCreated}
+      />
+
+      <ResetClientPasswordModal
+        org={resetPwOrg}
+        onClose={() => setResetPwOrg(null)}
+        onDone={handlePasswordResetSent}
       />
 
       <EditOrganizationModal
