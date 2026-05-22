@@ -256,7 +256,7 @@ export default function DashboardPage() {
   }, [clients]);
 
   const roleLabel = user?.role
-    ? ROLE_LABELS[user.role as UserRole] ?? user.role
+    ? ROLE_LABELS[mapAuthRoleToUserRole(user.role)] ?? user.role
     : "—";
 
   const activeEmployeeNames = useMemo(() => {

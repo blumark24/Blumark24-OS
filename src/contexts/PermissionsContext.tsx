@@ -32,6 +32,7 @@ export type Permission =
   | "view_dashboard"
   | "manage_board"
   | "manage_users"
+  | "view_employees"
   | "manage_roles"
   | "manage_tasks"
   | "manage_clients"
@@ -61,6 +62,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   view_dashboard:    "عرض لوحة التحكم",
   manage_board:      "إدارة مجلس الإدارة",
   manage_users:      "إدارة المستخدمين",
+  view_employees:    "عرض الموظفين",
   manage_roles:      "إدارة الأدوار",
   manage_tasks:      "إدارة المهام",
   manage_clients:    "إدارة العملاء",
@@ -74,6 +76,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "view_dashboard",
   "manage_board",
   "manage_users",
+  "view_employees",
   "manage_roles",
   "manage_tasks",
   "manage_clients",
@@ -126,6 +129,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   // to the manager's own organization_id.
   organization_manager: [
     "view_dashboard",
+    "view_employees",
     "manage_tasks",
     "manage_clients",
     "manage_finance",
