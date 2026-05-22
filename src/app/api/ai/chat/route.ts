@@ -1,12 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TAG = "[ai/chat]";
 
-// Allowlist of valid Anthropic model IDs.  If ANTHROPIC_MODEL env var is set
+// Allowlist of valid Anthropic model IDs. If ANTHROPIC_MODEL env var is set
 // to an unrecognised value we fall back to the default rather than crashing.
 const VALID_MODELS = new Set([
   "claude-opus-4-7",
@@ -35,7 +36,104 @@ interface KPIContext {
   overdueTasks?: number;
 }
 
+function getAccessToken(req: NextRequest): string | null {
+  const authHeader = req.headers.get("authorization") ?? "";
+  if (authHeader.startsWith("Bearer ")) {
+    const token = authHeader.slice(7).trim();
+    return token || null;
+  }
+
+  return getAccessTokenFromSupabaseCookies(req);
+}
+
+function getAccessTokenFromSupabaseCookies(req: NextRequest): string | null {
+  const authCookies = req.cookies
+    .getAll()
+    .filter((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+  if (authCookies.length === 0) return null;
+
+  const rawCookieValue = authCookies.map((cookie) => cookie.value).join("");
+  if (!rawCookieValue) return null;
+
+  const parseSession = (value: string): string | null => {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      const session = Array.isArray(parsed) ? parsed[0] : parsed;
+
+      if (
+        session &&
+        typeof session === "object" &&
+        "access_token" in session &&
+        typeof (session as { access_token: unknown }).access_token === "string"
+      ) {
+        return (session as { access_token: string }).access_token;
+      }
+    } catch {
+      // Ignore malformed or non-JSON cookies.
+    }
+
+    return null;
+  };
+
+  return parseSession(decodeURIComponent(rawCookieValue)) ?? parseSession(rawCookieValue);
+}
+
+async function requireAuthenticatedUser(
+  req: NextRequest,
+): Promise<{ ok: true } | { ok: false; response: NextResponse }> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn(`${TAG} Supabase env missing — cannot verify session`);
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "AUTH_UNAVAILABLE", message: "إعداد الخادم غير مكتمل" },
+        { status: 503 },
+      ),
+    };
+  }
+
+  const accessToken = getAccessToken(req);
+  if (!accessToken) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "UNAUTHORIZED", message: "يجب تسجيل الدخول لاستخدام المساعد الذكي" },
+        { status: 401 },
+      ),
+    };
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(accessToken);
+
+  if (error || !user) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "UNAUTHORIZED", message: "جلسة غير صالحة أو منتهية" },
+        { status: 401 },
+      ),
+    };
+  }
+
+  return { ok: true };
+}
+
 export async function POST(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if (!auth.ok) return auth.response;
+
   const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
   if (!apiKey) {
     console.warn(`${TAG} ANTHROPIC_API_KEY not set — returning 503`);
@@ -62,7 +160,7 @@ export async function POST(req: NextRequest) {
     ? `\n\n**بيانات الشركة الحالية:**\n- العملاء النشطون: ${kpi.activeClients}\n- معدل إتمام المهام: ${kpi.completedTasksPct}%\n- المهام غير المكتملة: ${kpi.incompleteTasks}\n- المهام المتأخرة: ${kpi.overdueTasks ?? 0}\n- صافي الربح: ${kpi.netProfit.toLocaleString("ar-SA")} ريال`
     : "";
 
-  const model  = resolveModel();
+  const model = resolveModel();
   const client = new Anthropic({ apiKey });
 
   try {
@@ -74,8 +172,8 @@ export async function POST(req: NextRequest) {
       {
         model,
         max_tokens: 1024,
-        system:     SYSTEM_PROMPT + kpiContext,
-        messages:   [{ role: "user", content: userMessage }],
+        system: SYSTEM_PROMPT + kpiContext,
+        messages: [{ role: "user", content: userMessage }],
       },
       { signal: req.signal },
     );
@@ -105,8 +203,8 @@ export async function POST(req: NextRequest) {
 
     return new Response(readable, {
       headers: {
-        "Content-Type":      "text/plain; charset=utf-8",
-        "Cache-Control":     "no-cache",
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
         "X-Accel-Buffering": "no",
       },
     });
