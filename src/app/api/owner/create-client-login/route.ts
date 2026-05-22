@@ -12,11 +12,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Stored profile role for a client login. MUST be a value allowed by the
-// profiles_role_check constraint (super_admin / board_member / defense_manager /
-// attack_manager / finance_manager / employee). "employee" is the safest
-// low-privilege role and already grants client-dashboard access; the account is
-// marked as a tenant purely by profiles.organization_id, not by the role.
-const CLIENT_ROLE = "employee";
+// profiles_role_check constraint — migration 015 adds 'organization_manager'
+// (Arabic label "مدير المنشأة"). This is the establishment-level admin of a
+// single customer organization: it manages its own org's data but is never an
+// internal employee and never the platform owner. RLS confines every query to
+// the account's profiles.organization_id, so the role grants no cross-tenant
+// visibility.
+const CLIENT_ROLE = "organization_manager";
 
 function passwordError(password: string): string | null {
   if (!password) return "كلمة المرور مطلوبة";
