@@ -9,6 +9,7 @@ export type UserRole =
   | "finance_manager"
   | "sales_manager"
   | "hr_manager"
+  | "organization_manager"
   | "employee";
 
 export interface User {

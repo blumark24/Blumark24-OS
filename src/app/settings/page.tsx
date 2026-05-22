@@ -18,6 +18,7 @@ import {
   ALL_ROLES,
   ALL_PERMISSIONS,
   DEFAULT_ROLE_PERMISSIONS,
+  mapAuthRoleToUserRole,
   UserRole,
   Permission,
   ManagedUser,
@@ -280,14 +281,17 @@ function PermissionsTab() {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-function SettingsContent() {
+// `accountOnly` renders ONLY the personal account/password section — used for
+// forced-password users who lack manage_settings (e.g. organization_manager).
+// It never exposes company/global settings or other users.
+function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const toast = useToast();
   const { hasPermission } = usePermissions();
   const { user, clearForcePasswordChange } = useAuth();
   const router = useRouter();
   const forcedAccount = user?.forcePasswordChange === true;
 
-  const [activeTab,  setActiveTab]  = useState("general");
+  const [activeTab,  setActiveTab]  = useState(accountOnly ? "account" : "general");
 
   // Password change state
   const [pwForm,       setPwForm]       = useState({ currPw: "", newPw: "", confirmPw: "" });
@@ -311,8 +315,11 @@ function SettingsContent() {
   // Real automation data from DB
   const { data: automationsDB, toggle: toggleAutomation } = useAutomations();
 
-  // Load settings from Supabase on mount
+  // Load settings from Supabase on mount.
+  // Skipped in account-only mode — company/global settings are never loaded
+  // into a tenant manager's client.
   useEffect(() => {
+    if (accountOnly) return;
     getSystemSettings().then((s) => {
       if (s.company_info) setCompanyForm(s.company_info as typeof companyForm);
       if (s.notifications) setNotifs(s.notifications as typeof notifs);
@@ -323,14 +330,14 @@ function SettingsContent() {
         if (app.language)    setLanguage(app.language);
       }
     }).catch(console.error);
-  }, []);
+  }, [accountOnly]);
 
-  // Read ?tab= from URL on mount
+  // Read ?tab= from URL on mount (ignored in account-only mode).
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || accountOnly) return;
     const tab = new URLSearchParams(window.location.search).get("tab");
     if (tab) setActiveTab(tab);
-  }, []);
+  }, [accountOnly]);
 
   // Lock to account tab when forced password change is required
   useEffect(() => {
@@ -462,7 +469,10 @@ function SettingsContent() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Tabs */}
           <div className="glass-card p-2 h-fit">
-            {TABS.filter((t) => t.id !== "permissions" || hasPermission("manage_roles")).map((tab) => {
+            {TABS
+              .filter((t) => (accountOnly ? t.id === "account" : true))
+              .filter((t) => t.id !== "permissions" || hasPermission("manage_roles"))
+              .map((tab) => {
               const locked = forcedAccount && tab.id !== "account";
               return (
                 <button
@@ -817,6 +827,24 @@ function SettingsContent() {
 }
 
 export default function SettingsPage() {
+  const { user, loading } = useAuth();
+  const { rolePermissions } = usePermissions();
+
+  // Forced-password users who lack manage_settings (e.g. organization_manager)
+  // must be able to clear the temporary password to finish first login. They
+  // get an ACCOUNT-ONLY view (own password only) — never company/global
+  // settings. Everyone else keeps the standard manage_settings gate, so this
+  // never broadens access to system settings.
+  if (!loading && user && user.forcePasswordChange === true) {
+    const role = mapAuthRoleToUserRole(user.role);
+    const canManageSettings =
+      role === "super_admin" ||
+      (rolePermissions[role] ?? []).includes("manage_settings");
+    if (!canManageSettings) {
+      return <SettingsContent accountOnly />;
+    }
+  }
+
   return (
     <PageGuard permission="manage_settings">
       <SettingsContent />

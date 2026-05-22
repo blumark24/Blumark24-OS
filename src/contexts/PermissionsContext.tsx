@@ -25,6 +25,7 @@ export type UserRole =
   | "defense_manager"
   | "attack_manager"
   | "finance_manager"
+  | "organization_manager"
   | "employee";
 
 export type Permission =
@@ -50,6 +51,7 @@ export const ROLE_LABELS: Record<string, string> = {
   defense_manager:     "مدير وكالة الدفاع",
   attack_manager:      "مدير وكالة الهجوم",
   finance_manager:     "مدير مالي",
+  organization_manager:"مدير المنشأة",
   admin:               "مدير",
   manager:             "مدير قسم",
   employee:            "موظف",
@@ -87,6 +89,7 @@ export const ALL_ROLES: UserRole[] = [
   "defense_manager",
   "attack_manager",
   "finance_manager",
+  "organization_manager",
   "employee",
 ];
 
@@ -117,6 +120,17 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "manage_finance",
     "manage_reports",
   ],
+  // Tenant manager ("مدير المنشأة"): the establishment-level admin of a single
+  // customer organization. Broad in-org access, but never internal-only modules
+  // (user management, automations, system settings). RLS confines every query
+  // to the manager's own organization_id.
+  organization_manager: [
+    "view_dashboard",
+    "manage_tasks",
+    "manage_clients",
+    "manage_finance",
+    "manage_reports",
+  ],
   employee: [
     "view_dashboard",
     "manage_tasks",
@@ -144,6 +158,9 @@ export function mapAuthRoleToUserRole(role: string): UserRole {
     case "attack_manager":
     case "مدير_مبيعات":
       return "attack_manager";
+    case "organization_manager":
+    case "مدير_المنشأة":
+      return "organization_manager";
     case "defense_manager":
     case "مدير":
       return "defense_manager";

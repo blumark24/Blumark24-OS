@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import {
   Network, Shield, Swords, Users, ChevronDown,
@@ -10,6 +10,7 @@ import {
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useBoardMembers } from "@/hooks/useData";
+import { supabase } from "@/lib/supabase";
 import type { BoardMember } from "@/lib/db";
 
 const MAX_BOARD = 3;
@@ -273,6 +274,24 @@ export default function OrgPage() {
   const [editMember,   setEditMember]   = useState<BoardMember | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BoardMember | null>(null);
 
+  // The static Blumark24 agency/department scaffold belongs to the internal
+  // organization only. Customer tenants must never see it. We resolve this from
+  // the caller's own org via a SECURITY DEFINER RPC (organizations is owner-only
+  // under RLS). null = still resolving; on error we default to false so the
+  // internal scaffold is never shown to a tenant.
+  const [isInternalOrg, setIsInternalOrg] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    supabase
+      .rpc("current_org_is_internal")
+      .then(({ data, error }) => {
+        if (!active) return;
+        setIsInternalOrg(error ? false : data === true);
+      });
+    return () => { active = false; };
+  }, []);
+
   const handleOpenAdd = () => {
     if (boardMembers.length >= MAX_BOARD) {
       toast.error(`لا يمكن إضافة أكثر من ${MAX_BOARD} أعضاء في مجلس الإدارة`);
@@ -321,7 +340,9 @@ export default function OrgPage() {
               <Network size={24} className="text-[#22d3ee]" />
               الهيكل الإداري
             </h1>
-            <p className="text-[#8ba3c7] text-sm mt-1">المخطط التنظيمي لشركة Blumark24</p>
+            <p className="text-[#8ba3c7] text-sm mt-1">
+              {isInternalOrg ? "المخطط التنظيمي لشركة Blumark24" : "المخطط التنظيمي للمنشأة"}
+            </p>
           </div>
           {canManage && (
             <button onClick={handleOpenAdd} className="btn-primary flex items-center gap-2 text-sm" title={boardMembers.length >= MAX_BOARD ? "الحد الأقصى 3 أعضاء" : "إضافة عضو"}>
@@ -380,64 +401,88 @@ export default function OrgPage() {
             )}
           </div>
 
-          <div className="flex flex-col items-center gap-0">
-            <div className="w-0.5 h-6 bg-gradient-to-b from-[#22d3ee] to-[#1e6fd9]" />
-            <ChevronDown size={16} className="text-[#22d3ee]" />
-          </div>
+          {/* Connectors to the internal agencies — internal org only. */}
+          {isInternalOrg && (
+            <>
+              <div className="flex flex-col items-center gap-0">
+                <div className="w-0.5 h-6 bg-gradient-to-b from-[#22d3ee] to-[#1e6fd9]" />
+                <ChevronDown size={16} className="text-[#22d3ee]" />
+              </div>
 
-          <div className="text-xs text-[#8ba3c7] bg-[#1a3356]/50 px-3 py-1 rounded-full border border-[#1e3a5f]">
-            وكالتان رئيسيتان
-          </div>
+              <div className="text-xs text-[#8ba3c7] bg-[#1a3356]/50 px-3 py-1 rounded-full border border-[#1e3a5f]">
+                وكالتان رئيسيتان
+              </div>
 
-          <div className="relative w-full flex justify-center">
-            <div className="absolute top-0 left-1/4 right-1/4 h-0.5 bg-gradient-to-r from-[#1e6fd9] via-[#22d3ee]/40 to-[#ff7a3d]" />
-            <div className="flex justify-between w-1/2 pt-0">
-              <ChevronDown size={16} className="text-[#1e6fd9]" />
-              <ChevronDown size={16} className="text-[#ff7a3d]" />
-            </div>
-          </div>
+              <div className="relative w-full flex justify-center">
+                <div className="absolute top-0 left-1/4 right-1/4 h-0.5 bg-gradient-to-r from-[#1e6fd9] via-[#22d3ee]/40 to-[#ff7a3d]" />
+                <div className="flex justify-between w-1/2 pt-0">
+                  <ChevronDown size={16} className="text-[#1e6fd9]" />
+                  <ChevronDown size={16} className="text-[#ff7a3d]" />
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Level 2: Two agencies */}
-        <div className="flex flex-col lg:flex-row gap-5">
-          <AgencyBlock
-            title="وكالة الدفاع"
-            subtitle="شؤون الشركة الداخلية"
-            icon={Shield}
-            accentColor="#1e6fd9"
-            depts={DEFENSE_DEPTS}
-            description="مسؤولة عن شؤون الشركة الداخلية، إدارة ماركتين الشركة، التسويق الداخلي وإدارة العلامة التجارية، وجميع الأقسام التشغيلية والإبداعية."
-          />
-          <AgencyBlock
-            title="وكالة الهجوم"
-            subtitle="شؤون الشركة الخارجية"
-            icon={Swords}
-            accentColor="#ff7a3d"
-            depts={OFFENSE_DEPTS}
-            description="مسؤولة عن شؤون الشركة الخارجية، اكتساب العملاء والمبيعات والتوسع، وإدارة جميع العلاقات التجارية والشراكات الاستراتيجية."
-          />
-        </div>
+        {/* Level 2 — internal Blumark24 agency/department scaffold.
+            Shown ONLY for the internal organization; customer tenants get a
+            neutral empty state instead (no internal/static structure leaks). */}
+        {isInternalOrg === true && (
+          <>
+            <div className="flex flex-col lg:flex-row gap-5">
+              <AgencyBlock
+                title="وكالة الدفاع"
+                subtitle="شؤون الشركة الداخلية"
+                icon={Shield}
+                accentColor="#1e6fd9"
+                depts={DEFENSE_DEPTS}
+                description="مسؤولة عن شؤون الشركة الداخلية، إدارة ماركتين الشركة، التسويق الداخلي وإدارة العلامة التجارية، وجميع الأقسام التشغيلية والإبداعية."
+              />
+              <AgencyBlock
+                title="وكالة الهجوم"
+                subtitle="شؤون الشركة الخارجية"
+                icon={Swords}
+                accentColor="#ff7a3d"
+                depts={OFFENSE_DEPTS}
+                description="مسؤولة عن شؤون الشركة الخارجية، اكتساب العملاء والمبيعات والتوسع، وإدارة جميع العلاقات التجارية والشراكات الاستراتيجية."
+              />
+            </div>
 
-        {/* Legend */}
-        <div className="glass-card p-4">
-          <div className="flex flex-wrap items-center gap-6 text-xs text-[#8ba3c7]">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#22d3ee]" />
-              <span>مجلس الإدارة</span>
+            {/* Legend */}
+            <div className="glass-card p-4">
+              <div className="flex flex-wrap items-center gap-6 text-xs text-[#8ba3c7]">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#22d3ee]" />
+                  <span>مجلس الإدارة</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#1e6fd9]" />
+                  <span>وكالة الدفاع (داخلي)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#ff7a3d]" />
+                  <span>وكالة الهجوم (خارجي)</span>
+                </div>
+                <div className="mr-auto text-[11px]">
+                  إجمالي الأقسام: {DEFENSE_DEPTS.length + OFFENSE_DEPTS.length} قسم
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#1e6fd9]" />
-              <span>وكالة الدفاع (داخلي)</span>
+          </>
+        )}
+
+        {/* Customer tenant with no configured structure → production empty state. */}
+        {isInternalOrg === false && (
+          <div className="glass-card p-10 text-center flex flex-col items-center gap-3">
+            <div className="w-16 h-16 rounded-2xl bg-[#22d3ee]/10 border border-[#22d3ee]/25 flex items-center justify-center">
+              <Network size={28} className="text-[#22d3ee]" />
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#ff7a3d]" />
-              <span>وكالة الهجوم (خارجي)</span>
-            </div>
-            <div className="mr-auto text-[11px]">
-              إجمالي الأقسام: {DEFENSE_DEPTS.length + OFFENSE_DEPTS.length} قسم
-            </div>
+            <h3 className="text-white font-heading font-bold text-lg">لم يتم إعداد الهيكل التنظيمي بعد</h3>
+            <p className="text-[#8ba3c7] text-sm max-w-md leading-relaxed">
+              سيظهر هنا الهيكل الإداري الخاص بمنشأتك عند إضافته. ابدأ بإضافة أعضاء مجلس الإدارة في الأعلى.
+            </p>
           </div>
-        </div>
+        )}
       </div>
 
       {showModal && (
