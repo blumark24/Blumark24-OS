@@ -79,6 +79,26 @@ export async function POST(req: NextRequest) {
     }
     console.log(`[create-user] caller verified email=${callerEmail}`);
 
+    // ── 3b. resolve caller's organization (Tenant Isolation Phase B.1) ────
+    // Service-role writes bypass RLS *and* the BEFORE INSERT auto-stamp
+    // trigger (auth.uid() is null here), so the new profile + employee must
+    // be tagged explicitly with the caller's org. Without this the new user
+    // would be invisible to the rest of their own organization. Best-effort:
+    // if the caller has no org we leave it null (owner/super_admin still see
+    // the row), and a missing organization_id column is tolerated.
+    let callerOrgId: string | null = null;
+    try {
+      const orgResp = await admin
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", callerId)
+        .maybeSingle();
+      const org = (orgResp.data as { organization_id?: string | null } | null)?.organization_id;
+      callerOrgId = org ?? null;
+    } catch {
+      callerOrgId = null;
+    }
+
     // ── 4. parse body (await; outer catch handles malformed JSON) ─────────
     const body = (await req.json()) as Record<string, unknown>;
     console.log("[create-user] request parsed");
@@ -172,14 +192,15 @@ export async function POST(req: NextRequest) {
     // ── 7. upsert profile (await; rollback auth user on failure) ──────────
     // Try with force_password_change first; fall back without it if the column
     // is absent (migration 005 not yet applied in this Supabase project).
+    const orgStamp = callerOrgId ? { organization_id: callerOrgId } : {};
     let profUpsert = await admin.from("profiles").upsert(
-      { id: userId, email, name, role, department, is_active: true, force_password_change: true },
+      { id: userId, email, name, role, department, is_active: true, force_password_change: true, ...orgStamp },
       { onConflict: "id" },
     );
     if (profUpsert.error?.message?.toLowerCase().includes("force_password_change")) {
       console.warn("[create-user] force_password_change column missing — retrying without it");
       profUpsert = await admin.from("profiles").upsert(
-        { id: userId, email, name, role, department, is_active: true },
+        { id: userId, email, name, role, department, is_active: true, ...orgStamp },
         { onConflict: "id" },
       );
     }
@@ -212,6 +233,7 @@ export async function POST(req: NextRequest) {
         performance:     3,
         tasks:           0,
         completed_tasks: 0,
+        ...orgStamp,
       }],
       { onConflict: "id" },
     );
