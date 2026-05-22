@@ -35,6 +35,7 @@ export interface DbOrganization {
   id: string;
   name: string;
   slug: string | null;
+  customer_code: string | null;
   owner_email: string | null;
   plan_id: string | null;
   status: "active" | "suspended" | "trial" | "cancelled";
@@ -111,6 +112,7 @@ export interface DisplayOrgFull {
   id: string;
   name: string;
   slug: string | null;
+  customerCode: string | null;
   ownerEmail: string | null;
   isInternal: boolean;
   statusRaw: DbOrganization["status"];
@@ -412,7 +414,7 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
   const [orgsRes, plansRes, subsRes, linksRes] = await Promise.all([
     supabase
       .from("organizations")
-      .select("id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at")
+      .select("id, name, slug, customer_code, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at")
       .order("created_at"),
     supabase
       .from("plans")
@@ -453,6 +455,7 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
       id: org.id,
       name: org.name,
       slug: org.slug,
+      customerCode: org.customer_code,
       ownerEmail: org.owner_email,
       isInternal: org.is_internal === true,
       statusRaw: org.status,
@@ -765,6 +768,54 @@ export async function createClientLogin(
     return { ok: false, error: payload.error ?? "تعذّر إنشاء حساب الدخول" };
   }
   return { ok: true, id: payload.id };
+}
+
+// ─── Reset client manager password (owner-only, server-side) ──────────────────
+// Calls the service-role server route /api/owner/reset-client-password, which
+// sends a SECURE password-recovery link to the tenant manager's email. No
+// password is ever generated, returned, or displayed — this only forwards the
+// owner's access token so the server can verify the caller is the platform owner.
+
+export interface ResetClientPasswordResult {
+  ok: boolean;
+  email?: string;
+  error?: string;
+}
+
+export async function resetClientPassword(
+  organizationId: string,
+): Promise<ResetClientPasswordResult> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) {
+    return { ok: false, error: "انتهت الجلسة — سجّل الدخول مجدداً" };
+  }
+
+  let resp: Response;
+  try {
+    resp = await fetch("/api/owner/reset-client-password", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ organizationId }),
+    });
+  } catch {
+    return { ok: false, error: "تعذّر الاتصال بالخادم — حاول مرة أخرى" };
+  }
+
+  let payload: { success?: boolean; email?: string; error?: string } = {};
+  try {
+    payload = (await resp.json()) as typeof payload;
+  } catch {
+    /* non-JSON response */
+  }
+
+  if (!resp.ok || !payload.success) {
+    return { ok: false, error: payload.error ?? "تعذّر إرسال رابط إعادة التعيين، حاول مرة أخرى" };
+  }
+  return { ok: true, email: payload.email };
 }
 
 // ─── Customer-tenant management mutations (owner-only) ─────────────────────────
