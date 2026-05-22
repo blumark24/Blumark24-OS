@@ -267,8 +267,7 @@ function AgencyBlock({ title, subtitle, icon: Icon, accentColor, depts, descript
 export default function OrgPage() {
   const { hasPermission, userRole } = usePermissions();
   const toast = useToast();
-  const canManage =
-    userRole === "super_admin" || userRole === "organization_manager";
+  const canManage = userRole === "super_admin";
 
   const { data: boardMembers, insert, update, remove } = useBoardMembers();
   const [showModal,    setShowModal]    = useState(false);
@@ -478,7 +477,7 @@ export default function OrgPage() {
             <div className="w-16 h-16 rounded-2xl bg-[#22d3ee]/10 border border-[#22d3ee]/25 flex items-center justify-center">
               <Network size={28} className="text-[#22d3ee]" />
             </div>
-            <h3 className="text-white font-heading font-bold text-lg">لم يتم إعداد الهيكل التنظيمي بعد</h3>
+            <h3 className="text-white font-heading font-bold text-lg">لم يتم إعداد بيانات هذه المنشأة بعد</h3>
             <p className="text-[#8ba3c7] text-sm max-w-md leading-relaxed">
               سيظهر هنا الهيكل الإداري الخاص بمنشأتك عند إضافته. ابدأ بإضافة أعضاء مجلس الإدارة في الأعلى.
             </p>

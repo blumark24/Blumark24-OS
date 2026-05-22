@@ -30,9 +30,9 @@ export type UserRole =
 
 export type Permission =
   | "view_dashboard"
-  | "view_employees"
   | "manage_board"
   | "manage_users"
+  | "view_employees"
   | "manage_roles"
   | "manage_tasks"
   | "manage_clients"
@@ -60,9 +60,9 @@ export const ROLE_LABELS: Record<string, string> = {
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   view_dashboard:    "عرض لوحة التحكم",
-  view_employees:    "عرض الموظفين",
   manage_board:      "إدارة مجلس الإدارة",
   manage_users:      "إدارة المستخدمين",
+  view_employees:    "عرض الموظفين",
   manage_roles:      "إدارة الأدوار",
   manage_tasks:      "إدارة المهام",
   manage_clients:    "إدارة العملاء",
@@ -74,9 +74,9 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
 
 export const ALL_PERMISSIONS: Permission[] = [
   "view_dashboard",
-  "view_employees",
   "manage_board",
   "manage_users",
+  "view_employees",
   "manage_roles",
   "manage_tasks",
   "manage_clients",
@@ -130,7 +130,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   organization_manager: [
     "view_dashboard",
     "view_employees",
-    "manage_board",
     "manage_tasks",
     "manage_clients",
     "manage_finance",
@@ -165,9 +164,6 @@ export function mapAuthRoleToUserRole(role: string): UserRole {
       return "attack_manager";
     case "organization_manager":
     case "مدير_المنشأة":
-    case "مدير المنشأة":
-    case "tenant_manager":
-    case "owner":
       return "organization_manager";
     case "defense_manager":
     case "مدير":

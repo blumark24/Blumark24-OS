@@ -1,7 +1,17 @@
 "use client";
 
-import { usePermissions, Permission, mapAuthRoleToUserRole } from "@/contexts/PermissionsContext";
+import { usePathname } from "next/navigation";
+import {
+  usePermissions,
+  Permission,
+  mapAuthRoleToUserRole,
+} from "@/contexts/PermissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import {
+  canAccessWorkspaceRoute,
+  getRouteByPathname,
+} from "@/lib/features/packageFeatures";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { ShieldOff } from "lucide-react";
 import { CardSkeleton } from "@/components/ui/Skeleton";
@@ -11,16 +21,26 @@ interface PageGuardProps {
   children: React.ReactNode;
 }
 
+function roleHasPermission(
+  resolvedRole: ReturnType<typeof mapAuthRoleToUserRole>,
+  rolePermissions: Record<string, Permission[]>,
+  perm: Permission,
+): boolean {
+  if (resolvedRole === "super_admin") return true;
+  const perms = rolePermissions[resolvedRole] ?? [];
+  if (perms.includes(perm)) return true;
+  if (perm === "manage_users" && perms.includes("view_employees")) return true;
+  return false;
+}
+
 export default function PageGuard({ permission, children }: PageGuardProps) {
+  const pathname = usePathname();
   const { rolePermissions } = usePermissions();
   const { loading, user } = useAuth();
+  const { loading: wsLoading, isInternal, planSlug, isPlatformAdmin } =
+    useTenantWorkspace();
 
-  // Render the dashboard chrome with a skeleton whenever we don't yet have a
-  // resolved user — initial auth resolution, a redirect to /auth in progress,
-  // or a profile-load error (whose recoverable banner + retry lives in
-  // DashboardLayout).  We must NEVER render protected children before the real
-  // role is known, and never show access-denied before we know access is lacked.
-  if (loading || !user) {
+  if (loading || wsLoading || !user) {
     return (
       <DashboardLayout>
         <div className="space-y-4">
@@ -31,14 +51,24 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
     );
   }
 
-  // Derive role directly from AuthContext.user (the single source of truth)
-  // rather than PermissionsContext state, which updates one render later.
   const resolvedRole = mapAuthRoleToUserRole(user.role);
-  const hasPerm =
-    resolvedRole === "super_admin" ||
-    (rolePermissions[resolvedRole] ?? []).includes(permission);
+  const hasPerm = roleHasPermission(resolvedRole, rolePermissions, permission);
 
-  if (hasPerm) {
+  const route = getRouteByPathname(pathname ?? "");
+  const workspaceOk =
+    !route ||
+    canAccessWorkspaceRoute(
+      route,
+      {
+        isInternal,
+        planSlug,
+        isPlatformAdmin: isPlatformAdmin || resolvedRole === "super_admin",
+      },
+      (perm) => roleHasPermission(resolvedRole, rolePermissions, perm),
+      ["view_employees"],
+    );
+
+  if (hasPerm && workspaceOk) {
     return <>{children}</>;
   }
 
@@ -50,7 +80,7 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
         </div>
         <h2 className="text-white text-xl font-heading font-bold">لا تملك صلاحية الوصول</h2>
         <p className="text-[#8ba3c7] text-sm max-w-xs">
-          هذا القسم محجوز. تواصل مع المدير الأعلى للحصول على الصلاحية.
+          هذا القسم محجوز أو غير مفعّل ضمن باقة منشأتك. تواصل مع مدير المنشأة أو Blumark24.
         </p>
       </div>
     </DashboardLayout>

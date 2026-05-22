@@ -504,7 +504,7 @@ function EmployeesPageGuard({ children }: { children: React.ReactNode }) {
   const allowed =
     hasPermission("view_employees") || hasPermission("manage_users");
   if (allowed) return <>{children}</>;
-  return <PageGuard permission="manage_users">{null}</PageGuard>;
+  return <PageGuard permission="view_employees">{null}</PageGuard>;
 }
 
 export default function EmployeesPage() {

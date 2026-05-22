@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header  from "./Header";
+import WorkspaceRouteGuard from "@/components/ui/WorkspaceRouteGuard";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { AlertTriangle } from "lucide-react";
