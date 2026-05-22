@@ -6,6 +6,7 @@ import { Bot, Send, RefreshCw, Sparkles, TrendingUp, Users, AlertTriangle, BarCh
 import { useDashboardKPI } from "@/hooks/useData";
 import { useTasks } from "@/hooks/useData";
 import { formatCurrency } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 interface Message {
   id: string;
@@ -98,9 +99,15 @@ export default function AIPage() {
     let streamed = false;
 
     try {
+      // Attach the Supabase access token so the protected /api/ai/chat route
+      // can authenticate the request (falls back to local templates on 401).
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch("/api/ai/chat", {
         method:  "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         signal:  controller.signal,
         body:    JSON.stringify({
           message: content,

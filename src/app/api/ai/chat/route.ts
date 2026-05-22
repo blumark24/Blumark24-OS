@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -36,6 +37,40 @@ interface KPIContext {
 }
 
 export async function POST(req: NextRequest) {
+  // ── Require a valid authenticated Supabase user before any processing. ──
+  // The browser must send the user's access token as a Bearer header. We
+  // validate it against Supabase Auth using the public anon key — the
+  // service-role key and ANTHROPIC_API_KEY are never involved here, and an
+  // invalid/absent token is rejected with 401 before any AI work begins.
+  const SUPABASE_URL      = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn(`${TAG} Supabase env not set — cannot authenticate request`);
+    return NextResponse.json(
+      { error: "SERVER_MISCONFIGURED", message: "إعداد الخادم غير مكتمل" },
+      { status: 500 },
+    );
+  }
+
+  const authHeader = req.headers.get("authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ")) {
+    return NextResponse.json(
+      { error: "UNAUTHENTICATED", message: "يجب تسجيل الدخول لاستخدام المساعد الذكي" },
+      { status: 401 },
+    );
+  }
+  const token = authHeader.slice(7);
+  const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: { user }, error: authErr } = await authClient.auth.getUser(token);
+  if (authErr || !user) {
+    return NextResponse.json(
+      { error: "UNAUTHENTICATED", message: "الجلسة غير صالحة — سجّل الدخول مجدداً" },
+      { status: 401 },
+    );
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
   if (!apiKey) {
     console.warn(`${TAG} ANTHROPIC_API_KEY not set — returning 503`);
