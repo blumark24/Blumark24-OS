@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { DEPARTMENTS } from "@/lib/utils";
+import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
+import { PageHero, KpiStatCard } from "@/components/ui/workspaceUi";
+import { cn } from "@/lib/utils";
 import { Users, Plus, Search, Star, Edit2, Trash2, X, Eye, EyeOff } from "lucide-react";
 import { usePermissions, ROLE_LABELS, UserRole } from "@/contexts/PermissionsContext";
 import { useEmployees } from "@/hooks/useData";
@@ -233,35 +236,20 @@ function EmployeesContent() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-heading font-bold text-white flex items-center gap-2">
-              <Users size={24} className="text-[#22d3ee]" />
-              إدارة الموظفين
-            </h1>
-            <p className="text-[#8ba3c7] text-sm mt-1">إدارة بيانات فريق العمل</p>
-          </div>
+      <div className={WS_PAGE}>
+        <PageHero title="إدارة الموظفين" subtitle="إدارة بيانات فريق العمل">
           {isAdmin && (
-            <button onClick={openAdd} className="btn-primary flex items-center gap-2">
+            <button onClick={openAdd} className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation">
               <Plus size={16} />
               إضافة موظف
             </button>
           )}
-        </div>
+        </PageHero>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 sm:grid-cols-3 gap-4">
-          {[
-            { label: "إجمالي الموظفين",  value: stats.total,  color: "#22d3ee" },
-            { label: "الموظفون النشطون", value: stats.active, color: "#10b981" },
-            { label: "الأقسام",           value: stats.depts,  color: "#ff7a3d" },
-          ].map((s) => (
-            <div key={s.label} className="glass-card p-4 text-center">
-              <div className="text-2xl font-heading font-bold" style={{ color: s.color }}>{s.value}</div>
-              <div className="text-sm text-[#8ba3c7] mt-1">{s.label}</div>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 min-w-0">
+          <KpiStatCard label="إجمالي الموظفين" value={String(stats.total)} icon={Users} accent="cyan" showLive={false} />
+          <KpiStatCard label="الموظفون النشطون" value={String(stats.active)} icon={Users} accent="emerald" showLive={false} />
+          <KpiStatCard label="الأقسام" value={String(stats.depts)} icon={Users} accent="sky" showLive={false} />
         </div>
 
         {/* Filters */}
@@ -291,7 +279,7 @@ function EmployeesContent() {
         </div>
 
         {error && (
-          <div className="glass-card p-4 border border-red-500/30 text-red-400 text-sm flex items-center justify-between gap-3">
+          <div className={cn(WS_CARD, "p-4 border-red-500/30 text-red-400 text-sm flex items-center justify-between gap-3")}>
             <span>{error}</span>
             <button
               onClick={() => refetch()}
@@ -304,7 +292,7 @@ function EmployeesContent() {
         {loading && <div className="text-center py-8 text-[#8ba3c7] text-sm">جارٍ التحميل...</div>}
 
         {!loading && (
-          <div className="glass-card overflow-hidden">
+          <div className={cn(WS_CARD, "overflow-hidden p-0")}>
             <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[700px]">
               <thead>
@@ -381,7 +369,7 @@ function EmployeesContent() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+          <div className={cn(WS_GLASS_MODAL, "max-w-lg")}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-white font-heading font-bold text-lg">
                 {editId ? "تعديل بيانات الموظف" : "إضافة موظف جديد"}

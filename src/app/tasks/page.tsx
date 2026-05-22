@@ -6,6 +6,8 @@ import PageGuard from "@/components/ui/PageGuard";
 import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X } from "lucide-react";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { cn } from "@/lib/utils";
+import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
+import { PageHero, KpiStatCard } from "@/components/ui/workspaceUi";
 import { useTasks, useClients, useEmployees } from "@/hooks/useData";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -135,53 +137,32 @@ function TasksContent() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 sm:space-y-6 pb-[max(env(safe-area-inset-bottom),1rem)]">
-        <section className="relative overflow-hidden rounded-2xl border border-[#294e8a]/60 bg-gradient-to-br from-[#0d1d3a]/95 via-[#10264a]/90 to-[#0a1730]/95 p-4 sm:p-6 shadow-[0_20px_60px_-35px_rgba(34,211,238,0.55)]">
-          <div className="pointer-events-none absolute -top-24 left-0 h-56 w-56 rounded-full bg-cyan-500/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-20 right-0 h-52 w-52 rounded-full bg-violet-500/20 blur-3xl" />
-          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <h1 className="flex items-center gap-2 text-xl sm:text-2xl font-heading font-bold text-white">
-                <CheckSquare size={24} className="shrink-0 text-[#22d3ee]" />
-                <span className="truncate">إدارة المهام</span>
-              </h1>
-              <p className="mt-1 text-sm text-[#8ba3c7]">تتبع وإدارة مهام الفريق</p>
-            </div>
-            <div className="flex flex-wrap items-center justify-start gap-2 sm:gap-3 lg:justify-end">
-              <div className="flex items-center rounded-xl border border-[#2f4f82] bg-[#0b1b36]/90 p-1 backdrop-blur-md">
-                <button onClick={() => setView("kanban")} aria-label="عرض كانبان" className={cn("rounded-lg p-2.5 transition-all", view === "kanban" ? "bg-[#22d3ee] text-[#0a1628] shadow-[0_0_24px_rgba(34,211,238,0.45)]" : "text-[#8ba3c7] hover:text-white")}>
-                  <Columns size={16} />
-                </button>
-                <button onClick={() => setView("list")} aria-label="عرض قائمة" className={cn("rounded-lg p-2.5 transition-all", view === "list" ? "bg-[#22d3ee] text-[#0a1628] shadow-[0_0_24px_rgba(34,211,238,0.45)]" : "text-[#8ba3c7] hover:text-white")}>
-                  <List size={16} />
-                </button>
-              </div>
-              {isAdmin && (
-                <button onClick={openAdd} className="btn-primary min-h-11 px-4 flex items-center gap-2 whitespace-nowrap">
-                  <Plus size={16} />
-                  مهمة جديدة
-                </button>
-              )}
-            </div>
+      <div className={WS_PAGE}>
+        <PageHero title="إدارة المهام" subtitle="تتبع وإدارة مهام الفريق">
+          <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.04] p-1">
+            <button onClick={() => setView("kanban")} aria-label="عرض كانبان" className={cn("rounded-lg p-2.5 min-h-[44px] min-w-[44px] transition-all touch-manipulation", view === "kanban" ? "bg-[#22d3ee] text-[#0a1628] shadow-[0_0_24px_rgba(34,211,238,0.45)]" : "text-[#8ba3c7] hover:text-white")}>
+              <Columns size={16} />
+            </button>
+            <button onClick={() => setView("list")} aria-label="عرض قائمة" className={cn("rounded-lg p-2.5 min-h-[44px] min-w-[44px] transition-all touch-manipulation", view === "list" ? "bg-[#22d3ee] text-[#0a1628] shadow-[0_0_24px_rgba(34,211,238,0.45)]" : "text-[#8ba3c7] hover:text-white")}>
+              <List size={16} />
+            </button>
           </div>
+          {isAdmin && (
+            <button onClick={openAdd} className="btn-primary min-h-11 px-4 flex items-center gap-2 whitespace-nowrap touch-manipulation">
+              <Plus size={16} />
+              مهمة جديدة
+            </button>
+          )}
+        </PageHero>
+
+        <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 min-w-0">
+          <KpiStatCard label="إجمالي المهام" value={String(stats.total)} icon={CheckSquare} accent="cyan" showLive={false} />
+          <KpiStatCard label="مكتملة" value={String(stats.completed)} icon={CheckSquare} accent="emerald" showLive={false} />
+          <KpiStatCard label="قيد التنفيذ" value={String(stats.inProgress)} icon={Clock} accent="amber" showLive={false} />
+          <KpiStatCard label="متأخرة" value={String(stats.late)} icon={AlertTriangle} accent="rose" showLive={false} />
         </section>
 
-        <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-          {[
-            { label: "إجمالي المهام", value: stats.total, color: "#22d3ee", glow: "shadow-cyan-400/30" },
-            { label: "مكتملة", value: stats.completed, color: "#10b981", glow: "shadow-emerald-400/30" },
-            { label: "قيد التنفيذ", value: stats.inProgress, color: "#f59e0b", glow: "shadow-amber-400/30" },
-            { label: "متأخرة", value: stats.late, color: "#ef4444", glow: "shadow-rose-400/30" },
-          ].map((s) => (
-            <div key={s.label} className={cn("glass-card relative overflow-hidden border border-[#244978] bg-[#0d1f3c]/85 p-4 text-center backdrop-blur-md", `shadow-lg ${s.glow}`)}>
-              <div className="absolute inset-x-8 top-0 h-px bg-white/20" />
-              <div className="text-2xl font-heading font-bold" style={{ color: s.color }}>{s.value}</div>
-              <div className="mt-1 text-xs sm:text-sm text-[#8ba3c7]">{s.label}</div>
-            </div>
-          ))}
-        </section>
-
-        {loading && <div className="rounded-2xl border border-[#1e3a5f] bg-[#0a1932]/70 py-10 text-center text-sm text-[#8ba3c7]">جارٍ تحميل المهام...</div>}
+        {loading && <div className={cn(WS_CARD, "py-10 text-center text-sm text-[#8ba3c7]")}>جارٍ تحميل المهام...</div>}
 
         {!loading && view === "kanban" && (
           <section className="overflow-x-auto pb-2">
@@ -189,7 +170,7 @@ function TasksContent() {
               {STATUS_COLUMNS.map((col) => {
                 const colTasks = tasks.filter((t) => t.status === col.key);
                 return (
-                  <div key={col.key} className="w-[280px] sm:w-[300px] lg:w-[320px] shrink-0 rounded-2xl border border-[#264a7a] bg-[#0a1a33]/80 p-3 backdrop-blur-md">
+                  <div key={col.key} className={cn(WS_CARD, "w-[280px] sm:w-[300px] lg:w-[320px] shrink-0 p-3")}>
                     <div className="mb-3 flex items-center gap-2">
                       <div className="h-3 w-3 rounded-full" style={{ background: col.color }} />
                       <span className="text-sm font-medium text-white">{col.label}</span>
@@ -197,7 +178,7 @@ function TasksContent() {
                     </div>
                     <div className="space-y-3">
                       {colTasks.map((task) => (
-                        <article key={task.id} className="glass-card glass-card-hover rounded-xl border border-[#2c4e7d] bg-[#11274b]/70 p-3 sm:p-4">
+                        <article key={task.id} className="glass-card glass-card-hover rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4">
                           <div className="mb-2 flex items-start justify-between gap-2">
                             <h4 className="min-w-0 text-sm font-semibold leading-6 text-white line-clamp-2">{task.title}</h4>
                             <span className={`badge shrink-0 text-xs ${PRIORITY_CONFIG[task.priority].class}`}>{PRIORITY_CONFIG[task.priority].label}</span>
@@ -241,7 +222,7 @@ function TasksContent() {
         )}
 
         {!loading && view === "list" && (
-          <section className="glass-card overflow-hidden rounded-2xl border border-[#264a79] bg-[#0b1c38]/80">
+          <section className={cn(WS_CARD, "overflow-hidden p-0")}>
             <div className="block md:hidden space-y-2 p-3">
               {tasks.map((task) => (
                 <article key={task.id} className="rounded-xl border border-[#2a4c79] bg-[#0f2344]/80 p-3">
@@ -300,7 +281,7 @@ function TasksContent() {
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm">
           <div className="flex min-h-[100dvh] items-end justify-center p-2 sm:items-center sm:p-4">
-            <div className="glass-card max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-t-2xl border border-[#2b4f83] bg-[#0b1e3a]/95 p-4 pb-[max(env(safe-area-inset-bottom),1rem)] shadow-[0_30px_80px_-45px_rgba(34,211,238,0.55)] sm:max-h-[85dvh] sm:rounded-2xl sm:p-6">
+            <div className={cn(WS_GLASS_MODAL, "max-w-2xl rounded-t-2xl sm:rounded-2xl pb-[max(env(safe-area-inset-bottom),1rem)] shadow-[0_30px_80px_-45px_rgba(34,211,238,0.55)]")}>
               <div className="mb-5 flex items-center justify-between">
                 <h3 className="text-lg font-heading font-bold text-white">{editTask ? "تعديل المهمة" : "إضافة مهمة جديدة"}</h3>
                 <button onClick={() => { setShowModal(false); resetForm(); }} className="rounded-md p-1 text-[#8ba3c7] transition-colors hover:text-white">

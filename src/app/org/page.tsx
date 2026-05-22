@@ -12,6 +12,9 @@ import { useToast } from "@/contexts/ToastContext";
 import { useBoardMembers } from "@/hooks/useData";
 import { supabase } from "@/lib/supabase";
 import type { BoardMember } from "@/lib/db";
+import { WS_PAGE, WS_CARD, WS_GLASS_MODAL, WS_SURFACE } from "@/components/ui/workspaceVisual";
+import { PageHero, WorkspaceEmpty } from "@/components/ui/workspaceUi";
+import { cn } from "@/lib/utils";
 
 const MAX_BOARD = 3;
 
@@ -77,7 +80,7 @@ function BoardMemberModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
-      <div className="relative w-full max-w-md glass-card p-6 space-y-4">
+      <div className={cn(WS_GLASS_MODAL, "max-w-md space-y-4")}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-white font-heading font-bold text-lg flex items-center gap-2">
             <UserCheck size={18} className="text-[#22d3ee]" />
@@ -157,7 +160,7 @@ function BoardMemberModal({
 function DeleteConfirmModal({ name, onConfirm, onClose }: { name: string; onConfirm: () => void; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
-      <div className="glass-card p-6 max-w-sm w-full text-center space-y-4">
+      <div className={cn(WS_GLASS_MODAL, "max-w-sm text-center space-y-4")}>
         <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto">
           <Trash2 size={24} className="text-red-400" />
         </div>
@@ -332,25 +335,18 @@ export default function OrgPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8 max-w-5xl mx-auto">
-        {/* Page header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-heading font-bold text-white flex items-center gap-2">
-              <Network size={24} className="text-[#22d3ee]" />
-              الهيكل الإداري
-            </h1>
-            <p className="text-[#8ba3c7] text-sm mt-1">
-              {isInternalOrg ? "المخطط التنظيمي لشركة Blumark24" : "المخطط التنظيمي للمنشأة"}
-            </p>
-          </div>
+      <div className={cn(WS_PAGE, "max-w-5xl mx-auto")}>
+        <PageHero
+          title="الهيكل الإداري"
+          subtitle={isInternalOrg ? "المخطط التنظيمي لشركة Blumark24" : "المخطط التنظيمي للمنشأة"}
+        >
           {canManage && (
-            <button onClick={handleOpenAdd} className="btn-primary flex items-center gap-2 text-sm" title={boardMembers.length >= MAX_BOARD ? "الحد الأقصى 3 أعضاء" : "إضافة عضو"}>
+            <button onClick={handleOpenAdd} className="btn-primary flex items-center gap-2 text-sm min-h-11 touch-manipulation" title={boardMembers.length >= MAX_BOARD ? "الحد الأقصى 3 أعضاء" : "إضافة عضو"}>
               <Plus size={16} />
               إضافة عضو مجلس
             </button>
           )}
-        </div>
+        </PageHero>
 
         {canManage && boardMembers.length >= MAX_BOARD && (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
@@ -361,8 +357,7 @@ export default function OrgPage() {
 
         {/* Level 1: Board */}
         <div className="flex flex-col items-center gap-3">
-          <div className="w-full rounded-2xl border p-5"
-            style={{ background: "rgba(34,211,238,0.07)", borderColor: "rgba(34,211,238,0.3)", backdropFilter: "blur(12px)" }}>
+          <div className={cn(WS_SURFACE, "w-full p-5 border border-cyan-300/30")}>
             <div className="flex items-center justify-center gap-2 mb-4">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg,#22d3ee,#1e6fd9)" }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -449,7 +444,7 @@ export default function OrgPage() {
             </div>
 
             {/* Legend */}
-            <div className="glass-card p-4">
+            <div className={cn(WS_CARD, "p-4")}>
               <div className="flex flex-wrap items-center gap-6 text-xs text-[#8ba3c7]">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-[#22d3ee]" />
@@ -473,15 +468,12 @@ export default function OrgPage() {
 
         {/* Customer tenant with no configured structure → production empty state. */}
         {isInternalOrg === false && (
-          <div className="glass-card p-10 text-center flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-2xl bg-[#22d3ee]/10 border border-[#22d3ee]/25 flex items-center justify-center">
-              <Network size={28} className="text-[#22d3ee]" />
-            </div>
-            <h3 className="text-white font-heading font-bold text-lg">لم يتم إعداد الهيكل التنظيمي بعد</h3>
-            <p className="text-[#8ba3c7] text-sm max-w-md leading-relaxed">
-              سيظهر هنا الهيكل الإداري الخاص بمنشأتك عند إضافته. ابدأ بإضافة أعضاء مجلس الإدارة في الأعلى.
-            </p>
-          </div>
+          <WorkspaceEmpty
+            icon={Network}
+            title="لم يتم إعداد الهيكل التنظيمي بعد"
+            subtitle="سيظهر هنا الهيكل الإداري الخاص بمنشأتك عند إضافته. ابدأ بإضافة أعضاء مجلس الإدارة في الأعلى."
+            accent="cyan"
+          />
         )}
       </div>
 
