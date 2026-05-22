@@ -79,22 +79,53 @@ END;
 $$;
 
 -- ── 2. organization_manager role: allow it in the role check constraint ─
--- Additive only (we never remove an existing allowed value), so no row can
--- violate the new constraint.
-ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
-ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
-  CHECK (role IN (
-    'super_admin','board_member','defense_manager','attack_manager',
-    'finance_manager','employee','organization_manager'
-  ));
+-- Abort-safe: we DROP the old check first (so the section-4 promotion to
+-- organization_manager can never be blocked by a stale constraint), then
+-- re-add the widened check ONLY if every existing role already fits it.
+-- If some legacy role is outside the set we leave the check dropped with a
+-- NOTICE rather than aborting the whole isolation migration — RLS, not this
+-- CHECK, is the security boundary.
+DO $$
+BEGIN
+  IF to_regclass('public.profiles') IS NULL THEN
+    RAISE NOTICE '015: public.profiles not found — role constraint update skipped';
+    RETURN;
+  END IF;
+
+  ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+
+  IF EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE role IS NOT NULL AND role NOT IN (
+      'super_admin','board_member','defense_manager','attack_manager',
+      'finance_manager','employee','organization_manager'
+    )
+  ) THEN
+    RAISE NOTICE '015: profiles contains roles outside the allowed set — leaving role check dropped to avoid aborting the migration';
+  ELSE
+    ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
+      CHECK (role IN (
+        'super_admin','board_member','defense_manager','attack_manager',
+        'finance_manager','employee','organization_manager'
+      ));
+  END IF;
+END $$;
 
 -- ── 3. Seed default permissions for organization_manager ───────────────
 -- Mirrors src/contexts/PermissionsContext.tsx DEFAULT_ROLE_PERMISSIONS.
 -- ON CONFLICT DO NOTHING so a hand-tuned row is never overwritten.
-INSERT INTO public.role_permissions (role, permissions) VALUES
-  ('organization_manager',
-   ARRAY['view_dashboard','manage_tasks','manage_clients','manage_finance','manage_reports'])
-ON CONFLICT (role) DO NOTHING;
+-- Guarded: the role_permissions table is optional in a minimal schema.
+DO $$
+BEGIN
+  IF to_regclass('public.role_permissions') IS NULL THEN
+    RAISE NOTICE '015: public.role_permissions not found — organization_manager seed skipped';
+  ELSE
+    INSERT INTO public.role_permissions (role, permissions) VALUES
+      ('organization_manager',
+       ARRAY['view_dashboard','manage_tasks','manage_clients','manage_finance','manage_reports'])
+    ON CONFLICT (role) DO NOTHING;
+  END IF;
+END $$;
 
 -- ── 4. Promote existing customer-tenant logins → organization_manager ──
 -- A customer-tenant login is the profile linked (organization_id) to a
@@ -196,7 +227,8 @@ END $$;
 -- organization_manager == board_member confined to a single org.
 
 -- ---- TRANSACTIONS ---------------------------------------------------------
-DO $$ BEGIN IF to_regclass('public.transactions') IS NOT NULL THEN
+DO $$ BEGIN IF to_regclass('public.transactions') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='transactions' AND column_name='organization_id') THEN
   EXECUTE $p$
   CREATE POLICY "transactions: org select" ON public.transactions FOR SELECT
     USING (organization_id = public.current_org_id() OR public.is_owner() OR public.get_my_role()='super_admin');
@@ -219,7 +251,8 @@ DO $$ BEGIN IF to_regclass('public.transactions') IS NOT NULL THEN
 END IF; END $$;
 
 -- ---- PROJECTS -------------------------------------------------------------
-DO $$ BEGIN IF to_regclass('public.projects') IS NOT NULL THEN
+DO $$ BEGIN IF to_regclass('public.projects') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='projects' AND column_name='organization_id') THEN
   EXECUTE $p$
   CREATE POLICY "projects: org select" ON public.projects FOR SELECT
     USING (organization_id = public.current_org_id() OR public.is_owner() OR public.get_my_role()='super_admin');
@@ -242,7 +275,8 @@ DO $$ BEGIN IF to_regclass('public.projects') IS NOT NULL THEN
 END IF; END $$;
 
 -- ---- ACTIVITIES (SELECT org-scoped; INSERT for any same-org member) -------
-DO $$ BEGIN IF to_regclass('public.activities') IS NOT NULL THEN
+DO $$ BEGIN IF to_regclass('public.activities') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='activities' AND column_name='organization_id') THEN
   EXECUTE $p$
   CREATE POLICY "activities: org select" ON public.activities FOR SELECT
     USING (organization_id = public.current_org_id() OR public.is_owner() OR public.get_my_role()='super_admin');
@@ -253,7 +287,8 @@ DO $$ BEGIN IF to_regclass('public.activities') IS NOT NULL THEN
 END IF; END $$;
 
 -- ---- STRATEGY PHASES ------------------------------------------------------
-DO $$ BEGIN IF to_regclass('public.strategy_phases') IS NOT NULL THEN
+DO $$ BEGIN IF to_regclass('public.strategy_phases') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='strategy_phases' AND column_name='organization_id') THEN
   EXECUTE $p$
   CREATE POLICY "strategy_phases: org select" ON public.strategy_phases FOR SELECT
     USING (organization_id = public.current_org_id() OR public.is_owner() OR public.get_my_role()='super_admin');
@@ -276,7 +311,8 @@ DO $$ BEGIN IF to_regclass('public.strategy_phases') IS NOT NULL THEN
 END IF; END $$;
 
 -- ---- BOARD MEMBERS --------------------------------------------------------
-DO $$ BEGIN IF to_regclass('public.board_members') IS NOT NULL THEN
+DO $$ BEGIN IF to_regclass('public.board_members') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='board_members' AND column_name='organization_id') THEN
   EXECUTE $p$
   CREATE POLICY "board_members: org select" ON public.board_members FOR SELECT
     USING (organization_id = public.current_org_id() OR public.is_owner() OR public.get_my_role()='super_admin');
@@ -299,7 +335,8 @@ DO $$ BEGIN IF to_regclass('public.board_members') IS NOT NULL THEN
 END IF; END $$;
 
 -- ---- AUTOMATIONS ----------------------------------------------------------
-DO $$ BEGIN IF to_regclass('public.automations') IS NOT NULL THEN
+DO $$ BEGIN IF to_regclass('public.automations') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='automations' AND column_name='organization_id') THEN
   EXECUTE $p$
   CREATE POLICY "automations: org select" ON public.automations FOR SELECT
     USING (organization_id = public.current_org_id() OR public.is_owner() OR public.get_my_role()='super_admin');
@@ -322,7 +359,8 @@ DO $$ BEGIN IF to_regclass('public.automations') IS NOT NULL THEN
 END IF; END $$;
 
 -- ---- AUTOMATION LOGS ------------------------------------------------------
-DO $$ BEGIN IF to_regclass('public.automation_logs') IS NOT NULL THEN
+DO $$ BEGIN IF to_regclass('public.automation_logs') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='automation_logs' AND column_name='organization_id') THEN
   EXECUTE $p$
   CREATE POLICY "automation_logs: org select" ON public.automation_logs FOR SELECT
     USING (organization_id = public.current_org_id() OR public.is_owner() OR public.get_my_role()='super_admin');
@@ -338,7 +376,8 @@ DO $$ BEGIN IF to_regclass('public.automation_logs') IS NOT NULL THEN
 END IF; END $$;
 
 -- ---- NOTIFICATIONS (org-scoped AND per-user; writes for any org member) ---
-DO $$ BEGIN IF to_regclass('public.notifications') IS NOT NULL THEN
+DO $$ BEGIN IF to_regclass('public.notifications') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='notifications' AND column_name='organization_id') THEN
   EXECUTE $p$
   CREATE POLICY "notifications: org select" ON public.notifications FOR SELECT
     USING (
@@ -361,7 +400,8 @@ DO $$ BEGIN IF to_regclass('public.notifications') IS NOT NULL THEN
 END IF; END $$;
 
 -- ---- MESSAGES (SELECT/INSERT/UPDATE for any org member; DELETE bypass) ----
-DO $$ BEGIN IF to_regclass('public.messages') IS NOT NULL THEN
+DO $$ BEGIN IF to_regclass('public.messages') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='organization_id') THEN
   EXECUTE $p$
   CREATE POLICY "messages: org select" ON public.messages FOR SELECT
     USING (organization_id = public.current_org_id() OR public.is_owner() OR public.get_my_role()='super_admin');
@@ -381,7 +421,8 @@ DO $$ BEGIN IF to_regclass('public.messages') IS NOT NULL THEN
 END IF; END $$;
 
 -- ---- INVOICES -------------------------------------------------------------
-DO $$ BEGIN IF to_regclass('public.invoices') IS NOT NULL THEN
+DO $$ BEGIN IF to_regclass('public.invoices') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='invoices' AND column_name='organization_id') THEN
   EXECUTE $p$
   CREATE POLICY "invoices: org select" ON public.invoices FOR SELECT
     USING (organization_id = public.current_org_id() OR public.is_owner() OR public.get_my_role()='super_admin');
@@ -404,7 +445,8 @@ DO $$ BEGIN IF to_regclass('public.invoices') IS NOT NULL THEN
 END IF; END $$;
 
 -- ---- EXPENSES -------------------------------------------------------------
-DO $$ BEGIN IF to_regclass('public.expenses') IS NOT NULL THEN
+DO $$ BEGIN IF to_regclass('public.expenses') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='expenses' AND column_name='organization_id') THEN
   EXECUTE $p$
   CREATE POLICY "expenses: org select" ON public.expenses FOR SELECT
     USING (organization_id = public.current_org_id() OR public.is_owner() OR public.get_my_role()='super_admin');
@@ -429,7 +471,8 @@ END IF; END $$;
 -- ── 7. Refresh Phase B.1 WRITE policies so organization_manager can
 --       manage its own org's tasks & clients. SELECT policies from 012
 --       already cover org members and are intentionally left untouched. ──
-DO $$ BEGIN IF to_regclass('public.tasks') IS NOT NULL THEN
+DO $$ BEGIN IF to_regclass('public.tasks') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='tasks' AND column_name='organization_id') THEN
   DROP POLICY IF EXISTS "tasks: org insert" ON public.tasks;
   DROP POLICY IF EXISTS "tasks: org update" ON public.tasks;
   DROP POLICY IF EXISTS "tasks: org delete" ON public.tasks;
@@ -455,7 +498,8 @@ DO $$ BEGIN IF to_regclass('public.tasks') IS NOT NULL THEN
   $p$;
 END IF; END $$;
 
-DO $$ BEGIN IF to_regclass('public.clients') IS NOT NULL THEN
+DO $$ BEGIN IF to_regclass('public.clients') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='clients' AND column_name='organization_id') THEN
   DROP POLICY IF EXISTS "clients: org insert" ON public.clients;
   DROP POLICY IF EXISTS "clients: org update" ON public.clients;
   DROP POLICY IF EXISTS "clients: org delete" ON public.clients;
