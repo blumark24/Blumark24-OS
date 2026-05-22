@@ -7,6 +7,7 @@ import { Eye, EyeOff, LogIn, Mail, ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { supabase } from "@/lib/supabase";
+import { TENANT_BLOCKED_BODY, TENANT_BLOCKED_TITLE } from "@/lib/tenantAccess";
 
 export default function AuthPage() {
   const { login } = useAuth();
