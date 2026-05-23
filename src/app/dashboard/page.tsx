@@ -24,7 +24,7 @@ import {
   WS_CARD, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE, WS_AI_PILL,
   BOARD_THEME, WS_TINTS, type BoardKey, type KpiAccent,
 } from "@/components/ui/workspaceVisual";
-import { StatPill, QuickActionTile, Sparkline } from "@/components/ui/workspaceUi";
+import { StatPill, QuickActionTile, Sparkline, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
@@ -389,7 +389,7 @@ export default function DashboardPage() {
                 <p className="text-sm leading-snug text-[#dbe6f7]">{aiInsight}</p>
                 <Link
                   href="/ai"
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-cyan-300/25 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-100 transition-colors hover:bg-cyan-400/15"
+                  className={`mt-3 ${WS_AI_PILL}`}
                 >
                   عرض التفاصيل <ArrowLeft size={14} />
                 </Link>
@@ -510,7 +510,7 @@ export default function DashboardPage() {
                     <p className="truncate text-[11px] text-[#6b87ab]">تحليل فوري مبني على بياناتك الحالية</p>
                   </div>
                 </div>
-                <Link href="/ai" className="inline-flex shrink-0 items-center gap-1 text-xs text-cyan-200/90 transition-colors hover:text-cyan-100">
+                <Link href="/ai" className={`shrink-0 ${WS_AI_PILL}`}>
                   عرض جميع الرؤى <ArrowLeft size={14} />
                 </Link>
               </div>
@@ -603,7 +603,7 @@ export default function DashboardPage() {
               <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">{activeEmployees} نشط</span>
             </div>
             {activeUsersData.length === 0 ? (
-              <div className="flex h-[220px] items-center justify-center text-sm text-[#8ba3c7]">لا توجد بيانات</div>
+              <WorkspaceEmptyInline icon={Users} title="لا توجد بيانات" accent="cyan" className="h-[220px]" />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={activeUsersData}>
@@ -686,7 +686,7 @@ export default function DashboardPage() {
             {projLoad ? (
               <ChartSkeleton height={180} />
             ) : projects.length === 0 ? (
-              <div className="py-8 text-center text-sm text-[#8ba3c7]">لا توجد مشاريع بعد</div>
+              <WorkspaceEmptyInline icon={ListChecks} title="لا توجد مشاريع بعد" accent="violet" className="py-8" />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -726,7 +726,7 @@ export default function DashboardPage() {
             {actLoad ? (
               <CardSkeleton rows={5} />
             ) : activities.length === 0 ? (
-              <div className="py-8 text-center text-sm text-[#8ba3c7]">لا توجد نشاطات بعد</div>
+              <WorkspaceEmptyInline icon={Activity} title="لا توجد نشاطات بعد" accent="cyan" className="py-8" />
             ) : (
               <div className="space-y-3">
                 {activities.map((activity) => (

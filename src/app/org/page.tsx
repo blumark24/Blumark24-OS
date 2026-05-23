@@ -40,7 +40,9 @@ export default function OrgPage() {
         if (!active) return;
         setIsInternalOrg(error ? false : data === true);
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   if (isInternalOrg === null) {
