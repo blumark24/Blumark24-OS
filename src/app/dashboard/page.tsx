@@ -28,7 +28,8 @@ import {
 import { StatPill, QuickActionTile, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
 import { PremiumKpiCard } from "@/components/ui/PremiumKpiCard";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
-import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
+import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
+import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
@@ -141,7 +142,7 @@ export default function DashboardPage() {
     : user?.role
       ? getTenantRoleLabel(mapAuthRoleToUserRole(user.role), isInternal)
       : "عضو الفريق";
-  const departmentDisplay = formatTenantDepartment(user?.department);
+  const { display: departmentDisplay } = useProfileOrgDepartment();
 
   const activeEmployeeNames = useMemo(() => {
     if (!isSuperAdmin) return [];

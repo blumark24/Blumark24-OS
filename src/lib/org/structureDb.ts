@@ -131,6 +131,25 @@ export async function deletePosition(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+
+async function syncEmployeeDepartmentLabel(
+  employeeId: string,
+  departmentId: string | null,
+): Promise<void> {
+  if (!departmentId) return;
+  const { data: dept, error: deptErr } = await supabase
+    .from("departments")
+    .select("name")
+    .eq("id", departmentId)
+    .maybeSingle();
+  if (deptErr || !dept?.name) return;
+  const label = String(dept.name).slice(0, 100);
+  await Promise.all([
+    supabase.from("employees").update({ department: label }).eq("id", employeeId),
+    supabase.from("profiles").update({ department: label }).eq("id", employeeId),
+  ]);
+}
+
 export async function upsertEmployeeRelation(
   input: EmployeeRelationInput,
 ): Promise<EmployeeRelation> {
@@ -141,6 +160,7 @@ export async function upsertEmployeeRelation(
     .select("*")
     .single();
   if (error) throw new Error(error.message);
+  await syncEmployeeDepartmentLabel(input.employee_id, input.department_id);
   return data as EmployeeRelation;
 }
 

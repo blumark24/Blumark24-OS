@@ -172,6 +172,34 @@ export const ORG_ROLE_DEFINITIONS = [
   },
 ] as const;
 
+
+export const TENANT_ORG_ROLE_DEFINITIONS = [
+  {
+    title: "مدير المنشأة",
+    desc: "اعتماد الهيكل وإدارة المنشأة والصلاحيات",
+    color: "#22d3ee",
+  },
+  {
+    title: "مدير مالي",
+    desc: "متابعة المالية والتقارير ضمن المنشأة",
+    color: "#f59e0b",
+  },
+  {
+    title: "رئيس قسم",
+    desc: "قيادة القسم والفرق التابعة له",
+    color: "#a855f7",
+  },
+  {
+    title: "موظف",
+    desc: "تنفيذ المهام ضمن القسم أو الفريق",
+    color: "#8ba3c7",
+  },
+] as const;
+
+export function getOrgRoleDefinitions(isInternal: boolean) {
+  return isInternal ? ORG_ROLE_DEFINITIONS : TENANT_ORG_ROLE_DEFINITIONS;
+}
+
 export function rulesForPlan(plan: PlanSlug): string[] {
   const levels = allowedStructureLevels(plan);
   const lines = [

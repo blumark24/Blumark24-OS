@@ -39,7 +39,7 @@ import {
 } from "@/lib/org/buildFlowGraph";
 import {
   BOARD_LABEL_AR,
-  ORG_ROLE_DEFINITIONS,
+  getOrgRoleDefinitions,
   allowedStructureLevels,
   canCreateStructureLevel,
   isStructureLevelLocked,
@@ -54,6 +54,7 @@ import {
 import OrgCardNode from "./OrgCardNode";
 import OrgHierarchySidebar from "./OrgHierarchySidebar";
 import OrgPackagePlanCards from "./OrgPackagePlanCards";
+import PositionsPanel from "./PositionsPanel";
 import StructureLevelFormModal from "./StructureLevelFormModal";
 import AssignEmployeeModal from "./AssignEmployeeModal";
 import TeamFormModal from "./TeamFormModal";
@@ -86,7 +87,7 @@ interface InnerProps {
 function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
   const toast = useToast();
   const { fitView } = useReactFlow();
-  const { planSlug } = useTenantWorkspace();
+  const { planSlug, isInternal } = useTenantWorkspace();
   const plan = planSlug as PlanSlug;
   const planLimits = useMemo(() => getOrgPlanLimits(plan), [plan]);
 
@@ -100,6 +101,8 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
     deleteDepartment,
     createTeam,
     deleteTeam,
+    createPosition,
+    deletePosition,
     upsertEmployeeRelation,
   } = useOrgStructure(true);
   const { data: employees } = useEmployees();
@@ -349,6 +352,16 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
           )}
           <div className="space-y-3 min-w-0 order-1 xl:order-none">
             {canManage && (
+              <>
+              <p className="text-[#6b87ab] text-xs w-full">
+                المستويات المتاحة في باقتك:{" "}
+                <span className="text-[#22d3ee]">
+                  {enabledLevels.map((l) => STRUCTURE_LEVEL_LABELS[l]).join(" · ")}
+                </span>
+                {enabledLevels.length < 3 && (
+                  <span className="text-white/40"> — المستويات الأخرى مقفلة حسب الاشتراك</span>
+                )}
+              </p>
               <div className={cn("flex flex-wrap gap-2", ORG_TOOLBAR)}>
                 {(["agency", "management", "department"] as StructureLevel[]).map((level) => {
                   const locked = isStructureLevelLocked(plan, level);
@@ -376,7 +389,8 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
                   type="button"
                   onClick={() => setAssignModal(true)}
                   disabled={!data?.departments.length}
-                  className="btn-secondary text-sm flex items-center gap-2 min-h-11 touch-manipulation"
+                  title={!data?.departments.length ? "أنشئ قسمًا أولاً ثم عيّن الموظفين" : undefined}
+                  className="btn-secondary text-sm flex items-center gap-2 min-h-11 touch-manipulation disabled:opacity-50"
                 >
                   <UserPlus size={14} />
                   موظف
@@ -431,6 +445,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
                   </>
                 )}
               </div>
+              </>
             )}
 
             <div
@@ -469,6 +484,14 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
           </div>
 
           <aside className="space-y-4 order-3 xl:order-none">
+            {data && (
+              <PositionsPanel
+                positions={data.positions}
+                canManage={canManage}
+                onCreate={createPosition}
+                onDelete={deletePosition}
+              />
+            )}
             <div
               className="rounded-2xl border border-[#1e3a5f] p-4 space-y-3"
               style={{ background: "rgba(10,22,40,0.75)" }}
@@ -488,7 +511,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
               style={{ background: "rgba(10,22,40,0.75)" }}
             >
               <h3 className="text-white text-sm font-bold">الأدوار في الهيكل</h3>
-              {ORG_ROLE_DEFINITIONS.map((r) => (
+              {getOrgRoleDefinitions(isInternal).map((r) => (
                 <div
                   key={r.title}
                   className="rounded-xl border border-[#1e3a5f]/80 p-3"

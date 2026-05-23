@@ -146,7 +146,34 @@ function layoutSubtree(
       });
     }
 
-    cursor += localWidth + GAP_X;
+      const deptOnlyRels = relations.filter(
+        (r) => r.department_id === dept.id && !r.team_id,
+      );
+      deptOnlyRels.forEach((rel, ri) => {
+        const name = employeeNames.get(rel.employee_id) ?? "موظف";
+        const ey = (depth + 1) * GAP_Y + teamList.length * (NODE_H + 16) + ri * (NODE_H + 16);
+        nodes.push({
+          id: `emp-${rel.employee_id}`,
+          type: "orgCard",
+          position: { x: deptX, y: ey },
+          data: {
+            label: name,
+            subtitle: "موظف · القسم",
+            color: "#8ba3c7",
+            kind: "employee",
+            entityId: rel.employee_id,
+          },
+        });
+        edges.push({
+          id: `e-emp-dept-${dept.id}-${rel.employee_id}`,
+          source: `dept-${dept.id}`,
+          target: `emp-${rel.employee_id}`,
+          type: "smoothstep",
+          style: { stroke: dept.color },
+        });
+      });
+
+        cursor += localWidth + GAP_X;
     totalWidth += localWidth + GAP_X;
   }
 

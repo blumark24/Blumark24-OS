@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { GlassPopover } from "@/components/ui/GlassPopover";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
+import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 import { withTimeout } from "@/lib/asyncHelpers";
 
 // Header global-search timeout — a slow Supabase must never hang the dropdown.
@@ -112,12 +113,13 @@ interface ProfileDropdownProps {
 
 function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, open, onToggle }: ProfileDropdownProps) {
   const { isInternal } = useTenantWorkspace();
+  const { display: departmentInfo } = useProfileOrgDepartment();
   if (!user) return null;
 
   // Department and active status come from the authenticated user's own
   // profile row — never look these up via managedUsers (which is for the
   // admin panel and may not be loaded yet, causing a "—" / "موظف" flash).
-  const departmentInfo = formatTenantDepartment(user.department);
+
   const isActive   = user.is_active !== false;
   const initials   = user.name?.slice(0, 2) ?? "م";
   const roleLabel  = userRole
