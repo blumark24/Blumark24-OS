@@ -87,6 +87,7 @@ function taskFromDB(row: Record<string, unknown>): Task {
 }
 
 function taskToDB(item: Omit<Task, "id" | "createdAt">): Record<string, unknown> {
+  const dueAt = item.dueAt ?? (item.dueDate ? `${item.dueDate}T12:00:00Z` : null);
   return {
     title:           item.title,
     description:     item.description,
@@ -98,7 +99,17 @@ function taskToDB(item: Omit<Task, "id" | "createdAt">): Record<string, unknown>
     client_id:       item.clientId,
     client_name:     item.clientName,
     due_date:        item.dueDate,
+    due_at:          dueAt,
     tags:            item.tags,
+    department_id:   item.departmentId ?? null,
+    team_id:         item.teamId ?? null,
+    created_by_id:   item.createdById ?? "",
+    created_by_name: item.createdByName ?? "",
+    recurrence_rule: item.recurrenceRule ?? null,
+    recurrence_parent_id: item.recurrenceParentId ?? null,
+    kanban_order:    item.kanbanOrder ?? 0,
+    notify_assignee: item.notifyAssignee ?? true,
+    completed_at:    item.completedAt ?? null,
   };
 }
 
