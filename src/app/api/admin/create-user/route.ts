@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { isPlatformAdminEmail } from "@/lib/platformAdmins";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,48 +57,46 @@ export async function POST(req: NextRequest) {
     }
     const callerEmail  = tokenResp.data.user.email ?? "";
     const callerId     = tokenResp.data.user.id;
-    const ADMIN_EMAILS = ["blumark24@gmail.com", "blumark.sa@gmail.com"];
 
-    let isAdmin = ADMIN_EMAILS.includes(callerEmail);
-    if (!isAdmin) {
+    // ── 3b. resolve caller's role + organization (single service-role read) ─
+    // Service-role writes bypass RLS *and* the BEFORE INSERT auto-stamp
+    // trigger (auth.uid() is null here), so the new profile + employee must
+    // be tagged explicitly with the caller's org. A missing organization_id
+    // column is tolerated (best-effort → null).
+    let callerRole:  string | null = null;
+    let callerOrgId: string | null = null;
+    try {
       const profResp = await admin
         .from("profiles")
-        .select("role")
+        .select("role, organization_id")
         .eq("id", callerId)
         .maybeSingle();
-      isAdmin = profResp.data?.role === "super_admin";
+      const prof = profResp.data as { role?: string | null; organization_id?: string | null } | null;
+      callerRole  = prof?.role ?? null;
+      callerOrgId = prof?.organization_id ?? null;
+    } catch {
+      callerRole  = null;
+      callerOrgId = null;
     }
-    if (!isAdmin) {
+
+    // Platform owner = email on the platform allowlist OR an existing super_admin.
+    // Only owners may grant elevated roles or provision users outside org scope.
+    // Organization managers may create tenant-safe roles inside their own org.
+    const callerIsOwner      = isPlatformAdminEmail(callerEmail) || callerRole === "super_admin";
+    const callerIsOrgManager = callerRole === "organization_manager";
+
+    if (!callerIsOwner && !callerIsOrgManager) {
       return NextResponse.json(
         {
           success: false,
-          error:   "غير مصرح — هذه العملية تتطلب صلاحيات المدير الأعلى",
-          debug:   `caller=${callerEmail} id=${callerId}`,
+          code:    "UNAUTHORIZED",
+          error:   "غير مصرح — هذه العملية تتطلب صلاحيات المدير الأعلى أو مدير المنشأة",
+          debug:   `caller=${callerEmail} id=${callerId} role=${callerRole ?? "none"}`,
         },
         { status: 403 },
       );
     }
-    console.log(`[create-user] caller verified email=${callerEmail}`);
-
-    // ── 3b. resolve caller's organization (Tenant Isolation Phase B.1) ────
-    // Service-role writes bypass RLS *and* the BEFORE INSERT auto-stamp
-    // trigger (auth.uid() is null here), so the new profile + employee must
-    // be tagged explicitly with the caller's org. Without this the new user
-    // would be invisible to the rest of their own organization. Best-effort:
-    // if the caller has no org we leave it null (owner/super_admin still see
-    // the row), and a missing organization_id column is tolerated.
-    let callerOrgId: string | null = null;
-    try {
-      const orgResp = await admin
-        .from("profiles")
-        .select("organization_id")
-        .eq("id", callerId)
-        .maybeSingle();
-      const org = (orgResp.data as { organization_id?: string | null } | null)?.organization_id;
-      callerOrgId = org ?? null;
-    } catch {
-      callerOrgId = null;
-    }
+    console.log(`[create-user] caller verified email=${callerEmail} owner=${callerIsOwner} orgManager=${callerIsOrgManager}`);
 
     // ── 4. parse body (await; outer catch handles malformed JSON) ─────────
     const body = (await req.json()) as Record<string, unknown>;
@@ -151,6 +150,61 @@ export async function POST(req: NextRequest) {
         { success: false, error: `الدور غير مقبول: ${rawRole}`, debug: `mapped=${role}` },
         { status: 400 },
       );
+    }
+
+    // ── 5b. role + tenant authorization ───────────────────────────────────
+    // Elevated roles are platform-owner-only. Organization managers are
+    // confined to tenant-safe roles AND to their own organization_id.
+    const ELEVATED_ROLES    = ["super_admin", "board_member", "attack_manager", "defense_manager"];
+    const TENANT_SAFE_ROLES = ["organization_manager", "finance_manager", "employee"];
+
+    if (ELEVATED_ROLES.includes(role) && !callerIsOwner) {
+      return NextResponse.json(
+        {
+          success: false,
+          code:    "FORBIDDEN_ROLE",
+          error:   "غير مسموح بإنشاء هذا الدور — يتطلب صلاحيات المدير الأعلى",
+          debug:   `role=${role} callerOwner=false`,
+        },
+        { status: 403 },
+      );
+    }
+
+    if (callerIsOrgManager && !callerIsOwner) {
+      if (!TENANT_SAFE_ROLES.includes(role)) {
+        return NextResponse.json(
+          {
+            success: false,
+            code:    "FORBIDDEN_ROLE",
+            error:   "مدير المنشأة يمكنه إنشاء أدوار: مدير المنشأة، مدير مالي، موظف فقط",
+            debug:   `role=${role}`,
+          },
+          { status: 403 },
+        );
+      }
+      if (!callerOrgId) {
+        return NextResponse.json(
+          {
+            success: false,
+            code:    "MISSING_ORGANIZATION",
+            error:   "تعذر تحديد منشأة المستخدم الحالي — لا يمكن إنشاء مستخدم",
+            debug:   "callerOrgId is null for organization_manager",
+          },
+          { status: 400 },
+        );
+      }
+      const bodyOrgId = typeof body.organization_id === "string" ? body.organization_id : null;
+      if (bodyOrgId && bodyOrgId !== callerOrgId) {
+        return NextResponse.json(
+          {
+            success: false,
+            code:    "ORG_MISMATCH",
+            error:   "لا يمكن إنشاء مستخدم في منشأة أخرى",
+            debug:   `bodyOrg=${bodyOrgId} callerOrg=${callerOrgId}`,
+          },
+          { status: 400 },
+        );
+      }
     }
 
     const name       = typeof body.name === "string" && body.name.trim()
