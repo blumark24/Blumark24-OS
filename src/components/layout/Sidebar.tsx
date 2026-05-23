@@ -14,7 +14,6 @@ import { useToast } from "@/contexts/ToastContext";
 import {
   mapAuthRoleToUserRole,
   usePermissions,
-  ROLE_LABELS,
 } from "@/contexts/PermissionsContext";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import {
@@ -22,6 +21,7 @@ import {
   WORKSPACE_ROUTES,
   type WorkspaceRouteId,
 } from "@/lib/features/packageFeatures";
+import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import OfficialBlumarkLogo from "@/components/brand/OfficialBlumarkLogo";
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
@@ -72,8 +72,13 @@ export default function Sidebar({
     ? WORKSPACE_ROUTES.filter((r) => !r.internalOnly)
     : navRoutes;
 
+  // Use tenant-aware label so an internal-only role (defense_manager /
+  // attack_manager) that ever ends up on a customer profile is rewritten to
+  // a neutral tenant-safe label instead of leaking "وكالة الدفاع/الهجوم".
+  // The user-card label and the existing INTERNAL_ROLE_LABELS map cover both
+  // tenant + internal contexts.
   const roleLabel = effectiveRole
-    ? (ROLE_LABELS[effectiveRole] ?? effectiveRole.replace(/_/g, " "))
+    ? getTenantRoleLabel(effectiveRole, isInternal)
     : "";
 
   const innerCard = (

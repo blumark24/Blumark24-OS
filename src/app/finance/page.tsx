@@ -185,32 +185,32 @@ function FinanceContent() {
           )}
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="glass-card p-5 relative overflow-hidden">
+        {/* Summary Cards — responsive: stack on phones, side-by-side on ≥sm. */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 min-w-0">
+          <div className="glass-card p-4 sm:p-5 relative overflow-hidden">
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 rounded-xl bg-emerald-500/20"><TrendingUp size={20} className="text-emerald-400" /></div>
               <span className="text-xs text-emerald-400 flex items-center gap-1"><ArrowUpRight size={12} />{momChanges.income}</span>
             </div>
-            <div className="text-2xl font-heading font-bold text-white">{formatCurrency(totalIncome)}</div>
+            <div className="text-xl sm:text-2xl font-heading font-bold text-white tabular-nums truncate">{formatCurrency(totalIncome)}</div>
             <div className="text-sm text-[#8ba3c7] mt-1">إجمالي الدخل</div>
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-400 to-emerald-600" />
           </div>
-          <div className="glass-card p-5 relative overflow-hidden">
+          <div className="glass-card p-4 sm:p-5 relative overflow-hidden">
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 rounded-xl bg-red-500/20"><TrendingDown size={20} className="text-red-400" /></div>
               <span className="text-xs text-red-400 flex items-center gap-1"><ArrowUpRight size={12} />{momChanges.expense}</span>
             </div>
-            <div className="text-2xl font-heading font-bold text-white">{formatCurrency(totalExpense)}</div>
+            <div className="text-xl sm:text-2xl font-heading font-bold text-white tabular-nums truncate">{formatCurrency(totalExpense)}</div>
             <div className="text-sm text-[#8ba3c7] mt-1">إجمالي المصروف</div>
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-400 to-red-600" />
           </div>
-          <div className="glass-card p-5 relative overflow-hidden">
+          <div className="glass-card p-4 sm:p-5 relative overflow-hidden">
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 rounded-xl bg-cyan-500/20"><DollarSign size={20} className="text-cyan-400" /></div>
               <span className="text-xs text-cyan-400 flex items-center gap-1"><ArrowUpRight size={12} />{momChanges.profit}</span>
             </div>
-            <div className="text-2xl font-heading font-bold" style={{ color: netProfit >= 0 ? "#10b981" : "#ef4444" }}>
+            <div className="text-xl sm:text-2xl font-heading font-bold tabular-nums truncate" style={{ color: netProfit >= 0 ? "#10b981" : "#ef4444" }}>
               {formatCurrency(netProfit)}
             </div>
             <div className="text-sm text-[#8ba3c7] mt-1">صافي الربح</div>
@@ -223,10 +223,11 @@ function FinanceContent() {
           <h2 className="text-white font-medium mb-3">
             توزيع الصناديق <span className="text-xs text-[#8ba3c7]">(تلقائي عند إدخال دخل جديد)</span>
           </h2>
-          <div className="grid grid-cols-5 gap-3">
+          {/* Fund cards — responsive: 2 cols on phones, 3 on sm, 5 on lg+. */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 min-w-0">
             {fundBalances.map((fund) => (
               <div key={fund.key} className="glass-card p-4 relative overflow-hidden">
-                <div className="text-lg font-heading font-bold text-white">{formatCurrency(fund.balance)}</div>
+                <div className="text-lg font-heading font-bold text-white tabular-nums truncate">{formatCurrency(fund.balance)}</div>
                 <div className="text-xs text-[#8ba3c7] mt-1">{fund.label}</div>
                 <div className="text-xs font-bold mt-2" style={{ color: fund.color }}>{fund.pct * 100}%</div>
                 <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: fund.color }} />

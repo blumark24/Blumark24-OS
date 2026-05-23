@@ -4,6 +4,7 @@ import { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import MobileBottomNav, { MOBILE_BOTTOM_NAV_INSET } from "./MobileBottomNav";
+import WorkspaceRouteGuard from "@/components/ui/WorkspaceRouteGuard";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { AlertTriangle } from "lucide-react";
@@ -64,7 +65,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <main
           className={`flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6 ${MOBILE_BOTTOM_NAV_INSET}`}
         >
-          {children}
+          {/*
+            Defense-in-depth: every workspace page also wraps itself in
+            PageGuard, but this shell-level guard ensures a future page that
+            forgets PageGuard cannot expose internal-only or package-disabled
+            routes to a tenant via a direct URL.
+          */}
+          <WorkspaceRouteGuard>{children}</WorkspaceRouteGuard>
         </main>
 
         <MobileBottomNav />
