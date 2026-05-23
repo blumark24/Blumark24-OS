@@ -20,11 +20,13 @@ const REPORT_TYPES = [
   { id: "monthly",   label: "تقرير شهري", icon: Calendar,    color: "#1e6fd9" },
 ];
 
-const DEPT_NAMES = ["الإدارة", "الهجوم", "الإبداع", "التصميم", "الحملات", "AI Lab"];
+
 
 import { WS_PAGE, WS_CARD, WS_SURFACE } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard } from "@/components/ui/workspaceUi";
 import { cn } from "@/lib/utils";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import { getChartDepartmentFallback } from "@/lib/tenant/tenantDisplay";
 
 const TOOLTIP_STYLE = {
   background: "#0d1f3c",
@@ -50,6 +52,8 @@ function toCSV(rows: string[][]): string {
 }
 
 function ReportsContent() {
+  const { isInternal } = useTenantWorkspace();
+  const deptNames = useMemo(() => getChartDepartmentFallback(isInternal), [isInternal]);
   const [activeReport, setActiveReport] = useState<ReportId>("monthly");
   const [period, setPeriod]             = useState("هذا الشهر");
 
@@ -63,9 +67,14 @@ function ReportsContent() {
   const totalIncome  = useMemo(() => txs.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0),  [txs]);
   const totalExpense = useMemo(() => txs.filter((t) => t.type === "مصروف").reduce((s, t) => s + t.amount, 0), [txs]);
 
-  const deptData = useMemo(() =>
-    DEPT_NAMES.map((dept) => ({ name: dept, count: employees.filter((e) => e.department === dept).length })),
-  [employees]);
+  const deptData = useMemo(
+    () =>
+      deptNames.map((dept) => ({
+        name: dept,
+        count: employees.filter((e) => e.department === dept).length,
+      })),
+    [employees, deptNames],
+  );
 
   const taskStatusData = useMemo(() => [
     { name: "جديدة",       value: tasks.filter((t) => t.status === "جديدة").length,       color: "#22d3ee" },

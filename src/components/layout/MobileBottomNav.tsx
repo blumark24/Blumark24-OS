@@ -21,6 +21,7 @@ import {
   type WorkspaceRouteId,
 } from "@/lib/features/packageFeatures";
 import { useToast } from "@/contexts/ToastContext";
+import { MOBILE_ROUTE_LABELS } from "@/lib/tenant/tenantDisplay";
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -167,16 +168,16 @@ export default function MobileBottomNav() {
           <nav
             className={cn(
               "grid grid-cols-5 items-end gap-0 rounded-[1.35rem] border border-white/[0.12]",
-              "bg-[rgba(8,18,32,0.78)] backdrop-blur-2xl",
+              "bg-[rgba(6,14,28,0.88)] backdrop-blur-3xl",
               "shadow-[0_-8px_40px_-12px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.08)]",
-              "px-1 pt-2 pb-2 min-h-[3.65rem]",
+              "px-2 pt-2.5 pb-2.5 min-h-[4rem]",
             )}
             aria-label="التنقل السريع"
           >
             {leftTabs.map((route) => {
               const Icon = ICON_BY_NAME[route.iconName] ?? LayoutDashboard;
               const active = isRouteActive(pathname, route.href);
-              const label = getRouteLabel(route.id, isInternal);
+              const label = MOBILE_ROUTE_LABELS[route.id] ?? getRouteLabel(route.id, isInternal);
               return (
                 <Link
                   key={route.id}
@@ -189,7 +190,7 @@ export default function MobileBottomNav() {
                   )}
                 >
                   <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
-                  <span className="text-[10px] font-medium leading-none truncate max-w-[4.5rem]">
+                  <span className="text-[9.5px] font-medium leading-none truncate max-w-[3.25rem] text-center leading-tight">
                     {label}
                   </span>
                   {active && (
@@ -205,7 +206,7 @@ export default function MobileBottomNav() {
             {rightTabs.map((route) => {
               const Icon = ICON_BY_NAME[route.iconName] ?? LayoutDashboard;
               const active = isRouteActive(pathname, route.href);
-              const label = getRouteLabel(route.id, isInternal);
+              const label = MOBILE_ROUTE_LABELS[route.id] ?? getRouteLabel(route.id, isInternal);
               return (
                 <Link
                   key={route.id}
@@ -218,7 +219,7 @@ export default function MobileBottomNav() {
                   )}
                 >
                   <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
-                  <span className="text-[10px] font-medium leading-none truncate max-w-[4.5rem]">
+                  <span className="text-[9.5px] font-medium leading-none truncate max-w-[3.25rem] text-center leading-tight">
                     {label}
                   </span>
                   {active && (
@@ -236,4 +237,4 @@ export default function MobileBottomNav() {
 
 /** Bottom inset so charts/content clear the floating bar (mobile only). */
 export const MOBILE_BOTTOM_NAV_INSET =
-  "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0";
+  "pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0";

@@ -182,21 +182,23 @@ export function mapAuthRoleToUserRole(role: string): UserRole {
       return "super_admin";
     case "admin":
       return "super_admin";
+    case "organization_manager":
+    case "مدير_المنشأة":
+    case "owner":
+    case "tenant_owner":
+      return "organization_manager";
     case "department_manager":
     case "manager":
     case "مدير_قسم":
-      return "defense_manager";
+    case "مدير":
+      return "organization_manager";
     case "finance_manager":
     case "مدير_مالي":
       return "finance_manager";
     case "attack_manager":
     case "مدير_مبيعات":
       return "attack_manager";
-    case "organization_manager":
-    case "مدير_المنشأة":
-      return "organization_manager";
     case "defense_manager":
-    case "مدير":
       return "defense_manager";
     case "board_member":
       return "board_member";
