@@ -62,9 +62,10 @@ type FormState = {
 
 function EmployeesContent() {
   const { data: employees, loading, error, update, remove, refetch, setData } = useEmployees();
-  const { userRole } = usePermissions();
+  const { userRole, hasPermission } = usePermissions();
   const toast = useToast();
-  const isAdmin = userRole === "super_admin";
+  const canManageEmployees =
+    userRole === "super_admin" || hasPermission("manage_users");
 
   const [search,     setSearch]     = useState("");
   const [deptFilter, setDeptFilter] = useState("الكل");
@@ -243,7 +244,7 @@ function EmployeesContent() {
     <DashboardLayout>
       <div className={WS_PAGE}>
         <PageHero title="إدارة الموظفين" subtitle="إدارة بيانات فريق العمل">
-          {isAdmin && (
+          {canManageEmployees && (
             <button onClick={openAdd} className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation">
               <Plus size={16} />
               إضافة موظف
@@ -348,7 +349,7 @@ function EmployeesContent() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {isAdmin && (
+                      {canManageEmployees && (
                         <div className="flex items-center gap-2">
                           <button onClick={() => openEdit(emp)} aria-label="تعديل الموظف" className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
                             <Edit2 size={14} />

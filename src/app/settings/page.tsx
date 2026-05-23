@@ -26,7 +26,13 @@ import {
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { getSystemSettings, setSystemSetting } from "@/lib/db";
+import {
+  getSystemSettings,
+  setSystemSetting,
+  getTenantWorkspaceSettings,
+  upsertTenantWorkspaceSettings,
+} from "@/lib/db";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { useAutomations } from "@/hooks/useData";
 import { withTimeout } from "@/lib/asyncHelpers";
 
@@ -284,12 +290,19 @@ function PermissionsTab() {
 // `accountOnly` renders ONLY the personal account/password section — used for
 // forced-password users who lack manage_settings (e.g. organization_manager).
 // It never exposes company/global settings or other users.
+const TENANT_MANAGER_TABS = new Set(["general", "account", "notifications", "appearance"]);
+
 function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const toast = useToast();
   const { hasPermission } = usePermissions();
   const { user, clearForcePasswordChange } = useAuth();
+  const { organizationId } = useTenantWorkspace();
   const router = useRouter();
   const forcedAccount = user?.forcePasswordChange === true;
+  const tenantMode =
+    !accountOnly &&
+    hasPermission("manage_tenant_settings") &&
+    !hasPermission("manage_settings");
 
   const [activeTab,  setActiveTab]  = useState(accountOnly ? "account" : "general");
 
@@ -320,17 +333,43 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   // into a tenant manager's client.
   useEffect(() => {
     if (accountOnly) return;
-    getSystemSettings().then((s) => {
-      if (s.company_info) setCompanyForm(s.company_info as typeof companyForm);
-      if (s.notifications) setNotifs(s.notifications as typeof notifs);
-      const app = s.appearance as { darkMode?: boolean; accentColor?: string; language?: string } | undefined;
-      if (app) {
-        setDarkMode(app.darkMode ?? true);
-        if (app.accentColor) setAccentColor(app.accentColor);
-        if (app.language)    setLanguage(app.language);
+
+    const load = async () => {
+      try {
+        if (tenantMode && organizationId) {
+          const row = await getTenantWorkspaceSettings(organizationId);
+          if (row?.company_info && typeof row.company_info === "object") {
+            setCompanyForm((prev) => ({ ...prev, ...(row.company_info as typeof companyForm) }));
+          }
+          if (row?.notifications && typeof row.notifications === "object") {
+            setNotifs((prev) => ({ ...prev, ...(row.notifications as typeof notifs) }));
+          }
+          const app = row?.appearance as { darkMode?: boolean; accentColor?: string; language?: string } | undefined;
+          if (app) {
+            setDarkMode(app.darkMode ?? true);
+            if (app.accentColor) setAccentColor(app.accentColor);
+            if (app.language) setLanguage(app.language);
+          }
+          return;
+        }
+
+        const s = await getSystemSettings();
+        if (s.company_info) setCompanyForm(s.company_info as typeof companyForm);
+        if (s.notifications) setNotifs(s.notifications as typeof notifs);
+        const app = s.appearance as { darkMode?: boolean; accentColor?: string; language?: string } | undefined;
+        if (app) {
+          setDarkMode(app.darkMode ?? true);
+          if (app.accentColor) setAccentColor(app.accentColor);
+          if (app.language) setLanguage(app.language);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "تعذر تحميل الإعدادات";
+        toast.error(msg);
       }
-    }).catch(console.error);
-  }, [accountOnly]);
+    };
+
+    load();
+  }, [accountOnly, tenantMode, organizationId, toast]);
 
   // Read ?tab= from URL on mount (ignored in account-only mode).
   useEffect(() => {
@@ -404,15 +443,30 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await withTimeout(
-        Promise.all([
-          setSystemSetting("company_info",  companyForm),
-          setSystemSetting("notifications", notifs),
-          setSystemSetting("appearance",    { darkMode, accentColor, language }),
-        ]),
-        12_000,
-        "انتهت مهلة حفظ الإعدادات — تحقق من الاتصال"
-      );
+      if (tenantMode) {
+        if (!organizationId) {
+          throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول");
+        }
+        await withTimeout(
+          upsertTenantWorkspaceSettings(organizationId, {
+            company_info: companyForm,
+            notifications: notifs,
+            appearance: { darkMode, accentColor, language },
+          }),
+          12_000,
+          "انتهت مهلة حفظ الإعدادات — تحقق من الاتصال",
+        );
+      } else {
+        await withTimeout(
+          Promise.all([
+            setSystemSetting("company_info", companyForm),
+            setSystemSetting("notifications", notifs),
+            setSystemSetting("appearance", { darkMode, accentColor, language }),
+          ]),
+          12_000,
+          "انتهت مهلة حفظ الإعدادات — تحقق من الاتصال",
+        );
+      }
       setSaved(true);
       toast.success("تم حفظ الإعدادات بنجاح");
       setTimeout(() => setSaved(false), 2500);
@@ -453,7 +507,9 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
               <Settings size={24} className="text-[#22d3ee]" />
               الإعدادات
             </h1>
-            <p className="text-[#8ba3c7] text-sm mt-1">إدارة إعدادات النظام والتفضيلات</p>
+            <p className="text-[#8ba3c7] text-sm mt-1">
+              {tenantMode ? "إعدادات منشأتك ضمن باقة الاشتراك" : "إدارة إعدادات النظام والتفضيلات"}
+            </p>
           </div>
           {activeTab !== "permissions" && activeTab !== "account" && (
             <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2 disabled:opacity-50">
@@ -471,7 +527,9 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
           <div className="glass-card p-2 h-fit">
             {TABS
               .filter((t) => (accountOnly ? t.id === "account" : true))
+              .filter((t) => (!tenantMode ? true : TENANT_MANAGER_TABS.has(t.id)))
               .filter((t) => t.id !== "permissions" || hasPermission("manage_roles"))
+              .filter((t) => t.id !== "automation" || hasPermission("manage_automations"))
               .map((tab) => {
               const locked = forcedAccount && tab.id !== "account";
               return (
@@ -846,7 +904,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <PageGuard permission="manage_settings">
+    <PageGuard anyPermission={["manage_settings", "manage_tenant_settings"]}>
       <SettingsContent />
     </PageGuard>
   );

@@ -200,13 +200,15 @@ export interface BoardMember {
 
 /** Internal Blumark24 board only — customer tenants must never load these rows. */
 async function assertInternalOrgForBoard(): Promise<string | null> {
-  const { data: isInternal, error: internalErr } = await supabase.rpc("current_org_is_internal");
-  if (internalErr || isInternal !== true) {
+  const [{ data: isInternal, error: internalErr }, { data: orgId, error: orgErr }] =
+    await Promise.all([
+      supabase.rpc("current_org_is_internal"),
+      supabase.rpc("current_org_id"),
+    ]);
+  if (internalErr || isInternal !== true || orgErr || orgId == null) {
     return null;
   }
-  const { data: orgId, error: orgErr } = await supabase.rpc("current_org_id");
-  if (orgErr) return null;
-  return (orgId as string | null) ?? null;
+  return orgId as string;
 }
 
 export async function getBoardMembers(): Promise<BoardMember[]> {
@@ -293,6 +295,48 @@ export async function markAllMessagesReadInDB(): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+// ─── Tenant scope helpers ─────────────────────────────────────────────────────
+
+export async function resolveCurrentOrgId(): Promise<string | null> {
+  const { data, error } = await supabase.rpc("current_org_id");
+  if (error || data == null) return null;
+  return data as string;
+}
+
+export interface TenantWorkspaceSettings {
+  company_info: Record<string, unknown>;
+  notifications: Record<string, unknown>;
+  appearance: Record<string, unknown>;
+}
+
+export async function getTenantWorkspaceSettings(
+  organizationId: string,
+): Promise<TenantWorkspaceSettings | null> {
+  const { data, error } = await supabase
+    .from("tenant_workspace_settings")
+    .select("company_info, notifications, appearance")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return data as TenantWorkspaceSettings;
+}
+
+export async function upsertTenantWorkspaceSettings(
+  organizationId: string,
+  patch: Partial<TenantWorkspaceSettings>,
+): Promise<void> {
+  const { error } = await supabase.from("tenant_workspace_settings").upsert(
+    {
+      organization_id: organizationId,
+      ...patch,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "organization_id" },
+  );
+  if (error) throw new Error(error.message);
+}
+
 // ─── Notifications ─────────────────────────────────────────────────────────────
 
 export interface DBNotification {
@@ -306,16 +350,22 @@ export interface DBNotification {
 }
 
 export async function getNotifications(userId?: string): Promise<DBNotification[]> {
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) return [];
+
   let query = supabase
     .from("notifications")
     .select("*")
+    .eq("organization_id", orgId)
     .order("created_at", { ascending: false })
     .limit(20);
+
   if (userId) {
     query = query.or(`user_id.eq.${userId},user_id.is.null`);
   } else {
     query = query.is("user_id", null);
   }
+
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []) as DBNotification[];
@@ -327,8 +377,21 @@ export async function markNotificationReadInDB(id: string): Promise<void> {
 }
 
 export async function markAllNotificationsReadInDB(userId?: string): Promise<void> {
-  let q = supabase.from("notifications").update({ read: true }).eq("read", false);
-  if (userId) q = q.eq("user_id", userId);
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) return;
+
+  let q = supabase
+    .from("notifications")
+    .update({ read: true })
+    .eq("read", false)
+    .eq("organization_id", orgId);
+
+  if (userId) {
+    q = q.or(`user_id.eq.${userId},user_id.is.null`);
+  } else {
+    q = q.is("user_id", null);
+  }
+
   const { error } = await q;
   if (error) throw new Error(error.message);
 }
@@ -397,7 +460,13 @@ export async function logActivity(
   description: string,
   icon?: string,
 ): Promise<void> {
-  await supabase.from("activities").insert([{ type, description, icon }]);
+  const orgId = await resolveCurrentOrgId();
+  await supabase.from("activities").insert([{
+    type,
+    description,
+    icon,
+    ...(orgId ? { organization_id: orgId } : {}),
+  }]);
 }
 
 // ─── Notifications ──────────────────────────────────────────────────────────────
@@ -409,11 +478,16 @@ export async function createNotification(
   href: string,
   userId?: string,
 ): Promise<void> {
-  await supabase.from("notifications").insert([{
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) return;
+
+  const { error } = await supabase.from("notifications").insert([{
     type,
     title,
     body,
     href,
     user_id: userId ?? null,
+    organization_id: orgId,
   }]);
+  if (error) console.error("[createNotification]", error.message);
 }

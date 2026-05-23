@@ -251,6 +251,8 @@ export function satisfiesPermission(
 ): boolean {
   if (hasPermission(required)) return true;
   if (required === "view_employees" && hasPermission("manage_users")) return true;
+  if (required === "manage_settings" && hasPermission("manage_tenant_settings")) return true;
+  if (required === "manage_tenant_settings" && hasPermission("manage_settings")) return true;
   return false;
 }
 
