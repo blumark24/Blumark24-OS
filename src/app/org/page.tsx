@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import {
   Network, Shield, Swords, Users, ChevronDown,
@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { useBoardMembers } from "@/hooks/useData";
-import { supabase } from "@/lib/supabase";
 import { TENANT_EMPTY_STATE_MSG, TENANT_EMPTY_STATE_HINT } from "@/lib/features/packageFeatures";
 import type { BoardMember } from "@/lib/db";
 import { WS_PAGE, WS_CARD, WS_GLASS_MODAL, WS_SURFACE } from "@/components/ui/workspaceVisual";
@@ -269,32 +269,16 @@ function AgencyBlock({ title, subtitle, icon: Icon, accentColor, depts, descript
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function OrgPage() {
-  const { hasPermission, userRole } = usePermissions();
+  const { userRole } = usePermissions();
   const toast = useToast();
-  const canManage = userRole === "super_admin";
+  const { isInternal, loading: wsLoading } = useTenantWorkspace();
+  const boardEnabled = !wsLoading && isInternal;
+  const canManage = userRole === "super_admin" && isInternal;
 
-  const { data: boardMembers, insert, update, remove } = useBoardMembers();
+  const { data: boardMembers, insert, update, remove } = useBoardMembers(boardEnabled);
   const [showModal,    setShowModal]    = useState(false);
   const [editMember,   setEditMember]   = useState<BoardMember | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BoardMember | null>(null);
-
-  // The static Blumark24 agency/department scaffold belongs to the internal
-  // organization only. Customer tenants must never see it. We resolve this from
-  // the caller's own org via a SECURITY DEFINER RPC (organizations is owner-only
-  // under RLS). null = still resolving; on error we default to false so the
-  // internal scaffold is never shown to a tenant.
-  const [isInternalOrg, setIsInternalOrg] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    supabase
-      .rpc("current_org_is_internal")
-      .then(({ data, error }) => {
-        if (!active) return;
-        setIsInternalOrg(error ? false : data === true);
-      });
-    return () => { active = false; };
-  }, []);
 
   const handleOpenAdd = () => {
     if (boardMembers.length >= MAX_BOARD) {
@@ -339,7 +323,7 @@ export default function OrgPage() {
       <div className={cn(WS_PAGE, "max-w-5xl mx-auto")}>
         <PageHero
           title="الهيكل الإداري"
-          subtitle={isInternalOrg ? "المخطط التنظيمي لشركة Blumark24" : "المخطط التنظيمي للمنشأة"}
+          subtitle={isInternal ? "المخطط التنظيمي لشركة Blumark24" : "المخطط التنظيمي للمنشأة"}
         >
           {canManage && (
             <button onClick={handleOpenAdd} className="btn-primary flex items-center gap-2 text-sm min-h-11 touch-manipulation" title={boardMembers.length >= MAX_BOARD ? "الحد الأقصى 3 أعضاء" : "إضافة عضو"}>
@@ -349,6 +333,23 @@ export default function OrgPage() {
           )}
         </PageHero>
 
+        {wsLoading && (
+          <div className={cn(WS_SURFACE, "p-8 text-center text-[#8ba3c7] text-sm")}>
+            جارٍ تحميل الهيكل الإداري...
+          </div>
+        )}
+
+        {!wsLoading && !isInternal && (
+          <WorkspaceEmpty
+            icon={Network}
+            title={TENANT_EMPTY_STATE_MSG}
+            subtitle={`${TENANT_EMPTY_STATE_HINT}. سيظهر هنا الهيكل الإداري الخاص بمنشأتك عند إضافته.`}
+            accent="cyan"
+          />
+        )}
+
+        {!wsLoading && isInternal && (
+          <>
         {canManage && boardMembers.length >= MAX_BOARD && (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
             <AlertCircle size={15} />
@@ -356,7 +357,7 @@ export default function OrgPage() {
           </div>
         )}
 
-        {/* Level 1: Board */}
+        {/* Level 1: Board — internal Blumark24 org only */}
         <div className="flex flex-col items-center gap-3">
           <div className={cn(WS_SURFACE, "w-full p-5 border border-cyan-300/30")}>
             <div className="flex items-center justify-center gap-2 mb-4">
@@ -397,34 +398,27 @@ export default function OrgPage() {
             )}
           </div>
 
-          {/* Connectors to the internal agencies — internal org only. */}
-          {isInternalOrg && (
-            <>
-              <div className="flex flex-col items-center gap-0">
-                <div className="w-0.5 h-6 bg-gradient-to-b from-[#22d3ee] to-[#1e6fd9]" />
-                <ChevronDown size={16} className="text-[#22d3ee]" />
-              </div>
+          {/* Connectors to the internal agencies */}
+          <div className="flex flex-col items-center gap-0">
+            <div className="w-0.5 h-6 bg-gradient-to-b from-[#22d3ee] to-[#1e6fd9]" />
+            <ChevronDown size={16} className="text-[#22d3ee]" />
+          </div>
 
-              <div className="text-xs text-[#8ba3c7] bg-[#1a3356]/50 px-3 py-1 rounded-full border border-[#1e3a5f]">
-                وكالتان رئيسيتان
-              </div>
+          <div className="text-xs text-[#8ba3c7] bg-[#1a3356]/50 px-3 py-1 rounded-full border border-[#1e3a5f]">
+            وكالتان رئيسيتان
+          </div>
 
-              <div className="relative w-full flex justify-center">
-                <div className="absolute top-0 left-1/4 right-1/4 h-0.5 bg-gradient-to-r from-[#1e6fd9] via-[#22d3ee]/40 to-[#ff7a3d]" />
-                <div className="flex justify-between w-1/2 pt-0">
-                  <ChevronDown size={16} className="text-[#1e6fd9]" />
-                  <ChevronDown size={16} className="text-[#ff7a3d]" />
-                </div>
-              </div>
-            </>
-          )}
+          <div className="relative w-full flex justify-center">
+            <div className="absolute top-0 left-1/4 right-1/4 h-0.5 bg-gradient-to-r from-[#1e6fd9] via-[#22d3ee]/40 to-[#ff7a3d]" />
+            <div className="flex justify-between w-1/2 pt-0">
+              <ChevronDown size={16} className="text-[#1e6fd9]" />
+              <ChevronDown size={16} className="text-[#ff7a3d]" />
+            </div>
+          </div>
         </div>
 
-        {/* Level 2 — internal Blumark24 agency/department scaffold.
-            Shown ONLY for the internal organization; customer tenants get a
-            neutral empty state instead (no internal/static structure leaks). */}
-        {isInternalOrg === true && (
-          <>
+        {/* Level 2 — internal Blumark24 agency/department scaffold */}
+        <>
             <div className="flex flex-col lg:flex-row gap-5">
               <AgencyBlock
                 title="وكالة الدفاع"
@@ -464,28 +458,19 @@ export default function OrgPage() {
                 </div>
               </div>
             </div>
+        </>
           </>
-        )}
-
-        {/* Customer tenant with no configured structure → production empty state. */}
-        {isInternalOrg === false && (
-          <WorkspaceEmpty
-            icon={Network}
-            title={TENANT_EMPTY_STATE_MSG}
-            subtitle={`${TENANT_EMPTY_STATE_HINT}. سيظهر هنا الهيكل الإداري الخاص بمنشأتك عند إضافته.`}
-            accent="cyan"
-          />
         )}
       </div>
 
-      {showModal && (
+      {isInternal && showModal && (
         <BoardMemberModal
           member={editMember}
           onSave={handleSave}
           onClose={() => { setShowModal(false); setEditMember(null); }}
         />
       )}
-      {deleteTarget && (
+      {isInternal && deleteTarget && (
         <DeleteConfirmModal
           name={deleteTarget.name}
           onConfirm={handleDelete}
