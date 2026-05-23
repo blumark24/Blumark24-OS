@@ -39,7 +39,6 @@ import {
 } from "@/lib/org/buildFlowGraph";
 import {
   BOARD_LABEL_AR,
-  PACKAGE_HIERARCHY_CARDS,
   ORG_ROLE_DEFINITIONS,
   allowedStructureLevels,
   canCreateStructureLevel,
@@ -54,6 +53,7 @@ import {
 } from "@/lib/features/packageFeatures";
 import OrgCardNode from "./OrgCardNode";
 import OrgHierarchySidebar from "./OrgHierarchySidebar";
+import OrgPackagePlanCards from "./OrgPackagePlanCards";
 import StructureLevelFormModal from "./StructureLevelFormModal";
 import AssignEmployeeModal from "./AssignEmployeeModal";
 import TeamFormModal from "./TeamFormModal";
@@ -309,37 +309,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
         </div>
       </section>
 
-      {/* Package cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {PACKAGE_HIERARCHY_CARDS.map((card) => {
-          const active = card.plan === plan;
-          return (
-            <div
-              key={card.plan}
-              className={cn(
-                "rounded-xl border p-4 transition-all",
-                active
-                  ? "border-[#22d3ee]/50 bg-[#22d3ee]/8"
-                  : "border-[#1e3a5f] bg-[#0a1628]/50 opacity-70",
-              )}
-              style={active ? { boxShadow: `0 0 20px ${card.accent}22` } : undefined}
-            >
-              <div className="text-xs text-[#8ba3c7] mb-1">باقة {card.titleAr}</div>
-              <div
-                className="text-sm font-semibold text-white leading-relaxed"
-                style={active ? { color: card.accent } : undefined}
-              >
-                {card.chainAr}
-              </div>
-              {active && (
-                <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full bg-[#22d3ee]/20 text-[#22d3ee]">
-                  باقتك الحالية
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <OrgPackagePlanCards plan={plan} />
 
       {isEmpty ? (
         <div

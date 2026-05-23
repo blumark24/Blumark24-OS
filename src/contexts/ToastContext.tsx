@@ -76,7 +76,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ toasts, toast, success, error, warning, info, dismiss }}>
       {children}
       {/* Toast container */}
-      <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2 pointer-events-none">
+      <div
+        className="fixed right-4 sm:right-6 z-[200] flex flex-col gap-2 pointer-events-none bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px)+0.5rem)] lg:bottom-6"
+      >
         {toasts.map((t) => {
           const Icon   = ICONS[t.type];
           const colors = COLORS[t.type];

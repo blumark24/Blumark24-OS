@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Sidebar from "./Sidebar";
-import Header  from "./Header";
-import WorkspaceRouteGuard from "@/components/ui/WorkspaceRouteGuard";
+import Header from "./Header";
+import MobileBottomNav, { MOBILE_BOTTOM_NAV_INSET } from "./MobileBottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { AlertTriangle } from "lucide-react";
@@ -61,9 +61,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main
+          className={`flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6 ${MOBILE_BOTTOM_NAV_INSET}`}
+        >
           {children}
         </main>
+
+        <MobileBottomNav />
       </div>
     </div>
   );
