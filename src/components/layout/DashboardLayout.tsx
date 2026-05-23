@@ -66,7 +66,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [openQuickCreate]);
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-[#0a1628]">
+    <div className="relative flex h-screen overflow-hidden bg-[var(--bg-darkest)]">
       <WorkspaceAmbient />
 
       <Sidebar

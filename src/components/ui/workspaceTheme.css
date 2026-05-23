@@ -56,7 +56,7 @@
   background:
     radial-gradient(ellipse 120% 80% at 50% -20%, rgba(30, 111, 217, 0.22), transparent 55%),
     radial-gradient(ellipse 90% 60% at 100% 50%, rgba(168, 85, 247, 0.08), transparent 50%),
-    linear-gradient(180deg, #0a1628 0%, #0d1f3c 42%, #0a1628 100%);
+    linear-gradient(180deg, var(--bg-darkest) 0%, var(--bg-dark) 42%, var(--bg-darkest) 100%);
 }
 
 .workspace-ambient__orb {
