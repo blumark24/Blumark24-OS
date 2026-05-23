@@ -886,7 +886,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
-  const { rolePermissions } = usePermissions();
+  const { hasPermission } = usePermissions();
 
   // Forced-password users who lack manage_settings (e.g. organization_manager)
   // must be able to clear the temporary password to finish first login. They
@@ -897,7 +897,8 @@ export default function SettingsPage() {
     const role = mapAuthRoleToUserRole(user.role);
     const canManageSettings =
       role === "super_admin" ||
-      (rolePermissions[role] ?? []).includes("manage_settings");
+      hasPermission("manage_settings") ||
+      hasPermission("manage_tenant_settings");
     if (!canManageSettings) {
       return <SettingsContent accountOnly />;
     }

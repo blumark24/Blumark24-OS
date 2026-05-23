@@ -147,6 +147,30 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 };
 
+/** Defaults always apply; DB rows may extend but never revoke coded tenant-manager access. */
+export function mergePermissionsForRole(
+  role: UserRole,
+  fromDb?: Permission[],
+): Permission[] {
+  const defaults = DEFAULT_ROLE_PERMISSIONS[role] ?? [];
+  const db = fromDb ?? [];
+  return Array.from(new Set<Permission>([...defaults, ...db]));
+}
+
+/** Tenant org structure CRUD (departments, teams, positions). */
+export function canManageTenantOrgStructure(
+  role: UserRole | null,
+  hasPermission: (perm: Permission) => boolean,
+): boolean {
+  if (!role) return false;
+  if (role === "super_admin" || role === "organization_manager") return true;
+  return (
+    hasPermission("manage_tenant_settings") ||
+    hasPermission("manage_users") ||
+    hasPermission("manage_board")
+  );
+}
+
 export function mapAuthRoleToUserRole(role: string): UserRole {
   const normalizedRole = String(role ?? "").trim();
 
@@ -260,33 +284,42 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  // Load persisted role permissions from DB.  Soft timeout — if Supabase
-  // is slow we silently fall back to DEFAULT_ROLE_PERMISSIONS.
+  const loadRolePermissionsFromDb = useCallback(async () => {
+    const res = await withSoftTimeout(
+      Promise.resolve(supabase.from("role_permissions").select("role, permissions")),
+      PERMS_QUERY_TIMEOUT,
+    );
+    const data = res?.data as { role: string; permissions: string[] }[] | undefined;
+    if (!data?.length) return;
+    const loaded: Partial<Record<UserRole, Permission[]>> = {};
+    data.forEach((row) => {
+      const r = row.role as UserRole;
+      if (ALL_ROLES.includes(r)) {
+        const dbPerms = (row.permissions as Permission[]).filter((p) =>
+          ALL_PERMISSIONS.includes(p),
+        );
+        loaded[r] = mergePermissionsForRole(r, dbPerms);
+      }
+    });
+    if (Object.keys(loaded).length > 0) {
+      setRolePermissions((prev) => ({ ...prev, ...loaded }));
+    }
+  }, []);
+
+  // Reload when session or profile role changes (post-login / role promotion).
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
-    withSoftTimeout(
-      Promise.resolve(supabase.from("role_permissions").select("role, permissions")),
-      PERMS_QUERY_TIMEOUT,
-    )
-      .then((res) => {
-        if (cancelled) return;
-        const data = res?.data as { role: string; permissions: string[] }[] | undefined;
-        if (!data?.length) return;
-        const loaded: Partial<Record<UserRole, Permission[]>> = {};
-        data.forEach((row) => {
-          const r = row.role as UserRole;
-          if (ALL_ROLES.includes(r)) {
-            loaded[r] = (row.permissions as Permission[]).filter((p) => ALL_PERMISSIONS.includes(p));
-          }
-        });
-        if (Object.keys(loaded).length > 0) {
-          setRolePermissions((prev) => ({ ...prev, ...loaded }));
-        }
-      })
-      .catch(() => { /* silent — defaults remain */ });
-    return () => { cancelled = true; };
-  }, [user?.id]);
+    const run = () => {
+      if (!cancelled) void loadRolePermissionsFromDb();
+    };
+    run();
+    const retry = setTimeout(run, 900);
+    return () => {
+      cancelled = true;
+      clearTimeout(retry);
+    };
+  }, [user?.id, user?.role, loadRolePermissionsFromDb]);
 
   // ── userRole: single authoritative source is user.role from AuthContext
   //    (which reads directly from profiles table by auth user id).
@@ -303,9 +336,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     (perm: Permission) => {
       if (!userRole) return false;
       if (userRole === "super_admin") return true;
-      return (rolePermissions[userRole] ?? []).includes(perm);
+      return mergePermissionsForRole(userRole, rolePermissions[userRole]).includes(perm);
     },
-    [userRole, rolePermissions]
+    [userRole, rolePermissions],
   );
 
   const updateUserRole = useCallback(

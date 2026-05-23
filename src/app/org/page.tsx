@@ -3,15 +3,22 @@
 import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Network } from "lucide-react";
-import { usePermissions } from "@/contexts/PermissionsContext";
+import {
+  canManageTenantOrgStructure,
+  mapAuthRoleToUserRole,
+  usePermissions,
+} from "@/contexts/PermissionsContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import TenantOrgWorkspace from "@/components/org/TenantOrgWorkspace";
 import InternalBlumarkOrgView from "@/components/org/InternalBlumarkOrgView";
 
 function CustomerOrgPage() {
-  const { userRole } = usePermissions();
-  const canManageStructure =
-    userRole === "organization_manager" || userRole === "super_admin";
+  const { user } = useAuth();
+  const { userRole, hasPermission } = usePermissions();
+  const effectiveRole =
+    userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
+  const canManageStructure = canManageTenantOrgStructure(effectiveRole, hasPermission);
 
   return (
     <DashboardLayout>

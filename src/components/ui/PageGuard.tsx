@@ -25,20 +25,9 @@ interface PageGuardProps {
   children: React.ReactNode;
 }
 
-function roleHasPermission(
-  resolvedRole: ReturnType<typeof mapAuthRoleToUserRole>,
-  rolePermissions: Record<string, Permission[]>,
-  perm: Permission,
-  isPlatformAdmin: boolean,
-): boolean {
-  if (isPlatformAdmin || resolvedRole === "super_admin") return true;
-  const perms = rolePermissions[resolvedRole] ?? [];
-  return satisfiesPermission(perm, (p) => perms.includes(p));
-}
-
 export default function PageGuard({ permission, anyPermission, children }: PageGuardProps) {
   const pathname = usePathname();
-  const { rolePermissions } = usePermissions();
+  const { hasPermission } = usePermissions();
   const { loading, user } = useAuth();
   const { loading: wsLoading, isInternal, planSlug, isPlatformAdmin } =
     useTenantWorkspace();
@@ -64,11 +53,12 @@ export default function PageGuard({ permission, anyPermission, children }: PageG
       ? [permission]
       : [];
 
+  const checkPerm = (perm: Permission) =>
+    platformAdmin || satisfiesPermission(perm, hasPermission);
+
   const hasPerm =
     platformAdmin ||
-    requiredPerms.some((perm) =>
-      roleHasPermission(resolvedRole, rolePermissions, perm, platformAdmin),
-    );
+    requiredPerms.some((perm) => checkPerm(perm));
 
   const route = getRouteByPathname(pathname ?? "");
   const workspaceOk =
@@ -80,8 +70,7 @@ export default function PageGuard({ permission, anyPermission, children }: PageG
         planSlug,
         isPlatformAdmin: platformAdmin,
       },
-      (perm) =>
-        roleHasPermission(resolvedRole, rolePermissions, perm, platformAdmin),
+      checkPerm,
     );
 
   if (hasPerm && workspaceOk) {

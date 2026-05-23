@@ -11,7 +11,11 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
-import { usePermissions, ROLE_LABELS } from "@/contexts/PermissionsContext";
+import {
+  mapAuthRoleToUserRole,
+  usePermissions,
+  ROLE_LABELS,
+} from "@/contexts/PermissionsContext";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import {
   getRouteLabel,
@@ -53,6 +57,8 @@ export default function Sidebar({
   const toast       = useToast();
   const { userRole } = usePermissions();
   const { navRoutes, loading: wsLoading, isInternal } = useTenantWorkspace();
+  const effectiveRole =
+    userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
 
   const handleLogout = () => {
     if (loggingOut) return;
@@ -60,13 +66,15 @@ export default function Sidebar({
     void logout();
   };
 
-  const _wsNavLoading = authLoading || wsLoading || !userRole;
+  const _wsNavLoading = authLoading || wsLoading || (!!user?.id && !effectiveRole);
 
   const visibleRoutes = _wsNavLoading
     ? WORKSPACE_ROUTES.filter((r) => !r.internalOnly)
     : navRoutes;
 
-  const roleLabel = userRole ? (ROLE_LABELS[userRole] ?? userRole.replace(/_/g, " ")) : "";
+  const roleLabel = effectiveRole
+    ? (ROLE_LABELS[effectiveRole] ?? effectiveRole.replace(/_/g, " "))
+    : "";
 
   const innerCard = (
     <div
