@@ -1,9 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { validateUserId } from "@/lib/apiValidation";
+import {
+  assertTargetUserInCallerOrg,
+  authorizeUserProvisioner,
+} from "@/lib/api/tenantUserAdmin";
 
-const TAG          = "[delete-user]";
-const ADMIN_EMAILS = ["blumark24@gmail.com", "blumark.sa@gmail.com"];
+const TAG = "[delete-user]";
 
 function ok(data: Record<string, unknown>, status = 200) {
   return NextResponse.json(data, { status });
@@ -39,31 +42,12 @@ export async function DELETE(req: NextRequest) {
   }
   const token = authHeader.slice(7);
 
-  const { data: { user: caller }, error: callerErr } = await admin.auth.getUser(token);
-  if (callerErr || !caller) {
-    return fail(403,
-      "جلسة المستخدم غير صالحة أو انتهت — يرجى تسجيل الدخول مجدداً",
-      `step=auth: ${callerErr?.message ?? "no user returned"}`,
-    );
+  const authResult = await authorizeUserProvisioner(admin, token);
+  if (!authResult.ok) {
+    return fail(authResult.status, authResult.error, authResult.debug ?? "step=auth");
   }
-
-  const callerEmail = caller.email ?? "";
-  let isAdmin = ADMIN_EMAILS.includes(callerEmail);
-  if (!isAdmin) {
-    const { data: prof } = await admin
-      .from("profiles")
-      .select("role")
-      .eq("id", caller.id)
-      .maybeSingle();
-    isAdmin = prof?.role === "super_admin";
-  }
-  if (!isAdmin) {
-    return fail(403,
-      "غير مصرح — هذه العملية تتطلب صلاحيات المدير الأعلى",
-      `step=auth: caller email=${callerEmail} id=${caller.id}`,
-    );
-  }
-  console.log(`${TAG} step=auth ok | caller=${callerEmail}`);
+  const provisioner = authResult.auth;
+  console.log(`${TAG} step=auth ok | caller=${provisioner.callerEmail}`);
 
   let body: Record<string, unknown>;
   try {
@@ -76,6 +60,16 @@ export async function DELETE(req: NextRequest) {
   if (idError) return fail(400, idError, `step=validate: userId=${JSON.stringify(body.userId)}`);
 
   const userId = body.userId as string;
+
+  if (userId === provisioner.callerId) {
+    return fail(400, "لا يمكنك حذف حسابك الحالي", "step=validate: self-delete");
+  }
+
+  const targetCheck = await assertTargetUserInCallerOrg(admin, userId, provisioner);
+  if (!targetCheck.ok) {
+    return fail(targetCheck.status, targetCheck.error, targetCheck.debug ?? "step=org-scope");
+  }
+
   console.log(`${TAG} step=deleteUser | userId=${userId}`);
 
   const { error: deleteError } = await admin.auth.admin.deleteUser(userId);

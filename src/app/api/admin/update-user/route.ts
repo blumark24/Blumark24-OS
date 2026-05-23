@@ -1,9 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { validateUserId, validateRole, validateName, firstError } from "@/lib/apiValidation";
+import {
+  assertTargetUserInCallerOrg,
+  authorizeUserProvisioner,
+  sanitizeRoleForProvisioner,
+} from "@/lib/api/tenantUserAdmin";
 
-const TAG          = "[update-user]";
-const ADMIN_EMAILS = ["blumark24@gmail.com", "blumark.sa@gmail.com"];
+const TAG = "[update-user]";
 
 function ok(data: Record<string, unknown>, status = 200) {
   return NextResponse.json(data, { status });
@@ -39,31 +43,12 @@ export async function PATCH(req: NextRequest) {
   }
   const token = authHeader.slice(7);
 
-  const { data: { user: caller }, error: callerErr } = await admin.auth.getUser(token);
-  if (callerErr || !caller) {
-    return fail(403,
-      "جلسة المستخدم غير صالحة أو انتهت — يرجى تسجيل الدخول مجدداً",
-      `step=auth: ${callerErr?.message ?? "no user returned"}`,
-    );
+  const authResult = await authorizeUserProvisioner(admin, token);
+  if (!authResult.ok) {
+    return fail(authResult.status, authResult.error, authResult.debug ?? "step=auth");
   }
-
-  const callerEmail = caller.email ?? "";
-  let isAdmin = ADMIN_EMAILS.includes(callerEmail);
-  if (!isAdmin) {
-    const { data: prof } = await admin
-      .from("profiles")
-      .select("role")
-      .eq("id", caller.id)
-      .maybeSingle();
-    isAdmin = prof?.role === "super_admin";
-  }
-  if (!isAdmin) {
-    return fail(403,
-      "غير مصرح — هذه العملية تتطلب صلاحيات المدير الأعلى",
-      `step=auth: caller email=${callerEmail} id=${caller.id}`,
-    );
-  }
-  console.log(`${TAG} step=auth ok | caller=${callerEmail}`);
+  const provisioner = authResult.auth;
+  console.log(`${TAG} step=auth ok | caller=${provisioner.callerEmail}`);
 
   let body: Record<string, unknown>;
   try {
@@ -94,7 +79,20 @@ export async function PATCH(req: NextRequest) {
   const cleanDept     = typeof department === "string" ? department.slice(0, 100) : undefined;
   const cleanIsActive = typeof isActive === "boolean" ? isActive : undefined;
   const cleanName     = typeof name === "string" ? name.trim().slice(0, 100) : undefined;
-  const cleanRole     = typeof role === "string" ? role : undefined;
+  let cleanRole = typeof role === "string" ? role : undefined;
+
+  const targetCheck = await assertTargetUserInCallerOrg(admin, userId, provisioner);
+  if (!targetCheck.ok) {
+    return fail(targetCheck.status, targetCheck.error, targetCheck.debug ?? "step=org-scope");
+  }
+
+  if (cleanRole) {
+    const roleCheck = sanitizeRoleForProvisioner(provisioner, cleanRole);
+    if (typeof roleCheck !== "string") {
+      return fail(roleCheck.status, roleCheck.error, roleCheck.debug ?? "step=role");
+    }
+    cleanRole = roleCheck;
+  }
 
   if (!cleanRole && !cleanDept && cleanIsActive === undefined && !cleanName) {
     return fail(400, "لا توجد حقول للتحديث", "step=validate: no updatable fields");
