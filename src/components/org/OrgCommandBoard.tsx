@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Network, Plus, Pencil, Trash2, X, Save, UserCheck, Mail, Phone,
-  Sparkles, AlertCircle, CheckCircle2, Crown,
+  Sparkles, AlertCircle, Crown,
   ChevronDown, Loader2, Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { useBoardMembers, useEmployees } from "@/hooks/useData";
 import { assignEmployeeDepartment, type BoardMember } from "@/lib/db";
 import { normalizePlanSlug, type PlanSlug } from "@/lib/features/packageFeatures";
+import OrgPackageCards from "@/components/org/OrgPackageCards";
 import { getOrgLimits } from "@/lib/org/orgPackageLimits";
 import {
   countUnits,
@@ -328,29 +329,14 @@ export default function OrgCommandBoard() {
         </div>
       </section>
 
-      {/* Package cards */}
-      <section>
-        <h2 className="text-white font-semibold mb-3 text-sm">اختر نمط الهيكل المناسب لك</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 min-w-0">
-          {(["basic", "growth", "advanced"] as PlanSlug[]).map((slug) => {
-            const l = getOrgLimits(slug);
-            const active = plan === slug;
-            return (
-              <div key={slug} className={cn(WS_CARD, "p-4 border", active ? "border-cyan-400/50 ring-1 ring-cyan-400/30" : "border-white/10")}>
-                <div className="text-white font-bold">{l.label}</div>
-                <p className="text-[11px] text-white/55 mt-2 leading-relaxed">{l.flow}</p>
-                <p className="text-[10px] text-white/45 mt-2">
-                  وكالة {l.agencies} · إدارة {l.managements} · قسم {l.departments}
-                </p>
-                <span className={cn("inline-block mt-3 text-[10px] rounded-full px-2 py-0.5", active ? "bg-cyan-500/20 text-cyan-200" : "bg-white/5 text-white/50")}>
-                  {l.badge}
-                </span>
-                {active && <CheckCircle2 size={16} className="text-cyan-300 mt-2" />}
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      <OrgPackageCards
+        activePlan={plan}
+        usage={{
+          agencies: agencies.length,
+          managements: managements.length,
+          departments: departments.length,
+        }}
+      />
 
       {/* Board */}
       <section className={cn(WS_SURFACE, "p-4 sm:p-5")}>

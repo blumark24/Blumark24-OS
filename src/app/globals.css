@@ -404,3 +404,35 @@ html, body {
   -webkit-overflow-scrolling: touch;
   max-width: 100%;
 }
+
+/* ─── Org package cards (PR #165) ─────────────────────────────────────────── */
+.org-package-card {
+  isolation: isolate;
+}
+.org-package-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.22),
+    rgba(255, 255, 255, 0.04) 40%,
+    transparent 70%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.org-package-card--active {
+  transform: translateZ(0);
+}
+.org-package-progress-fill {
+  animation: org-progress-shimmer 2.8s ease-in-out infinite;
+}
+@keyframes org-progress-shimmer {
+  0%, 100% { opacity: 0.92; filter: brightness(1); }
+  50% { opacity: 1; filter: brightness(1.15); }
+}
