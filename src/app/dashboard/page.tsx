@@ -13,7 +13,7 @@ import {
   Bot, CheckSquare, UserPlus, FileText, Wallet, BarChart3, ListChecks,
   ArrowLeft, ShieldCheck, Building2, Zap, Plus,
 } from "lucide-react";
-import { formatCurrency, timeAgo } from "@/lib/utils";
+import { formatCurrency, timeAgo, cn } from "@/lib/utils";
 import { useDashboardKPI, useProjects, useActivities, useTransactions, useEmployees, useClients, useTasks } from "@/hooks/useData";
 import { useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,14 +21,22 @@ import { ROLE_LABELS, usePermissions, mapAuthRoleToUserRole } from "@/contexts/P
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import type { UserRole } from "@/contexts/PermissionsContext";
 import {
-  WS_CARD, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE, WS_AI_PILL,
-  BOARD_THEME, WS_TINTS, type BoardKey, type KpiAccent,
+  WS_CARD, WS_HERO, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE, WS_AI_PILL,
+  WS_MUTED, WS_SUBTEXT,
+  BOARD_THEME, WS_TINTS, kpiTheme, type BoardKey, type KpiAccent,
 } from "@/components/ui/workspaceVisual";
-import { StatPill, QuickActionTile, Sparkline, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
+import {
+  StatPill, QuickActionTile, Sparkline, WorkspaceEmptyInline, GlassPanel,
+} from "@/components/ui/workspaceUi";
 
-// ─── Tooltip ──────────────────────────────────────────────────────────────────
+/* ─── Tooltip ──────────────────────────────────────────────────────────── */
 
-const TOOLTIP_STYLE = { background: "#0d1f3c", border: "1px solid #1e3a5f", borderRadius: "10px", color: "#e2e8f0" };
+const TOOLTIP_STYLE = {
+  background: "var(--ws-surface-modal)",
+  border: "1px solid var(--ws-border-strong)",
+  borderRadius: "12px",
+  color: "var(--ws-text-primary)",
+};
 const DISABLE_TEXT_SELECT_STYLE = {
   WebkitUserSelect: "none",
   userSelect: "none",
@@ -42,10 +50,10 @@ const CustomTooltip = ({
   if (!active || !payload?.length) return null;
   const now = new Date().getFullYear();
   return (
-    <div className="rounded-xl border border-white/10 bg-[#0d1f3c]/95 p-3 text-sm backdrop-blur-md">
-      <p className="text-[#8ba3c7] mb-1">{label}</p>
+    <div className="crystal crystal-l5 rounded-xl p-3 text-sm">
+      <p className={cn(WS_MUTED, "mb-1")}>{label}</p>
       {payload.map((entry, i) => (
-        <p key={i} className="font-medium" style={{ color: entry.name === "current" ? "#22d3ee" : "#8ba3c7" }}>
+        <p key={i} className="font-medium" style={{ color: entry.name === "current" ? "var(--ws-cyan)" : "var(--ws-text-secondary)" }}>
           {entry.name === "current" ? `${now}: ` : `${now - 1}: `}{formatCurrency(entry.value)} SAR
         </p>
       ))}
@@ -62,7 +70,7 @@ const QUICK_ACTIONS: { href: string; label: string; icon: React.ElementType; tin
   { href: "/reports",   label: "إنشاء تقرير",  icon: BarChart3,   tint: "amber"   },
 ];
 
-// ─── Status colours ───────────────────────────────────────────────────────────
+/* ─── Status badges ────────────────────────────────────────────────────── */
 
 const statusColors: Record<string, string> = {
   "قيد_التنفيذ": "status-pending",
@@ -71,22 +79,24 @@ const statusColors: Record<string, string> = {
 };
 
 const activityIcons: Record<string, React.ReactNode> = {
-  employee: <Users       size={14} />,
+  employee: <Users        size={14} />,
   task:     <CheckCircle2 size={14} />,
-  client:   <UserCheck   size={14} />,
-  finance:  <DollarSign  size={14} />,
-  project:  <Activity    size={14} />,
+  client:   <UserCheck    size={14} />,
+  finance:  <DollarSign   size={14} />,
+  project:  <Activity     size={14} />,
 };
 
-const ARABIC_MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+const ARABIC_MONTHS = [
+  "يناير","فبراير","مارس","أبريل","مايو","يونيو",
+  "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر",
+];
 
-// Format today's date in Arabic
 function todayArabic() {
   const d = new Date();
   return `${d.getDate()} ${ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+/* ─── Page ─────────────────────────────────────────────────────────────── */
 
 export default function DashboardPage() {
   const { user, loading }                      = useAuth();
@@ -131,7 +141,7 @@ export default function DashboardPage() {
   }, [clients]);
 
   const roleLabel = user?.role
-    ? ROLE_LABELS[mapAuthRoleToUserRole(user.role)] ?? user.role
+    ? ROLE_LABELS[mapAuthRoleToUserRole(user.role) as UserRole] ?? user.role
     : "—";
 
   const activeEmployeeNames = useMemo(() => {
@@ -199,8 +209,7 @@ export default function DashboardPage() {
 
   const activeEmployees = employees.filter((e) => e.status === "نشط").length;
 
-  // Task distribution (derived only from existing task buckets — no new data logic).
-  // Plain computation: inputs are recomputed each render, so memoization adds no value.
+  // Task distribution (derived from existing buckets only).
   const taskDistribution = (() => {
     const completed = completedTasks.length;
     const overdue = overdueTasks.length;
@@ -210,7 +219,6 @@ export default function DashboardPage() {
     return { completed, overdue, pending, total: tasks.length, pct };
   })();
 
-  // Lightweight AI insight line, derived only from existing KPI values.
   const aiInsight =
     kpi.overdueTasks > 0
       ? `لديك ${kpi.overdueTasks} مهمة متأخرة تتطلب متابعة فورية الآن.`
@@ -218,8 +226,6 @@ export default function DashboardPage() {
         ? `${kpi.incompleteTasks} مهمة قيد التنفيذ، ومعدل الإنجاز الحالي ${kpi.completedTasksPct}%.`
         : "جميع المهام منجزة — أداء ممتاز اليوم! 🎯";
 
-  // Rule-based Smart Insights — derived only from existing KPI values.
-  // No external AI, no fabricated metrics; an insight is omitted when its data is absent.
   const smartInsights: { icon: React.ElementType; tint: KpiAccent; text: string }[] = [];
   if (kpi.overdueTasks > 0)
     smartInsights.push({ icon: Siren,        tint: "rose",    text: `لديك ${kpi.overdueTasks} مهمة متأخرة تحتاج متابعة فورية.` });
@@ -229,7 +235,6 @@ export default function DashboardPage() {
   if (kpi.activeClients > 0)
     smartInsights.push({ icon: Users,        tint: "cyan",    text: `يوجد ${kpi.activeClients} عميل نشط حالياً.` });
 
-  // Business-relevant hero metrics — derived ONLY from existing KPI values (no fabricated numbers).
   const operationalStatus = kpi.overdueTasks > 0 ? "يتطلب متابعة" : "مستقر";
   const operationalTint: KpiAccent = kpi.overdueTasks > 0 ? "amber" : "emerald";
   const teamPerformance = kpi.completedTasksPct >= 80
@@ -293,7 +298,7 @@ export default function DashboardPage() {
   if (loading || !user) return (
     <DashboardLayout>
       <div className={WS_PAGE}>
-        <div className="rounded-3xl border border-white/[0.06] bg-[#070d20]/70 h-40 animate-pulse" />
+        <div className={cn(WS_HERO, "h-40 animate-pulse")} />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
           <KPICardSkeleton />
           <KPICardSkeleton />
@@ -315,7 +320,6 @@ export default function DashboardPage() {
       value:     kpi.activeClients.toString(),
       subtitle:  `من أصل ${totalClients} عميل`,
       icon:      Users,
-      iconColor: "text-cyan-300",
     },
     {
       key:       "completedTasks" as const,
@@ -323,7 +327,6 @@ export default function DashboardPage() {
       value:     `${kpi.completedTasksPct}%`,
       subtitle:  "نسبة الإنجاز الكلية",
       icon:      CheckCircle2,
-      iconColor: "text-emerald-300",
     },
     {
       key:       "incompleteTasks" as const,
@@ -331,7 +334,6 @@ export default function DashboardPage() {
       value:     kpi.incompleteTasks.toString(),
       subtitle:  `من أصل ${tasks.length} مهمة`,
       icon:      XCircle,
-      iconColor: "text-amber-300",
     },
     {
       key:       "overdueTasks" as const,
@@ -339,66 +341,69 @@ export default function DashboardPage() {
       value:     kpi.overdueTasks.toString(),
       subtitle:  "مهمة تجاوزت الموعد المحدد",
       icon:      AlertTriangle,
-      iconColor: kpi.overdueTasks > 0 ? "text-rose-300" : "text-emerald-300",
     },
   ];
 
   return (
     <DashboardLayout>
       <div className={WS_PAGE}>
-        {/* ─── Hero: welcome banner ──────────────────────────────────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5 lg:p-6`}>
+        {/* ─── Hero ──────────────────────────────────────────────────── */}
+        <section className={cn(WS_HERO, "p-4 sm:p-5 lg:p-6")}>
           <JellyfishBackground />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_88%_-25%,rgba(34,211,238,0.18),transparent_55%),radial-gradient(110%_120%_at_8%_125%,rgba(124,58,237,0.16),transparent_55%)]" />
-
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_88%_-25%,var(--ws-cyan-soft),transparent_55%),radial-gradient(110%_120%_at_8%_125%,var(--ws-violet-soft),transparent_55%)]"
+          />
           <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            {/* Welcome + identity + live status metrics (right side on desktop) */}
             <div className="min-w-0 flex-1">
-              <p className="text-sm text-[#8ba3c7]">مرحباً بك 👋</p>
-              <h1 className="mt-0.5 truncate text-xl sm:text-2xl font-heading font-bold text-white">
+              <p className={cn(WS_MUTED, "text-sm")}>مرحباً بك 👋</p>
+              <h1 className="mt-0.5 truncate text-xl sm:text-2xl font-heading font-bold text-[color:var(--ws-text-primary)]">
                 {user?.name ?? "..."}
               </h1>
 
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#8ba3c7]">
+              <div className={cn(WS_MUTED, "mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs")}>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{todayArabic()}
                 </span>
-                <span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} className="text-cyan-300" />{roleLabel}</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <ShieldCheck size={13} className="text-cyan-300" />{roleLabel}
+                </span>
                 {user?.department && (
-                  <span className="inline-flex items-center gap-1.5"><Building2 size={13} className="text-cyan-300" />{user.department}</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Building2 size={13} className="text-cyan-300" />{user.department}
+                  </span>
                 )}
               </div>
 
-              {/* Three compact live metrics (derived from existing data only; chips wrap, never clip) */}
               <div className="mt-3 flex flex-wrap gap-2">
-                <StatPill icon={Zap}        label="أداء الفريق"  value={teamPerformance}             tint="emerald"       />
-                <StatPill icon={TrendingUp} label="الإنجاز"      value={`${kpi.completedTasksPct}%`} tint="cyan"          />
-                <StatPill icon={Activity}   label="حالة التشغيل" value={operationalStatus}           tint={operationalTint} />
+                <StatPill icon={Zap}        label="أداء الفريق"  value={teamPerformance}              tint="emerald"       />
+                <StatPill icon={TrendingUp} label="الإنجاز"      value={`${kpi.completedTasksPct}%`}  tint="cyan"          />
+                <StatPill icon={Activity}   label="حالة التشغيل" value={operationalStatus}            tint={operationalTint} />
               </div>
             </div>
 
-            {/* AI insight panel (left side on desktop; the mobile equivalent lives lower as a full card) */}
+            {/* AI insight panel — desktop only (mobile sees full Smart Insights below) */}
             <div className="hidden lg:flex lg:w-[300px] lg:shrink-0">
-              <div className="w-full rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 backdrop-blur-sm">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className={`${WS_ICON_ORB} w-8 h-8 shrink-0 bg-violet-400/10 ring-1 ring-violet-300/25`}>
-                    <Sparkles size={15} className="text-violet-300" />
-                  </span>
-                  <div className="text-[11px] font-medium text-cyan-200/90">رؤية ذكية من النظام</div>
+              <div className="crystal crystal-l2 w-full rounded-2xl p-4">
+                <div aria-hidden="true" className="pointer-events-none absolute inset-0 ws-ai-prism" />
+                <div className="relative z-10">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className={cn(WS_ICON_ORB, "w-8 h-8 shrink-0", kpiTheme("violet").orb)}>
+                      <Sparkles size={15} className="text-violet-300" />
+                    </span>
+                    <div className="text-[11px] font-medium text-violet-200/90">رؤية ذكية من النظام</div>
+                  </div>
+                  <p className="text-sm leading-snug text-[color:var(--ws-text-primary)]/90">{aiInsight}</p>
+                  <Link href="/ai" className={cn("mt-3", WS_AI_PILL)}>
+                    عرض التفاصيل <ArrowLeft size={14} />
+                  </Link>
                 </div>
-                <p className="text-sm leading-snug text-[#dbe6f7]">{aiInsight}</p>
-                <Link
-                  href="/ai"
-                  className={`mt-3 ${WS_AI_PILL}`}
-                >
-                  عرض التفاصيل <ArrowLeft size={14} />
-                </Link>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ─── KPI cards ─────────────────────────────────────────────────── */}
+        {/* ─── KPI cards ─────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           {kpiLoading
             ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
@@ -410,13 +415,16 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={i}
-                    className={`${WS_CARD} group w-full min-h-[150px] sm:min-h-[180px] transition-shadow duration-300 ${theme.glow}`}
+                    className={cn(WS_CARD, theme.card, "group w-full min-h-[150px] sm:min-h-[180px] transition-shadow duration-300")}
                   >
-                    <div className={`pointer-events-none absolute inset-0 ${theme.ambient}`} />
-                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_60%_at_50%_0%,rgba(255,255,255,0.05),transparent_60%)]" />
+                    <div aria-hidden="true" className={cn("pointer-events-none absolute inset-0", theme.wash)} />
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_60%_at_50%_0%,var(--ws-inner-glow),transparent_60%)] opacity-50"
+                    />
 
                     <div className="relative z-10 flex h-full flex-col justify-between gap-3 p-3.5 sm:p-4 min-w-0">
-                      {/* Top: live drilldown trigger + icon orb */}
+                      {/* Top row: live trigger + icon orb */}
                       <div className="flex items-center justify-between gap-2">
                         <button
                           type="button"
@@ -425,7 +433,10 @@ export default function DashboardPage() {
                           onMouseDown={(event) => event.preventDefault()}
                           onTouchStart={(event) => event.currentTarget.blur()}
                           onClick={() => setActiveBoard(card.key)}
-                          className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full leading-none select-none cursor-pointer touch-manipulation transition-colors ${theme.livePill}`}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full leading-none select-none cursor-pointer touch-manipulation transition-colors",
+                            theme.livePill,
+                          )}
                           style={DISABLE_TEXT_SELECT_STYLE}
                         >
                           <span className="relative flex h-1.5 w-1.5">
@@ -434,45 +445,45 @@ export default function DashboardPage() {
                           </span>
                           <span className="select-none" style={DISABLE_TEXT_SELECT_STYLE}>مباشر</span>
                         </button>
-                        <div className={`${WS_ICON_ORB} w-9 h-9 sm:w-11 sm:h-11 ${theme.orb}`}>
-                          <card.icon size={18} className={card.iconColor} />
-                        </div>
+                        <span className={cn(WS_ICON_ORB, "w-9 h-9 sm:w-11 sm:h-11", theme.orb)}>
+                          <card.icon size={18} className={theme.iconColor} />
+                        </span>
                       </div>
 
                       {/* Hero number + caption */}
                       <div className="min-w-0">
-                        <div className="font-heading font-bold tracking-tight text-white leading-[0.9] text-[clamp(1.85rem,7vw,3.375rem)] drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]">
+                        <div className="font-heading font-bold tracking-tight text-[color:var(--ws-text-primary)] leading-[0.9] text-[clamp(1.85rem,7vw,3.375rem)] drop-shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
                           {card.value}
                         </div>
-                        <div className="mt-1.5 truncate text-[12.5px] font-medium text-white/80">{card.label}</div>
-                        <div className="truncate text-[10.5px] text-white/40">{card.subtitle}</div>
+                        <div className="mt-1.5 truncate text-[12.5px] font-medium text-[color:var(--ws-text-primary)]/80">{card.label}</div>
+                        <div className={cn("truncate text-[10.5px]", WS_SUBTEXT)}>{card.subtitle}</div>
                       </div>
 
-                      {/* Footer: live insight (left) + small accent sparkline (right) */}
+                      {/* Footer: insight + sparkline */}
                       <div className="flex items-end justify-between gap-2 min-w-0">
                         <div className="min-w-0 flex-1 text-[11px]">
                           {card.key === "activeClients" && (
-                            <div className={`flex items-center gap-1.5 ${theme.accent}`}>
+                            <div className={cn("flex items-center gap-1.5", theme.accent)}>
                               <TrendingUp size={13} className="shrink-0" />
                               <span className="truncate">{latestClient ? `آخر عميل: ${latestClient.name}` : "لا يوجد عميل جديد"}</span>
                             </div>
                           )}
                           {card.key === "completedTasks" && (
-                            <div className={`flex items-center gap-1.5 ${theme.accent}`}>
+                            <div className={cn("flex items-center gap-1.5", theme.accent)}>
                               <CheckCircle2 size={13} className="shrink-0" />
                               <span className="truncate">معدل إنجاز مستقر اليوم</span>
                             </div>
                           )}
                           {card.key === "incompleteTasks" && (
-                            <div className={`flex items-center gap-2 ${theme.accent}`}>
-                              <div className="h-1.5 w-12 shrink-0 rounded-full bg-white/10 overflow-hidden">
+                            <div className={cn("flex items-center gap-2", theme.accent)}>
+                              <div className="h-1.5 w-12 shrink-0 rounded-full bg-[var(--ws-border-subtle)] overflow-hidden">
                                 <div className="h-full rounded-full bg-amber-300/80" style={{ width: `${Math.min(100, Math.max(8, (kpi.incompleteTasks / Math.max(tasks.length, 1)) * 100))}%` }} />
                               </div>
                               <span className="truncate">متبقي {kpi.incompleteTasks} من {tasks.length || 0}</span>
                             </div>
                           )}
                           {card.key === "overdueTasks" && (
-                            <div className={`flex items-center gap-1.5 ${theme.accent}`}>
+                            <div className={cn("flex items-center gap-1.5", theme.accent)}>
                               <Siren size={13} className="shrink-0" />
                               <span className="truncate">{kpi.overdueTasks > 0 ? "تتطلب متابعة فورية" : "لا يوجد تعثر حرج"}</span>
                             </div>
@@ -488,49 +499,59 @@ export default function DashboardPage() {
               })}
         </div>
 
-        {/* ─── Smart Insights (rule-based, free — no external AI) ────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_92%_-20%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(110%_120%_at_5%_120%,rgba(34,211,238,0.12),transparent_55%)]" />
+        {/* ─── Smart Insights ───────────────────────────────────────── */}
+        <section className={cn(WS_HERO, "p-4 sm:p-5")}>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_92%_-20%,var(--ws-violet-soft),transparent_55%),radial-gradient(110%_120%_at_5%_120%,var(--ws-cyan-soft),transparent_55%)]"
+          />
           <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start">
-            {/* Glowing AI avatar — on the left in RTL via order */}
             <div className="order-first flex shrink-0 items-center justify-center sm:order-last sm:w-24">
-              <div className="relative grid h-16 w-16 place-items-center rounded-full bg-violet-500/10 ring-1 ring-violet-300/25">
-                <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(124,58,237,0.45),transparent_70%)] blur-md animate-pulse-glow" />
+              <div className="relative grid h-16 w-16 place-items-center rounded-full bg-[var(--ws-violet-soft)] ring-1 ring-[var(--ws-violet-ring)]">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.45),transparent_70%)] blur-md animate-pulse-glow"
+                />
                 <Bot size={28} className="relative text-violet-200" />
               </div>
             </div>
 
-            {/* Content */}
             <div className="min-w-0 flex-1">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <Sparkles size={16} className="shrink-0 text-violet-300" />
                   <div className="min-w-0">
-                    <h2 className={`${WS_SECTION_TITLE} text-sm`}>رؤى ذكية من النظام</h2>
-                    <p className="truncate text-[11px] text-[#6b87ab]">تحليل فوري مبني على بياناتك الحالية</p>
+                    <h2 className={cn(WS_SECTION_TITLE, "text-sm")}>رؤى ذكية من النظام</h2>
+                    <p className={cn(WS_SUBTEXT, "truncate text-[11px]")}>تحليل فوري مبني على بياناتك الحالية</p>
                   </div>
                 </div>
-                <Link href="/ai" className={`shrink-0 ${WS_AI_PILL}`}>
+                <Link href="/ai" className={cn("shrink-0", WS_AI_PILL)}>
                   عرض جميع الرؤى <ArrowLeft size={14} />
                 </Link>
               </div>
 
               <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {smartInsights.map((ins, i) => (
-                  <li key={i} className="flex min-w-0 items-start gap-2.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3">
-                    <span className={`${WS_ICON_ORB} w-8 h-8 shrink-0 ${WS_TINTS[ins.tint].orb}`}>
+                  <li
+                    key={i}
+                    className="flex min-w-0 items-start gap-2.5 rounded-2xl border border-[var(--ws-border-subtle)] bg-[var(--ws-surface-2)] p-3"
+                  >
+                    <span className={cn(WS_ICON_ORB, "w-8 h-8 shrink-0", WS_TINTS[ins.tint].orb)}>
                       <ins.icon size={15} className={WS_TINTS[ins.tint].icon} />
                     </span>
-                    <p className="min-w-0 text-sm leading-snug text-[#dbe6f7]">{ins.text}</p>
+                    <p className="min-w-0 text-sm leading-snug text-[color:var(--ws-text-primary)]/90">{ins.text}</p>
                   </li>
                 ))}
               </ul>
 
               {isSuperAdmin && activeEmployeeNames.length > 0 && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] text-[#8ba3c7]">موظفون نشطون:</span>
+                  <span className={cn(WS_MUTED, "text-[11px]")}>موظفون نشطون:</span>
                   {activeEmployeeNames.map((name) => (
-                    <span key={name} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/80">
+                    <span
+                      key={name}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ws-border-subtle)] bg-[var(--ws-surface-2)] px-2.5 py-1 text-[11px] text-[color:var(--ws-text-primary)]/85"
+                    >
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                       {name}
                     </span>
@@ -541,34 +562,32 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* ─── Analytics: performance + task distribution ────────────────── */}
+        {/* ─── Analytics: performance + task distribution ───────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={`${WS_CARD} lg:col-span-2 p-5`}>
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE}`}>تحليلات الأداء — الإيرادات</h3>
-              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">آخر 12 شهر</span>
-            </div>
+          <GlassPanel title="تحليلات الأداء — الإيرادات" className="lg:col-span-2"
+            action={<span className="rounded-lg bg-[var(--ws-surface-2)] px-2 py-1 text-xs text-[color:var(--ws-text-secondary)]">آخر 12 شهر</span>}
+          >
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={salesData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.4)" />
-                <XAxis dataKey="month" tick={{ fill: "#8ba3c7", fontSize: 11 }} />
-                <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--ws-border-subtle)" />
+                <XAxis dataKey="month" tick={{ fill: "var(--ws-text-secondary)", fontSize: 11 }} />
+                <YAxis tick={{ fill: "var(--ws-text-secondary)", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend formatter={(v) => v === "current" ? String(currentYear) : String(currentYear - 1)} />
-                <Line type="monotone" dataKey="current" stroke="#22d3ee" strokeWidth={2.5} dot={false} name="current" />
-                <Line type="monotone" dataKey="previous" stroke="#1e3a5f" strokeWidth={1.5} dot={false} name="previous" strokeDasharray="4 2" />
+                <Line type="monotone" dataKey="current"  stroke="var(--ws-cyan)" strokeWidth={2.5} dot={false} name="current" />
+                <Line type="monotone" dataKey="previous" stroke="var(--ws-text-tertiary)" strokeWidth={1.5} dot={false} name="previous" strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
-          </div>
+          </GlassPanel>
 
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>توزيع المهام</h3>
-              <span className={`${WS_ICON_ORB} w-8 h-8 bg-cyan-400/10 ring-1 ring-cyan-300/25`}>
+          <GlassPanel title="توزيع المهام"
+            action={
+              <span className={cn(WS_ICON_ORB, "w-8 h-8", kpiTheme("cyan").orb)}>
                 <ListChecks size={15} className="text-cyan-300" />
               </span>
-            </div>
-            <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-white/5">
+            }
+          >
+            <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-[var(--ws-surface-2)]">
               <div className="bg-emerald-400/80" style={{ width: taskDistribution.pct(taskDistribution.completed) }} />
               <div className="bg-amber-400/80"   style={{ width: taskDistribution.pct(taskDistribution.pending) }} />
               <div className="bg-rose-400/80"    style={{ width: taskDistribution.pct(taskDistribution.overdue) }} />
@@ -580,109 +599,103 @@ export default function DashboardPage() {
                 { label: "متأخرة", value: taskDistribution.overdue,   dot: "bg-rose-400" },
               ].map((row) => (
                 <div key={row.label} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-[#8ba3c7]">
+                  <span className={cn("flex items-center gap-2", WS_MUTED)}>
                     <span className={`h-2 w-2 rounded-full ${row.dot}`} />
                     {row.label}
                   </span>
-                  <span className="font-bold text-white">{row.value}</span>
+                  <span className="font-bold text-[color:var(--ws-text-primary)]">{row.value}</span>
                 </div>
               ))}
-              <div className="flex items-center justify-between border-t border-white/[0.06] pt-2.5 text-sm">
-                <span className="text-[#8ba3c7]">الإجمالي</span>
-                <span className="font-bold text-[#22d3ee]">{taskDistribution.total}</span>
+              <div className="flex items-center justify-between border-t border-[var(--ws-border-subtle)] pt-2.5 text-sm">
+                <span className={WS_MUTED}>الإجمالي</span>
+                <span className="font-bold text-cyan-300">{taskDistribution.total}</span>
               </div>
             </div>
-          </div>
+          </GlassPanel>
         </div>
 
-        {/* ─── Employees by dept + satisfaction + quick summary ──────────── */}
+        {/* ─── Employees by dept + satisfaction + summary ──────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>الموظفون بالقسم</h3>
-              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">{activeEmployees} نشط</span>
-            </div>
+          <GlassPanel title="الموظفون بالقسم"
+            action={<span className="rounded-lg bg-[var(--ws-surface-2)] px-2 py-1 text-xs text-[color:var(--ws-text-secondary)]">{activeEmployees} نشط</span>}
+          >
             {activeUsersData.length === 0 ? (
               <WorkspaceEmptyInline icon={Users} title="لا توجد بيانات" accent="cyan" className="h-[220px]" />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={activeUsersData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.4)" />
-                  <XAxis dataKey="date" tick={{ fill: "#8ba3c7", fontSize: 10 }} />
-                  <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#8ba3c7" }} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-                  <Bar dataKey="users" fill="#1e6fd9" radius={[6, 6, 0, 0]} name="موظف نشط" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--ws-border-subtle)" />
+                  <XAxis dataKey="date" tick={{ fill: "var(--ws-text-secondary)", fontSize: 10 }} />
+                  <YAxis tick={{ fill: "var(--ws-text-secondary)", fontSize: 11 }} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "var(--ws-text-secondary)" }} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                  <Bar dataKey="users" fill="var(--ws-cyan)" radius={[6, 6, 0, 0]} name="موظف نشط" />
                 </BarChart>
               </ResponsiveContainer>
             )}
-          </div>
+          </GlassPanel>
 
-          <div className={`${WS_CARD} p-5 flex flex-col items-center justify-center`}>
-            <h3 className="mb-4 text-sm text-[#8ba3c7]">معدل رضا العملاء</h3>
+          <div className={cn(WS_CARD, "p-5 flex flex-col items-center justify-center")}>
+            <h3 className={cn(WS_MUTED, "mb-4 text-sm")}>معدل رضا العملاء</h3>
             {kpiLoading ? (
-              <div className="flex h-32 w-32 items-center justify-center rounded-full border-8 border-[#1e3a5f]">
-                <span className="text-xs text-[#8ba3c7]">جارٍ التحميل...</span>
+              <div className="flex h-32 w-32 items-center justify-center rounded-full border-8 border-[var(--ws-border-subtle)]">
+                <span className={cn(WS_MUTED, "text-xs")}>جارٍ التحميل...</span>
               </div>
             ) : (
               <>
                 <div className="relative h-32 w-32">
                   <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-                    <circle cx="60" cy="60" r="50" fill="none" stroke="#1e3a5f" strokeWidth="10" />
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="var(--ws-border-subtle)" strokeWidth="10" />
                     <circle cx="60" cy="60" r="50" fill="none" stroke="url(#satGrad)" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 50 * (satisfactionPct / 100)} ${2 * Math.PI * 50 * (1 - satisfactionPct / 100)}`} />
                     <defs>
                       <linearGradient id="satGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#22d3ee" />
-                        <stop offset="100%" stopColor="#10b981" />
+                        <stop offset="0%" stopColor="var(--ws-cyan)" />
+                        <stop offset="100%" stopColor="var(--ws-emerald)" />
                       </linearGradient>
                     </defs>
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-3xl font-heading font-bold text-white">{satisfactionPct}%</span>
-                    <span className="text-xs font-medium" style={{ color: satisfactionPct >= 70 ? "#10b981" : satisfactionPct >= 40 ? "#f59e0b" : "#ef4444" }}>
+                    <span className="text-3xl font-heading font-bold text-[color:var(--ws-text-primary)]">{satisfactionPct}%</span>
+                    <span className="text-xs font-medium" style={{ color: satisfactionPct >= 70 ? "var(--ws-emerald)" : satisfactionPct >= 40 ? "var(--ws-amber)" : "var(--ws-rose)" }}>
                       {satisfactionPct >= 70 ? "ممتاز" : satisfactionPct >= 40 ? "متوسط" : "يحتاج تحسين"}
                     </span>
                   </div>
                 </div>
-                <p className="mt-3 text-center text-xs text-[#8ba3c7]">
+                <p className={cn(WS_MUTED, "mt-3 text-center text-xs")}>
                   {clients.filter((c) => c.status === "نشط" || c.status === "متعاقد").length} من {clients.length} عميل نشط/متعاقد
                 </p>
               </>
             )}
           </div>
 
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>ملخص سريع</h3>
-              <span className="badge status-active">مباشر</span>
-            </div>
+          <GlassPanel title="ملخص سريع"
+            action={<span className="badge status-active">مباشر</span>}
+          >
             <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
-                <span className="text-xs text-[#8ba3c7]">إجمالي الموظفين</span>
-                <span className="text-sm font-bold text-white">{employees.length}</span>
-              </div>
-              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
-                <span className="text-xs text-[#8ba3c7]">الموظفون النشطون</span>
-                <span className="text-sm font-bold text-emerald-400">{activeEmployees}</span>
-              </div>
-              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
-                <span className="text-xs text-[#8ba3c7]">إجمالي العملاء</span>
-                <span className="text-sm font-bold text-[#22d3ee]">{clients.length}</span>
-              </div>
+              {[
+                { label: "إجمالي الموظفين", value: employees.length,                                color: "text-[color:var(--ws-text-primary)]" },
+                { label: "الموظفون النشطون", value: activeEmployees,                                color: "text-emerald-400" },
+                { label: "إجمالي العملاء",   value: clients.length,                                 color: "text-cyan-300" },
+              ].map((row, i, arr) => (
+                <div key={row.label} className={cn("flex items-center justify-between py-2", i < arr.length - 1 && "border-b border-[var(--ws-border-subtle)]")}>
+                  <span className={cn(WS_MUTED, "text-xs")}>{row.label}</span>
+                  <span className={cn("text-sm font-bold", row.color)}>{row.value}</span>
+                </div>
+              ))}
               <div className="flex items-center justify-between">
-                <span className="text-xs text-[#8ba3c7]">صافي الدخل</span>
-                <span className="text-sm font-bold" style={{ color: kpi.netProfit >= 0 ? "#10b981" : "#ef4444" }}>{formatCurrency(kpi.netProfit)} SAR</span>
+                <span className={cn(WS_MUTED, "text-xs")}>صافي الدخل</span>
+                <span className="text-sm font-bold" style={{ color: kpi.netProfit >= 0 ? "var(--ws-emerald)" : "var(--ws-rose)" }}>
+                  {formatCurrency(kpi.netProfit)} SAR
+                </span>
               </div>
             </div>
-          </div>
+          </GlassPanel>
         </div>
 
-        {/* ─── Projects + recent activity ────────────────────────────────── */}
+        {/* ─── Projects + recent activity ──────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={`${WS_CARD} lg:col-span-2 p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE}`}>المشاريع النشطة</h3>
-              <button className="text-xs text-[#22d3ee] hover:underline">عرض الكل</button>
-            </div>
+          <GlassPanel title="المشاريع النشطة" className="lg:col-span-2"
+            action={<button type="button" className="text-xs text-cyan-300 hover:underline">عرض الكل</button>}
+          >
             {projLoad ? (
               <ChartSkeleton height={180} />
             ) : projects.length === 0 ? (
@@ -691,25 +704,27 @@ export default function DashboardPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/[0.08]">
+                    <tr className="border-b border-[var(--ws-border-subtle)]">
                       {["المشروع", "العميل", "التقدم", "الميزانية", "الموعد", "الحالة"].map((h) => (
-                        <th key={h} className="pb-3 text-right font-medium text-[#8ba3c7]">{h}</th>
+                        <th key={h} className="pb-3 text-start font-medium text-[color:var(--ws-text-secondary)]">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {projects.map((project) => (
-                      <tr key={project.id} className="table-row border-b border-white/[0.05] last:border-0">
-                        <td className="py-3"><span className="font-medium text-white">{project.name}</span></td>
-                        <td className="py-3 text-[#8ba3c7]">{project.clientName}</td>
+                      <tr key={project.id} className="table-row border-b border-[var(--ws-border-subtle)] last:border-0">
+                        <td className="py-3"><span className="font-medium text-[color:var(--ws-text-primary)]">{project.name}</span></td>
+                        <td className={cn("py-3", WS_MUTED)}>{project.clientName}</td>
                         <td className="py-3">
                           <div className="flex items-center gap-2">
-                            <div className="progress-bar w-20"><div className="progress-fill" style={{ width: `${project.progress}%`, background: project.progress === 100 ? "#10b981" : "linear-gradient(90deg,#22d3ee,#1e6fd9)" }} /></div>
-                            <span className="text-xs text-[#8ba3c7]">{project.progress}%</span>
+                            <div className="progress-bar w-20">
+                              <div className="progress-fill" style={{ width: `${project.progress}%`, background: project.progress === 100 ? "var(--ws-emerald)" : "linear-gradient(90deg,var(--ws-cyan),#1e6fd9)" }} />
+                            </div>
+                            <span className={cn(WS_MUTED, "text-xs")}>{project.progress}%</span>
                           </div>
                         </td>
-                        <td className="py-3 text-xs text-[#8ba3c7]">{formatCurrency(project.budget)} SAR</td>
-                        <td className="py-3 text-xs text-[#8ba3c7]">{project.deadline}</td>
+                        <td className={cn("py-3 text-xs", WS_MUTED)}>{formatCurrency(project.budget)} SAR</td>
+                        <td className={cn("py-3 text-xs", WS_MUTED)}>{project.deadline}</td>
                         <td className="py-3"><span className={`badge ${statusColors[project.status] ?? "status-pending"}`}>{project.status === "قيد_التنفيذ" ? "قيد التنفيذ" : project.status}</span></td>
                       </tr>
                     ))}
@@ -717,12 +732,9 @@ export default function DashboardPage() {
                 </table>
               </div>
             )}
-          </div>
+          </GlassPanel>
 
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>النشاطات الأخيرة</h3>
-            </div>
+          <GlassPanel title="النشاطات الأخيرة">
             {actLoad ? (
               <CardSkeleton rows={5} />
             ) : activities.length === 0 ? (
@@ -730,64 +742,76 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {activities.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3 border-b border-white/[0.05] pb-3 last:border-0 last:pb-0">
-                    <div className={`${WS_ICON_ORB} w-8 h-8 shrink-0 bg-cyan-400/10 ring-1 ring-cyan-300/20 text-[#22d3ee]`}>
+                  <div key={activity.id} className="flex items-start gap-3 border-b border-[var(--ws-border-subtle)] pb-3 last:border-0 last:pb-0">
+                    <span className={cn(WS_ICON_ORB, "w-8 h-8 shrink-0", kpiTheme("cyan").orb, "text-cyan-300")}>
                       {activityIcons[activity.type] ?? <Activity size={14} />}
-                    </div>
+                    </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm leading-snug text-white">{activity.description}</p>
-                      <div className="mt-1 flex items-center gap-1 text-xs text-[#6b87ab]"><Clock size={10} /><span>{timeAgo(activity.timestamp)}</span></div>
+                      <p className="text-sm leading-snug text-[color:var(--ws-text-primary)]">{activity.description}</p>
+                      <div className={cn(WS_SUBTEXT, "mt-1 flex items-center gap-1 text-xs")}>
+                        <Clock size={10} /><span>{timeAgo(activity.timestamp)}</span>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </GlassPanel>
         </div>
 
-        {/* ─── Quick actions ─────────────────────────────────────────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className={`${WS_SECTION_TITLE} text-sm`}>اختصارات سريعة</h2>
-            <span className="text-[11px] text-[#6b87ab]">اختصارات لأهم العمليات</span>
-          </div>
-          <div className="flex items-stretch gap-3">
-            {/* Central quick-create orb (links to the existing task create flow) */}
-            <Link
-              href="/tasks"
-              aria-label="إنشاء سريع"
-              className="grid h-auto w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_14px_34px_-12px_rgba(124,58,237,0.75)] transition-opacity hover:opacity-90"
-            >
-              <Plus size={26} strokeWidth={2.2} />
-            </Link>
-            <div className="grid min-w-0 flex-1 grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
-              {QUICK_ACTIONS.map((a) => (
-                <QuickActionTile key={a.label} href={a.href} label={a.label} icon={a.icon} tint={a.tint} />
-              ))}
+        {/* ─── Quick actions ─────────────────────────────────────────── */}
+        <section className={cn(WS_HERO, "p-4 sm:p-5")}>
+          <div className="relative z-10">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className={cn(WS_SECTION_TITLE, "text-sm")}>اختصارات سريعة</h2>
+              <span className={cn(WS_SUBTEXT, "text-[11px]")}>اختصارات لأهم العمليات</span>
+            </div>
+            <div className="flex items-stretch gap-3">
+              <Link
+                href="/tasks"
+                aria-label="إنشاء سريع"
+                className="grid h-auto w-16 shrink-0 place-items-center rounded-2xl text-white shadow-[0_18px_38px_-14px_rgba(124,58,237,0.75)] transition-opacity hover:opacity-90 ws-brand-prism"
+              >
+                <Plus size={26} strokeWidth={2.2} />
+              </Link>
+              <div className="grid min-w-0 flex-1 grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
+                {QUICK_ACTIONS.map((a) => (
+                  <QuickActionTile key={a.label} href={a.href} label={a.label} icon={a.icon} tint={a.tint} />
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ─── Drilldown modal (unchanged behavior) ──────────────────────── */}
+        {/* ─── Drilldown modal ───────────────────────────────────────── */}
         {activeBoard && (
-          <div className="fixed inset-0 z-50 bg-[#030913]/65 backdrop-blur-md flex items-start sm:items-center justify-center px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5" dir="rtl">
-            <div className={`w-[calc(100vw-24px)] sm:w-full sm:max-w-4xl rounded-[28px] border bg-[linear-gradient(145deg,rgba(16,29,50,.88),rgba(6,16,30,.9))] backdrop-blur-2xl p-4 sm:p-6 max-h-[82dvh] overflow-y-auto ${BOARD_THEME[activeBoard].panelBorder}`}>
+          <div
+            className="fixed inset-0 z-50 flex items-start sm:items-center justify-center px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5"
+            style={{ background: "var(--ws-scrim)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
+            dir="rtl"
+          >
+            <div className={cn("crystal crystal-l5", "w-[calc(100vw-24px)] sm:w-full sm:max-w-4xl rounded-[28px] p-4 sm:p-6 max-h-[82dvh] overflow-y-auto", BOARD_THEME[activeBoard].panelBorder)}>
               <div className="flex items-start justify-between mb-5 gap-3">
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className={`w-11 h-11 rounded-2xl border flex items-center justify-center ${BOARD_THEME[activeBoard].iconTile}`}>
-                    {activeBoard === "activeClients" ? <Users size={20} className={BOARD_THEME[activeBoard].iconColor} /> : activeBoard === "completedTasks" ? <CheckCircle size={20} className={BOARD_THEME[activeBoard].iconColor} /> : activeBoard === "incompleteTasks" ? <Timer size={20} className={BOARD_THEME[activeBoard].iconColor} /> : <AlertTriangle size={20} className={BOARD_THEME[activeBoard].iconColor} />}
+                  <div className={cn("w-11 h-11 rounded-2xl border flex items-center justify-center", BOARD_THEME[activeBoard].iconTile)}>
+                    {activeBoard === "activeClients"   ? <Users         size={20} className={BOARD_THEME[activeBoard].iconColor} /> :
+                     activeBoard === "completedTasks"  ? <CheckCircle   size={20} className={BOARD_THEME[activeBoard].iconColor} /> :
+                     activeBoard === "incompleteTasks" ? <Timer         size={20} className={BOARD_THEME[activeBoard].iconColor} /> :
+                                                         <AlertTriangle size={20} className={BOARD_THEME[activeBoard].iconColor} />}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-white font-bold text-lg truncate">{kpiCards.find((c) => c.key === activeBoard)?.label}</h3>
-                    <p className="text-[#9db1cf] text-xs mt-0.5">لوحة تنفيذية مباشرة وتفاصيل مركزة</p>
-                    <span className={`inline-flex mt-2 items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${BOARD_THEME[activeBoard].livePill}`}><Sparkles size={11} />مباشر</span>
+                    <h3 className="text-[color:var(--ws-text-primary)] font-bold text-lg truncate">{kpiCards.find((c) => c.key === activeBoard)?.label}</h3>
+                    <p className={cn(WS_SUBTEXT, "text-xs mt-0.5")}>لوحة تنفيذية مباشرة وتفاصيل مركزة</p>
+                    <span className={cn("inline-flex mt-2 items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border", BOARD_THEME[activeBoard].livePill)}>
+                      <Sparkles size={11} />مباشر
+                    </span>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setActiveBoard(null)}
                   aria-label="إغلاق"
-                  className="w-9 h-9 rounded-xl border border-white/15 text-[#8ba3c7] hover:text-white hover:border-white/30 inline-flex items-center justify-center touch-manipulation"
+                  className="w-9 h-9 rounded-xl border border-[var(--ws-border-strong)] text-[color:var(--ws-text-secondary)] hover:text-[color:var(--ws-text-primary)] hover:border-[var(--ws-border-strong)] inline-flex items-center justify-center touch-manipulation"
                   style={DISABLE_TEXT_SELECT_STYLE}
                 >
                   <X size={18} />
@@ -795,35 +819,42 @@ export default function DashboardPage() {
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-5">
                 {dashboardBoards[activeBoard].detailRows.map(([label, value]) => (
-                  <div key={label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                    <span className="text-[#8ba3c7] text-xs">{label}</span>
-                    <p className="text-white text-sm font-semibold mt-1 truncate">{value}</p>
+                  <div key={label} className="rounded-xl border border-[var(--ws-border-subtle)] bg-[var(--ws-surface-2)] p-3">
+                    <span className={cn(WS_MUTED, "text-xs")}>{label}</span>
+                    <p className="text-[color:var(--ws-text-primary)] text-sm font-semibold mt-1 truncate">{value}</p>
                   </div>
                 ))}
               </div>
-              <div className="rounded-2xl border border-white/10 bg-[#071426]/55 p-3 sm:p-4">
-                <h4 className="text-white text-sm mb-2">تفاصيل اللوحة</h4>
-                <div className="text-xs text-[#8ba3c7] mb-3 space-y-1">
+              <div className="rounded-2xl border border-[var(--ws-border-subtle)] bg-[var(--ws-surface-2)] p-3 sm:p-4">
+                <h4 className={cn(WS_SECTION_TITLE, "text-sm mb-2")}>تفاصيل اللوحة</h4>
+                <div className={cn(WS_MUTED, "text-xs mb-3 space-y-1")}>
                   {dashboardBoards[activeBoard].summary.map((line) => <p key={line} className="truncate">{line}</p>)}
                 </div>
-                <h4 className="text-[#22d3ee] text-sm mb-2">آخر 5 عناصر</h4>
+                <h4 className="text-cyan-300 text-sm mb-2">آخر 5 عناصر</h4>
                 {dashboardBoards[activeBoard].detailList.length === 0 ? (
-                  <p className="text-[#8ba3c7] text-sm">لا توجد بيانات حالياً</p>
+                  <WorkspaceEmptyInline
+                    icon={ListChecks}
+                    title="لا توجد بيانات حالياً"
+                    accent={activeBoard === "overdueTasks" ? "rose" : activeBoard === "completedTasks" ? "emerald" : activeBoard === "incompleteTasks" ? "amber" : "cyan"}
+                    className="py-6"
+                  />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm min-w-[520px] sm:min-w-0">
                       <thead>
-                        <tr className="border-b border-white/10 text-[#8ba3c7]">
-                          <th className="text-right pb-2 font-medium">العنصر</th>
-                          <th className="text-right pb-2 font-medium">الحالة</th>
+                        <tr className={cn("border-b border-[var(--ws-border-subtle)]", WS_MUTED)}>
+                          <th className="text-start pb-2 font-medium">العنصر</th>
+                          <th className="text-start pb-2 font-medium">الحالة</th>
                         </tr>
                       </thead>
                       <tbody>
                         {dashboardBoards[activeBoard].detailList.map((item) => (
-                          <tr key={item} className="border-b border-white/5 last:border-0">
-                            <td className="py-2 text-white/90">{item.split("•")[0].trim()}</td>
+                          <tr key={item} className="border-b border-[var(--ws-border-subtle)] last:border-0">
+                            <td className="py-2 text-[color:var(--ws-text-primary)]/90">{item.split("•")[0].trim()}</td>
                             <td className="py-2">
-                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] border ${BOARD_THEME[activeBoard].livePill}`}>{activeBoard === "overdueTasks" ? "حرج" : activeBoard === "completedTasks" ? "مكتمل" : activeBoard === "incompleteTasks" ? "قيد التنفيذ" : "عميل"}</span>
+                              <span className={cn("inline-flex px-2 py-0.5 rounded-full text-[11px] border", BOARD_THEME[activeBoard].livePill)}>
+                                {activeBoard === "overdueTasks" ? "حرج" : activeBoard === "completedTasks" ? "مكتمل" : activeBoard === "incompleteTasks" ? "قيد التنفيذ" : "عميل"}
+                              </span>
                             </td>
                           </tr>
                         ))}
@@ -831,16 +862,11 @@ export default function DashboardPage() {
                     </table>
                   </div>
                 )}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[#8ba3c7]">تصدير سريع</span>
-                  <span className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[#8ba3c7]">مشاركة تنفيذية</span>
-                </div>
               </div>
             </div>
           </div>
         )}
       </div>
-
     </DashboardLayout>
   );
 }
