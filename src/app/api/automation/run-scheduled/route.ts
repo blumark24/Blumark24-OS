@@ -4,6 +4,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { dispatchEventForOrg } from "@/lib/automation/dispatch";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
