@@ -1,4 +1,5 @@
 import type { PlanSlug } from "@/lib/features/packageFeatures";
+import { checkCanAddStructureLevel } from "./orgPackageLimits";
 import type { Department, StructureLevel } from "./types";
 
 export const BOARD_LABEL_AR = "مجلس الإدارة";
@@ -26,7 +27,7 @@ export const PACKAGE_HIERARCHY_CARDS: PackageHierarchyCard[] = [
   {
     plan: "advanced",
     titleAr: "متقدم",
-    chainAr: "مجلس الإدارة ← وكالة ← إدارة ← قسم ← موظفون",
+    chainAr: "مجلس الإدارة ← وكالات (حتى 5) ← إدارة ← قسم",
     accent: "#ff7a3d",
   },
 ];
@@ -106,9 +107,9 @@ export function canCreateStructureLevel(
     };
   }
 
-  if (level === "agency") {
-    const hasAgency = departments.some((d) => getLevelFromDepartment(d) === "agency");
-    if (hasAgency) return { allowed: false, reason: "يوجد وكالة واحدة كحد أقصى في هذا المستوى" };
+  const capCheck = checkCanAddStructureLevel(plan, level, departments);
+  if (!capCheck.allowed) {
+    return { allowed: false, reason: capCheck.message };
   }
 
   return { allowed: true };
@@ -215,7 +216,14 @@ export function rulesForPlan(plan: PlanSlug): string[] {
     lines.push("باقة نمو: أنشئ إدارات ثم أقساماً تحتها.");
   }
   if (plan === "advanced") {
-    lines.push("باقة متقدم: وكالة ← إدارة ← قسم للهياكل الكبيرة.");
+    lines.push("باقة متقدم: حتى 5 وكالات، 20 إدارة، 50 قسم.");
+    lines.push("يمكنك إضافة أكثر من وكالة تحت مجلس الإدارة.");
+  }
+  if (plan === "growth") {
+    lines.push("حدود باقة نمو: 5 إدارات، 15 قسمًا.");
+  }
+  if (plan === "basic") {
+    lines.push("حدود الباقة البسيطة: 3 أقسام تحت المجلس مباشرة.");
   }
   if (plan !== "advanced") {
     lines.push("مستوى «وكالة» مقفل — ترقية للباقة المتقدمة.");

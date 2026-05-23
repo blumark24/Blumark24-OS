@@ -59,8 +59,8 @@ import StructureLevelFormModal from "./StructureLevelFormModal";
 import AssignEmployeeModal from "./AssignEmployeeModal";
 import TeamFormModal from "./TeamFormModal";
 import {
-  checkCanAddDepartment,
   checkCanAddTeam,
+  countDepartmentsAtLevel,
   getOrgPlanLimits,
 } from "@/lib/org/orgPackageLimits";
 import {
@@ -198,15 +198,12 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
       toast.error(check.reason ?? "غير متاح في باقتك");
       return;
     }
-    if (data) {
-      const cap = checkCanAddDepartment(data, planLimits, null);
-      if (!cap.allowed) {
-        toast.error(cap.message ?? "بلغت حد الباقة");
-        return;
-      }
-    }
     setLevelModal({ level, department: null });
   };
+
+  const toolbarLevels = (["agency", "management", "department"] as StructureLevel[]).filter(
+    (level) => level !== "agency" || plan === "advanced",
+  );
 
   const openAddTeam = () => {
     if (data) {
@@ -293,8 +290,16 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
                 باقة {planLimits.planLabelAr}
               </span>
               <span className="text-[#6b87ab] text-[10px]">
-                {data?.departments.length ?? 0}/{planLimits.maxDepartments} إدارة ·{" "}
-                {data?.teams.length ?? 0}/{planLimits.maxTeams} فريق
+                {plan === "advanced" && (
+                  <>
+                    وكالة {countDepartmentsAtLevel(data?.departments ?? [], "agency")}/
+                    {planLimits.structureCaps.agency} ·{" "}
+                  </>
+                )}
+                إدارة {countDepartmentsAtLevel(data?.departments ?? [], "management")}/
+                {planLimits.structureCaps.management} · قسم{" "}
+                {countDepartmentsAtLevel(data?.departments ?? [], "department")}/
+                {planLimits.structureCaps.department}
               </span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-heading font-bold text-white">
@@ -363,25 +368,37 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
                 )}
               </p>
               <div className={cn("flex flex-wrap gap-2", ORG_TOOLBAR)}>
-                {(["agency", "management", "department"] as StructureLevel[]).map((level) => {
+                {toolbarLevels.map((level) => {
                   const locked = isStructureLevelLocked(plan, level);
+                  const cap = planLimits.structureCaps[level];
+                  const used = countDepartmentsAtLevel(data?.departments ?? [], level);
+                  const atCap = !locked && used >= cap;
                   const Icon = LEVEL_ICONS[level];
                   return (
                     <button
                       key={level}
                       type="button"
-                      disabled={locked}
+                      disabled={locked || atCap}
                       onClick={() => openAddLevel(level)}
                       className={cn(
                         "text-sm flex items-center gap-2 px-3 py-2 rounded-xl border min-h-11 touch-manipulation transition-all",
-                        locked
+                        locked || atCap
                           ? "border-[#1e3a5f] text-[#4a6a99] bg-[#0a1628]/40 cursor-not-allowed"
                           : "border-[#22d3ee]/40 text-white bg-[#22d3ee]/10 hover:bg-[#22d3ee]/20",
                       )}
-                      title={locked ? "غير متاح في باقتك" : undefined}
+                      title={
+                        locked
+                          ? "غير متاح في باقتك"
+                          : atCap
+                            ? "وصلت للحد الأعلى في باقتك الحالية"
+                            : `${used}/${cap}`
+                      }
                     >
-                      {locked ? <Lock size={14} /> : <Icon size={14} />}
+                      {locked || atCap ? <Lock size={14} /> : <Icon size={14} />}
                       {STRUCTURE_LEVEL_LABELS[level]}
+                      <span className="text-[10px] opacity-70">
+                        {used}/{cap}
+                      </span>
                     </button>
                   );
                 })}
