@@ -42,7 +42,6 @@ function CustomerOrgPage() {
         <TenantOrgWorkspace
           canManage={canManageStructure}
           orgLabel="منشأتك"
-          planSlug={planSlug}
         />
       </div>
     </DashboardLayout>

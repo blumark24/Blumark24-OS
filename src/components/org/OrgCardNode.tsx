@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { OrgNodeData } from "@/lib/org/buildFlowGraph";
 import { cn } from "@/lib/utils";
+import { orgNodeGlow } from "@/lib/org/orgVisual";
 
 function levelIcon(d: OrgNodeData) {
   if (d.kind === "org") return Network;
@@ -41,10 +42,8 @@ function OrgCardNodeComponent({ data, selected }: NodeProps) {
             ? "linear-gradient(135deg, rgba(34,211,238,0.18), rgba(30,111,217,0.12))"
             : "rgba(10,22,40,0.94)",
         borderColor: `${d.color}66`,
-        boxShadow: selected
-          ? `0 0 24px ${d.color}44`
-          : `0 4px 20px rgba(0,0,0,0.35), 0 0 1px ${d.color}33`,
         backdropFilter: "blur(14px)",
+        ...orgNodeGlow(d.color, !!selected),
       }}
     >
       <Handle type="target" position={Position.Top} className="!bg-[#22d3ee] !w-2 !h-2 !border-0" />

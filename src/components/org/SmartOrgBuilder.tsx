@@ -53,9 +53,21 @@ import {
   TENANT_EMPTY_STATE_MSG,
 } from "@/lib/features/packageFeatures";
 import OrgCardNode from "./OrgCardNode";
+import OrgHierarchySidebar from "./OrgHierarchySidebar";
 import StructureLevelFormModal from "./StructureLevelFormModal";
 import AssignEmployeeModal from "./AssignEmployeeModal";
 import TeamFormModal from "./TeamFormModal";
+import {
+  checkCanAddDepartment,
+  checkCanAddTeam,
+  getOrgPlanLimits,
+} from "@/lib/org/orgPackageLimits";
+import {
+  ORG_CANVAS,
+  ORG_CANVAS_GLOW,
+  ORG_TOOLBAR,
+  orgPlanBadgeClass,
+} from "@/lib/org/orgVisual";
 import type { Department, StructureLevel, Team } from "@/lib/org/types";
 
 const nodeTypes = { orgCard: OrgCardNode };
@@ -76,6 +88,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
   const { fitView } = useReactFlow();
   const { planSlug } = useTenantWorkspace();
   const plan = planSlug as PlanSlug;
+  const planLimits = useMemo(() => getOrgPlanLimits(plan), [plan]);
 
   const {
     data,
@@ -182,8 +195,46 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
       toast.error(check.reason ?? "غير متاح في باقتك");
       return;
     }
+    if (data) {
+      const cap = checkCanAddDepartment(data, planLimits, null);
+      if (!cap.allowed) {
+        toast.error(cap.message ?? "بلغت حد الباقة");
+        return;
+      }
+    }
     setLevelModal({ level, department: null });
   };
+
+  const openAddTeam = () => {
+    if (data) {
+      const cap = checkCanAddTeam(data, planLimits);
+      if (!cap.allowed) {
+        toast.error(cap.message ?? "بلغت حد الفرق في باقتك");
+        return;
+      }
+    }
+    setTeamModal({ deptId: selectedDept?.id });
+  };
+
+  const handleSidebarSelect = useCallback(
+    (nodeId: string) => {
+      setSelectedId(nodeId);
+      const match = nodes.find((n) => n.id === nodeId);
+      if (match) {
+        void fitView({ nodes: [match], padding: 0.4, duration: 320 });
+      }
+    },
+    [nodes, fitView],
+  );
+
+  const handleToggleCollapse = useCallback((deptId: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(deptId)) next.delete(deptId);
+      else next.add(deptId);
+      return next;
+    });
+  }, []);
 
   const isEmpty =
     !loading && !error && data && data.departments.length === 0 && data.teams.length === 0;
@@ -233,9 +284,15 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
         />
         <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-[#22d3ee] text-xs font-medium mb-2">
-              <Sparkles size={14} />
-              منشأة ذكية · {PLAN_LABELS_AR[plan]}
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className={orgPlanBadgeClass(planLimits)}>
+                <Sparkles size={12} />
+                باقة {planLimits.planLabelAr}
+              </span>
+              <span className="text-[#6b87ab] text-[10px]">
+                {data?.departments.length ?? 0}/{planLimits.maxDepartments} إدارة ·{" "}
+                {data?.teams.length ?? 0}/{planLimits.maxTeams} فريق
+              </span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-heading font-bold text-white">
               الهيكل الإداري الذكي
@@ -304,10 +361,25 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-4">
-          <div className="space-y-3 min-w-0">
+        <div
+          className="grid grid-cols-1 xl:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_minmax(260px,300px)] gap-4"
+          dir="rtl"
+        >
+          {data && (
+            <div className="order-2 xl:order-none min-h-[280px] xl:min-h-[min(68vh,580px)]">
+              <OrgHierarchySidebar
+                snapshot={data}
+                selectedId={selectedId}
+                collapsed={collapsed}
+                onSelect={handleSidebarSelect}
+                onToggleCollapse={handleToggleCollapse}
+                accent={planLimits.accent}
+              />
+            </div>
+          )}
+          <div className="space-y-3 min-w-0 order-1 xl:order-none">
             {canManage && (
-              <div className="flex flex-wrap gap-2">
+              <div className={cn("flex flex-wrap gap-2", ORG_TOOLBAR)}>
                 {(["agency", "management", "department"] as StructureLevel[]).map((level) => {
                   const locked = isStructureLevelLocked(plan, level);
                   const Icon = LEVEL_ICONS[level];
@@ -341,7 +413,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setTeamModal({ deptId: selectedDept?.id })}
+                  onClick={openAddTeam}
                   disabled={!selectedDept}
                   className="btn-secondary text-sm flex items-center gap-2 min-h-11 touch-manipulation"
                 >
@@ -392,12 +464,11 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
             )}
 
             <div
-              className="overflow-hidden rounded-2xl border border-[#1e3a5f]"
-              style={{
-                height: "min(68vh, 580px)",
-                background: "radial-gradient(ellipse at 50% 0%, rgba(34,211,238,0.06), #0a1628)",
-              }}
+              className={cn(ORG_CANVAS, "relative")}
+              style={{ height: "min(68vh, 580px)" }}
             >
+              <div className={ORG_CANVAS_GLOW} aria-hidden />
+              <div className="relative z-[1] h-full">
               <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -420,13 +491,14 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
                   nodeColor={(n) => (n.data as OrgNodeData).color}
                 />
               </ReactFlow>
+              </div>
             </div>
             <p className="text-[#6b87ab] text-xs text-center">
               انقر للتوسيع · اسحب العقدة تحت الأب لتغيير التبعية · لا صور — بطاقات زجاجية فقط
             </p>
           </div>
 
-          <aside className="space-y-4">
+          <aside className="space-y-4 order-3 xl:order-none">
             <div
               className="rounded-2xl border border-[#1e3a5f] p-4 space-y-3"
               style={{ background: "rgba(10,22,40,0.75)" }}
