@@ -3,7 +3,7 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
-import { CITIES, formatCurrency } from "@/lib/utils";
+import { CITIES, formatCurrency, cn } from "@/lib/utils";
 import { UserCircle, Plus, Search, Phone, MapPin, Package, Edit2, Trash2, X } from "lucide-react";
 import type { ClientStatus, PackageType } from "@/types";
 import { usePermissions } from "@/contexts/PermissionsContext";
@@ -11,6 +11,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useClients } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { WS_PAGE, WS_CARD } from "@/components/ui/workspaceVisual";
+import { PageHero, KpiStatCard, WorkspaceEmpty, GlassPanel } from "@/components/ui/workspaceUi";
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; class: string; color: string }> = {
   "محتمل":  { label: "محتمل",  class: "status-pending",  color: "#f59e0b" },
@@ -123,40 +125,25 @@ function ClientsContent() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 sm:space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-heading font-bold text-white flex items-center gap-2">
-              <UserCircle size={22} className="text-[#22d3ee]" />
-              إدارة العملاء (CRM)
-            </h1>
-            <p className="text-[#8ba3c7] text-sm mt-1">إدارة علاقات العملاء والعقود</p>
-          </div>
+      <div className={WS_PAGE}>
+        <PageHero title="إدارة العملاء (CRM)" subtitle="إدارة علاقات العملاء والعقود">
           {isAdmin && (
-            <button onClick={openAdd} className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto">
+            <button onClick={openAdd} className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto min-h-11 touch-manipulation">
               <Plus size={16} />
               عميل جديد
             </button>
           )}
-        </div>
+        </PageHero>
 
-        {/* Stats + Chart Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-4 min-w-0">
           <div className="lg:col-span-2 grid grid-cols-2 gap-3 sm:gap-4">
-            {[
-              { label: "إجمالي العملاء",     value: clients.length,                                              color: "#22d3ee" },
-              { label: "العملاء النشطون",    value: clients.filter((c) => c.status === "نشط").length,           color: "#10b981" },
-              { label: "العملاء المحتملون",  value: clients.filter((c) => c.status === "محتمل").length,         color: "#f59e0b" },
-              { label: "إجمالي العقود",      value: `${formatCurrency(totalRevenue)} SAR`,                      color: "#ff7a3d" },
-            ].map((s) => (
-              <div key={s.label} className="glass-card p-3 sm:p-4">
-                <div className="text-lg sm:text-xl font-heading font-bold leading-tight" style={{ color: s.color }}>{s.value}</div>
-                <div className="text-xs text-[#8ba3c7] mt-1">{s.label}</div>
-              </div>
-            ))}
+            <KpiStatCard label="إجمالي العملاء" value={String(clients.length)} icon={UserCircle} accent="cyan" showLive={false} showSparkline={false} />
+            <KpiStatCard label="العملاء النشطون" value={String(clients.filter((c) => c.status === "نشط").length)} icon={UserCircle} accent="emerald" showLive={false} showSparkline={false} />
+            <KpiStatCard label="العملاء المحتملون" value={String(clients.filter((c) => c.status === "محتمل").length)} icon={UserCircle} accent="amber" showLive={false} showSparkline={false} />
+            <KpiStatCard label="إجمالي العقود" value={`${formatCurrency(totalRevenue)}`} subtitle="SAR" icon={Package} accent="sky" showLive={false} showSparkline={false} />
           </div>
 
-          <div className="glass-card p-4 sm:p-5">
+          <GlassPanel className="p-4 sm:p-5">
             <h3 className="text-sm font-medium text-white mb-3">توزيع الحزم</h3>
             <ResponsiveContainer width="100%" height={140}>
               <PieChart>
@@ -167,9 +154,9 @@ function ClientsContent() {
                 <Legend formatter={(v) => <span className="text-xs text-[#8ba3c7]">{v}</span>} />
               </PieChart>
             </ResponsiveContainer>
-          </div>
+          </GlassPanel>
 
-          <div className="glass-card p-4 sm:p-5">
+          <GlassPanel className="p-4 sm:p-5">
             <h3 className="text-sm font-medium text-white mb-4">خط الأنابيب</h3>
             <div className="space-y-3">
               {STATUSES.map((status) => {
@@ -188,7 +175,7 @@ function ClientsContent() {
                 );
               })}
             </div>
-          </div>
+          </GlassPanel>
         </div>
 
         {/* Filters — search row is full width on mobile; chip rows scroll horizontally to
@@ -233,10 +220,7 @@ function ClientsContent() {
 
         {/* Empty state */}
         {!loading && filtered.length === 0 && (
-          <div className="glass-card p-8 text-center">
-            <UserCircle size={32} className="mx-auto text-[#8ba3c7] mb-3" />
-            <p className="text-sm text-[#8ba3c7]">لا يوجد عملاء مطابقون للبحث</p>
-          </div>
+          <WorkspaceEmpty icon={UserCircle} title="لا يوجد عملاء مطابقون للبحث" subtitle="جرّب تغيير معايير البحث أو الفلاتر" accent="cyan" />
         )}
 
         {/* Mobile cards (<lg). Same data + same handlers as the desktop table —
@@ -245,7 +229,7 @@ function ClientsContent() {
         {!loading && filtered.length > 0 && (
           <div className="lg:hidden space-y-3">
             {filtered.map((client) => (
-              <div key={client.id} className="glass-card p-4">
+              <div key={client.id} className={cn(WS_CARD, "p-4")}>
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="min-w-0 flex-1">
                     <div className="text-white font-medium truncate">{client.name}</div>
@@ -296,7 +280,7 @@ function ClientsContent() {
         {/* Desktop table (≥lg). Wrapped in overflow-x-auto so even on narrow
             desktop windows the layout never breaks the page width. */}
         {!loading && filtered.length > 0 && (
-          <div className="hidden lg:block glass-card overflow-hidden">
+          <div className={cn("hidden lg:block", WS_CARD, "overflow-hidden p-0")}>
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[860px]">
                 <thead>
@@ -358,7 +342,7 @@ function ClientsContent() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
-          <div className="glass-card w-full max-w-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+          <div className={cn(WS_CARD, "w-full max-w-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto")}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-white font-heading font-bold text-lg">{editId ? "تعديل عميل" : "عميل جديد"}</h3>
               <button onClick={() => setShowModal(false)} className="text-[#8ba3c7] hover:text-white"><X size={20} /></button>

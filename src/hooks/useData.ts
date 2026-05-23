@@ -501,17 +501,53 @@ export function useActivities() {
 
 // ─── Board Members ────────────────────────────────────────────────────────────
 
-export function useBoardMembers() {
-  const result = useAsyncData<BoardMember[]>(getBoardMembers, []);
-  const { refetch } = result;
+export function useBoardMembers(enabled = true) {
+  const [data, setData] = useState<BoardMember[]>([]);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+  const hasLoaded = useRef(false);
+
+  const load = useCallback(async () => {
+    if (!enabled) {
+      setData([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await withTimeout(getBoardMembers(), DB_READ_TIMEOUT, "انتهت مهلة تحميل البيانات — تحقق من الاتصال");
+      setData(result);
+      hasLoaded.current = true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "حدث خطأ في تحميل البيانات");
+      if (!hasLoaded.current) setData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled]);
+
+  useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
+    if (!enabled) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) load();
+    });
+    return () => subscription.unsubscribe();
+  }, [enabled, load]);
+
+  useEffect(() => {
+    if (!enabled) return;
     const ch = supabase
       .channel("board-members-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "board_members" }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "board_members" }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [refetch]);
+  }, [enabled, load]);
+
+  const refetch = load;
 
   const insert = useCallback(async (item: Omit<BoardMember, "id">) => {
     const newMember = await withTimeout(insertBoardMember(item), DB_WRITE_TIMEOUT, "انتهت مهلة إضافة عضو مجلس الإدارة");
@@ -530,7 +566,7 @@ export function useBoardMembers() {
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
   }, [refetch]);
 
-  return { ...result, insert, update, remove };
+  return { data, setData, loading, error, refetch, insert, update, remove };
 }
 
 // ─── Strategy Phases ─────────────────────────────────────────────────────────

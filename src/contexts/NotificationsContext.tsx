@@ -66,8 +66,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     try {
       const raw = await withSoftTimeout(getNotifications(user.id), NOTIF_LOAD_TIMEOUT);
       if (raw) setNotifications(raw.map(mapDBToApp));
-    } catch {
-      // silently keep empty on error
+    } catch (err) {
+      setNotifications([]);
+      const msg = err instanceof Error ? err.message : "تعذر تحميل الإشعارات";
+      console.error("[Notifications]", msg);
     }
   }, [user?.id]);
 

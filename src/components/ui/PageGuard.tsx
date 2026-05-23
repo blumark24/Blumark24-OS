@@ -18,7 +18,10 @@ import { ShieldOff } from "lucide-react";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 
 interface PageGuardProps {
-  permission: Permission;
+  /** Single required permission (ignored if anyPermission is set). */
+  permission?: Permission;
+  /** Grant access when the user has any of these permissions. */
+  anyPermission?: Permission[];
   children: React.ReactNode;
 }
 
@@ -33,7 +36,7 @@ function roleHasPermission(
   return satisfiesPermission(perm, (p) => perms.includes(p));
 }
 
-export default function PageGuard({ permission, children }: PageGuardProps) {
+export default function PageGuard({ permission, anyPermission, children }: PageGuardProps) {
   const pathname = usePathname();
   const { rolePermissions } = usePermissions();
   const { loading, user } = useAuth();
@@ -55,12 +58,17 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
   const platformAdmin =
     isPlatformAdmin || resolvedRole === "super_admin";
 
-  const hasPerm = roleHasPermission(
-    resolvedRole,
-    rolePermissions,
-    permission,
-    platformAdmin,
-  );
+  const requiredPerms = anyPermission?.length
+    ? anyPermission
+    : permission
+      ? [permission]
+      : [];
+
+  const hasPerm =
+    platformAdmin ||
+    requiredPerms.some((perm) =>
+      roleHasPermission(resolvedRole, rolePermissions, perm, platformAdmin),
+    );
 
   const route = getRouteByPathname(pathname ?? "");
   const workspaceOk =
