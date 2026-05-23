@@ -11,8 +11,8 @@ import { usePermissions } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useBoardMembers } from "@/hooks/useData";
 import { supabase } from "@/lib/supabase";
-import { TENANT_EMPTY_STATE_MSG, TENANT_EMPTY_STATE_HINT } from "@/lib/features/packageFeatures";
 import type { BoardMember } from "@/lib/db";
+import TenantOrgWorkspace from "@/components/org/TenantOrgWorkspace";
 
 const MAX_BOARD = 3;
 
@@ -268,7 +268,9 @@ function AgencyBlock({ title, subtitle, icon: Icon, accentColor, depts, descript
 export default function OrgPage() {
   const { hasPermission, userRole } = usePermissions();
   const toast = useToast();
-  const canManage = userRole === "super_admin";
+  const canManageBoard = userRole === "super_admin";
+  const canManageStructure =
+    userRole === "super_admin" || userRole === "organization_manager";
 
   const { data: boardMembers, insert, update, remove } = useBoardMembers();
   const [showModal,    setShowModal]    = useState(false);
@@ -345,7 +347,7 @@ export default function OrgPage() {
               {isInternalOrg ? "المخطط التنظيمي لشركة Blumark24" : "المخطط التنظيمي للمنشأة"}
             </p>
           </div>
-          {canManage && (
+          {canManageBoard && (
             <button onClick={handleOpenAdd} className="btn-primary flex items-center gap-2 text-sm" title={boardMembers.length >= MAX_BOARD ? "الحد الأقصى 3 أعضاء" : "إضافة عضو"}>
               <Plus size={16} />
               إضافة عضو مجلس
@@ -353,7 +355,7 @@ export default function OrgPage() {
           )}
         </div>
 
-        {canManage && boardMembers.length >= MAX_BOARD && (
+        {canManageBoard && boardMembers.length >= MAX_BOARD && (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
             <AlertCircle size={15} />
             مجلس الإدارة مكتمل — الحد الأقصى {MAX_BOARD} أعضاء
@@ -380,7 +382,7 @@ export default function OrgPage() {
               <div className="text-center py-8">
                 <Briefcase size={32} className="text-[#4a6a99] mx-auto mb-3" />
                 <p className="text-[#8ba3c7] text-sm">لا يوجد أعضاء حتى الآن</p>
-                {canManage && (
+                {canManageBoard && (
                   <button onClick={handleOpenAdd} className="btn-primary mt-3 text-sm px-4 py-2 flex items-center gap-2 mx-auto">
                     <Plus size={14} />
                     إضافة أول عضو
@@ -393,7 +395,7 @@ export default function OrgPage() {
                   <BoardCard
                     key={m.id}
                     member={m}
-                    canManage={canManage}
+                    canManage={canManageBoard}
                     onEdit={() => { setEditMember(m); setShowModal(true); }}
                     onDelete={() => setDeleteTarget(m)}
                   />
@@ -472,18 +474,12 @@ export default function OrgPage() {
           </>
         )}
 
-        {/* Customer tenant with no configured structure → production empty state. */}
+        {/* Customer tenant: interactive org structure (React Flow) */}
         {isInternalOrg === false && (
-          <div className="glass-card p-10 text-center flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-2xl bg-[#22d3ee]/10 border border-[#22d3ee]/25 flex items-center justify-center">
-              <Network size={28} className="text-[#22d3ee]" />
-            </div>
-            <h3 className="text-white font-heading font-bold text-lg">{TENANT_EMPTY_STATE_MSG}</h3>
-              <p className="text-[#8ba3c7] text-sm mt-2">{TENANT_EMPTY_STATE_HINT}</p>
-            <p className="text-[#8ba3c7] text-sm max-w-md leading-relaxed">
-              سيظهر هنا الهيكل الإداري الخاص بمنشأتك عند إضافته. ابدأ بإضافة أعضاء مجلس الإدارة في الأعلى.
-            </p>
-          </div>
+          <TenantOrgWorkspace
+            canManage={canManageStructure}
+            orgLabel="منشأتك"
+          />
         )}
       </div>
 
