@@ -1,5 +1,5 @@
 -- ============================================================
--- 021 — TENANT TASK OPERATING ENGINE
+-- 025 — TENANT TASK OPERATING ENGINE
 -- Extends tasks + comments, attachments, automation triggers. Tenant RLS.
 -- ============================================================
 

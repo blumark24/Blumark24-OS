@@ -16,6 +16,23 @@ function row<T>(data: unknown): T {
   return data as T;
 }
 
+/** User-facing message when Storage bucket is missing or misconfigured. */
+export function formatTaskAttachmentError(message: string): string {
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("bucket not found") ||
+    lower.includes("not found") && lower.includes("bucket") ||
+    lower.includes("task-attachments") ||
+    lower.includes("storage")
+  ) {
+    return (
+      "حاوية التخزين «task-attachments» غير موجودة أو غير مهيأة في Supabase Storage. " +
+      "أنشئ bucket باسم task-attachments (عام للقراءة أو سياسات RLS مناسبة) ثم أعد المحاولة."
+    );
+  }
+  return message;
+}
+
 export async function fetchDepartments(): Promise<TaskDepartment[]> {
   const { data, error } = await supabase
     .from("departments")
@@ -171,7 +188,7 @@ export async function uploadTaskAttachment(input: {
   const { error: upErr } = await supabase.storage
     .from(BUCKET)
     .upload(path, input.file, { upsert: false });
-  if (upErr) throw new Error(upErr.message);
+  if (upErr) throw new Error(formatTaskAttachmentError(upErr.message));
 
   const { data, error } = await supabase
     .from("task_attachments")

@@ -119,6 +119,9 @@ export default function TaskWorkspace() {
     (engine.error.includes("does not exist") ||
       engine.error.includes("relation") ||
       engine.error.includes("task_"));
+  const bucketHint =
+    engine.error?.includes("task-attachments") ||
+    engine.error?.includes("حاوية التخزين");
 
   return (
     <DashboardLayout>
@@ -177,10 +180,16 @@ export default function TaskWorkspace() {
             <AlertCircle className="text-amber-400 shrink-0" size={20} />
             <div>
               <p className="text-white text-sm">{engine.error}</p>
-              {migrationHint && (
+              {migrationHint && !bucketHint && (
                 <p className="text-[#22d3ee] text-xs mt-2">
-                  طبّق migration 021_tenant_task_engine.sql وأنشئ bucket «task-attachments» في
-                  Supabase Storage.
+                  طبّق migration 025_tenant_task_engine.sql (بعد 019 و023/024) وأنشئ bucket
+                  «task-attachments» في Supabase Storage.
+                </p>
+              )}
+              {bucketHint && (
+                <p className="text-amber-300 text-xs mt-2">
+                  أنشئ bucket «task-attachments» في Supabase Storage مع سياسات رفع/قراءة مناسبة
+                  للمستأجر الحالي.
                 </p>
               )}
             </div>
@@ -304,13 +313,17 @@ export default function TaskWorkspace() {
             toast.success("تم إضافة التعليق");
           }}
           onUploadFile={async (file) => {
-            await engine.uploadAttachment({
-              task_id: selected.id,
-              file,
-              uploaded_by_id: authorId,
-              uploaded_by_name: authorName,
-            });
-            toast.success("تم رفع المرفق");
+            try {
+              await engine.uploadAttachment({
+                task_id: selected.id,
+                file,
+                uploaded_by_id: authorId,
+                uploaded_by_name: authorName,
+              });
+              toast.success("تم رفع المرفق");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "تعذر رفع المرفق");
+            }
           }}
           onDeleteAttachment={(att) => engine.removeAttachment(att)}
         />
