@@ -20,8 +20,6 @@ const REPORT_TYPES = [
   { id: "monthly",   label: "تقرير شهري", icon: Calendar,    color: "#1e6fd9" },
 ];
 
-const DEPT_NAMES = ["الإدارة", "الهجوم", "الإبداع", "التصميم", "الحملات", "AI Lab"];
-
 import { WS_PAGE, WS_CARD, WS_SURFACE } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard } from "@/components/ui/workspaceUi";
 import { cn } from "@/lib/utils";
@@ -63,9 +61,17 @@ function ReportsContent() {
   const totalIncome  = useMemo(() => txs.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0),  [txs]);
   const totalExpense = useMemo(() => txs.filter((t) => t.type === "مصروف").reduce((s, t) => s + t.amount, 0), [txs]);
 
-  const deptData = useMemo(() =>
-    DEPT_NAMES.map((dept) => ({ name: dept, count: employees.filter((e) => e.department === dept).length })),
-  [employees]);
+  // Department breakdown derived from THIS organization's own employees only
+  // (RLS-scoped). Never built from a static list — a hardcoded internal taxonomy
+  // (e.g. "الهجوم", "AI Lab") would leak Blumark24 internals into customer reports.
+  const deptData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    employees.forEach((e) => {
+      const d = (e.department ?? "").trim();
+      if (d) counts[d] = (counts[d] ?? 0) + 1;
+    });
+    return Object.entries(counts).map(([name, count]) => ({ name, count }));
+  }, [employees]);
 
   const taskStatusData = useMemo(() => [
     { name: "جديدة",       value: tasks.filter((t) => t.status === "جديدة").length,       color: "#22d3ee" },

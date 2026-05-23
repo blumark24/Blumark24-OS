@@ -14,6 +14,8 @@ import {
 } from "@/contexts/PermissionsContext";
 import { useEmployees } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import { planIncludesFeature } from "@/lib/features/packageFeatures";
 import PageGuard from "@/components/ui/PageGuard";
 import { createAuthUser, deleteAuthUser } from "@/lib/db";
 import { withSoftTimeout, withTimeout } from "@/lib/asyncHelpers";
@@ -37,6 +39,7 @@ const deptColors: Record<string, string> = {
   "AI Lab":         "#8b5cf6",
 };
 
+// Internal Blumark24 role taxonomy. Offered ONLY inside the internal workspace.
 const SYS_ROLE_LABELS: Record<string, string> = {
   super_admin:     "مدير أعلى",
   board_member:    "عضو مجلس الإدارة",
@@ -48,6 +51,15 @@ const SYS_ROLE_LABELS: Record<string, string> = {
 };
 
 const SYSTEM_ROLES = Object.keys(SYS_ROLE_LABELS) as UserRole[];
+
+// Customer-tenant role options ONLY. Internal Blumark24 roles (super_admin,
+// board_member, defense_manager, attack_manager) must NEVER appear in a customer
+// tenant. مدير مالي is additionally gated by the finance package feature.
+const CUSTOMER_ROLE_LABELS: Record<string, string> = {
+  organization_manager: "مدير المنشأة",
+  finance_manager:      "مدير مالي",
+  employee:             "موظف",
+};
 
 type FormState = {
   name:       string;
@@ -63,6 +75,7 @@ type FormState = {
 function EmployeesContent() {
   const { data: employees, loading, error, update, remove, refetch, setData } = useEmployees();
   const { userRole } = usePermissions();
+  const { isInternal, planSlug } = useTenantWorkspace();
   const toast = useToast();
   const isAdmin = userRole === "super_admin";
 
@@ -96,7 +109,11 @@ function EmployeesContent() {
 
   const openAdd = () => {
     setEditId(null);
-    setForm({ name: "", email: "", password: "", phone: "", department: "الإدارة", role: "employee", status: "نشط", salary: "" });
+    setForm({
+      name: "", email: "", password: "", phone: "",
+      department: isInternal ? "الإدارة" : (deptOptions[0] ?? ""),
+      role: "employee", status: "نشط", salary: "",
+    });
     setShowPass(false);
     setShowModal(true);
   };
@@ -137,6 +154,23 @@ function EmployeesContent() {
       if (!/[a-z]/.test(form.password))         { toast.error("كلمة المرور يجب أن تحتوي على حرف صغير (a-z)"); return; }
       if (!/[0-9]/.test(form.password))         { toast.error("كلمة المرور يجب أن تحتوي على رقم (0-9)"); return; }
       if (!/[^A-Za-z0-9]/.test(form.password)) { toast.error("كلمة المرور يجب أن تحتوي على رمز (!@#$%^&*)"); return; }
+    }
+
+    // ── Customer-tenant guards: no internal roles, departments only from the
+    //    organization's own structure (no static/demo/internal fallbacks). ──
+    if (!isInternal) {
+      if (deptOptions.length === 0) {
+        toast.error("أنشئ قسمًا أولًا من الهيكل الإداري قبل إضافة موظف");
+        return;
+      }
+      if (!form.department || !deptOptions.includes(form.department)) {
+        toast.error("اختر قسمًا من أقسام منشأتك");
+        return;
+      }
+      if (!roleOptions.includes(form.role)) {
+        toast.error("الدور المحدد غير متاح ضمن منشأتك");
+        return;
+      }
     }
 
     setSaving(true);
@@ -237,7 +271,31 @@ function EmployeesContent() {
     depts:  new Set(employees.map((e) => e.department)).size,
   };
 
-  const uniqueDepts = Array.from(new Set(employees.map((e) => e.department)));
+  const uniqueDepts = Array.from(new Set(employees.map((e) => e.department))).filter(Boolean);
+
+  // ── Tenant-scoped option lists ────────────────────────────────────────────
+  // Internal Blumark24 workspace keeps its full role + department taxonomy.
+  // Customer tenants get ONLY customer-safe roles and ONLY departments that
+  // actually exist inside their own organization (RLS-scoped employees). No
+  // internal roles, no static/demo/fallback departments ever leak across.
+  const roleOptions: UserRole[] = isInternal
+    ? SYSTEM_ROLES
+    : ([
+        "organization_manager",
+        ...(planIncludesFeature(planSlug, "finance") ? ["finance_manager"] : []),
+        "employee",
+      ] as UserRole[]);
+
+  const deptOptions = isInternal ? DEPARTMENTS : uniqueDepts;
+
+  const filterChips = isInternal
+    ? ["الكل", ...DEPARTMENTS, ...uniqueDepts.filter((d) => !DEPARTMENTS.includes(d))]
+    : ["الكل", ...uniqueDepts];
+
+  const roleLabelFor = (r: string) =>
+    isInternal
+      ? (SYS_ROLE_LABELS[r] ?? ROLE_LABELS[r as UserRole] ?? r)
+      : (CUSTOMER_ROLE_LABELS[r] ?? "موظف");
 
   return (
     <DashboardLayout>
@@ -269,7 +327,7 @@ function EmployeesContent() {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            {["الكل", ...DEPARTMENTS, ...uniqueDepts.filter((d) => !DEPARTMENTS.includes(d))].map((d) => (
+            {filterChips.map((d) => (
               <button
                 key={d}
                 onClick={() => setDeptFilter(d)}
@@ -329,7 +387,7 @@ function EmployeesContent() {
                         {emp.department}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{SYS_ROLE_LABELS[emp.role] ?? ROLE_LABELS[emp.role as UserRole] ?? emp.role}</td>
+                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{roleLabelFor(emp.role)}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-0.5">
                         {[1,2,3,4,5].map((s) => (
@@ -449,16 +507,22 @@ function EmployeesContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-[#8ba3c7] mb-1.5">القسم</label>
-                  <select className="input-dark text-sm" value={form.department}
-                    onChange={(e) => setForm({ ...form, department: e.target.value })}>
-                    {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
+                  {!isInternal && deptOptions.length === 0 ? (
+                    <div className="input-dark text-xs text-amber-400 flex items-center min-h-[42px]">
+                      أنشئ قسمًا أولًا من الهيكل الإداري
+                    </div>
+                  ) : (
+                    <select className="input-dark text-sm" value={form.department}
+                      onChange={(e) => setForm({ ...form, department: e.target.value })}>
+                      {deptOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs text-[#8ba3c7] mb-1.5">الدور</label>
                   <select className="input-dark text-sm" value={form.role}
                     onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}>
-                    {SYSTEM_ROLES.map((r) => <option key={r} value={r}>{SYS_ROLE_LABELS[r]}</option>)}
+                    {roleOptions.map((r) => <option key={r} value={r}>{roleLabelFor(r)}</option>)}
                   </select>
                 </div>
               </div>

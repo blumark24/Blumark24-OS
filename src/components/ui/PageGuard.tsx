@@ -11,10 +11,11 @@ import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import {
   canAccessWorkspaceRoute,
   getRouteByPathname,
+  planIncludesFeature,
   satisfiesPermission,
 } from "@/lib/features/packageFeatures";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { ShieldOff } from "lucide-react";
+import { ShieldOff, ArrowUpCircle } from "lucide-react";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 
 interface PageGuardProps {
@@ -80,6 +81,35 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
     return <>{children}</>;
   }
 
+  // Distinguish WHY access is blocked so the copy is actionable (P0-7):
+  //   • Package lock  → the customer's plan does not include this module.
+  //   • Permission lock → the role lacks the permission inside the same tenant.
+  const packageLocked =
+    !platformAdmin &&
+    !isInternal &&
+    !!route?.feature &&
+    !planIncludesFeature(planSlug, route.feature);
+
+  if (packageLocked) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center">
+            <ArrowUpCircle size={28} className="text-amber-400" />
+          </div>
+          <h2 className="text-white text-xl font-heading font-bold">غير متاح في باقتك الحالية</h2>
+          <p className="text-[#8ba3c7] text-sm max-w-xs">
+            هذا القسم غير متاح ضمن باقتك الحالية.
+          </p>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-sm font-medium">
+            <ArrowUpCircle size={16} />
+            ترقية الباقة — تواصل مع Blumark24
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
@@ -88,7 +118,7 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
         </div>
         <h2 className="text-white text-xl font-heading font-bold">لا تملك صلاحية الوصول</h2>
         <p className="text-[#8ba3c7] text-sm max-w-xs">
-          هذا القسم محجوز أو غير مفعّل ضمن باقة منشأتك. تواصل مع مدير المنشأة أو Blumark24.
+          تواصل مع مدير المنشأة للحصول على الصلاحية.
         </p>
       </div>
     </DashboardLayout>
