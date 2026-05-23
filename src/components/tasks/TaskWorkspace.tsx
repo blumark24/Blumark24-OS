@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTasks, useClients, useEmployees } from "@/hooks/useData";
 import { useTaskEngine } from "@/hooks/useTaskEngine";
 import { useToast } from "@/contexts/ToastContext";
+import { fireAutomationEvent } from "@/lib/automation/client";
 import TaskKanban from "@/components/tasks/TaskKanban";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
 import TaskFormModal from "@/components/tasks/TaskFormModal";
@@ -78,8 +79,10 @@ export default function TaskWorkspace() {
       await update(taskId, changes);
       const updated = { ...task, ...changes };
       await engine.runAutomations("status_changed", updated);
+      void fireAutomationEvent("status_changed", { task_id: taskId, ...updated });
       if (status === "مكتملة") {
         await engine.runAutomations("task_completed", updated);
+        void fireAutomationEvent("task.completed", { task_id: taskId, ...updated, author_name: authorName });
         await engine.spawnRecurring(updated, authorName);
       }
       await engine.refresh();
@@ -103,6 +106,7 @@ export default function TaskWorkspace() {
           createdByName: authorName,
         });
         toast.success("تمت إضافة المهمة");
+        void fireAutomationEvent("task.created", { title: payload.title, priority: payload.priority, assignee_id: payload.assigneeId, author_name: authorName });
       }
       setShowModal(false);
       setEditTask(null);

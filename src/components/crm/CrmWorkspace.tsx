@@ -9,6 +9,7 @@ import { useClients, useTasks } from "@/hooks/useData";
 import { useCrm } from "@/hooks/useCrm";
 import { useToast } from "@/contexts/ToastContext";
 import { logCrmActivity } from "@/lib/crm/db";
+import { fireAutomationEvent } from "@/lib/automation/client";
 import DealPipeline from "@/components/crm/DealPipeline";
 import CrmClientsTab from "@/components/crm/CrmClientsTab";
 import CrmRevenueTab from "@/components/crm/CrmRevenueTab";
@@ -153,10 +154,28 @@ export default function CrmWorkspace() {
                 clients={clients}
                 canManage={canManage}
                 authorName={authorName}
-                onMoveDeal={(deal, stage) => crm.moveDeal(deal, stage, authorName)}
+                onMoveDeal={async (deal, stage) => {
+                  await crm.moveDeal(deal, stage, authorName);
+                  void fireAutomationEvent("crm.deal_stage_changed", {
+                    deal_id: deal.id,
+                    client_id: deal.client_id,
+                    stage_name: stage.name,
+                    author_name: authorName,
+                  });
+                  if (stage.is_closed_won) {
+                    void fireAutomationEvent("crm.deal_won", {
+                      deal_id: deal.id,
+                      client_id: deal.client_id,
+                      value: deal.value,
+                      title: deal.title,
+                      author_name: authorName,
+                    });
+                  }
+                }}
                 onCreateDeal={async (input) => {
                   await crm.createDeal({ ...input, author_name: authorName });
                   toast.success("تم إنشاء الصفقة");
+                  void fireAutomationEvent("crm.deal_created", { client_id: input.client_id, title: input.title, value: input.value, author_name: authorName });
                 }}
                 onSelectClient={openClientById}
               />

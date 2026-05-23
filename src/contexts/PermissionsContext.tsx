@@ -32,14 +32,14 @@ export type Permission =
   | "view_dashboard"
   | "manage_board"
   | "manage_users"
-  | "view_employees"
   | "manage_roles"
   | "manage_tasks"
   | "manage_clients"
   | "manage_finance"
   | "manage_reports"
   | "manage_settings"
-  | "manage_automations";
+  | "manage_automations"
+  | "view_employees";
 
 // Flexible labels mapping — keep labels for known internal roles,
 // also include friendly labels for 'admin' / 'manager' strings.
@@ -62,7 +62,6 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   view_dashboard:    "عرض لوحة التحكم",
   manage_board:      "إدارة مجلس الإدارة",
   manage_users:      "إدارة المستخدمين",
-  view_employees:    "عرض الموظفين",
   manage_roles:      "إدارة الأدوار",
   manage_tasks:      "إدارة المهام",
   manage_clients:    "إدارة العملاء",
@@ -70,13 +69,13 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   manage_reports:    "عرض التقارير",
   manage_settings:   "إدارة الإعدادات",
   manage_automations:"إدارة الأتمتة",
+  view_employees:     "عرض الموظفين",
 };
 
 export const ALL_PERMISSIONS: Permission[] = [
   "view_dashboard",
   "manage_board",
   "manage_users",
-  "view_employees",
   "manage_roles",
   "manage_tasks",
   "manage_clients",
@@ -84,6 +83,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "manage_reports",
   "manage_settings",
   "manage_automations",
+  "view_employees",
 ];
 
 export const ALL_ROLES: UserRole[] = [
@@ -129,7 +129,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   // to the manager's own organization_id.
   organization_manager: [
     "view_dashboard",
-    "view_employees",
     "manage_tasks",
     "manage_clients",
     "manage_finance",
