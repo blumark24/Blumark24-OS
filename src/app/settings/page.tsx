@@ -32,8 +32,12 @@ import { withTimeout } from "@/lib/asyncHelpers";
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
+import { useDepartments } from "@/hooks/useDepartments";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+
 const TABS = [
   { id: "general",      label: "عام",              icon: Building2 },
+  { id: "departments",  label: "الأقسام",          icon: Building2 },
   { id: "account",      label: "الحساب",            icon: Lock      },
   { id: "users",        label: "المستخدمون",        icon: Users     },
   { id: "permissions",  label: "الصلاحيات والأدوار",icon: Shield    },
@@ -54,7 +58,67 @@ const RULE_TRIGGERS: Record<string, string> = {
   "weekly-report":  "كل إثنين 8 صباحاً",
 };
 
-const DEPARTMENTS = ["الإدارة العليا", "وكالة الدفاع", "وكالة الهجوم", "المالية", "تقنية المعلومات"];
+function DepartmentsTab() {
+  const { data, loading, insert, remove } = useDepartments();
+  const { planLimits } = useTenantWorkspace();
+  const toast = useToast();
+  const [name, setName] = useState("");
+  const [desc, setDesc] = useState("");
+  const maxDepts = planLimits.max_departments ?? 1;
+
+  const handleAdd = async () => {
+    if (!name.trim()) { toast.error("اسم القسم مطلوب"); return; }
+    if (data.length >= maxDepts) {
+      toast.error(`الحد الأقصى ${maxDepts} أقسام ضمن باقتك`);
+      return;
+    }
+    try {
+      await insert({ name: name.trim(), description: desc.trim() });
+      setName("");
+      setDesc("");
+      toast.success("تمت إضافة القسم");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "تعذر الإضافة");
+    }
+  };
+
+  return (
+    <div className="glass-card p-5 space-y-4">
+      <h3 className="text-white font-heading font-bold">أقسام المنشأة</h3>
+      <p className="text-[#8ba3c7] text-sm">الأقسام تظهر في الموظفين والتقارير والهيكل الإداري ({data.length}/{maxDepts})</p>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <input className="input-dark text-sm" placeholder="اسم القسم" value={name} onChange={(e) => setName(e.target.value)} />
+        <input className="input-dark text-sm" placeholder="وصف مختصر (اختياري)" value={desc} onChange={(e) => setDesc(e.target.value)} />
+      </div>
+      <button type="button" onClick={() => void handleAdd()} className="btn-primary text-sm min-h-11 touch-manipulation flex items-center gap-2">
+        <Plus size={14} /> إضافة قسم
+      </button>
+      {loading ? (
+        <p className="text-[#8ba3c7] text-sm">جارٍ التحميل...</p>
+      ) : data.length === 0 ? (
+        <p className="text-[#8ba3c7] text-sm">لا توجد أقسام بعد.</p>
+      ) : (
+        <ul className="space-y-2">
+          {data.map((d) => (
+            <li key={d.id} className="flex items-center justify-between p-3 rounded-xl bg-[#0d1f3c]/60 border border-[#1e3a5f]">
+              <div>
+                <div className="text-white text-sm font-medium">{d.name}</div>
+                {d.description && <div className="text-[#8ba3c7] text-xs">{d.description}</div>}
+              </div>
+              <button
+                type="button"
+                onClick={() => void remove(d.id).then(() => toast.success("تم إلغاء تفعيل القسم")).catch(() => toast.error("تعذر الحذف"))}
+                className="text-red-400 text-xs hover:underline"
+              >
+                إزالة
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 // Add user redirect banner (real user creation happens in /employees)
 function AddUserBanner({ onClose }: { onClose: () => void }) {
@@ -304,8 +368,8 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const [saved,      setSaved]      = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [companyForm, setCompanyForm] = useState({
-    name: "Blumark24", tagline: "نظام إدارة الأعمال بالذكاء الاصطناعي",
-    email: "info@blumark24.com", phone: "0550000000", website: "blumark24.com", city: "جدة",
+    name: "", tagline: "",
+    email: "", phone: "", website: "", city: "",
   });
   const [darkMode,     setDarkMode]     = useState(true);
   const [accentColor,  setAccentColor]  = useState("#22d3ee");
@@ -515,6 +579,8 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                 </div>
               </div>
             )}
+
+            {activeTab === "departments" && <DepartmentsTab />}
 
             {/* ── Account ── */}
             {activeTab === "account" && (

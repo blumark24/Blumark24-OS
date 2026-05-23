@@ -39,18 +39,6 @@ export function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-export const DEPARTMENTS = [
-  "الإدارة",
-  "الهجوم",
-  "الإبداع",
-  "التصميم",
-  "الحملات",
-  "خدمة العملاء",
-  "المالي",
-  "العمليات",
-  "AI Lab",
-];
-
 export const CITIES = ["مكة", "جدة", "الرياض", "الطائف", "المدينة"];
 
 export const FUND_DISTRIBUTION = {

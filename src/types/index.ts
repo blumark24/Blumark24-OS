@@ -24,6 +24,17 @@ export interface User {
   performance: number;
 }
 
+export interface Department {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string;
+  icon: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface Employee extends User {
   phone?: string;
   salary?: number;

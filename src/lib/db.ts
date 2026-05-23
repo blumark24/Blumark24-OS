@@ -198,19 +198,14 @@ export interface BoardMember {
   status: "نشط" | "غير نشط";
 }
 
-/** Internal Blumark24 board only — customer tenants must never load these rows. */
-async function assertInternalOrgForBoard(): Promise<string | null> {
-  const { data: isInternal, error: internalErr } = await supabase.rpc("current_org_is_internal");
-  if (internalErr || isInternal !== true) {
-    return null;
-  }
+async function currentOrgIdForBoard(): Promise<string | null> {
   const { data: orgId, error: orgErr } = await supabase.rpc("current_org_id");
   if (orgErr) return null;
   return (orgId as string | null) ?? null;
 }
 
 export async function getBoardMembers(): Promise<BoardMember[]> {
-  const orgId = await assertInternalOrgForBoard();
+  const orgId = await currentOrgIdForBoard();
   if (!orgId) return [];
 
   let query = supabase
@@ -225,8 +220,8 @@ export async function getBoardMembers(): Promise<BoardMember[]> {
 }
 
 export async function insertBoardMember(member: Omit<BoardMember, "id">): Promise<BoardMember> {
-  const orgId = await assertInternalOrgForBoard();
-  if (!orgId) throw new Error("مجلس الإدارة متاح لمنشأة Blumark24 الداخلية فقط");
+  const orgId = await currentOrgIdForBoard();
+  if (!orgId) throw new Error("تعذر تحديد المنشأة");
 
   const { data, error } = await supabase
     .from("board_members")
@@ -238,8 +233,8 @@ export async function insertBoardMember(member: Omit<BoardMember, "id">): Promis
 }
 
 export async function updateBoardMember(id: string, changes: Partial<Omit<BoardMember, "id">>): Promise<void> {
-  const orgId = await assertInternalOrgForBoard();
-  if (!orgId) throw new Error("مجلس الإدارة متاح لمنشأة Blumark24 الداخلية فقط");
+  const orgId = await currentOrgIdForBoard();
+  if (!orgId) throw new Error("تعذر تحديد المنشأة");
 
   const { error } = await supabase
     .from("board_members")
@@ -250,7 +245,7 @@ export async function updateBoardMember(id: string, changes: Partial<Omit<BoardM
 }
 
 export async function deleteBoardMember(id: string): Promise<void> {
-  const orgId = await assertInternalOrgForBoard();
+  const orgId = await currentOrgIdForBoard();
   if (!orgId) throw new Error("مجلس الإدارة متاح لمنشأة Blumark24 الداخلية فقط");
 
   const { error } = await supabase

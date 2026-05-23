@@ -37,7 +37,7 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
   const pathname = usePathname();
   const { rolePermissions } = usePermissions();
   const { loading, user } = useAuth();
-  const { loading: wsLoading, isInternal, planSlug, isPlatformAdmin } =
+  const { loading: wsLoading, enabledFeatures, planSlug, isPlatformAdmin } =
     useTenantWorkspace();
 
   if (loading || wsLoading || !user) {
@@ -68,7 +68,7 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
     canAccessWorkspaceRoute(
       route,
       {
-        isInternal,
+        enabledFeatures,
         planSlug,
         isPlatformAdmin: platformAdmin,
       },
@@ -88,7 +88,7 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
         </div>
         <h2 className="text-white text-xl font-heading font-bold">لا تملك صلاحية الوصول</h2>
         <p className="text-[#8ba3c7] text-sm max-w-xs">
-          هذا القسم محجوز أو غير مفعّل ضمن باقة منشأتك. تواصل مع مدير المنشأة أو Blumark24.
+          هذا القسم غير مفعّل ضمن باقة منشأتك. تواصل مع مدير المنشأة لترقية الباقة.
         </p>
       </div>
     </DashboardLayout>

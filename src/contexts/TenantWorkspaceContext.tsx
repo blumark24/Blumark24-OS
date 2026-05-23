@@ -14,17 +14,20 @@ import { usePermissions, type Permission } from "@/contexts/PermissionsContext";
 import { supabase } from "@/lib/supabase";
 import {
   canAccessWorkspaceRoute,
+  defaultFeaturesForPlan,
   filterNavRoutes,
   getRouteByPathname,
   normalizePlanSlug,
   satisfiesPermission,
   type PlanSlug,
+  type WorkspaceFeature,
   type WorkspaceRouteDef,
 } from "@/lib/features/packageFeatures";
 
 export interface TenantWorkspaceState {
-  isInternal: boolean;
   planSlug: PlanSlug;
+  enabledFeatures: WorkspaceFeature[];
+  planLimits: Record<string, number>;
   isPlatformAdmin: boolean;
   organizationId: string | null;
   organizationStatus: string | null;
@@ -36,8 +39,9 @@ export interface TenantWorkspaceState {
 }
 
 const defaultState: TenantWorkspaceState = {
-  isInternal: false,
   planSlug: "basic",
+  enabledFeatures: [],
+  planLimits: {},
   isPlatformAdmin: false,
   organizationId: null,
   organizationStatus: null,
@@ -54,8 +58,9 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const { hasPermission, userRole } = usePermissions();
 
-  const [isInternal, setIsInternal] = useState(false);
   const [planSlug, setPlanSlug] = useState<PlanSlug>("basic");
+  const [enabledFeatures, setEnabledFeatures] = useState<WorkspaceFeature[]>([]);
+  const [planLimits, setPlanLimits] = useState<Record<string, number>>({});
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [organizationStatus, setOrganizationStatus] = useState<string | null>(null);
@@ -76,6 +81,8 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       const token = sessionData.session?.access_token;
       if (!token) {
         setError("لا توجد جلسة نشطة");
+        setEnabledFeatures([]);
+        setPlanSlug("basic");
         return;
       }
 
@@ -87,34 +94,37 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         setError(body.error ?? "تعذر تحميل سياق مساحة العمل");
-        const rpc = await supabase.rpc("current_org_is_internal");
-        if (!rpc.error && rpc.data === true) {
-          setIsInternal(true);
-          setPlanSlug("advanced");
-        }
+        setPlanSlug("basic");
+        setEnabledFeatures([]);
+        setPlanLimits({});
         return;
       }
 
       const body = (await res.json()) as {
-        isInternal?: boolean;
         planSlug?: string;
+        enabledFeatures?: WorkspaceFeature[];
+        planLimits?: Record<string, number>;
         isPlatformAdmin?: boolean;
         organizationId?: string | null;
         organizationStatus?: string | null;
       };
 
-      setIsInternal(body.isInternal === true);
-      setPlanSlug(normalizePlanSlug(body.planSlug));
+      const slug = normalizePlanSlug(body.planSlug);
+      setPlanSlug(slug);
+      setEnabledFeatures(
+        Array.isArray(body.enabledFeatures) && body.enabledFeatures.length > 0
+          ? body.enabledFeatures
+          : defaultFeaturesForPlan(slug),
+      );
+      setPlanLimits(body.planLimits ?? {});
       setIsPlatformAdmin(body.isPlatformAdmin === true);
       setOrganizationId(body.organizationId ?? null);
       setOrganizationStatus(body.organizationStatus ?? null);
     } catch {
       setError("تعذر تحميل سياق مساحة العمل");
-      const rpc = await supabase.rpc("current_org_is_internal");
-      if (!rpc.error && rpc.data === true) {
-        setIsInternal(true);
-        setPlanSlug("advanced");
-      }
+      setPlanSlug("basic");
+      setEnabledFeatures([]);
+      setPlanLimits({});
     } finally {
       setLoading(false);
     }
@@ -124,8 +134,9 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
     if (authLoading) return;
     if (!user?.id) {
       setLoading(false);
-      setIsInternal(false);
       setPlanSlug("basic");
+      setEnabledFeatures([]);
+      setPlanLimits({});
       setIsPlatformAdmin(false);
       setOrganizationId(null);
       setOrganizationStatus(null);
@@ -136,11 +147,11 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
 
   const accessCtx = useMemo(
     () => ({
-      isInternal,
       planSlug,
+      enabledFeatures,
       isPlatformAdmin: isPlatformAdmin || userRole === "super_admin",
     }),
-    [isInternal, planSlug, isPlatformAdmin, userRole],
+    [planSlug, enabledFeatures, isPlatformAdmin, userRole],
   );
 
   const checkPermission = useCallback(
@@ -169,8 +180,9 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<TenantWorkspaceState>(
     () => ({
-      isInternal,
       planSlug,
+      enabledFeatures,
+      planLimits,
       isPlatformAdmin: accessCtx.isPlatformAdmin,
       organizationId,
       organizationStatus,
@@ -181,8 +193,9 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       refresh: load,
     }),
     [
-      isInternal,
       planSlug,
+      enabledFeatures,
+      planLimits,
       accessCtx.isPlatformAdmin,
       organizationId,
       organizationStatus,

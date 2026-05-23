@@ -58,26 +58,26 @@ export async function POST(req: NextRequest) {
     const callerId     = tokenResp.data.user.id;
     const ADMIN_EMAILS = ["blumark24@gmail.com", "blumark.sa@gmail.com"];
 
-    let isAdmin = ADMIN_EMAILS.includes(callerEmail);
-    if (!isAdmin) {
-      const profResp = await admin
-        .from("profiles")
-        .select("role")
-        .eq("id", callerId)
-        .maybeSingle();
-      isAdmin = profResp.data?.role === "super_admin";
-    }
-    if (!isAdmin) {
+    const profResp = await admin
+      .from("profiles")
+      .select("role, organization_id")
+      .eq("id", callerId)
+      .maybeSingle();
+    const callerRole = String(profResp.data?.role ?? "");
+    const isPlatformAdmin =
+      ADMIN_EMAILS.includes(callerEmail) || callerRole === "super_admin";
+    const isOrgManager = callerRole === "organization_manager";
+    if (!isPlatformAdmin && !isOrgManager) {
       return NextResponse.json(
         {
           success: false,
-          error:   "غير مصرح — هذه العملية تتطلب صلاحيات المدير الأعلى",
-          debug:   `caller=${callerEmail} id=${callerId}`,
+          error: "غير مصرح — يتطلب مدير المنشأة أو المدير الأعلى",
+          debug: `caller=${callerEmail} role=${callerRole}`,
         },
         { status: 403 },
       );
     }
-    console.log(`[create-user] caller verified email=${callerEmail}`);
+    console.log(`[create-user] caller verified email=${callerEmail} role=${callerRole}`);
 
     // ── 3b. resolve caller's organization (Tenant Isolation Phase B.1) ────
     // Service-role writes bypass RLS *and* the BEFORE INSERT auto-stamp
@@ -86,18 +86,8 @@ export async function POST(req: NextRequest) {
     // would be invisible to the rest of their own organization. Best-effort:
     // if the caller has no org we leave it null (owner/super_admin still see
     // the row), and a missing organization_id column is tolerated.
-    let callerOrgId: string | null = null;
-    try {
-      const orgResp = await admin
-        .from("profiles")
-        .select("organization_id")
-        .eq("id", callerId)
-        .maybeSingle();
-      const org = (orgResp.data as { organization_id?: string | null } | null)?.organization_id;
-      callerOrgId = org ?? null;
-    } catch {
-      callerOrgId = null;
-    }
+    const callerOrgId =
+      (profResp.data as { organization_id?: string | null } | null)?.organization_id ?? null;
 
     // ── 4. parse body (await; outer catch handles malformed JSON) ─────────
     const body = (await req.json()) as Record<string, unknown>;
@@ -140,6 +130,9 @@ export async function POST(req: NextRequest) {
       "مدير المنشأة":        "organization_manager",
       "مدير_المنشأة":        "organization_manager",
     };
+    const TENANT_ROLES = [
+      "organization_manager", "finance_manager", "employee",
+    ];
     const VALID_ROLES = [
       "super_admin", "board_member", "defense_manager",
       "attack_manager", "finance_manager", "organization_manager", "employee",
@@ -150,6 +143,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: `الدور غير مقبول: ${rawRole}`, debug: `mapped=${role}` },
         { status: 400 },
+      );
+    }
+    if (!isPlatformAdmin && !TENANT_ROLES.includes(role)) {
+      return NextResponse.json(
+        { success: false, error: "لا يمكن تعيين أدوار المنصة الداخلية لموظفي المنشأة" },
+        { status: 400 },
+      );
+    }
+    if (isOrgManager && !callerOrgId) {
+      return NextResponse.json(
+        { success: false, error: "حسابك غير مرتبط بمنشأة" },
+        { status: 403 },
       );
     }
 

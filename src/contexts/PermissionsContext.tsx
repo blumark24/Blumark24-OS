@@ -96,6 +96,20 @@ export const ALL_ROLES: UserRole[] = [
   "employee",
 ];
 
+/** Roles assignable in tenant workspace (no internal agency roles). */
+export const TENANT_ROLES: UserRole[] = [
+  "organization_manager",
+  "finance_manager",
+  "employee",
+];
+
+export const PLATFORM_ONLY_ROLES: UserRole[] = [
+  "super_admin",
+  "board_member",
+  "defense_manager",
+  "attack_manager",
+];
+
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   super_admin: [...ALL_PERMISSIONS],
   board_member: [
@@ -254,8 +268,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  // Load persisted role permissions from DB.  Soft timeout — if Supabase
-  // is slow we silently fall back to DEFAULT_ROLE_PERMISSIONS.
+  // Load persisted role permissions from DB. On failure, keep defaults for
+  // tenant roles only — never widen privileges beyond DEFAULT_ROLE_PERMISSIONS.
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
@@ -265,6 +279,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     )
       .then((res) => {
         if (cancelled) return;
+        if (res === undefined) return;
         const data = res?.data as { role: string; permissions: string[] }[] | undefined;
         if (!data?.length) return;
         const loaded: Partial<Record<UserRole, Permission[]>> = {};
@@ -278,7 +293,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
           setRolePermissions((prev) => ({ ...prev, ...loaded }));
         }
       })
-      .catch(() => { /* silent — defaults remain */ });
+      .catch(() => { /* keep DEFAULT_ROLE_PERMISSIONS — fail closed for elevation */ });
     return () => { cancelled = true; };
   }, [user?.id]);
 

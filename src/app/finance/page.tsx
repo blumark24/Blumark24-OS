@@ -36,10 +36,10 @@ function emptyForm(): FormState {
 function FinanceContent() {
   const { data: transactions, loading, insert, update, remove } = useTransactions();
   const { userRole } = usePermissions();
-  const { isInternal } = useTenantWorkspace();
+  const { planLimits } = useTenantWorkspace();
   const toast = useToast();
   const isAdmin = userRole === "super_admin";
-  const showCompanyFund = isInternal;
+  const showCompanyFund = (planLimits.company_fund_enabled ?? 0) > 0;
 
   const [showModal, setShowModal] = useState(false);
   const [editId,    setEditId]    = useState<string | null>(null);
@@ -322,7 +322,7 @@ function FinanceContent() {
                 ))}
                 {transactions.length === 0 && (
                   <tr><td colSpan={8} className="text-center py-8 text-[#8ba3c7]">
-                    {!isInternal ? (<><span className="block">{TENANT_EMPTY_STATE_MSG}</span><span className="block text-xs mt-2 text-[#6b87ab]">{TENANT_EMPTY_STATE_HINT}</span></>) : "لا توجد معاملات بعد"}
+                    {TENANT_EMPTY_STATE_MSG}
                   </td></tr>
                 )}
               </tbody>

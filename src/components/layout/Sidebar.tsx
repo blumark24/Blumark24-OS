@@ -52,7 +52,7 @@ export default function Sidebar({
   const { user, loading: authLoading, loggingOut, logout } = useAuth();
   const toast       = useToast();
   const { userRole } = usePermissions();
-  const { navRoutes, loading: wsLoading, isInternal } = useTenantWorkspace();
+  const { navRoutes, loading: wsLoading } = useTenantWorkspace();
 
   const handleLogout = () => {
     if (loggingOut) return;
@@ -62,9 +62,7 @@ export default function Sidebar({
 
   const _wsNavLoading = authLoading || wsLoading || !userRole;
 
-  const visibleRoutes = _wsNavLoading
-    ? WORKSPACE_ROUTES.filter((r) => !r.internalOnly)
-    : navRoutes;
+  const visibleRoutes = _wsNavLoading ? WORKSPACE_ROUTES : navRoutes;
 
   const roleLabel = userRole ? (ROLE_LABELS[userRole] ?? userRole.replace(/_/g, " ")) : "";
 
@@ -112,7 +110,7 @@ export default function Sidebar({
           {visibleRoutes.map((route) => {
             const Icon = ICON_BY_NAME[route.iconName] ?? LayoutDashboard;
             const href = route.href;
-            const label = getRouteLabel(route.id as WorkspaceRouteId, isInternal);
+            const label = getRouteLabel(route.id as WorkspaceRouteId);
             const isActive = href === "/dashboard"
               ? pathname === "/dashboard"
               : pathname.startsWith(href);

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { DEPARTMENTS } from "@/lib/utils";
+import { departmentColor } from "@/lib/services/departments";
+import { useDepartments } from "@/hooks/useDepartments";
 import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard } from "@/components/ui/workspaceUi";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,7 @@ import { Users, Plus, Search, Star, Edit2, Trash2, X, Eye, EyeOff } from "lucide
 import {
   usePermissions,
   ROLE_LABELS,
+  TENANT_ROLES,
   UserRole,
 } from "@/contexts/PermissionsContext";
 import { useEmployees } from "@/hooks/useData";
@@ -21,33 +23,11 @@ import { withSoftTimeout, withTimeout } from "@/lib/asyncHelpers";
 const statusBadge = (status: string) =>
   status === "نشط" ? "status-active" : "status-inactive";
 
-const deptColors: Record<string, string> = {
-  "الإدارة":        "#22d3ee",
-  "الإدارة العليا": "#22d3ee",
-  "الهجوم":         "#ef4444",
-  "وكالة الهجوم":   "#ef4444",
-  "الإبداع":        "#a855f7",
-  "التصميم":        "#10b981",
-  "الحملات":        "#f59e0b",
-  "خدمة العملاء":   "#1e6fd9",
-  "المالية":        "#ff7a3d",
-  "العمليات":       "#06b6d4",
-  "وكالة الدفاع":   "#8b5cf6",
-  "تقنية المعلومات":"#8b5cf6",
-  "AI Lab":         "#8b5cf6",
-};
-
-const SYS_ROLE_LABELS: Record<string, string> = {
-  super_admin:     "مدير أعلى",
-  board_member:    "عضو مجلس الإدارة",
-  defense_manager: "مدير وكالة الدفاع",
-  attack_manager:  "مدير وكالة الهجوم",
+const TENANT_ROLE_LABELS: Record<string, string> = {
+  organization_manager: "مدير المنشأة",
   finance_manager: "مدير مالي",
-  employee:              "موظف",
-  organization_manager:  "مدير المنشأة",
+  employee: "موظف",
 };
-
-const SYSTEM_ROLES = Object.keys(SYS_ROLE_LABELS) as UserRole[];
 
 type FormState = {
   name:       string;
@@ -62,7 +42,12 @@ type FormState = {
 
 function EmployeesContent() {
   const { data: employees, loading, error, update, remove, refetch, setData } = useEmployees();
+  const { data: departments } = useDepartments();
   const { userRole } = usePermissions();
+  const assignableRoles: UserRole[] =
+    userRole === "super_admin" ? [...TENANT_ROLES, "super_admin"] : TENANT_ROLES;
+  const deptNames = departments.map((d) => d.name);
+  const defaultDept = deptNames[0] ?? "";
   const toast = useToast();
   const isAdmin = userRole === "super_admin";
 
@@ -73,7 +58,7 @@ function EmployeesContent() {
   const [saving,     setSaving]     = useState(false);
   const [showPass,   setShowPass]   = useState(false);
   const [form, setForm] = useState<FormState>({
-    name: "", email: "", password: "", phone: "", department: "الإدارة",
+    name: "", email: "", password: "", phone: "", department: defaultDept,
     role: "employee", status: "نشط", salary: "",
   });
 
@@ -96,7 +81,7 @@ function EmployeesContent() {
 
   const openAdd = () => {
     setEditId(null);
-    setForm({ name: "", email: "", password: "", phone: "", department: "الإدارة", role: "employee", status: "نشط", salary: "" });
+    setForm({ name: "", email: "", password: "", phone: "", department: defaultDept, role: "employee", status: "نشط", salary: "" });
     setShowPass(false);
     setShowModal(true);
   };
@@ -237,7 +222,8 @@ function EmployeesContent() {
     depts:  new Set(employees.map((e) => e.department)).size,
   };
 
-  const uniqueDepts = Array.from(new Set(employees.map((e) => e.department)));
+  const uniqueDepts = Array.from(new Set(employees.map((e) => e.department).filter(Boolean)));
+  const filterDepts = ["الكل", ...Array.from(new Set([...deptNames, ...uniqueDepts]))];
 
   return (
     <DashboardLayout>
@@ -269,7 +255,7 @@ function EmployeesContent() {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            {["الكل", ...DEPARTMENTS, ...uniqueDepts.filter((d) => !DEPARTMENTS.includes(d))].map((d) => (
+            {filterDepts.map((d) => (
               <button
                 key={d}
                 onClick={() => setDeptFilter(d)}
@@ -314,7 +300,7 @@ function EmployeesContent() {
                       <div className="flex items-center gap-3">
                         <div
                           className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                          style={{ background: `linear-gradient(135deg,${deptColors[emp.department] ?? "#22d3ee"},#0a1628)` }}
+                          style={{ background: `linear-gradient(135deg,${departmentColor(emp.department)},#0a1628)` }}
                         >
                           {emp.name.slice(0, 2)}
                         </div>
@@ -325,11 +311,11 @@ function EmployeesContent() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="badge text-xs" style={{ background: `${deptColors[emp.department] ?? "#22d3ee"}20`, color: deptColors[emp.department] ?? "#22d3ee" }}>
+                      <span className="badge text-xs" style={{ background: `${departmentColor(emp.department)}20`, color: departmentColor(emp.department) }}>
                         {emp.department}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{SYS_ROLE_LABELS[emp.role] ?? ROLE_LABELS[emp.role as UserRole] ?? emp.role}</td>
+                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{TENANT_ROLE_LABELS[emp.role] ?? ROLE_LABELS[emp.role as UserRole] ?? emp.role}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-0.5">
                         {[1,2,3,4,5].map((s) => (
@@ -451,14 +437,14 @@ function EmployeesContent() {
                   <label className="block text-xs text-[#8ba3c7] mb-1.5">القسم</label>
                   <select className="input-dark text-sm" value={form.department}
                     onChange={(e) => setForm({ ...form, department: e.target.value })}>
-                    {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                    {(deptNames.length ? deptNames : uniqueDepts).map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs text-[#8ba3c7] mb-1.5">الدور</label>
                   <select className="input-dark text-sm" value={form.role}
                     onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}>
-                    {SYSTEM_ROLES.map((r) => <option key={r} value={r}>{SYS_ROLE_LABELS[r]}</option>)}
+                    {assignableRoles.map((r) => <option key={r} value={r}>{TENANT_ROLE_LABELS[r] ?? ROLE_LABELS[r] ?? r}</option>)}
                   </select>
                 </div>
               </div>

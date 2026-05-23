@@ -20,8 +20,7 @@ const REPORT_TYPES = [
   { id: "monthly",   label: "تقرير شهري", icon: Calendar,    color: "#1e6fd9" },
 ];
 
-const DEPT_NAMES = ["الإدارة", "الهجوم", "الإبداع", "التصميم", "الحملات", "AI Lab"];
-
+import { useDepartments } from "@/hooks/useDepartments";
 import { WS_PAGE, WS_CARD, WS_SURFACE } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard } from "@/components/ui/workspaceUi";
 import { cn } from "@/lib/utils";
@@ -53,6 +52,7 @@ function ReportsContent() {
   const [activeReport, setActiveReport] = useState<ReportId>("monthly");
   const [period, setPeriod]             = useState("هذا الشهر");
 
+  const { data: departments } = useDepartments();
   const { data: employees, loading: loadingEmp }  = useEmployees();
   const { data: clients,   loading: loadingCli }  = useClients();
   const { data: tasks,     loading: loadingTsk }  = useTasks();
@@ -63,9 +63,20 @@ function ReportsContent() {
   const totalIncome  = useMemo(() => txs.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0),  [txs]);
   const totalExpense = useMemo(() => txs.filter((t) => t.type === "مصروف").reduce((s, t) => s + t.amount, 0), [txs]);
 
-  const deptData = useMemo(() =>
-    DEPT_NAMES.map((dept) => ({ name: dept, count: employees.filter((e) => e.department === dept).length })),
-  [employees]);
+  const deptData = useMemo(() => {
+    const names = departments.map((d) => d.name);
+    const fromEmployees = Array.from(new Set(employees.map((e) => e.department).filter(Boolean)));
+    const all = Array.from(new Set([...names, ...fromEmployees]));
+    const rows = all.map((dept) => ({
+      name: dept,
+      count: employees.filter((e) => e.department === dept).length,
+    }));
+    const unassigned = employees.filter(
+      (e) => !e.department || !all.includes(e.department),
+    ).length;
+    if (unassigned > 0) rows.push({ name: "غير مصنف", count: unassigned });
+    return rows;
+  }, [employees, departments]);
 
   const taskStatusData = useMemo(() => [
     { name: "جديدة",       value: tasks.filter((t) => t.status === "جديدة").length,       color: "#22d3ee" },
