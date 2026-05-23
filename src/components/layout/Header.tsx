@@ -19,6 +19,8 @@ import { supabase } from "@/lib/supabase";
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { withTimeout } from "@/lib/asyncHelpers";
+import { withOrganizationScope } from "@/lib/tenantScope";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 
 // Header global-search timeout — a slow Supabase must never hang the dropdown.
 const SEARCH_TIMEOUT = 8_000;
@@ -33,7 +35,11 @@ interface SearchResult {
   icon: React.ElementType;
 }
 
-async function searchSupabase(q: string): Promise<SearchResult[]> {
+async function searchSupabase(
+  q: string,
+  organizationId: string | null,
+  scopeEmployeesToOrg: boolean,
+): Promise<SearchResult[]> {
   if (!q.trim()) return [];
   const lq = `%${q.trim()}%`;
   const out: SearchResult[] = [];
@@ -42,11 +48,19 @@ async function searchSupabase(q: string): Promise<SearchResult[]> {
   let tasksRes:   { data: { id: string; title: string; assignee_name: string }[] | null };
   let employeesRes:{ data: { id: string; name: string; department: string }[] | null };
   try {
+    let employeesQuery = supabase
+      .from("employees")
+      .select("id, name, department")
+      .or(`name.ilike.${lq},email.ilike.${lq}`)
+      .limit(2);
+    if (scopeEmployeesToOrg) {
+      employeesQuery = withOrganizationScope(employeesQuery, organizationId);
+    }
     [clientsRes, tasksRes, employeesRes] = await withTimeout(
       Promise.all([
         supabase.from("clients").select("id, name, city").or(`name.ilike.${lq},phone.ilike.${lq}`).limit(3),
         supabase.from("tasks").select("id, title, assignee_name").ilike("title", lq).limit(3),
-        supabase.from("employees").select("id, name, department").or(`name.ilike.${lq},email.ilike.${lq}`).limit(2),
+        employeesQuery,
       ]),
       SEARCH_TIMEOUT,
     );
@@ -231,6 +245,8 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
   const router = useRouter();
   const { user, logout, loggingOut } = useAuth();
   const { userRole } = usePermissions();
+  const { organizationId, isPlatformAdmin } = useTenantWorkspace();
+  const scopeEmployeesToOrg = Boolean(organizationId) && !isPlatformAdmin;
 
   if (process.env.NODE_ENV === "development") {
     console.log("Header userRole:", userRole);
@@ -254,10 +270,12 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      searchSupabase(query).then(setResults).catch(() => setResults([]));
+      searchSupabase(query, organizationId, scopeEmployeesToOrg)
+        .then(setResults)
+        .catch(() => setResults([]));
     }, 250);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, organizationId, scopeEmployeesToOrg]);
 
   // close all on outside click
   const headerRef = useRef<HTMLElement>(null);

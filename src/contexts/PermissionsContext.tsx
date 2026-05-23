@@ -236,7 +236,20 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
-    withSoftTimeout(getAllProfiles(), PERMS_QUERY_TIMEOUT)
+    (async () => {
+      const { data: me } = await supabase
+        .from("profiles")
+        .select("role, organization_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      const role = String(me?.role ?? "");
+      const orgId = (me?.organization_id as string | null | undefined) ?? null;
+      const scopeProfilesToOrg = Boolean(orgId) && role !== "super_admin";
+      return withSoftTimeout(
+        getAllProfiles(scopeProfilesToOrg ? orgId : undefined),
+        PERMS_QUERY_TIMEOUT,
+      );
+    })()
       .then((profiles) => {
         if (cancelled || !profiles?.length) return;
         setManagedUsers(

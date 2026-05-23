@@ -354,11 +354,15 @@ export async function getUserProfile(userId: string): Promise<DBProfile | null> 
   return (data as DBProfile) ?? null;
 }
 
-export async function getAllProfiles(): Promise<DBProfile[]> {
-  const { data } = await supabase
+export async function getAllProfiles(organizationId?: string | null): Promise<DBProfile[]> {
+  let query = supabase
     .from("profiles")
     .select("id, email, name, role, is_active, department, avatar")
     .order("name");
+  if (organizationId) {
+    query = query.eq("organization_id", organizationId);
+  }
+  const { data } = await query;
   return (data ?? []) as DBProfile[];
 }
 

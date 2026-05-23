@@ -1,4 +1,4 @@
-import type { Permission } from "@/contexts/PermissionsContext";
+import type { Permission, UserRole } from "@/contexts/PermissionsContext";
 
 /** Subscription plan slugs (matches `plans.slug` in owner center). */
 export type PlanSlug = "basic" | "growth" | "advanced";
@@ -283,12 +283,25 @@ export function getRouteLabel(routeId: WorkspaceRouteId, isInternal: boolean): s
     strategy: "استراتيجية المنشأة",
     org: "الهيكل الإداري للمنشأة",
     automation: "مركز الأتمتة",
-    attack: "وكالة الهجوم",
+    attack: "",
     ai: "المساعد الذكي",
     reports: "التقارير والتحليلات",
     settings: "الإعدادات",
   };
   return tenantLabels[routeId];
+}
+
+/** Internal Blumark24 attack agency — never customer-facing navigation. */
+const ATTACK_AGENCY_ROLES: UserRole[] = ["super_admin", "attack_manager"];
+
+export function canAccessAttackAgency(
+  ctx: WorkspaceAccessContext,
+  userRole: UserRole | null,
+): boolean {
+  if (!ctx.isInternal) return false;
+  if (ctx.isPlatformAdmin) return true;
+  if (!userRole) return false;
+  return ATTACK_AGENCY_ROLES.includes(userRole);
 }
 
 export const TENANT_EMPTY_STATE_MSG =
@@ -308,7 +321,13 @@ export function canAccessWorkspaceRoute(
   route: WorkspaceRouteDef,
   ctx: WorkspaceAccessContext,
   hasPermission: (perm: Permission) => boolean,
+  userRole: UserRole | null = null,
 ): boolean {
+  if (route.id === "attack") {
+    if (!canAccessAttackAgency(ctx, userRole)) return false;
+    return satisfiesPermission(route.permission, hasPermission);
+  }
+
   if (ctx.isPlatformAdmin) return true;
 
   if (route.internalOnly && !ctx.isInternal) return false;
@@ -336,9 +355,10 @@ function sortRoutesForNav(
 export function filterNavRoutes(
   ctx: WorkspaceAccessContext,
   hasPermission: (perm: Permission) => boolean,
+  userRole: UserRole | null = null,
 ): WorkspaceRouteDef[] {
   const filtered = WORKSPACE_ROUTES.filter((route) =>
-    canAccessWorkspaceRoute(route, ctx, hasPermission),
+    canAccessWorkspaceRoute(route, ctx, hasPermission, userRole),
   );
   return sortRoutesForNav(filtered, ctx.isInternal);
 }

@@ -104,7 +104,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6 min-w-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-[calc(10rem+env(safe-area-inset-bottom))] lg:p-6 lg:pb-6 min-w-0">
           <WorkspaceRouteGuard>{children}</WorkspaceRouteGuard>
         </main>
       </div>
