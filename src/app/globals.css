@@ -380,3 +380,27 @@ html, body {
 .animate-pulse-slow {
   animation: landing-pulse-slow 4s ease-in-out infinite;
 }
+
+/* ─── Org command board hero ───────────────────────────────────────────────── */
+.org-hero-aurora {
+  background:
+    radial-gradient(120% 80% at 85% 0%, rgba(34, 211, 238, 0.14), transparent 55%),
+    radial-gradient(90% 70% at 10% 100%, rgba(124, 58, 237, 0.12), transparent 50%);
+}
+.org-hero-cube {
+  width: 88px;
+  height: 88px;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(124, 58, 237, 0.2));
+  box-shadow: 0 0 40px rgba(34, 211, 238, 0.25);
+  animation: org-cube-float 5s ease-in-out infinite;
+}
+@keyframes org-cube-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-6px) rotate(3deg); }
+}
+.org-tree-scroll {
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}

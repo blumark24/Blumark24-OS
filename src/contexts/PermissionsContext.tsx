@@ -129,6 +129,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   // to the manager's own organization_id.
   organization_manager: [
     "view_dashboard",
+    "manage_board",
     "view_employees",
     "manage_tasks",
     "manage_clients",

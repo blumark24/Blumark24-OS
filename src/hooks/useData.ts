@@ -509,7 +509,9 @@ async function fetchActivities(): Promise<Activity[]> {
     .order("timestamp", { ascending: false })
     .limit(10);
   if (error) throw new Error(error.message);
-  return ((data ?? []) as Record<string, unknown>[]).map(activityFromDB);
+  return ((data ?? []) as Record<string, unknown>[])
+    .filter((row) => !String(row.description ?? "").startsWith("ORG_STRUCTURE_JSON:"))
+    .map(activityFromDB);
 }
 
 export function useActivities() {
