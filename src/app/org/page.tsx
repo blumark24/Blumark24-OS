@@ -13,7 +13,9 @@ import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { useBoardMembers } from "@/hooks/useData";
 import { TENANT_EMPTY_STATE_MSG, TENANT_EMPTY_STATE_HINT } from "@/lib/features/packageFeatures";
 import type { BoardMember } from "@/lib/db";
-import { WS_PAGE, WS_CARD, WS_GLASS_MODAL, WS_SURFACE } from "@/components/ui/workspaceVisual";
+import {
+  WS_PAGE, WS_CARD, WS_GLASS_MODAL, WS_HERO, WS_MUTED, WS_SECTION_TITLE, WS_SUBTEXT,
+} from "@/components/ui/workspaceVisual";
 import { PageHero, WorkspaceEmpty } from "@/components/ui/workspaceUi";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +42,7 @@ const OFFENSE_DEPTS = [
   { name: "العلاقات التجارية", icon: "💼", desc: "بناء شبكة الأعمال"     },
 ];
 
-// ─── Board Member Modal ───────────────────────────────────────────────────────
+// ─── Modals ───────────────────────────────────────────────────────────────────
 
 const EMPTY_FORM = { name: "", role: "", email: "", phone: "", status: "نشط" as BoardMember["status"] };
 
@@ -80,26 +82,29 @@ function BoardMemberModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "var(--ws-scrim)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}
+    >
       <div className={cn(WS_GLASS_MODAL, "max-w-md space-y-4")}>
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-white font-heading font-bold text-lg flex items-center gap-2">
-            <UserCheck size={18} className="text-[#22d3ee]" />
+          <h3 className="text-[color:var(--ws-text-primary)] font-heading font-bold text-lg flex items-center gap-2">
+            <UserCheck size={18} className="text-cyan-300" />
             {member ? "تعديل عضو مجلس الإدارة" : "إضافة عضو جديد"}
           </h3>
-          <button onClick={onClose} className="text-[#8ba3c7] hover:text-white transition-colors">
+          <button onClick={onClose} className="text-[color:var(--ws-text-secondary)] hover:text-[color:var(--ws-text-primary)] transition-colors touch-manipulation" aria-label="إغلاق">
             <X size={18} />
           </button>
         </div>
 
         <div>
-          <label className="block text-xs text-[#8ba3c7] mb-1.5">الاسم الكامل *</label>
+          <label className={cn(WS_MUTED, "block text-xs mb-1.5")}>الاسم الكامل *</label>
           <input className="input-dark text-sm" placeholder="مثال: عبدالله الشهري" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
+          {errors.name && <p className="text-rose-400 text-xs mt-1">{errors.name}</p>}
         </div>
 
         <div>
-          <label className="block text-xs text-[#8ba3c7] mb-1.5">المنصب *</label>
+          <label className={cn(WS_MUTED, "block text-xs mb-1.5")}>المنصب *</label>
           <select className="input-dark text-sm" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
             <option value="">-- اختر المنصب --</option>
             <option>رئيس مجلس الإدارة</option>
@@ -108,11 +113,11 @@ function BoardMemberModal({
             <option>أمين السر</option>
             <option>مستشار</option>
           </select>
-          {errors.role && <p className="text-red-400 text-xs mt-1">{errors.role}</p>}
+          {errors.role && <p className="text-rose-400 text-xs mt-1">{errors.role}</p>}
         </div>
 
         <div>
-          <label className="block text-xs text-[#8ba3c7] mb-1.5 flex items-center gap-1">
+          <label className={cn(WS_MUTED, "block text-xs mb-1.5 flex items-center gap-1")}>
             <Mail size={11} />
             البريد الإلكتروني
           </label>
@@ -120,7 +125,7 @@ function BoardMemberModal({
         </div>
 
         <div>
-          <label className="block text-xs text-[#8ba3c7] mb-1.5 flex items-center gap-1">
+          <label className={cn(WS_MUTED, "block text-xs mb-1.5 flex items-center gap-1")}>
             <Phone size={11} />
             رقم الجوال
           </label>
@@ -128,14 +133,21 @@ function BoardMemberModal({
         </div>
 
         <div>
-          <label className="block text-xs text-[#8ba3c7] mb-1.5">الحالة</label>
+          <label className={cn(WS_MUTED, "block text-xs mb-1.5")}>الحالة</label>
           <div className="flex gap-3">
             {(["نشط", "غير نشط"] as const).map((s) => (
               <button
                 key={s}
                 type="button"
                 onClick={() => setForm({ ...form, status: s })}
-                className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${form.status === s ? s === "نشط" ? "border-emerald-500 bg-emerald-500/10 text-emerald-400" : "border-red-500/50 bg-red-500/10 text-red-400" : "border-[#1e3a5f] text-[#8ba3c7] hover:text-white"}`}
+                className={cn(
+                  "flex-1 py-2 rounded-xl text-sm font-medium border transition-all min-h-[44px] touch-manipulation",
+                  form.status === s
+                    ? s === "نشط"
+                      ? "border-emerald-400/55 bg-[var(--ws-emerald-soft)] text-emerald-300"
+                      : "border-rose-400/55 bg-[var(--ws-rose-soft)] text-rose-300"
+                    : "border-[var(--ws-border-subtle)] text-[color:var(--ws-text-secondary)] hover:text-[color:var(--ws-text-primary)]",
+                )}
               >
                 {s}
               </button>
@@ -144,8 +156,8 @@ function BoardMemberModal({
         </div>
 
         <div className="flex gap-3 pt-2">
-          <button onClick={onClose} disabled={saving} className="btn-secondary flex-1 py-2 text-sm">إلغاء</button>
-          <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-2 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+          <button onClick={onClose} disabled={saving} className="btn-secondary flex-1 py-2 text-sm touch-manipulation">إلغاء</button>
+          <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-2 text-sm flex items-center justify-center gap-2 disabled:opacity-50 touch-manipulation">
             {saving
               ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               : <Save size={14} />
@@ -160,20 +172,23 @@ function BoardMemberModal({
 
 function DeleteConfirmModal({ name, onConfirm, onClose }: { name: string; onConfirm: () => void; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "var(--ws-scrim)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}
+    >
       <div className={cn(WS_GLASS_MODAL, "max-w-sm text-center space-y-4")}>
-        <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto">
-          <Trash2 size={24} className="text-red-400" />
+        <div className="w-14 h-14 rounded-2xl bg-[var(--ws-rose-soft)] flex items-center justify-center mx-auto">
+          <Trash2 size={24} className="text-rose-400" />
         </div>
         <div>
-          <h3 className="text-white font-heading font-bold text-lg">تأكيد الحذف</h3>
-          <p className="text-[#8ba3c7] text-sm mt-2">
-            هل أنت متأكد من حذف <span className="text-white font-medium">{name}</span> من مجلس الإدارة؟
+          <h3 className="text-[color:var(--ws-text-primary)] font-heading font-bold text-lg">تأكيد الحذف</h3>
+          <p className={cn(WS_MUTED, "text-sm mt-2")}>
+            هل أنت متأكد من حذف <span className="text-[color:var(--ws-text-primary)] font-medium">{name}</span> من مجلس الإدارة؟
           </p>
         </div>
         <div className="flex gap-3">
-          <button onClick={onClose} className="btn-secondary flex-1 py-2 text-sm">إلغاء</button>
-          <button onClick={onConfirm} className="flex-1 py-2 rounded-xl text-sm font-medium text-white bg-red-500 hover:bg-red-600 transition-colors">حذف</button>
+          <button onClick={onClose} className="btn-secondary flex-1 py-2 text-sm touch-manipulation">إلغاء</button>
+          <button onClick={onConfirm} className="flex-1 py-2 rounded-xl text-sm font-medium text-white bg-rose-500 hover:bg-rose-600 transition-colors touch-manipulation">حذف</button>
         </div>
       </div>
     </div>
@@ -186,31 +201,31 @@ function BoardCard({
   member: BoardMember; canManage: boolean; onEdit: () => void; onDelete: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center gap-2 px-4 py-4 rounded-2xl border border-[#22d3ee]/30 bg-[#22d3ee]/10 text-center min-w-[140px] relative group">
+    <div className="flex flex-col items-center gap-2 px-4 py-4 rounded-2xl border border-[var(--ws-cyan-ring)] bg-[var(--ws-cyan-soft)] text-center min-w-[140px] relative group">
       {canManage && (
-        <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={onEdit} className="w-6 h-6 rounded-lg bg-[#22d3ee]/20 hover:bg-[#22d3ee]/40 flex items-center justify-center transition-colors" title="تعديل">
-            <Pencil size={11} className="text-[#22d3ee]" />
+        <div className="absolute top-2 start-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={onEdit} className="w-7 h-7 rounded-lg bg-[var(--ws-cyan-soft)] hover:bg-[var(--ws-cyan-ring)] flex items-center justify-center transition-colors touch-manipulation" title="تعديل" aria-label={`تعديل ${member.name}`}>
+            <Pencil size={11} className="text-cyan-300" />
           </button>
-          <button onClick={onDelete} className="w-6 h-6 rounded-lg bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-colors" title="حذف">
-            <Trash2 size={11} className="text-red-400" />
+          <button onClick={onDelete} className="w-7 h-7 rounded-lg bg-[var(--ws-rose-soft)] hover:bg-[var(--ws-rose-ring)] flex items-center justify-center transition-colors touch-manipulation" title="حذف" aria-label={`حذف ${member.name}`}>
+            <Trash2 size={11} className="text-rose-400" />
           </button>
         </div>
       )}
-      <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ background: "linear-gradient(135deg,#22d3ee,#1e6fd9)" }}>
+      <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ws-brand-prism">
         {member.name.slice(0, 2)}
       </div>
       <div>
-        <div className="text-white text-sm font-medium leading-tight">{member.name}</div>
-        <div className="text-[#22d3ee] text-[11px] mt-0.5">{member.role}</div>
+        <div className="text-[color:var(--ws-text-primary)] text-sm font-medium leading-tight">{member.name}</div>
+        <div className="text-cyan-300 text-[11px] mt-0.5">{member.role}</div>
         {member.email && (
-          <div className="text-[#4a6a99] text-[10px] mt-0.5 flex items-center justify-center gap-1">
+          <div className={cn(WS_SUBTEXT, "text-[10px] mt-0.5 flex items-center justify-center gap-1")}>
             <Mail size={9} />
             {member.email}
           </div>
         )}
         {member.phone && (
-          <div className="text-[#4a6a99] text-[10px] mt-0.5 flex items-center justify-center gap-1">
+          <div className={cn(WS_SUBTEXT, "text-[10px] mt-0.5 flex items-center justify-center gap-1")}>
             <Phone size={9} />
             {member.phone}
           </div>
@@ -225,11 +240,16 @@ function BoardCard({
 
 function DeptCard({ name, icon, desc, accentColor }: { name: string; icon: string; desc: string; accentColor: string }) {
   return (
-    <div className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border text-center transition-all hover:-translate-y-0.5"
-      style={{ background: `${accentColor}10`, borderColor: `${accentColor}30` }}>
-      <span className="text-xl">{icon}</span>
-      <div className="text-white text-xs font-medium">{name}</div>
-      <div className="text-[10px] leading-tight" style={{ color: `${accentColor}99` }}>{desc}</div>
+    <div
+      className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border text-center transition-all hover:-translate-y-0.5"
+      style={{
+        background: `color-mix(in srgb, ${accentColor} 10%, transparent)`,
+        borderColor: `color-mix(in srgb, ${accentColor} 30%, transparent)`,
+      }}
+    >
+      <span className="text-xl" aria-hidden="true">{icon}</span>
+      <div className="text-[color:var(--ws-text-primary)] text-xs font-medium">{name}</div>
+      <div className="text-[10px] leading-tight" style={{ color: `color-mix(in srgb, ${accentColor} 80%, var(--ws-text-secondary))` }}>{desc}</div>
     </div>
   );
 }
@@ -239,22 +259,32 @@ function AgencyBlock({ title, subtitle, icon: Icon, accentColor, depts, descript
   accentColor: string; depts: typeof DEFENSE_DEPTS; description: string;
 }) {
   return (
-    <div className="flex-1 rounded-2xl border p-5 flex flex-col gap-4"
-      style={{ background: `${accentColor}08`, borderColor: `${accentColor}25`, backdropFilter: "blur(12px)" }}>
+    <div
+      className="flex-1 rounded-2xl border p-5 flex flex-col gap-4"
+      style={{
+        background: `color-mix(in srgb, ${accentColor} 8%, var(--ws-surface-1))`,
+        borderColor: `color-mix(in srgb, ${accentColor} 25%, transparent)`,
+        backdropFilter: "blur(12px)",
+      }}
+    >
       <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
-          style={{ background: `linear-gradient(135deg,${accentColor},${accentColor}99)` }}>
+        <div
+          className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+          style={{ background: `linear-gradient(135deg,${accentColor},color-mix(in srgb, ${accentColor} 60%, #0a1628))` }}
+        >
           <Icon size={20} className="text-white" />
         </div>
         <div>
-          <div className="text-white font-heading font-bold text-base">{title}</div>
+          <div className="text-[color:var(--ws-text-primary)] font-heading font-bold text-base">{title}</div>
           <div className="text-[11px] mt-0.5" style={{ color: accentColor }}>{subtitle}</div>
         </div>
       </div>
-      <p className="text-xs text-[#8ba3c7] leading-relaxed border-t border-[#1e3a5f]/60 pt-3">{description}</p>
+      <p className={cn(WS_MUTED, "text-xs leading-relaxed border-t border-[var(--ws-border-subtle)] pt-3")}>{description}</p>
       <div className="flex justify-center">
-        <div className="flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full"
-          style={{ background: `${accentColor}15`, color: accentColor }}>
+        <div
+          className="flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full"
+          style={{ background: `color-mix(in srgb, ${accentColor} 15%, transparent)`, color: accentColor }}
+        >
           <Users size={11} />
           <span>الأقسام التابعة ({depts.length})</span>
         </div>
@@ -326,7 +356,11 @@ export default function OrgPage() {
           subtitle={isInternal ? "المخطط التنظيمي لشركة Blumark24" : "المخطط التنظيمي للمنشأة"}
         >
           {canManage && (
-            <button onClick={handleOpenAdd} className="btn-primary flex items-center gap-2 text-sm min-h-11 touch-manipulation" title={boardMembers.length >= MAX_BOARD ? "الحد الأقصى 3 أعضاء" : "إضافة عضو"}>
+            <button
+              onClick={handleOpenAdd}
+              className="btn-primary flex items-center gap-2 text-sm min-h-11 touch-manipulation"
+              title={boardMembers.length >= MAX_BOARD ? "الحد الأقصى 3 أعضاء" : "إضافة عضو"}
+            >
               <Plus size={16} />
               إضافة عضو مجلس
             </button>
@@ -334,8 +368,8 @@ export default function OrgPage() {
         </PageHero>
 
         {wsLoading && (
-          <div className={cn(WS_SURFACE, "p-8 text-center text-[#8ba3c7] text-sm")}>
-            جارٍ تحميل الهيكل الإداري...
+          <div className={cn(WS_HERO, "p-8 text-center")}>
+            <span className={cn(WS_MUTED, "text-sm")}>جارٍ تحميل الهيكل الإداري...</span>
           </div>
         )}
 
@@ -350,75 +384,81 @@ export default function OrgPage() {
 
         {!wsLoading && isInternal && (
           <>
-        {canManage && boardMembers.length >= MAX_BOARD && (
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
-            <AlertCircle size={15} />
-            مجلس الإدارة مكتمل — الحد الأقصى {MAX_BOARD} أعضاء
-          </div>
-        )}
-
-        {/* Level 1: Board — internal Blumark24 org only */}
-        <div className="flex flex-col items-center gap-3">
-          <div className={cn(WS_SURFACE, "w-full p-5 border border-cyan-300/30")}>
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg,#22d3ee,#1e6fd9)" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2L3 7v10l9 5 9-5V7L12 2z" fill="white" fillOpacity="0.9" />
-                </svg>
-              </div>
-              <div className="text-center">
-                <div className="text-white font-heading font-bold text-lg">مجلس الإدارة</div>
-                <div className="text-[#22d3ee] text-xs">Board of Directors · {boardMembers.length}/{MAX_BOARD} أعضاء</div>
-              </div>
-            </div>
-
-            {boardMembers.length === 0 ? (
-              <div className="text-center py-8">
-                <Briefcase size={32} className="text-[#4a6a99] mx-auto mb-3" />
-                <p className="text-[#8ba3c7] text-sm">لا يوجد أعضاء حتى الآن</p>
-                {canManage && (
-                  <button onClick={handleOpenAdd} className="btn-primary mt-3 text-sm px-4 py-2 flex items-center gap-2 mx-auto">
-                    <Plus size={14} />
-                    إضافة أول عضو
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-wrap justify-center gap-3">
-                {boardMembers.map((m) => (
-                  <BoardCard
-                    key={m.id}
-                    member={m}
-                    canManage={canManage}
-                    onEdit={() => { setEditMember(m); setShowModal(true); }}
-                    onDelete={() => setDeleteTarget(m)}
-                  />
-                ))}
+            {canManage && boardMembers.length >= MAX_BOARD && (
+              <div
+                className="flex items-center gap-2 p-3 rounded-xl text-sm"
+                style={{ background: "var(--ws-amber-soft)", border: "1px solid var(--ws-amber-ring)", color: "var(--ws-amber)" }}
+                role="status"
+              >
+                <AlertCircle size={15} />
+                مجلس الإدارة مكتمل — الحد الأقصى {MAX_BOARD} أعضاء
               </div>
             )}
-          </div>
 
-          {/* Connectors to the internal agencies */}
-          <div className="flex flex-col items-center gap-0">
-            <div className="w-0.5 h-6 bg-gradient-to-b from-[#22d3ee] to-[#1e6fd9]" />
-            <ChevronDown size={16} className="text-[#22d3ee]" />
-          </div>
+            {/* Level 1: Board */}
+            <div className="flex flex-col items-center gap-3">
+              <div className={cn(WS_HERO, "w-full p-5", "border-[var(--ws-cyan-ring)]")}>
+                <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_88%_-25%,var(--ws-cyan-soft),transparent_55%)]" />
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center gap-2 mb-4">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center ws-brand-prism">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2L3 7v10l9 5 9-5V7L12 2z" fill="white" fillOpacity="0.9" />
+                      </svg>
+                    </div>
+                    <div className="text-center">
+                      <div className={cn(WS_SECTION_TITLE, "text-lg")}>مجلس الإدارة</div>
+                      <div className="text-cyan-300 text-xs">Board of Directors · {boardMembers.length}/{MAX_BOARD} أعضاء</div>
+                    </div>
+                  </div>
 
-          <div className="text-xs text-[#8ba3c7] bg-[#1a3356]/50 px-3 py-1 rounded-full border border-[#1e3a5f]">
-            وكالتان رئيسيتان
-          </div>
+                  {boardMembers.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Briefcase size={32} className="text-[color:var(--ws-text-tertiary)] mx-auto mb-3" />
+                      <p className={cn(WS_MUTED, "text-sm")}>لا يوجد أعضاء حتى الآن</p>
+                      {canManage && (
+                        <button onClick={handleOpenAdd} className="btn-primary mt-3 text-sm px-4 py-2 flex items-center gap-2 mx-auto touch-manipulation">
+                          <Plus size={14} />
+                          إضافة أول عضو
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap justify-center gap-3">
+                      {boardMembers.map((m) => (
+                        <BoardCard
+                          key={m.id}
+                          member={m}
+                          canManage={canManage}
+                          onEdit={() => { setEditMember(m); setShowModal(true); }}
+                          onDelete={() => setDeleteTarget(m)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-          <div className="relative w-full flex justify-center">
-            <div className="absolute top-0 left-1/4 right-1/4 h-0.5 bg-gradient-to-r from-[#1e6fd9] via-[#22d3ee]/40 to-[#ff7a3d]" />
-            <div className="flex justify-between w-1/2 pt-0">
-              <ChevronDown size={16} className="text-[#1e6fd9]" />
-              <ChevronDown size={16} className="text-[#ff7a3d]" />
+              {/* Connectors */}
+              <div className="flex flex-col items-center gap-0">
+                <div className="w-0.5 h-6 bg-gradient-to-b from-cyan-400 to-[#1e6fd9]" />
+                <ChevronDown size={16} className="text-cyan-400" />
+              </div>
+
+              <div className={cn(WS_MUTED, "text-xs bg-[var(--ws-surface-2)] px-3 py-1 rounded-full border border-[var(--ws-border-subtle)]")}>
+                وكالتان رئيسيتان
+              </div>
+
+              <div className="relative w-full flex justify-center">
+                <div className="absolute top-0 inset-inline-x-1/4 h-0.5 bg-gradient-to-r from-[#1e6fd9] via-[var(--ws-cyan-ring)] to-[#ff7a3d]" />
+                <div className="flex justify-between w-1/2 pt-0">
+                  <ChevronDown size={16} className="text-[#1e6fd9]" />
+                  <ChevronDown size={16} className="text-[#ff7a3d]" />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Level 2 — internal Blumark24 agency/department scaffold */}
-        <>
+            {/* Level 2 — internal Blumark24 agency/department scaffold */}
             <div className="flex flex-col lg:flex-row gap-5">
               <AgencyBlock
                 title="وكالة الدفاع"
@@ -440,9 +480,9 @@ export default function OrgPage() {
 
             {/* Legend */}
             <div className={cn(WS_CARD, "p-4")}>
-              <div className="flex flex-wrap items-center gap-6 text-xs text-[#8ba3c7]">
+              <div className={cn(WS_MUTED, "flex flex-wrap items-center gap-6 text-xs")}>
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-[#22d3ee]" />
+                  <div className="w-3 h-3 rounded-full bg-cyan-400" />
                   <span>مجلس الإدارة</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -453,12 +493,11 @@ export default function OrgPage() {
                   <div className="w-3 h-3 rounded-full bg-[#ff7a3d]" />
                   <span>وكالة الهجوم (خارجي)</span>
                 </div>
-                <div className="mr-auto text-[11px]">
+                <div className="ms-auto text-[11px]">
                   إجمالي الأقسام: {DEFENSE_DEPTS.length + OFFENSE_DEPTS.length} قسم
                 </div>
               </div>
             </div>
-        </>
           </>
         )}
       </div>

@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import { FUND_DISTRIBUTION, formatCurrency } from "@/lib/utils";
-import { DollarSign, Plus, TrendingUp, TrendingDown, X, ArrowUpRight, Edit2, Trash2 } from "lucide-react";
+import { DollarSign, Plus, TrendingUp, TrendingDown, X, ArrowUpRight, Edit2, Trash2, Wallet } from "lucide-react";
 import type { Transaction } from "@/types";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
@@ -15,11 +15,21 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell,
 } from "recharts";
-import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
-import { PageHero, GlassPanel } from "@/components/ui/workspaceUi";
+import {
+  WS_PAGE, WS_CARD, WS_GLASS_MODAL, WS_SECTION_TITLE, WS_MUTED, WS_SUBTEXT,
+  kpiTheme,
+} from "@/components/ui/workspaceVisual";
+import { PageHero, GlassPanel, KpiStatCard } from "@/components/ui/workspaceUi";
 import { cn } from "@/lib/utils";
 
 const ARABIC_MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+
+const TOOLTIP_STYLE = {
+  background: "var(--ws-surface-modal)",
+  border: "1px solid var(--ws-border-strong)",
+  borderRadius: "12px",
+  color: "var(--ws-text-primary)",
+};
 
 type FormState = {
   type:        "دخل" | "مصروف";
@@ -184,149 +194,176 @@ function FinanceContent() {
           )}
         </PageHero>
 
+        {/* Income / Expense / Net — Crystal accent KPIs.
+            Semantic mapping: emerald=income, rose=expense, cyan=net. */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 min-w-0">
-          <div className={cn(WS_CARD, "p-5 relative overflow-hidden")}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 rounded-xl bg-emerald-500/20"><TrendingUp size={20} className="text-emerald-400" /></div>
-              <span className="text-xs text-emerald-400 flex items-center gap-1"><ArrowUpRight size={12} />{momChanges.income}</span>
-            </div>
-            <div className="text-2xl font-heading font-bold text-white">{formatCurrency(totalIncome)}</div>
-            <div className="text-sm text-[#8ba3c7] mt-1">إجمالي الدخل</div>
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-400 to-emerald-600" />
-          </div>
-          <div className={cn(WS_CARD, "p-5 relative overflow-hidden")}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 rounded-xl bg-red-500/20"><TrendingDown size={20} className="text-red-400" /></div>
-              <span className="text-xs text-red-400 flex items-center gap-1"><ArrowUpRight size={12} />{momChanges.expense}</span>
-            </div>
-            <div className="text-2xl font-heading font-bold text-white">{formatCurrency(totalExpense)}</div>
-            <div className="text-sm text-[#8ba3c7] mt-1">إجمالي المصروف</div>
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-400 to-red-600" />
-          </div>
-          <div className={cn(WS_CARD, "p-5 relative overflow-hidden")}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 rounded-xl bg-cyan-500/20"><DollarSign size={20} className="text-cyan-400" /></div>
-              <span className="text-xs text-cyan-400 flex items-center gap-1"><ArrowUpRight size={12} />{momChanges.profit}</span>
-            </div>
-            <div className="text-2xl font-heading font-bold" style={{ color: netProfit >= 0 ? "#10b981" : "#ef4444" }}>
-              {formatCurrency(netProfit)}
-            </div>
-            <div className="text-sm text-[#8ba3c7] mt-1">صافي الربح</div>
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-400 to-blue-500" />
-          </div>
+          <KpiStatCard
+            label="إجمالي الدخل"
+            value={`${formatCurrency(totalIncome)}`}
+            subtitle="SAR"
+            trend={momChanges.income}
+            icon={TrendingUp}
+            accent="emerald"
+            showLive={false}
+            showSparkline={false}
+          />
+          <KpiStatCard
+            label="إجمالي المصروف"
+            value={`${formatCurrency(totalExpense)}`}
+            subtitle="SAR"
+            trend={momChanges.expense}
+            icon={TrendingDown}
+            accent="rose"
+            showLive={false}
+            showSparkline={false}
+          />
+          <KpiStatCard
+            label="صافي الربح"
+            value={`${formatCurrency(netProfit)}`}
+            subtitle="SAR"
+            trend={momChanges.profit}
+            icon={DollarSign}
+            accent={netProfit >= 0 ? "cyan" : "rose"}
+            showLive={false}
+            showSparkline={false}
+          />
         </div>
 
         {showCompanyFund && (
-        <div>
-          <h2 className="text-white font-medium mb-3">
-            توزيع الصناديق <span className="text-xs text-[#8ba3c7]">(تلقائي عند إدخال دخل جديد)</span>
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 min-w-0">
-            {fundBalances.map((fund) => (
-              <div key={fund.key} className={cn(WS_CARD, "p-4 relative overflow-hidden")}>
-                <div className="text-lg font-heading font-bold text-white">{formatCurrency(fund.balance)}</div>
-                <div className="text-xs text-[#8ba3c7] mt-1">{fund.label}</div>
-                <div className="text-xs font-bold mt-2" style={{ color: fund.color }}>{fund.pct * 100}%</div>
-                <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: fund.color }} />
-              </div>
-            ))}
+          <div>
+            <h2 className={cn(WS_SECTION_TITLE, "text-base mb-3 flex items-center gap-2")}>
+              <Wallet size={16} className="text-cyan-300" />
+              توزيع الصناديق
+              <span className={cn(WS_SUBTEXT, "text-xs font-normal")}>
+                (تلقائي عند إدخال دخل جديد)
+              </span>
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 min-w-0">
+              {fundBalances.map((fund) => (
+                <div key={fund.key} className={cn(WS_CARD, "p-4 relative overflow-hidden")}>
+                  <div className="text-lg font-heading font-bold text-[color:var(--ws-text-primary)]">
+                    {formatCurrency(fund.balance)}
+                  </div>
+                  <div className={cn(WS_MUTED, "text-xs mt-1")}>{fund.label}</div>
+                  <div className="text-xs font-bold mt-2" style={{ color: fund.color }}>{fund.pct * 100}%</div>
+                  <ArrowUpRight
+                    className="absolute end-3 top-3 opacity-50"
+                    size={14}
+                    style={{ color: fund.color }}
+                    aria-hidden="true"
+                  />
+                  <div className="absolute bottom-0 inset-inline-x-0 h-0.5" style={{ background: fund.color }} />
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <GlassPanel className={cn("p-5", showCompanyFund ? "lg:col-span-2" : "lg:col-span-3")}>
-            <h3 className="text-white font-medium mb-4">مقارنة الإيرادات والمصروفات</h3>
+          <GlassPanel title="مقارنة الإيرادات والمصروفات" className={showCompanyFund ? "lg:col-span-2" : "lg:col-span-3"}>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.5)" />
-                <XAxis dataKey="month" tick={{ fill: "#8ba3c7", fontSize: 11 }} />
-                <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip contentStyle={{ background: "#0d1f3c", border: "1px solid #1e3a5f", borderRadius: "10px", color: "#e2e8f0" }} formatter={(v: number) => `${formatCurrency(v)} SAR`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--ws-border-subtle)" />
+                <XAxis dataKey="month" tick={{ fill: "var(--ws-text-secondary)", fontSize: 11 }} />
+                <YAxis tick={{ fill: "var(--ws-text-secondary)", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => `${formatCurrency(v)} SAR`} />
                 <Legend />
-                <Line type="monotone" dataKey="income"  stroke="#10b981" strokeWidth={2.5} dot={false} name="الإيرادات" />
-                <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2}   dot={false} name="المصروفات" strokeDasharray="4 2" />
+                <Line type="monotone" dataKey="income"  stroke="var(--ws-emerald)" strokeWidth={2.5} dot={false} name="الإيرادات" />
+                <Line type="monotone" dataKey="expense" stroke="var(--ws-rose)"    strokeWidth={2}   dot={false} name="المصروفات" strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
           </GlassPanel>
 
           {showCompanyFund && (
-          <GlassPanel className="p-5">
-            <h3 className="text-white font-medium mb-4">توزيع الصناديق</h3>
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={donutData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" paddingAngle={3}>
-                  {donutData.map((_, i) => <Cell key={i} fill={fundBalances[i].color} />)}
-                </Pie>
-                <Tooltip contentStyle={{ background: "#0d1f3c", border: "1px solid #1e3a5f", borderRadius: "10px", color: "#e2e8f0" }} formatter={(v) => `${v}%`} />
-                <Legend formatter={(v) => <span className="text-xs text-[#8ba3c7]">{v}</span>} />
-              </PieChart>
-            </ResponsiveContainer>
-          </GlassPanel>
+            <GlassPanel title="توزيع الصناديق">
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={donutData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" paddingAngle={3}>
+                    {donutData.map((_, i) => <Cell key={i} fill={fundBalances[i].color} />)}
+                  </Pie>
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => `${v}%`} />
+                  <Legend formatter={(v) => <span className={cn(WS_MUTED, "text-xs")}>{v}</span>} />
+                </PieChart>
+              </ResponsiveContainer>
+            </GlassPanel>
           )}
         </div>
 
         {loading && (
-          <div className="text-center py-8 text-[#8ba3c7] text-sm">جارٍ تحميل المعاملات...</div>
+          <div className={cn("text-center py-8 text-sm", WS_MUTED)}>جارٍ تحميل المعاملات...</div>
         )}
 
         {/* Transactions Table */}
         {!loading && (
           <div className={cn(WS_CARD, "overflow-hidden p-0")}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e3a5f]">
-              <h3 className="text-white font-medium">سجل المعاملات</h3>
-              <span className="text-xs text-[#8ba3c7]">{transactions.length} معاملة</span>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--ws-border-subtle)]">
+              <h3 className={cn(WS_SECTION_TITLE, "text-base")}>سجل المعاملات</h3>
+              <span className={cn(WS_MUTED, "text-xs")}>{transactions.length} معاملة</span>
             </div>
             <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
-              <thead>
-                <tr className="border-b border-[#1e3a5f]">
-                  {["النوع", "الوصف", "الفئة", "التاريخ", "المبلغ", "العمليات", "الادخار", ""].map((h) => (
-                    <th key={h} className="text-right text-[#8ba3c7] font-medium px-4 py-3">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx) => (
-                  <tr key={tx.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
-                    <td className="px-4 py-3">
-                      <span className={`badge ${tx.type === "دخل" ? "status-active" : "status-inactive"}`}>
-                        {tx.type === "دخل" ? "↑ دخل" : "↓ مصروف"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-white">{tx.description}</td>
-                    <td className="px-4 py-3 text-[#8ba3c7]">{tx.category}</td>
-                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{tx.date}</td>
-                    <td className="px-4 py-3 font-bold" style={{ color: tx.type === "دخل" ? "#10b981" : "#ef4444" }}>
-                      {tx.type === "دخل" ? "+" : "-"}{formatCurrency(tx.amount)} SAR
-                    </td>
-                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">
-                      {tx.funds ? formatCurrency(tx.funds.operations) : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">
-                      {tx.funds ? formatCurrency(tx.funds.savings) : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {isAdmin && (
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => openEdit(tx)} aria-label="تعديل المعاملة" className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
-                            <Edit2 size={13} />
-                          </button>
-                          <button onClick={() => handleDelete(tx)} aria-label="حذف المعاملة" className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all">
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      )}
-                    </td>
+              <table className="w-full text-sm min-w-[640px]">
+                <thead>
+                  <tr className="border-b border-[var(--ws-border-subtle)] bg-[var(--ws-surface-2)]">
+                    {["النوع", "الوصف", "الفئة", "التاريخ", "المبلغ", "العمليات", "الادخار", ""].map((h) => (
+                      <th key={h} className="text-start text-[color:var(--ws-text-secondary)] font-medium px-4 py-3">{h}</th>
+                    ))}
                   </tr>
-                ))}
-                {transactions.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-8 text-[#8ba3c7]">
-                    {!isInternal ? (<><span className="block">{TENANT_EMPTY_STATE_MSG}</span><span className="block text-xs mt-2 text-[#6b87ab]">{TENANT_EMPTY_STATE_HINT}</span></>) : "لا توجد معاملات بعد"}
-                  </td></tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {transactions.map((tx) => {
+                    const isIncome = tx.type === "دخل";
+                    return (
+                      <tr key={tx.id} className="table-row border-b border-[var(--ws-border-subtle)] last:border-0">
+                        <td className="px-4 py-3">
+                          <span className={`badge ${isIncome ? "status-active" : "status-inactive"}`}>
+                            {isIncome ? "↑ دخل" : "↓ مصروف"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-[color:var(--ws-text-primary)]">{tx.description}</td>
+                        <td className={cn("px-4 py-3", WS_MUTED)}>{tx.category}</td>
+                        <td className={cn("px-4 py-3 text-xs", WS_MUTED)}>{tx.date}</td>
+                        <td className="px-4 py-3 font-bold" style={{ color: isIncome ? "var(--ws-emerald)" : "var(--ws-rose)" }}>
+                          {isIncome ? "+" : "-"}{formatCurrency(tx.amount)} SAR
+                        </td>
+                        <td className={cn("px-4 py-3 text-xs", WS_MUTED)}>{tx.funds ? formatCurrency(tx.funds.operations) : "—"}</td>
+                        <td className={cn("px-4 py-3 text-xs", WS_MUTED)}>{tx.funds ? formatCurrency(tx.funds.savings) : "—"}</td>
+                        <td className="px-4 py-3">
+                          {isAdmin && (
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => openEdit(tx)} aria-label="تعديل المعاملة" className="p-1.5 rounded-lg text-[color:var(--ws-text-secondary)] hover:text-cyan-300 hover:bg-[var(--ws-cyan-soft)] transition-all">
+                                <Edit2 size={13} />
+                              </button>
+                              <button onClick={() => handleDelete(tx)} aria-label="حذف المعاملة" className="p-1.5 rounded-lg text-[color:var(--ws-text-secondary)] hover:text-rose-400 hover:bg-[var(--ws-rose-soft)] transition-all">
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {transactions.length === 0 && (
+                    <tr>
+                      <td colSpan={8}>
+                        <div className="flex flex-col items-center justify-center gap-2 text-center py-10 px-4">
+                          <span
+                            className="grid place-items-center rounded-2xl w-12 h-12 backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]"
+                            style={kpiTheme("cyan").orb.startsWith("bg-") ? {} : {}}
+                          >
+                            <DollarSign size={20} className="text-cyan-300" />
+                          </span>
+                          <p className={cn(WS_SECTION_TITLE, "text-sm")}>
+                            {!isInternal ? TENANT_EMPTY_STATE_MSG : "لا توجد معاملات بعد"}
+                          </p>
+                          {!isInternal && (
+                            <p className={cn(WS_SUBTEXT, "text-xs")}>{TENANT_EMPTY_STATE_HINT}</p>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -334,23 +371,33 @@ function FinanceContent() {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "var(--ws-scrim)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}
+        >
           <div className={cn(WS_GLASS_MODAL, "max-w-md mx-4")}>
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white font-heading font-bold text-lg">
+              <h3 className="text-[color:var(--ws-text-primary)] font-heading font-bold text-lg">
                 {editId ? "تعديل المعاملة" : "معاملة مالية جديدة"}
               </h3>
-              <button onClick={closeModal} className="text-[#8ba3c7] hover:text-white"><X size={20} /></button>
+              <button onClick={closeModal} className="text-[color:var(--ws-text-secondary)] hover:text-[color:var(--ws-text-primary)] touch-manipulation" aria-label="إغلاق"><X size={20} /></button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs text-[#8ba3c7] mb-1.5">نوع المعاملة</label>
+                <label className={cn(WS_MUTED, "block text-xs mb-1.5")}>نوع المعاملة</label>
                 <div className="flex gap-3">
                   {(["دخل", "مصروف"] as const).map((t) => (
                     <button
                       key={t}
                       onClick={() => setForm({ ...form, type: t })}
-                      className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${form.type === t ? (t === "دخل" ? "bg-emerald-500 text-white" : "bg-red-500 text-white") : "bg-[#1a3356]/50 text-[#8ba3c7]"}`}
+                      className={cn(
+                        "flex-1 py-2 rounded-xl text-sm font-medium transition-all min-h-[44px] touch-manipulation",
+                        form.type === t
+                          ? t === "دخل"
+                            ? "bg-emerald-500 text-white shadow-[0_8px_22px_-10px_rgba(16,185,129,0.6)]"
+                            : "bg-rose-500 text-white shadow-[0_8px_22px_-10px_rgba(244,63,94,0.6)]"
+                          : "bg-[var(--ws-surface-2)] text-[color:var(--ws-text-secondary)]",
+                      )}
                     >
                       {t === "دخل" ? "↑ دخل" : "↓ مصروف"}
                     </button>
@@ -358,31 +405,31 @@ function FinanceContent() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-[#8ba3c7] mb-1.5">المبلغ (SAR)</label>
+                <label className={cn(WS_MUTED, "block text-xs mb-1.5")}>المبلغ (SAR)</label>
                 <input className="input-dark text-sm" type="number" placeholder="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
               </div>
               <div>
-                <label className="block text-xs text-[#8ba3c7] mb-1.5">الوصف</label>
+                <label className={cn(WS_MUTED, "block text-xs mb-1.5")}>الوصف</label>
                 <input className="input-dark text-sm" placeholder="وصف المعاملة" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الفئة</label>
+                  <label className={cn(WS_MUTED, "block text-xs mb-1.5")}>الفئة</label>
                   <input className="input-dark text-sm" placeholder="رواتب، عقود، ..." value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">التاريخ</label>
+                  <label className={cn(WS_MUTED, "block text-xs mb-1.5")}>التاريخ</label>
                   <input className="input-dark text-sm" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
                 </div>
               </div>
               {form.type === "دخل" && form.amount && Number(form.amount) > 0 && (
-                <div className="p-3 rounded-xl bg-[#1a3356]/50 border border-[#1e3a5f]">
-                  <p className="text-xs text-[#8ba3c7] mb-2">التوزيع التلقائي للصناديق:</p>
+                <div className="p-3 rounded-xl bg-[var(--ws-surface-2)] border border-[var(--ws-border-subtle)]">
+                  <p className={cn(WS_MUTED, "text-xs mb-2")}>التوزيع التلقائي للصناديق:</p>
                   <div className="grid grid-cols-5 gap-2">
                     {fundBalances.map((f) => (
                       <div key={f.key} className="text-center">
                         <div className="text-xs font-bold" style={{ color: f.color }}>{formatCurrency(Number(form.amount) * f.pct)}</div>
-                        <div className="text-[10px] text-[#6b87ab]">{f.label}</div>
+                        <div className={cn(WS_SUBTEXT, "text-[10px]")}>{f.label}</div>
                       </div>
                     ))}
                   </div>
@@ -390,11 +437,11 @@ function FinanceContent() {
               )}
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
+              <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2 touch-manipulation">
                 {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                 {saving ? "جارٍ الحفظ..." : editId ? "حفظ التعديلات" : "إضافة"}
               </button>
-              <button onClick={closeModal} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
+              <button onClick={closeModal} disabled={saving} className="btn-secondary flex-1 touch-manipulation">إلغاء</button>
             </div>
           </div>
         </div>
