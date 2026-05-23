@@ -264,7 +264,7 @@ export function getRouteLabel(routeId: WorkspaceRouteId, isInternal: boolean): s
       strategy: "الاستراتيجية",
       org: "الهيكل الإداري",
       automation: "مركز الأتمتة",
-      attack: "وكالة الهجوم",
+      attack: "مركز الوكالة",
       ai: "المساعد الذكي",
       reports: "التقارير",
       dashboard: "الرئيسية",
@@ -291,17 +291,59 @@ export function getRouteLabel(routeId: WorkspaceRouteId, isInternal: boolean): s
   return tenantLabels[routeId];
 }
 
-/** Internal Blumark24 attack agency — never customer-facing navigation. */
-const ATTACK_AGENCY_ROLES: UserRole[] = ["super_admin", "attack_manager"];
+/** Premium agency command center — dashboard modal, not sidebar nav. */
+export const AGENCY_COMMAND_LABEL = "مركز الوكالة";
 
+export type AgencyCommandAccess = "hidden" | "locked" | "enabled";
+
+const INTERNAL_AGENCY_ROLES: UserRole[] = ["super_admin", "attack_manager"];
+
+function hasAgencyEligibleRole(
+  ctx: WorkspaceAccessContext,
+  userRole: UserRole | null,
+  hasPermission: (perm: Permission) => boolean,
+): boolean {
+  if (ctx.isPlatformAdmin) return true;
+  if (userRole === "super_admin" || userRole === "attack_manager") return true;
+  if (!ctx.isInternal && satisfiesPermission("manage_clients", hasPermission)) return true;
+  return false;
+}
+
+/** Dashboard card / modal visibility (not deep-link authorization). */
+export function getAgencyCommandAccess(
+  ctx: WorkspaceAccessContext,
+  userRole: UserRole | null,
+  hasPermission: (perm: Permission) => boolean,
+): AgencyCommandAccess {
+  if (!hasAgencyEligibleRole(ctx, userRole, hasPermission)) return "hidden";
+
+  if (ctx.isInternal) {
+    if (ctx.isPlatformAdmin) return "enabled";
+    if (userRole && INTERNAL_AGENCY_ROLES.includes(userRole)) return "enabled";
+    return "hidden";
+  }
+
+  if (ctx.planSlug === "basic") return "hidden";
+  if (ctx.planSlug === "growth") return "locked";
+  return "enabled";
+}
+
+/** Deep-link `/attack` and full panel access. */
+export function canAccessAgencyCommandRoute(
+  ctx: WorkspaceAccessContext,
+  userRole: UserRole | null,
+  hasPermission: (perm: Permission) => boolean,
+): boolean {
+  if (getAgencyCommandAccess(ctx, userRole, hasPermission) !== "enabled") return false;
+  return satisfiesPermission("manage_clients", hasPermission);
+}
+
+/** @deprecated Use canAccessAgencyCommandRoute */
 export function canAccessAttackAgency(
   ctx: WorkspaceAccessContext,
   userRole: UserRole | null,
 ): boolean {
-  if (!ctx.isInternal) return false;
-  if (ctx.isPlatformAdmin) return true;
-  if (!userRole) return false;
-  return ATTACK_AGENCY_ROLES.includes(userRole);
+  return ctx.isInternal && (ctx.isPlatformAdmin || (userRole !== null && INTERNAL_AGENCY_ROLES.includes(userRole)));
 }
 
 export const TENANT_EMPTY_STATE_MSG =
@@ -324,8 +366,7 @@ export function canAccessWorkspaceRoute(
   userRole: UserRole | null = null,
 ): boolean {
   if (route.id === "attack") {
-    if (!canAccessAttackAgency(ctx, userRole)) return false;
-    return satisfiesPermission(route.permission, hasPermission);
+    return canAccessAgencyCommandRoute(ctx, userRole, hasPermission);
   }
 
   if (ctx.isPlatformAdmin) return true;
@@ -357,8 +398,10 @@ export function filterNavRoutes(
   hasPermission: (perm: Permission) => boolean,
   userRole: UserRole | null = null,
 ): WorkspaceRouteDef[] {
-  const filtered = WORKSPACE_ROUTES.filter((route) =>
-    canAccessWorkspaceRoute(route, ctx, hasPermission, userRole),
+  const filtered = WORKSPACE_ROUTES.filter(
+    (route) =>
+      route.id !== "attack" &&
+      canAccessWorkspaceRoute(route, ctx, hasPermission, userRole),
   );
   return sortRoutesForNav(filtered, ctx.isInternal);
 }

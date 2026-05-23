@@ -43,6 +43,7 @@ import { ROLE_LABELS, usePermissions, mapAuthRoleToUserRole } from "@/contexts/P
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import { BOARD_THEME, type BoardKey, type KpiAccent } from "@/components/ui/workspaceVisual";
 import { WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
+import AgencyCommandDashboardCard from "@/components/agency/AgencyCommandDashboardCard";
 
 const DISABLE_TEXT_SELECT_STYLE = {
   WebkitUserSelect: "none",
@@ -419,6 +420,8 @@ function DashboardPageContent() {
         showInternalEmployees={isSuperAdmin}
         employeeNames={activeEmployeeNames}
       />
+
+      <AgencyCommandDashboardCard />
 
       <div className={DASH_GRID_ANALYTICS}>
         <DashboardAnalytics
