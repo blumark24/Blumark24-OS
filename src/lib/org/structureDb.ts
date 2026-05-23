@@ -11,6 +11,12 @@ import type {
   TeamInput,
 } from "./types";
 
+async function resolveOrgId(): Promise<string> {
+  const { data, error } = await supabase.rpc("current_org_id");
+  if (error || !data) throw new Error("تعذر تحديد المنشأة (organization_id)");
+  return data as string;
+}
+
 export async function fetchOrgStructure(): Promise<OrgStructureSnapshot> {
   const [deptRes, teamRes, posRes, relRes] = await Promise.all([
     supabase.from("departments").select("*").order("sort_order"),
@@ -33,9 +39,10 @@ export async function fetchOrgStructure(): Promise<OrgStructureSnapshot> {
 }
 
 export async function createDepartment(input: DepartmentInput): Promise<Department> {
+  const organization_id = await resolveOrgId();
   const { data, error } = await supabase
     .from("departments")
-    .insert(input)
+    .insert({ ...input, organization_id })
     .select("*")
     .single();
   if (error) throw new Error(error.message);
@@ -62,7 +69,8 @@ export async function deleteDepartment(id: string): Promise<void> {
 }
 
 export async function createTeam(input: TeamInput): Promise<Team> {
-  const { data, error } = await supabase.from("teams").insert(input).select("*").single();
+  const organization_id = await resolveOrgId();
+  const { data, error } = await supabase.from("teams").insert({ ...input, organization_id }).select("*").single();
   if (error) throw new Error(error.message);
   return data as Team;
 }
@@ -84,7 +92,8 @@ export async function deleteTeam(id: string): Promise<void> {
 }
 
 export async function createPosition(input: PositionInput): Promise<Position> {
-  const { data, error } = await supabase.from("positions").insert(input).select("*").single();
+  const organization_id = await resolveOrgId();
+  const { data, error } = await supabase.from("positions").insert({ ...input, organization_id }).select("*").single();
   if (error) throw new Error(error.message);
   return data as Position;
 }
@@ -111,9 +120,10 @@ export async function deletePosition(id: string): Promise<void> {
 export async function upsertEmployeeRelation(
   input: EmployeeRelationInput,
 ): Promise<EmployeeRelation> {
+  const organization_id = await resolveOrgId();
   const { data, error } = await supabase
     .from("employee_relations")
-    .upsert(input, { onConflict: "organization_id,employee_id" })
+    .upsert({ ...input, organization_id }, { onConflict: "organization_id,employee_id" })
     .select("*")
     .single();
   if (error) throw new Error(error.message);
