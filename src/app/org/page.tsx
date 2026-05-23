@@ -2,35 +2,30 @@
 
 import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Network } from "lucide-react";
 import {
   canManageTenantOrgStructure,
   mapAuthRoleToUserRole,
   usePermissions,
 } from "@/contexts/PermissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { supabase } from "@/lib/supabase";
-import TenantOrgWorkspace from "@/components/org/TenantOrgWorkspace";
+import SmartOrgBuilder from "@/components/org/SmartOrgBuilder";
 import InternalBlumarkOrgView from "@/components/org/InternalBlumarkOrgView";
 
 function CustomerOrgPage() {
   const { user } = useAuth();
   const { userRole, hasPermission } = usePermissions();
+  const { organizationId } = useTenantWorkspace();
   const effectiveRole =
     userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
   const canManageStructure = canManageTenantOrgStructure(effectiveRole, hasPermission);
+  const orgLabel = organizationId ? "منشأتك" : "منشأتك";
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 max-w-6xl mx-auto">
-        <div>
-          <h1 className="text-2xl font-heading font-bold text-white flex items-center gap-2">
-            <Network size={24} className="text-[#22d3ee]" />
-            الهيكل الإداري
-          </h1>
-          <p className="text-[#8ba3c7] text-sm mt-1">المخطط التنظيمي للمنشأة</p>
-        </div>
-        <TenantOrgWorkspace canManage={canManageStructure} orgLabel="منشأتك" />
+      <div className="max-w-[1400px] mx-auto w-full px-1 sm:px-0">
+        <SmartOrgBuilder canManage={canManageStructure} orgLabel={orgLabel} />
       </div>
     </DashboardLayout>
   );

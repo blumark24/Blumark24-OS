@@ -7,6 +7,7 @@ import type {
   OrgStructureSnapshot,
   Position,
   PositionInput,
+  StructureLevel,
   Team,
   TeamInput,
 } from "./types";
@@ -30,8 +31,17 @@ export async function fetchOrgStructure(): Promise<OrgStructureSnapshot> {
   if (posRes.error) throw new Error(posRes.error.message);
   if (relRes.error) throw new Error(relRes.error.message);
 
+  const departments = ((deptRes.data ?? []) as Record<string, unknown>[]).map((row) => {
+    const level = row.structure_level;
+    const structure_level: StructureLevel =
+      level === "agency" || level === "management" || level === "department"
+        ? level
+        : "department";
+    return { ...(row as unknown as Department), structure_level };
+  }) as Department[];
+
   return {
-    departments: (deptRes.data ?? []) as Department[],
+    departments,
     teams: (teamRes.data ?? []) as Team[],
     positions: (posRes.data ?? []) as Position[],
     relations: (relRes.data ?? []) as EmployeeRelation[],
@@ -42,7 +52,11 @@ export async function createDepartment(input: DepartmentInput): Promise<Departme
   const organization_id = await resolveOrgId();
   const { data, error } = await supabase
     .from("departments")
-    .insert({ ...input, organization_id })
+    .insert({
+      ...input,
+      organization_id,
+      structure_level: input.structure_level ?? "department",
+    })
     .select("*")
     .single();
   if (error) throw new Error(error.message);

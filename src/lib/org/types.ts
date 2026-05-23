@@ -1,7 +1,10 @@
+export type StructureLevel = "agency" | "management" | "department";
+
 export interface Department {
   id: string;
   organization_id: string;
   parent_id: string | null;
+  structure_level: StructureLevel;
   name: string;
   description: string | null;
   manager_id: string | null;
@@ -52,7 +55,14 @@ export interface OrgStructureSnapshot {
 
 export type DepartmentInput = Pick<
   Department,
-  "name" | "description" | "manager_id" | "parent_id" | "color" | "icon" | "sort_order"
+  | "name"
+  | "description"
+  | "manager_id"
+  | "parent_id"
+  | "structure_level"
+  | "color"
+  | "icon"
+  | "sort_order"
 >;
 
 export type TeamInput = Pick<

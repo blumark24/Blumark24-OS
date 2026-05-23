@@ -35,6 +35,7 @@ export default function DepartmentFormModal({
         name: name.trim(),
         description: description.trim() || null,
         parent_id: parentId || null,
+        structure_level: department?.structure_level ?? "department",
         manager_id: department?.manager_id ?? null,
         color,
         icon,

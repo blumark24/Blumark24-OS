@@ -1,4 +1,5 @@
 import type { Node, Edge } from "@xyflow/react";
+import { BOARD_LABEL_AR, getLevelFromDepartment, STRUCTURE_LEVEL_LABELS } from "./packageHierarchy";
 import type { Department, EmployeeRelation, OrgStructureSnapshot, Team } from "./types";
 
 export type OrgNodeData = {
@@ -7,9 +8,12 @@ export type OrgNodeData = {
   color: string;
   kind: "org" | "department" | "team" | "employee";
   entityId: string;
+  structureLevel?: "agency" | "management" | "department";
   collapsed?: boolean;
   childCount?: number;
 };
+
+export const PARENT_SNAP_DISTANCE_PX = 280;
 
 const NODE_W = 200;
 const NODE_H = 72;
@@ -61,16 +65,18 @@ function layoutSubtree(
     const deptX = cursor + localWidth / 2 - NODE_W / 2;
     const deptY = depth * GAP_Y;
 
+    const level = getLevelFromDepartment(dept);
     nodes.push({
       id: `dept-${dept.id}`,
       type: "orgCard",
       position: { x: deptX, y: deptY },
       data: {
         label: dept.name,
-        subtitle: dept.description ?? undefined,
+        subtitle: dept.description ?? STRUCTURE_LEVEL_LABELS[level],
         color: dept.color,
         kind: "department",
         entityId: dept.id,
+        structureLevel: level,
         collapsed,
         childCount: deptChildren(depts, dept.id).length + teamList.length,
       },
@@ -152,6 +158,7 @@ export function buildOrgFlowGraph(
   orgName: string,
   employeeNames: Map<string, string>,
   collapsedDepts: Set<string>,
+  boardLabel: string = BOARD_LABEL_AR,
 ): { nodes: Node<OrgNodeData>[]; edges: Edge[] } {
   const rootLayout = layoutSubtree(
     snapshot.departments,
@@ -170,8 +177,8 @@ export function buildOrgFlowGraph(
     type: "orgCard",
     position: { x: rootWidth / 2 - NODE_W / 2, y: 0 },
     data: {
-      label: orgName,
-      subtitle: "المنشأة",
+      label: boardLabel,
+      subtitle: orgName,
       color: "#22d3ee",
       kind: "org",
       entityId: "root",
