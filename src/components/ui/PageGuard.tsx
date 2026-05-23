@@ -85,7 +85,9 @@ export default function PageGuard({ permission, anyPermission, children }: PageG
         </div>
         <h2 className="text-white text-xl font-heading font-bold">لا تملك صلاحية الوصول</h2>
         <p className="text-[#8ba3c7] text-sm max-w-xs">
-          هذا القسم محجوز أو غير مفعّل ضمن باقة منشأتك. تواصل مع مدير المنشأة أو Blumark24.
+          {isInternal
+            ? "هذا القسم محجوز أو غير مفعّل. تواصل مع مدير المنصة."
+            : "هذا القسم غير مفعّل ضمن باقة منشأتك. تواصل مع مدير المنشأة."}
         </p>
       </div>
     </DashboardLayout>

@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabase";
 import { PLAN_LABELS_AR } from "@/lib/features/packageFeatures";
 import { PageHero } from "@/components/ui/workspaceUi";
 import { WS_PAGE } from "@/components/ui/workspaceVisual";
+import PageGuard from "@/components/ui/PageGuard";
 import TenantOrgWorkspace from "@/components/org/TenantOrgWorkspace";
 import InternalBlumarkOrgView from "@/components/org/InternalBlumarkOrgView";
 
@@ -75,6 +76,12 @@ export default function OrgPage() {
     );
   }
 
-  if (!isInternalOrg) return <CustomerOrgPage />;
+  if (!isInternalOrg) {
+    return (
+      <PageGuard permission="view_dashboard">
+        <CustomerOrgPage />
+      </PageGuard>
+    );
+  }
   return <InternalBlumarkOrgView />;
 }

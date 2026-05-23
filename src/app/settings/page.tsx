@@ -33,6 +33,7 @@ import {
   upsertTenantWorkspaceSettings,
 } from "@/lib/db";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useAutomations } from "@/hooks/useData";
 import { withTimeout } from "@/lib/asyncHelpers";
 
@@ -60,7 +61,14 @@ const RULE_TRIGGERS: Record<string, string> = {
   "weekly-report":  "كل إثنين 8 صباحاً",
 };
 
-const DEPARTMENTS = ["الإدارة العليا", "وكالة الدفاع", "وكالة الهجوم", "المالية", "تقنية المعلومات"];
+const TENANT_COMPANY_DEFAULTS = {
+  name: "",
+  tagline: "",
+  email: "",
+  phone: "",
+  website: "",
+  city: "",
+};
 
 // Add user redirect banner (real user creation happens in /employees)
 function AddUserBanner({ onClose }: { onClose: () => void }) {
@@ -91,6 +99,8 @@ function AddUserBanner({ onClose }: { onClose: () => void }) {
 
 function PermissionsTab() {
   const { managedUsers, rolePermissions, updateUserRole, toggleUserStatus, savePermissions } = usePermissions();
+  const { isInternal } = useTenantWorkspace();
+  const roleLabel = (role: UserRole) => getTenantRoleLabel(role, isInternal);
   const toast  = useToast();
   const [selectedRole,   setSelectedRole]   = useState<UserRole>("super_admin");
   const [localPerms,     setLocalPerms]     = useState<Record<UserRole, Permission[]>>({ ...rolePermissions });
@@ -107,7 +117,7 @@ function PermissionsTab() {
 
   const handleResetRole = () => {
     setLocalPerms((prev) => ({ ...prev, [selectedRole]: [...DEFAULT_ROLE_PERMISSIONS[selectedRole]] }));
-    toast.info(`تم إعادة ضبط صلاحيات ${ROLE_LABELS[selectedRole]}`);
+    toast.info(`تم إعادة ضبط صلاحيات ${roleLabel(selectedRole)}`);
   };
 
   const handleSavePerms = async () => {
@@ -177,13 +187,15 @@ function PermissionsTab() {
                         defaultValue={u.role}
                         onChange={(e) => handleRoleChange(u.userId, e.target.value as UserRole)}
                       >
-                        {ALL_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                        {ALL_ROLES.map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
                       </select>
                     ) : (
-                      <span className="badge bg-[#22d3ee]/20 text-[#22d3ee] text-xs">{ROLE_LABELS[u.role]}</span>
+                      <span className="badge bg-[#22d3ee]/20 text-[#22d3ee] text-xs">{roleLabel(u.role)}</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-[#8ba3c7] text-xs">{u.department}</td>
+                  <td className="px-4 py-3 text-[#8ba3c7] text-xs">
+                    {formatTenantDepartment(u.department).text}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`badge text-xs ${u.isActive ? "status-active" : "status-inactive"}`}>
                       {u.isActive ? "نشط" : "موقوف"}
@@ -241,7 +253,7 @@ function PermissionsTab() {
               onClick={() => setSelectedRole(role)}
               className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${selectedRole === role ? "bg-[#22d3ee] text-[#0a1628]" : "bg-[#1a3356]/50 text-[#8ba3c7] hover:text-white"}`}
             >
-              {ROLE_LABELS[role]}
+              {roleLabel(role)}
             </button>
           ))}
         </div>
@@ -249,7 +261,7 @@ function PermissionsTab() {
         {/* Permissions grid */}
         <div className="p-5">
           <div className="text-xs text-[#8ba3c7] mb-4">
-            صلاحيات دور: <span className="text-[#22d3ee] font-medium">{ROLE_LABELS[selectedRole]}</span>
+            صلاحيات دور: <span className="text-[#22d3ee] font-medium">{roleLabel(selectedRole)}</span>
             {" "}·{" "}
             <span className="text-white">{(localPerms[selectedRole] ?? []).length}</span> من {ALL_PERMISSIONS.length} صلاحية
           </div>
@@ -316,10 +328,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const [showConfirmPw,setShowConfirmPw]= useState(false);
   const [saved,      setSaved]      = useState(false);
   const [saving,     setSaving]     = useState(false);
-  const [companyForm, setCompanyForm] = useState({
-    name: "Blumark24", tagline: "نظام إدارة الأعمال بالذكاء الاصطناعي",
-    email: "info@blumark24.com", phone: "0550000000", website: "blumark24.com", city: "جدة",
-  });
+  const [companyForm, setCompanyForm] = useState({ ...TENANT_COMPANY_DEFAULTS });
   const [darkMode,     setDarkMode]     = useState(true);
   const [accentColor,  setAccentColor]  = useState("#22d3ee");
   const [language,     setLanguage]     = useState("العربية");
@@ -354,7 +363,18 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
         }
 
         const s = await getSystemSettings();
-        if (s.company_info) setCompanyForm(s.company_info as typeof companyForm);
+        if (s.company_info) {
+          setCompanyForm(s.company_info as typeof companyForm);
+        } else if (!tenantMode) {
+          setCompanyForm({
+            name: "Blumark24",
+            tagline: "نظام إدارة الأعمال بالذكاء الاصطناعي",
+            email: "info@blumark24.com",
+            phone: "0550000000",
+            website: "blumark24.com",
+            city: "جدة",
+          });
+        }
         if (s.notifications) setNotifs(s.notifications as typeof notifs);
         const app = s.appearance as { darkMode?: boolean; accentColor?: string; language?: string } | undefined;
         if (app) {

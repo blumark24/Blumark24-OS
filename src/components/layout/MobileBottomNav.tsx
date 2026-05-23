@@ -106,7 +106,7 @@ export default function MobileBottomNav() {
       )}
 
       <div
-        className="lg:hidden fixed inset-x-0 bottom-0 z-50 pointer-events-none flex justify-center px-3"
+        className="lg:hidden fixed inset-x-0 bottom-0 z-40 pointer-events-none flex justify-center px-3"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
         dir="rtl"
       >
