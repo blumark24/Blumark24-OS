@@ -34,6 +34,13 @@ export interface Employee extends User {
 export type TaskStatus = "جديدة" | "قيد_التنفيذ" | "بانتظار_المراجعة" | "مكتملة" | "متأخرة";
 export type TaskPriority = "عاجلة" | "عالية" | "متوسطة" | "منخفضة";
 
+export type TaskRecurrenceFrequency = "none" | "daily" | "weekly" | "monthly";
+
+export interface TaskRecurrenceRule {
+  frequency: TaskRecurrenceFrequency;
+  interval?: number;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -46,8 +53,19 @@ export interface Task {
   clientId?: string;
   clientName?: string;
   dueDate: string;
+  dueAt?: string;
   createdAt: string;
   tags?: string[];
+  departmentId?: string;
+  departmentName?: string;
+  teamId?: string;
+  completedAt?: string;
+  createdById?: string;
+  createdByName?: string;
+  recurrenceRule?: TaskRecurrenceRule | null;
+  recurrenceParentId?: string;
+  kanbanOrder?: number;
+  notifyAssignee?: boolean;
 }
 
 export type ClientStatus = "محتمل" | "متعاقد" | "نشط" | "متوقف";
