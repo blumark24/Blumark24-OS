@@ -136,6 +136,29 @@ export function KpiStatCard({
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
+/** Compact empty state inside an existing glass panel (charts/tables). */
+export function WorkspaceEmptyInline({
+  icon: Icon,
+  title,
+  accent = "cyan",
+  className,
+}: {
+  icon: React.ElementType;
+  title: string;
+  accent?: KpiAccent;
+  className?: string;
+}) {
+  const theme = kpiTheme(accent);
+  return (
+    <div className={cn("flex flex-col items-center justify-center gap-2 text-center", className)}>
+      <span className={cn(WS_ICON_ORB, "w-10 h-10", theme.orb)}>
+        <Icon size={18} className={theme.iconColor} />
+      </span>
+      <p className={cn(WS_MUTED, "text-sm")}>{title}</p>
+    </div>
+  );
+}
+
 export function WorkspaceEmpty({
   icon: Icon,
   title,
