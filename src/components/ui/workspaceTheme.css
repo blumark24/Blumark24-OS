@@ -101,7 +101,8 @@
 .workspace-ambient__spotlight {
   background: radial-gradient(
     ellipse 70% 55% at 50% 8%,
-    rgba(34, 211, 238, 0.07) 0%,
+    rgba(34, 211, 238, 0.09) 0%,
+    rgba(124, 58, 237, 0.04) 35%,
     transparent 62%
   );
 }
@@ -151,5 +152,37 @@
 @media (prefers-reduced-motion: reduce) {
   .workspace-ambient .workspace-ambient--motion {
     animation: none !important;
+  }
+}
+
+/* Dashboard hero — digital glass accents (CSS-only) */
+.dashboard-hero__mesh {
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.35;
+  mask-image: radial-gradient(ellipse 90% 75% at 50% 30%, black 15%, transparent 72%);
+}
+
+@keyframes dashboard-hero-diamond-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(-50%) rotate(45deg) scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: translateY(-50%) rotate(45deg) scale(1.04);
+  }
+}
+
+.dashboard-hero__diamond {
+  animation: dashboard-hero-diamond-pulse 14s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-hero__diamond {
+    animation: none;
   }
 }

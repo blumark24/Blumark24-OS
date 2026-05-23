@@ -1,19 +1,25 @@
 "use client";
 
-import Link from "next/link";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import JellyfishBackground from "@/components/jellyfish/JellyfishBackground";
+import DashboardHero from "@/components/dashboard/DashboardHero";
+import PremiumKpiCard from "@/components/dashboard/PremiumKpiCard";
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend,
-} from "recharts";
+  DashboardTaskDistribution,
+  DashboardAnalytics,
+  DashboardActivityFeed,
+  DashboardInsightsSection,
+  DashboardQuickActions,
+  DashboardDeptChart,
+  DashboardSummaryCard,
+  DashboardSatisfactionRing,
+} from "@/components/dashboard/DashboardSections";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import {
-  Users, CheckCircle2, XCircle, AlertTriangle, Activity, Clock,
-  UserCheck, DollarSign, CheckCircle, X, Sparkles, TrendingUp, Timer, Siren,
-  Bot, CheckSquare, UserPlus, FileText, Wallet, BarChart3, ListChecks,
-  ArrowLeft, ShieldCheck, Building2, Zap, Plus,
+  Users, CheckCircle2, XCircle, AlertTriangle, Activity,
+  UserCheck, DollarSign, CheckCircle, X, Timer, Siren,
+  CheckSquare, UserPlus, FileText, Wallet, BarChart3, Sparkles, ListChecks,
 } from "lucide-react";
-import { formatCurrency, timeAgo } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { useDashboardKPI, useProjects, useActivities, useTransactions, useEmployees, useClients, useTasks } from "@/hooks/useData";
 import { useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,10 +27,10 @@ import { ROLE_LABELS, usePermissions, mapAuthRoleToUserRole } from "@/contexts/P
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import type { UserRole } from "@/contexts/PermissionsContext";
 import {
-  WS_CARD, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE, WS_AI_PILL,
-  BOARD_THEME, WS_TINTS, type BoardKey, type KpiAccent,
+  WS_CARD, WS_SECTION_TITLE, WS_PAGE,
+  BOARD_THEME, type BoardKey, type KpiAccent,
 } from "@/components/ui/workspaceVisual";
-import { StatPill, QuickActionTile, Sparkline, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
+import { WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
@@ -86,11 +92,24 @@ function todayArabic() {
   return `${d.getDate()} ${ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+function tenantSafeRoleLabel(
+  role: UserRole | null | undefined,
+  rawRole: string | undefined,
+  isInternal: boolean,
+): string {
+  if (isInternal && role) return ROLE_LABELS[role] ?? rawRole ?? "—";
+  if (role === "organization_manager") return "مدير المنشأة";
+  if (role === "employee") return "موظف";
+  if (role === "finance_manager") return "مدير مالي";
+  return "مدير المنشأة";
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const { user, loading }                      = useAuth();
   const { userRole }                           = usePermissions();
+  const { isInternal }                         = useTenantWorkspace();
   const { kpi, loading: kpiLoading }           = useDashboardKPI();
   const { data: projects, loading: projLoad }  = useProjects();
   const { data: activities, loading: actLoad } = useActivities();
@@ -116,6 +135,11 @@ export default function DashboardPage() {
     return ARABIC_MONTHS.map((month, i) => ({ month, current: byMonth[i] ?? 0, previous: 0 }));
   }, [transactions]);
 
+  const hasRevenueData = useMemo(
+    () => salesData.some((d) => d.current > 0),
+    [salesData],
+  );
+
   const activeUsersData = useMemo(() => {
     const depts = Array.from(new Set(employees.map((e) => e.department))).slice(0, 6);
     return depts.map((dept) => ({
@@ -130,9 +154,9 @@ export default function DashboardPage() {
     return Math.round((active / clients.length) * 100);
   }, [clients]);
 
-  const roleLabel = user?.role
-    ? ROLE_LABELS[mapAuthRoleToUserRole(user.role)] ?? user.role
-    : "—";
+  const mappedRole = user?.role ? mapAuthRoleToUserRole(user.role) : userRole;
+  const roleLabel = tenantSafeRoleLabel(mappedRole, user?.role, isInternal);
+  const orgLine = "لوحة قيادة منشأتك — مركز العمليات الذكي";
 
   const activeEmployeeNames = useMemo(() => {
     if (!isSuperAdmin) return [];
@@ -310,375 +334,143 @@ export default function DashboardPage() {
 
   const kpiCards = [
     {
-      key:       "activeClients" as const,
-      label:     "العملاء النشطون",
-      value:     kpi.activeClients.toString(),
-      subtitle:  `من أصل ${totalClients} عميل`,
-      icon:      Users,
-      iconColor: "text-cyan-300",
-    },
-    {
-      key:       "completedTasks" as const,
-      label:     "المهام المكتملة",
-      value:     `${kpi.completedTasksPct}%`,
-      subtitle:  "نسبة الإنجاز الكلية",
-      icon:      CheckCircle2,
-      iconColor: "text-emerald-300",
+      key:       "overdueTasks" as const,
+      label:     "المهام المتأخرة",
+      insight:   "تحتاج إلى متابعة فورية",
+      value:     kpi.overdueTasks.toString(),
+      footer:    kpi.overdueTasks > 0 ? "تتطلب متابعة فورية" : "لا يوجد خطر حرج",
+      icon:      AlertTriangle,
+      iconColor: kpi.overdueTasks > 0 ? "text-rose-300" : "text-emerald-300",
     },
     {
       key:       "incompleteTasks" as const,
       label:     "المهام المتبقية",
+      insight:   "عبء العمل الحالي",
       value:     kpi.incompleteTasks.toString(),
-      subtitle:  `من أصل ${tasks.length} مهمة`,
+      footer:    `متبقي ${kpi.incompleteTasks} من ${tasks.length || 0}`,
       icon:      XCircle,
       iconColor: "text-amber-300",
     },
     {
-      key:       "overdueTasks" as const,
-      label:     "المهام المتأخرة",
-      value:     kpi.overdueTasks.toString(),
-      subtitle:  "مهمة تجاوزت الموعد المحدد",
-      icon:      AlertTriangle,
-      iconColor: kpi.overdueTasks > 0 ? "text-rose-300" : "text-emerald-300",
+      key:       "completedTasks" as const,
+      label:     "المهام المكتملة",
+      insight:   "مؤشر كفاءة التنفيذ",
+      value:     `${kpi.completedTasksPct}%`,
+      footer:    "معدل إنجاز مستقر اليوم",
+      icon:      CheckCircle2,
+      iconColor: "text-emerald-300",
+    },
+    {
+      key:       "activeClients" as const,
+      label:     "العملاء النشطون",
+      insight:   "نشاط العملاء الحالي",
+      value:     kpi.activeClients.toString(),
+      footer:    latestClient ? `آخر عميل: ${latestClient.name}` : "لا يوجد عميل جديد",
+      icon:      Users,
+      iconColor: "text-cyan-300",
     },
   ];
 
   return (
     <DashboardLayout>
       <div className={WS_PAGE}>
-        {/* ─── Hero: welcome banner ──────────────────────────────────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5 lg:p-6`}>
-          <JellyfishBackground />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_88%_-25%,rgba(34,211,238,0.18),transparent_55%),radial-gradient(110%_120%_at_8%_125%,rgba(124,58,237,0.16),transparent_55%)]" />
+        <DashboardHero
+          userName={user?.name ?? "..."}
+          roleLabel={roleLabel}
+          department={user?.department}
+          orgLine={orgLine}
+          dateLabel={todayArabic()}
+          operationalStatus={operationalStatus}
+          operationalTint={operationalTint}
+          teamPerformance={teamPerformance}
+          completionPct={kpi.completedTasksPct}
+          aiInsight={aiInsight}
+        />
 
-          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            {/* Welcome + identity + live status metrics (right side on desktop) */}
-            <div className="min-w-0 flex-1">
-              <p className="text-sm text-[#8ba3c7]">مرحباً بك 👋</p>
-              <h1 className="mt-0.5 truncate text-xl sm:text-2xl font-heading font-bold text-white">
-                {user?.name ?? "..."}
-              </h1>
-
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#8ba3c7]">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{todayArabic()}
-                </span>
-                <span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} className="text-cyan-300" />{roleLabel}</span>
-                {user?.department && (
-                  <span className="inline-flex items-center gap-1.5"><Building2 size={13} className="text-cyan-300" />{user.department}</span>
-                )}
-              </div>
-
-              {/* Three compact live metrics (derived from existing data only; chips wrap, never clip) */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <StatPill icon={Zap}        label="أداء الفريق"  value={teamPerformance}             tint="emerald"       />
-                <StatPill icon={TrendingUp} label="الإنجاز"      value={`${kpi.completedTasksPct}%`} tint="cyan"          />
-                <StatPill icon={Activity}   label="حالة التشغيل" value={operationalStatus}           tint={operationalTint} />
-              </div>
-            </div>
-
-            {/* AI insight panel (left side on desktop; the mobile equivalent lives lower as a full card) */}
-            <div className="hidden lg:flex lg:w-[300px] lg:shrink-0">
-              <div className="w-full rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 backdrop-blur-sm">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className={`${WS_ICON_ORB} w-8 h-8 shrink-0 bg-violet-400/10 ring-1 ring-violet-300/25`}>
-                    <Sparkles size={15} className="text-violet-300" />
-                  </span>
-                  <div className="text-[11px] font-medium text-cyan-200/90">رؤية ذكية من النظام</div>
-                </div>
-                <p className="text-sm leading-snug text-[#dbe6f7]">{aiInsight}</p>
-                <Link
-                  href="/ai"
-                  className={`mt-3 ${WS_AI_PILL}`}
-                >
-                  عرض التفاصيل <ArrowLeft size={14} />
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ─── KPI cards ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
           {kpiLoading
             ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
-            : kpiCards.map((card, i) => {
-                // Overdue turns emerald (positive) when there is nothing overdue.
-                const theme = card.key === "overdueTasks" && kpi.overdueTasks === 0
-                  ? BOARD_THEME.completedTasks
-                  : BOARD_THEME[card.key];
+            : kpiCards.map((card) => {
+                const theme =
+                  card.key === "overdueTasks" && kpi.overdueTasks === 0
+                    ? BOARD_THEME.completedTasks
+                    : BOARD_THEME[card.key];
                 return (
-                  <div
-                    key={i}
-                    className={`${WS_CARD} group w-full min-h-[150px] sm:min-h-[180px] transition-shadow duration-300 ${theme.glow}`}
-                  >
-                    <div className={`pointer-events-none absolute inset-0 ${theme.ambient}`} />
-                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_60%_at_50%_0%,rgba(255,255,255,0.05),transparent_60%)]" />
-
-                    <div className="relative z-10 flex h-full flex-col justify-between gap-3 p-3.5 sm:p-4 min-w-0">
-                      {/* Top: live drilldown trigger + icon orb */}
-                      <div className="flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          draggable={false}
-                          aria-label={`عرض تفاصيل ${card.label}`}
-                          onMouseDown={(event) => event.preventDefault()}
-                          onTouchStart={(event) => event.currentTarget.blur()}
-                          onClick={() => setActiveBoard(card.key)}
-                          className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full leading-none select-none cursor-pointer touch-manipulation transition-colors ${theme.livePill}`}
-                          style={DISABLE_TEXT_SELECT_STYLE}
-                        >
-                          <span className="relative flex h-1.5 w-1.5">
-                            <span className="absolute inline-flex h-full w-full rounded-full bg-current opacity-60 animate-ping" />
-                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
-                          </span>
-                          <span className="select-none" style={DISABLE_TEXT_SELECT_STYLE}>مباشر</span>
-                        </button>
-                        <div className={`${WS_ICON_ORB} w-9 h-9 sm:w-11 sm:h-11 ${theme.orb}`}>
-                          <card.icon size={18} className={card.iconColor} />
+                  <PremiumKpiCard
+                    key={card.key}
+                    boardKey={card.key}
+                    theme={theme}
+                    label={card.label}
+                    insight={card.insight}
+                    value={card.value}
+                    footer={card.footer}
+                    icon={card.icon}
+                    iconColor={card.iconColor}
+                    onLiveClick={() => setActiveBoard(card.key)}
+                    footerExtra={
+                      card.key === "incompleteTasks" ? (
+                        <div className={`flex items-center gap-2 ${theme.accent}`}>
+                          <div className="h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-white/10">
+                            <div
+                              className="h-full rounded-full bg-amber-300/80"
+                              style={{
+                                width: `${Math.min(100, Math.max(8, (kpi.incompleteTasks / Math.max(tasks.length, 1)) * 100))}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="truncate">{card.footer}</span>
                         </div>
-                      </div>
-
-                      {/* Hero number + caption */}
-                      <div className="min-w-0">
-                        <div className="font-heading font-bold tracking-tight text-white leading-[0.9] text-[clamp(1.85rem,7vw,3.375rem)] drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]">
-                          {card.value}
-                        </div>
-                        <div className="mt-1.5 truncate text-[12.5px] font-medium text-white/80">{card.label}</div>
-                        <div className="truncate text-[10.5px] text-white/40">{card.subtitle}</div>
-                      </div>
-
-                      {/* Footer: live insight (left) + small accent sparkline (right) */}
-                      <div className="flex items-end justify-between gap-2 min-w-0">
-                        <div className="min-w-0 flex-1 text-[11px]">
-                          {card.key === "activeClients" && (
-                            <div className={`flex items-center gap-1.5 ${theme.accent}`}>
-                              <TrendingUp size={13} className="shrink-0" />
-                              <span className="truncate">{latestClient ? `آخر عميل: ${latestClient.name}` : "لا يوجد عميل جديد"}</span>
-                            </div>
-                          )}
-                          {card.key === "completedTasks" && (
-                            <div className={`flex items-center gap-1.5 ${theme.accent}`}>
-                              <CheckCircle2 size={13} className="shrink-0" />
-                              <span className="truncate">معدل إنجاز مستقر اليوم</span>
-                            </div>
-                          )}
-                          {card.key === "incompleteTasks" && (
-                            <div className={`flex items-center gap-2 ${theme.accent}`}>
-                              <div className="h-1.5 w-12 shrink-0 rounded-full bg-white/10 overflow-hidden">
-                                <div className="h-full rounded-full bg-amber-300/80" style={{ width: `${Math.min(100, Math.max(8, (kpi.incompleteTasks / Math.max(tasks.length, 1)) * 100))}%` }} />
-                              </div>
-                              <span className="truncate">متبقي {kpi.incompleteTasks} من {tasks.length || 0}</span>
-                            </div>
-                          )}
-                          {card.key === "overdueTasks" && (
-                            <div className={`flex items-center gap-1.5 ${theme.accent}`}>
-                              <Siren size={13} className="shrink-0" />
-                              <span className="truncate">{kpi.overdueTasks > 0 ? "تتطلب متابعة فورية" : "لا يوجد تعثر حرج"}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="h-5 w-12 shrink-0 opacity-50">
-                          <Sparkline colorClass={theme.iconColor} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                      ) : undefined
+                    }
+                  />
                 );
               })}
         </div>
 
-        {/* ─── Smart Insights (rule-based, free — no external AI) ────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_92%_-20%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(110%_120%_at_5%_120%,rgba(34,211,238,0.12),transparent_55%)]" />
-          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start">
-            {/* Glowing AI avatar — on the left in RTL via order */}
-            <div className="order-first flex shrink-0 items-center justify-center sm:order-last sm:w-24">
-              <div className="relative grid h-16 w-16 place-items-center rounded-full bg-violet-500/10 ring-1 ring-violet-300/25">
-                <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(124,58,237,0.45),transparent_70%)] blur-md animate-pulse-glow" />
-                <Bot size={28} className="relative text-violet-200" />
-              </div>
-            </div>
+        <DashboardInsightsSection
+          insights={smartInsights}
+          showInternalEmployees={isSuperAdmin}
+          employeeNames={activeEmployeeNames}
+        />
 
-            {/* Content */}
-            <div className="min-w-0 flex-1">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Sparkles size={16} className="shrink-0 text-violet-300" />
-                  <div className="min-w-0">
-                    <h2 className={`${WS_SECTION_TITLE} text-sm`}>رؤى ذكية من النظام</h2>
-                    <p className="truncate text-[11px] text-[#6b87ab]">تحليل فوري مبني على بياناتك الحالية</p>
-                  </div>
-                </div>
-                <Link href="/ai" className={`shrink-0 ${WS_AI_PILL}`}>
-                  عرض جميع الرؤى <ArrowLeft size={14} />
-                </Link>
-              </div>
-
-              <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {smartInsights.map((ins, i) => (
-                  <li key={i} className="flex min-w-0 items-start gap-2.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3">
-                    <span className={`${WS_ICON_ORB} w-8 h-8 shrink-0 ${WS_TINTS[ins.tint].orb}`}>
-                      <ins.icon size={15} className={WS_TINTS[ins.tint].icon} />
-                    </span>
-                    <p className="min-w-0 text-sm leading-snug text-[#dbe6f7]">{ins.text}</p>
-                  </li>
-                ))}
-              </ul>
-
-              {isSuperAdmin && activeEmployeeNames.length > 0 && (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] text-[#8ba3c7]">موظفون نشطون:</span>
-                  {activeEmployeeNames.map((name) => (
-                    <span key={name} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/80">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* ─── Analytics: performance + task distribution ────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={`${WS_CARD} lg:col-span-2 p-5`}>
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE}`}>تحليلات الأداء — الإيرادات</h3>
-              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">آخر 12 شهر</span>
-            </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={salesData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.4)" />
-                <XAxis dataKey="month" tick={{ fill: "#8ba3c7", fontSize: 11 }} />
-                <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend formatter={(v) => v === "current" ? String(currentYear) : String(currentYear - 1)} />
-                <Line type="monotone" dataKey="current" stroke="#22d3ee" strokeWidth={2.5} dot={false} name="current" />
-                <Line type="monotone" dataKey="previous" stroke="#1e3a5f" strokeWidth={1.5} dot={false} name="previous" strokeDasharray="4 2" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>توزيع المهام</h3>
-              <span className={`${WS_ICON_ORB} w-8 h-8 bg-cyan-400/10 ring-1 ring-cyan-300/25`}>
-                <ListChecks size={15} className="text-cyan-300" />
-              </span>
-            </div>
-            <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-white/5">
-              <div className="bg-emerald-400/80" style={{ width: taskDistribution.pct(taskDistribution.completed) }} />
-              <div className="bg-amber-400/80"   style={{ width: taskDistribution.pct(taskDistribution.pending) }} />
-              <div className="bg-rose-400/80"    style={{ width: taskDistribution.pct(taskDistribution.overdue) }} />
-            </div>
-            <div className="mt-4 space-y-2.5">
-              {[
-                { label: "مكتملة", value: taskDistribution.completed, dot: "bg-emerald-400" },
-                { label: "متبقية", value: taskDistribution.pending,   dot: "bg-amber-400" },
-                { label: "متأخرة", value: taskDistribution.overdue,   dot: "bg-rose-400" },
-              ].map((row) => (
-                <div key={row.label} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-[#8ba3c7]">
-                    <span className={`h-2 w-2 rounded-full ${row.dot}`} />
-                    {row.label}
-                  </span>
-                  <span className="font-bold text-white">{row.value}</span>
-                </div>
-              ))}
-              <div className="flex items-center justify-between border-t border-white/[0.06] pt-2.5 text-sm">
-                <span className="text-[#8ba3c7]">الإجمالي</span>
-                <span className="font-bold text-[#22d3ee]">{taskDistribution.total}</span>
-              </div>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <DashboardAnalytics
+            salesData={salesData}
+            currentYear={currentYear}
+            hasRevenueData={hasRevenueData}
+            customTooltip={<CustomTooltip />}
+          />
+          <DashboardTaskDistribution
+            completed={taskDistribution.completed}
+            pending={taskDistribution.pending}
+            overdue={taskDistribution.overdue}
+            total={taskDistribution.total}
+            pct={taskDistribution.pct}
+          />
         </div>
 
-        {/* ─── Employees by dept + satisfaction + quick summary ──────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>الموظفون بالقسم</h3>
-              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">{activeEmployees} نشط</span>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <DashboardDeptChart data={activeUsersData} activeCount={activeEmployees} />
+          {kpiLoading ? (
+            <div className={`${WS_CARD} flex h-[280px] items-center justify-center p-5`}>
+              <span className="text-xs text-[#8ba3c7]">جارٍ التحميل...</span>
             </div>
-            {activeUsersData.length === 0 ? (
-              <WorkspaceEmptyInline icon={Users} title="لا توجد بيانات" accent="cyan" className="h-[220px]" />
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={activeUsersData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.4)" />
-                  <XAxis dataKey="date" tick={{ fill: "#8ba3c7", fontSize: 10 }} />
-                  <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#8ba3c7" }} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-                  <Bar dataKey="users" fill="#1e6fd9" radius={[6, 6, 0, 0]} name="موظف نشط" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          <div className={`${WS_CARD} p-5 flex flex-col items-center justify-center`}>
-            <h3 className="mb-4 text-sm text-[#8ba3c7]">معدل رضا العملاء</h3>
-            {kpiLoading ? (
-              <div className="flex h-32 w-32 items-center justify-center rounded-full border-8 border-[#1e3a5f]">
-                <span className="text-xs text-[#8ba3c7]">جارٍ التحميل...</span>
-              </div>
-            ) : (
-              <>
-                <div className="relative h-32 w-32">
-                  <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-                    <circle cx="60" cy="60" r="50" fill="none" stroke="#1e3a5f" strokeWidth="10" />
-                    <circle cx="60" cy="60" r="50" fill="none" stroke="url(#satGrad)" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 50 * (satisfactionPct / 100)} ${2 * Math.PI * 50 * (1 - satisfactionPct / 100)}`} />
-                    <defs>
-                      <linearGradient id="satGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#22d3ee" />
-                        <stop offset="100%" stopColor="#10b981" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-3xl font-heading font-bold text-white">{satisfactionPct}%</span>
-                    <span className="text-xs font-medium" style={{ color: satisfactionPct >= 70 ? "#10b981" : satisfactionPct >= 40 ? "#f59e0b" : "#ef4444" }}>
-                      {satisfactionPct >= 70 ? "ممتاز" : satisfactionPct >= 40 ? "متوسط" : "يحتاج تحسين"}
-                    </span>
-                  </div>
-                </div>
-                <p className="mt-3 text-center text-xs text-[#8ba3c7]">
-                  {clients.filter((c) => c.status === "نشط" || c.status === "متعاقد").length} من {clients.length} عميل نشط/متعاقد
-                </p>
-              </>
-            )}
-          </div>
-
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>ملخص سريع</h3>
-              <span className="badge status-active">مباشر</span>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
-                <span className="text-xs text-[#8ba3c7]">إجمالي الموظفين</span>
-                <span className="text-sm font-bold text-white">{employees.length}</span>
-              </div>
-              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
-                <span className="text-xs text-[#8ba3c7]">الموظفون النشطون</span>
-                <span className="text-sm font-bold text-emerald-400">{activeEmployees}</span>
-              </div>
-              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
-                <span className="text-xs text-[#8ba3c7]">إجمالي العملاء</span>
-                <span className="text-sm font-bold text-[#22d3ee]">{clients.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-[#8ba3c7]">صافي الدخل</span>
-                <span className="text-sm font-bold" style={{ color: kpi.netProfit >= 0 ? "#10b981" : "#ef4444" }}>{formatCurrency(kpi.netProfit)} SAR</span>
-              </div>
-            </div>
-          </div>
+          ) : (
+            <DashboardSatisfactionRing
+              pct={satisfactionPct}
+              clientsLine={`${clients.filter((c) => c.status === "نشط" || c.status === "متعاقد").length} من ${clients.length} عميل نشط/متعاقد`}
+            />
+          )}
+          <DashboardSummaryCard
+            employeesCount={employees.length}
+            activeEmployees={activeEmployees}
+            clientsCount={clients.length}
+            netProfit={kpi.netProfit}
+          />
         </div>
 
-        {/* ─── Projects + recent activity ────────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={`${WS_CARD} lg:col-span-2 p-5`}>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className={`${WS_CARD} p-4 sm:p-5 lg:col-span-2`}>
             <div className="mb-4 flex items-center justify-between">
               <h3 className={`${WS_SECTION_TITLE}`}>المشاريع النشطة</h3>
               <button className="text-xs text-[#22d3ee] hover:underline">عرض الكل</button>
@@ -719,54 +511,14 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>النشاطات الأخيرة</h3>
-            </div>
-            {actLoad ? (
-              <CardSkeleton rows={5} />
-            ) : activities.length === 0 ? (
-              <WorkspaceEmptyInline icon={Activity} title="لا توجد نشاطات بعد" accent="cyan" className="py-8" />
-            ) : (
-              <div className="space-y-3">
-                {activities.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3 border-b border-white/[0.05] pb-3 last:border-0 last:pb-0">
-                    <div className={`${WS_ICON_ORB} w-8 h-8 shrink-0 bg-cyan-400/10 ring-1 ring-cyan-300/20 text-[#22d3ee]`}>
-                      {activityIcons[activity.type] ?? <Activity size={14} />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm leading-snug text-white">{activity.description}</p>
-                      <div className="mt-1 flex items-center gap-1 text-xs text-[#6b87ab]"><Clock size={10} /><span>{timeAgo(activity.timestamp)}</span></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <DashboardActivityFeed
+            loading={actLoad}
+            activities={activities}
+            activityIcons={activityIcons}
+          />
         </div>
 
-        {/* ─── Quick actions ─────────────────────────────────────────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className={`${WS_SECTION_TITLE} text-sm`}>اختصارات سريعة</h2>
-            <span className="text-[11px] text-[#6b87ab]">اختصارات لأهم العمليات</span>
-          </div>
-          <div className="flex items-stretch gap-3">
-            {/* Central quick-create orb (links to the existing task create flow) */}
-            <Link
-              href="/tasks"
-              aria-label="إنشاء سريع"
-              className="grid h-auto w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_14px_34px_-12px_rgba(124,58,237,0.75)] transition-opacity hover:opacity-90"
-            >
-              <Plus size={26} strokeWidth={2.2} />
-            </Link>
-            <div className="grid min-w-0 flex-1 grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
-              {QUICK_ACTIONS.map((a) => (
-                <QuickActionTile key={a.label} href={a.href} label={a.label} icon={a.icon} tint={a.tint} />
-              ))}
-            </div>
-          </div>
-        </section>
+        <DashboardQuickActions actions={QUICK_ACTIONS} />
 
         {/* ─── Drilldown modal (unchanged behavior) ──────────────────────── */}
         {activeBoard && (
