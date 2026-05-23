@@ -198,19 +198,39 @@ export interface BoardMember {
   status: "نشط" | "غير نشط";
 }
 
+/** Internal Blumark24 board only — customer tenants must never load these rows. */
+async function assertInternalOrgForBoard(): Promise<string | null> {
+  const { data: isInternal, error: internalErr } = await supabase.rpc("current_org_is_internal");
+  if (internalErr || isInternal !== true) {
+    return null;
+  }
+  const { data: orgId, error: orgErr } = await supabase.rpc("current_org_id");
+  if (orgErr) return null;
+  return (orgId as string | null) ?? null;
+}
+
 export async function getBoardMembers(): Promise<BoardMember[]> {
-  const { data, error } = await supabase
+  const orgId = await assertInternalOrgForBoard();
+  if (!orgId) return [];
+
+  let query = supabase
     .from("board_members")
     .select("*")
+    .eq("organization_id", orgId)
     .order("created_at", { ascending: true });
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []) as BoardMember[];
 }
 
 export async function insertBoardMember(member: Omit<BoardMember, "id">): Promise<BoardMember> {
+  const orgId = await assertInternalOrgForBoard();
+  if (!orgId) throw new Error("مجلس الإدارة متاح لمنشأة Blumark24 الداخلية فقط");
+
   const { data, error } = await supabase
     .from("board_members")
-    .insert([member])
+    .insert([{ ...member, organization_id: orgId }])
     .select()
     .single();
   if (error) throw new Error(error.message);
@@ -218,12 +238,26 @@ export async function insertBoardMember(member: Omit<BoardMember, "id">): Promis
 }
 
 export async function updateBoardMember(id: string, changes: Partial<Omit<BoardMember, "id">>): Promise<void> {
-  const { error } = await supabase.from("board_members").update(changes).eq("id", id);
+  const orgId = await assertInternalOrgForBoard();
+  if (!orgId) throw new Error("مجلس الإدارة متاح لمنشأة Blumark24 الداخلية فقط");
+
+  const { error } = await supabase
+    .from("board_members")
+    .update(changes)
+    .eq("id", id)
+    .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
 }
 
 export async function deleteBoardMember(id: string): Promise<void> {
-  const { error } = await supabase.from("board_members").delete().eq("id", id);
+  const orgId = await assertInternalOrgForBoard();
+  if (!orgId) throw new Error("مجلس الإدارة متاح لمنشأة Blumark24 الداخلية فقط");
+
+  const { error } = await supabase
+    .from("board_members")
+    .delete()
+    .eq("id", id)
+    .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
 }
 
