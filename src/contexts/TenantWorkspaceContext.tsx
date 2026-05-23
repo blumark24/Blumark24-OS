@@ -14,7 +14,6 @@ import { usePermissions, type Permission } from "@/contexts/PermissionsContext";
 import { supabase } from "@/lib/supabase";
 import {
   canAccessWorkspaceRoute,
-  defaultFeaturesForPlan,
   filterNavRoutes,
   getRouteByPathname,
   normalizePlanSlug,
@@ -104,6 +103,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
         planSlug?: string;
         enabledFeatures?: WorkspaceFeature[];
         planLimits?: Record<string, number>;
+        featuresConfigured?: boolean;
         isPlatformAdmin?: boolean;
         organizationId?: string | null;
         organizationStatus?: string | null;
@@ -111,15 +111,18 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
 
       const slug = normalizePlanSlug(body.planSlug);
       setPlanSlug(slug);
-      setEnabledFeatures(
-        Array.isArray(body.enabledFeatures) && body.enabledFeatures.length > 0
-          ? body.enabledFeatures
-          : defaultFeaturesForPlan(slug),
-      );
+      const features = Array.isArray(body.enabledFeatures)
+        ? body.enabledFeatures
+        : [];
+      setEnabledFeatures(features);
       setPlanLimits(body.planLimits ?? {});
       setIsPlatformAdmin(body.isPlatformAdmin === true);
       setOrganizationId(body.organizationId ?? null);
       setOrganizationStatus(body.organizationStatus ?? null);
+
+      if (body.featuresConfigured !== true && body.isPlatformAdmin !== true) {
+        setError("باقة المنشأة غير مكوّنة — طبّق migration 020 أو حدّث الباقة من مركز المالك");
+      }
     } catch {
       setError("تعذر تحميل سياق مساحة العمل");
       setPlanSlug("basic");

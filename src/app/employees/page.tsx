@@ -222,8 +222,7 @@ function EmployeesContent() {
     depts:  new Set(employees.map((e) => e.department)).size,
   };
 
-  const uniqueDepts = Array.from(new Set(employees.map((e) => e.department).filter(Boolean)));
-  const filterDepts = ["الكل", ...Array.from(new Set([...deptNames, ...uniqueDepts]))];
+  const filterDepts = ["الكل", ...deptNames];
 
   return (
     <DashboardLayout>
@@ -437,7 +436,11 @@ function EmployeesContent() {
                   <label className="block text-xs text-[#8ba3c7] mb-1.5">القسم</label>
                   <select className="input-dark text-sm" value={form.department}
                     onChange={(e) => setForm({ ...form, department: e.target.value })}>
-                    {(deptNames.length ? deptNames : uniqueDepts).map((d) => <option key={d} value={d}>{d}</option>)}
+                    {deptNames.length === 0 ? (
+                      <option value="">— أضف أقساماً من الإعدادات —</option>
+                    ) : (
+                      deptNames.map((d) => <option key={d} value={d}>{d}</option>)
+                    )}
                   </select>
                 </div>
                 <div>

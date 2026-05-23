@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
-  defaultFeaturesForPlan,
   normalizePlanSlug,
   type PlanSlug,
   type WorkspaceFeature,
@@ -69,10 +68,9 @@ export async function GET(req: NextRequest) {
     if (!orgId) {
       return NextResponse.json({
         ...emptyPayload,
-        planSlug: isPlatformAdmin ? "advanced" : "basic",
-        enabledFeatures: isPlatformAdmin
-          ? defaultFeaturesForPlan("advanced")
-          : [],
+        planSlug: "basic",
+        enabledFeatures: [],
+        featuresConfigured: false,
         organizationStatus: null,
       });
     }
@@ -107,17 +105,28 @@ export async function GET(req: NextRequest) {
       planSlug = normalizePlanSlug(plan?.slug);
     }
 
-    let enabledFeatures: WorkspaceFeature[] = defaultFeaturesForPlan(planSlug);
+    let enabledFeatures: WorkspaceFeature[] = [];
+    let featuresConfigured = false;
+
     if (planId) {
       const { data: features, error: featErr } = await admin
         .from("plan_features")
         .select("feature_key")
         .eq("plan_id", planId);
 
-      if (!featErr && features && features.length > 0) {
+      if (featErr) {
+        console.error("[workspace-context] plan_features error:", featErr.message);
+        return NextResponse.json(
+          { error: "تعذر قراءة ميزات الباقة" },
+          { status: 500 },
+        );
+      }
+
+      if (features && features.length > 0) {
         enabledFeatures = features.map(
           (f) => f.feature_key as WorkspaceFeature,
         );
+        featuresConfigured = true;
       }
     }
 
@@ -136,6 +145,7 @@ export async function GET(req: NextRequest) {
       planSlug,
       enabledFeatures,
       planLimits,
+      featuresConfigured,
       isPlatformAdmin,
       organizationId: org.id,
       organizationStatus: org.status ?? null,

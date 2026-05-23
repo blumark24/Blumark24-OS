@@ -1,32 +1,29 @@
-# SaaS Isolation Refactor — Production Audit
+# SaaS Isolation — PR #164 Final Audit
 
-## Architecture
+## Package feature matrix (migration 020 seed)
 
-- **Owner Platform** (`/owner`): platform owner manages organizations, plans, subscriptions. `is_owner()` RLS.
-- **Tenant Workspace**: all routes gated by `organization_id` RLS + `plan_features` + RBAC.
-- **Blumark Workspace** (`blumark24-internal`): normal tenant — no package bypass via `is_internal`.
+| Module | basic | growth | advanced |
+|--------|:-----:|:------:|:--------:|
+| dashboard | yes | yes | yes |
+| tasks | yes | yes | yes |
+| clients | yes | yes | yes |
+| org | yes | yes | yes |
+| ai | yes | yes | yes |
+| reports | yes | yes | yes |
+| employees | — | yes | yes |
+| strategy | — | yes | yes |
+| finance | — | — | yes |
+| automation | — | — | yes |
 
-## Database (migration 020)
+`plan_limits` (from migration 009, unchanged): `max_departments`, `max_employees`, `ai_level`, `whatsapp_enabled`, etc. per plan slug.
 
-Apply: `supabase db push` or run `supabase/migrations/020_saas_package_departments.sql`.
+## Runtime rules
 
-- `plan_features` — runtime module toggles per plan (seeded basic/growth/advanced).
-- `departments` — org-scoped taxonomy with `max_departments` enforcement.
-- Backfill departments from `employees.department`.
-- `strategy_phases` NULL `organization_id` rows scoped to internal org slug.
+- Tenant modules come **only** from `plan_features` rows (no `is_internal` bypass).
+- Empty/missing `plan_features` → `featuresConfigured: false`, empty nav (fail-closed).
+- Owner changes plan via `/owner/organizations` → `ChangePlanModal` → `changeOrganizationPlan()` updates `organizations.plan_id`.
+- Tenant refreshes context on login/navigation; nav uses `enabledFeatures` from `/api/tenant/workspace-context`.
 
-## Security validation checklist
+## Migration 020
 
-| Test | Expected |
-|------|----------|
-| Tenant A vs Tenant B | No cross-org rows on employees, clients, tasks, departments |
-| Package basic | No employees/finance/automation nav |
-| Package advanced | Full module set per `plan_features` |
-| Dept dropdown | Only current org `departments` |
-| `/attack` | Removed |
-| Static dept arrays | None in `src/` tenant UI |
-
-## API
-
-- `GET /api/tenant/workspace-context` returns `enabledFeatures`, `planLimits`, `planSlug`, `organizationId`.
-- Fail-closed: no RPC fallback widening package on error.
+See PR body and `supabase/migrations/020_saas_package_departments.sql`.
