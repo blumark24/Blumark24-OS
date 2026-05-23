@@ -49,6 +49,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [router]);
 
   useEffect(() => {
+    setOpenQuickCreate(false);
+  }, [pathname]);
+
+  useEffect(() => {
     if (!openQuickCreate) return;
     const onDoc = (e: MouseEvent) => {
       if (fabRef.current && !fabRef.current.contains(e.target as Node)) {

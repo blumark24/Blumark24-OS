@@ -182,10 +182,10 @@ function ReportsContent() {
               </div>
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 min-w-0">
-                <KpiStatCard label="إجمالي العملاء" value={String(clients.length)} icon={UserCircle} accent="cyan" showLive={false} />
-                <KpiStatCard label="الموظفون النشطون" value={String(employees.filter((e) => e.status === "نشط").length)} icon={Users} accent="emerald" showLive={false} />
-                <KpiStatCard label="المهام المكتملة" value={String(tasks.filter((t) => t.status === "مكتملة").length)} icon={CheckSquare} accent="amber" showLive={false} />
-                <KpiStatCard label="صافي الربح" value={formatCurrency(totalIncome - totalExpense)} subtitle="SAR" icon={DollarSign} accent="sky" showLive={false} />
+                <KpiStatCard label="إجمالي العملاء" value={String(clients.length)} icon={UserCircle} accent="cyan" showLive={false} showSparkline={false} />
+                <KpiStatCard label="الموظفون النشطون" value={String(employees.filter((e) => e.status === "نشط").length)} icon={Users} accent="emerald" showLive={false} showSparkline={false} />
+                <KpiStatCard label="المهام المكتملة" value={String(tasks.filter((t) => t.status === "مكتملة").length)} icon={CheckSquare} accent="amber" showLive={false} showSparkline={false} />
+                <KpiStatCard label="صافي الربح" value={formatCurrency(totalIncome - totalExpense)} subtitle="SAR" icon={DollarSign} accent="sky" showLive={false} showSparkline={false} />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

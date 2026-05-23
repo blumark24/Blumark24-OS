@@ -137,10 +137,10 @@ function ClientsContent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-4 min-w-0">
           <div className="lg:col-span-2 grid grid-cols-2 gap-3 sm:gap-4">
-            <KpiStatCard label="إجمالي العملاء" value={String(clients.length)} icon={UserCircle} accent="cyan" showLive={false} />
-            <KpiStatCard label="العملاء النشطون" value={String(clients.filter((c) => c.status === "نشط").length)} icon={UserCircle} accent="emerald" showLive={false} />
-            <KpiStatCard label="العملاء المحتملون" value={String(clients.filter((c) => c.status === "محتمل").length)} icon={UserCircle} accent="amber" showLive={false} />
-            <KpiStatCard label="إجمالي العقود" value={`${formatCurrency(totalRevenue)}`} subtitle="SAR" icon={Package} accent="sky" showLive={false} />
+            <KpiStatCard label="إجمالي العملاء" value={String(clients.length)} icon={UserCircle} accent="cyan" showLive={false} showSparkline={false} />
+            <KpiStatCard label="العملاء النشطون" value={String(clients.filter((c) => c.status === "نشط").length)} icon={UserCircle} accent="emerald" showLive={false} showSparkline={false} />
+            <KpiStatCard label="العملاء المحتملون" value={String(clients.filter((c) => c.status === "محتمل").length)} icon={UserCircle} accent="amber" showLive={false} showSparkline={false} />
+            <KpiStatCard label="إجمالي العقود" value={`${formatCurrency(totalRevenue)}`} subtitle="SAR" icon={Package} accent="sky" showLive={false} showSparkline={false} />
           </div>
 
           <GlassPanel className="p-4 sm:p-5">

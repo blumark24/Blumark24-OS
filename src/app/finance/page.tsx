@@ -264,7 +264,8 @@ function FinanceContent() {
               <h3 className="text-white font-medium">سجل المعاملات</h3>
               <span className="text-xs text-[#8ba3c7]">{transactions.length} معاملة</span>
             </div>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-[#1e3a5f]">
                   {["النوع", "الوصف", "الفئة", "التاريخ", "المبلغ", "العمليات", "الادخار", ""].map((h) => (
@@ -311,6 +312,7 @@ function FinanceContent() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>

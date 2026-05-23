@@ -292,7 +292,7 @@ export default function DashboardPage() {
 
   if (loading || !user) return (
     <DashboardLayout>
-      <div className="space-y-5">
+      <div className={WS_PAGE}>
         <div className="rounded-3xl border border-white/[0.06] bg-[#070d20]/70 h-40 animate-pulse" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
           <KPICardSkeleton />

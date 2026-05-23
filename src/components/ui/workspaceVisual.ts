@@ -4,7 +4,7 @@
  */
 
 export const WS_PAGE =
-  "space-y-5 sm:space-y-6 min-w-0 max-w-full pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-6";
+  "space-y-5 sm:space-y-6 min-w-0 max-w-full pb-[calc(10rem+env(safe-area-inset-bottom))] lg:pb-6";
 
 export const WS_CARD =
   "relative overflow-hidden rounded-3xl border border-white/[0.07] bg-[#070d20]/90 lg:bg-[#070d20]/80 backdrop-blur-xl";

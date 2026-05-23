@@ -74,6 +74,7 @@ export function KpiStatCard({
   accent,
   trend,
   showLive = true,
+  showSparkline = true,
   onClick,
   className,
 }: {
@@ -84,6 +85,7 @@ export function KpiStatCard({
   accent: KpiAccent;
   trend?: string;
   showLive?: boolean;
+  showSparkline?: boolean;
   onClick?: () => void;
   className?: string;
 }) {
@@ -122,9 +124,11 @@ export function KpiStatCard({
             {trend && <span className={theme.accent}>{trend}</span>}
           </div>
         )}
-        <div className="mt-2 h-8 opacity-60">
-          <Sparkline colorClass={theme.spark} />
-        </div>
+        {showSparkline && (
+          <div className="mt-2 h-8 opacity-60">
+            <Sparkline colorClass={theme.spark} />
+          </div>
+        )}
       </div>
     </Wrapper>
   );
