@@ -292,10 +292,10 @@ export function getRouteLabel(routeId: WorkspaceRouteId, isInternal: boolean): s
 }
 
 export const TENANT_EMPTY_STATE_MSG =
-  "لم يتم إعداد بيانات هذه المنشأة بعد";
+  "لم يتم إعداد الهيكل التنظيمي بعد";
 
 export const TENANT_EMPTY_STATE_HINT =
-  "ابدأ بإضافة البيانات من لوحة مدير المنشأة";
+  "ابدأ بإضافة قسم رئيسي من زر «قسم جديد» — الأقسام والفرق والمسميات تُحفظ لمنشأتك فقط.";
 
 export interface WorkspaceAccessContext {
   isInternal: boolean;

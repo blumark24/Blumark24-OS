@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.27.0",
     "@supabase/supabase-js": "^2.45.0",
     "@vercel/speed-insights": "^2.0.0",
+    "@xyflow/react": "^12.10.2",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "framer-motion": "^11.5.4",
