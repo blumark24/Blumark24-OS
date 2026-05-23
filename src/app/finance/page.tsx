@@ -7,6 +7,8 @@ import { FUND_DISTRIBUTION, formatCurrency } from "@/lib/utils";
 import { DollarSign, Plus, TrendingUp, TrendingDown, X, ArrowUpRight, Edit2, Trash2 } from "lucide-react";
 import type { Transaction } from "@/types";
 import { usePermissions } from "@/contexts/PermissionsContext";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import { TENANT_EMPTY_STATE_MSG, TENANT_EMPTY_STATE_HINT } from "@/lib/features/packageFeatures";
 import { useTransactions } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import {
@@ -34,8 +36,10 @@ function emptyForm(): FormState {
 function FinanceContent() {
   const { data: transactions, loading, insert, update, remove } = useTransactions();
   const { userRole } = usePermissions();
+  const { isInternal } = useTenantWorkspace();
   const toast = useToast();
   const isAdmin = userRole === "super_admin";
+  const showCompanyFund = isInternal;
 
   const [showModal, setShowModal] = useState(false);
   const [editId,    setEditId]    = useState<string | null>(null);
@@ -164,7 +168,14 @@ function FinanceContent() {
   return (
     <DashboardLayout>
       <div className={WS_PAGE}>
-        <PageHero title="نظام الخزينة المالية" subtitle="إدارة الإيرادات والمصروفات وتوزيع الصناديق">
+        <PageHero
+          title={showCompanyFund ? "نظام الخزينة المالية" : "مالية المنشأة"}
+          subtitle={
+            showCompanyFund
+              ? "إدارة الإيرادات والمصروفات وتوزيع صناديق الشركة"
+              : "إدارة إيرادات ومصروفات منشأتك"
+          }
+        >
           {isAdmin && (
             <button onClick={openAdd} className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation">
               <Plus size={16} />
@@ -205,7 +216,7 @@ function FinanceContent() {
           </div>
         </div>
 
-        {/* Fund Cards */}
+        {showCompanyFund && (
         <div>
           <h2 className="text-white font-medium mb-3">
             توزيع الصناديق <span className="text-xs text-[#8ba3c7]">(تلقائي عند إدخال دخل جديد)</span>
@@ -221,10 +232,10 @@ function FinanceContent() {
             ))}
           </div>
         </div>
+        )}
 
-        {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <GlassPanel className="lg:col-span-2 p-5">
+          <GlassPanel className={cn("p-5", showCompanyFund ? "lg:col-span-2" : "lg:col-span-3")}>
             <h3 className="text-white font-medium mb-4">مقارنة الإيرادات والمصروفات</h3>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={monthlyData}>
@@ -239,6 +250,7 @@ function FinanceContent() {
             </ResponsiveContainer>
           </GlassPanel>
 
+          {showCompanyFund && (
           <GlassPanel className="p-5">
             <h3 className="text-white font-medium mb-4">توزيع الصناديق</h3>
             <ResponsiveContainer width="100%" height={220}>
@@ -251,6 +263,7 @@ function FinanceContent() {
               </PieChart>
             </ResponsiveContainer>
           </GlassPanel>
+          )}
         </div>
 
         {loading && (
@@ -308,7 +321,9 @@ function FinanceContent() {
                   </tr>
                 ))}
                 {transactions.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-8 text-[#8ba3c7]">لا توجد معاملات بعد</td></tr>
+                  <tr><td colSpan={8} className="text-center py-8 text-[#8ba3c7]">
+                    {!isInternal ? (<><span className="block">{TENANT_EMPTY_STATE_MSG}</span><span className="block text-xs mt-2 text-[#6b87ab]">{TENANT_EMPTY_STATE_HINT}</span></>) : "لا توجد معاملات بعد"}
+                  </td></tr>
                 )}
               </tbody>
             </table>

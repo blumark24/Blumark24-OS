@@ -45,6 +45,8 @@ import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { useStrategyPhases } from "@/hooks/useData";
 import { usePermissions } from "@/contexts/PermissionsContext";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import { TENANT_EMPTY_STATE_MSG, TENANT_EMPTY_STATE_HINT } from "@/lib/features/packageFeatures";
 import { useToast } from "@/contexts/ToastContext";
 
 const STATUS_CONFIG = {
@@ -172,6 +174,7 @@ function EditModal({
 function StrategyContent() {
   const { data: phases, loading, error, update } = useStrategyPhases();
   const { userRole } = usePermissions();
+  const { isInternal } = useTenantWorkspace();
   const toast = useToast();
   const [editingPhase, setEditingPhase] = useState<StrategyPhase | null>(null);
 
@@ -200,9 +203,13 @@ function StrategyContent() {
         <div>
           <h1 className="text-2xl font-heading font-bold text-white flex items-center gap-2">
             <Map size={24} className="text-[#22d3ee]" />
-            الخطة الاستراتيجية
+            {isInternal ? "الخطة الاستراتيجية" : "استراتيجية المنشأة"}
           </h1>
-          <p className="text-[#8ba3c7] text-sm mt-1">خارطة الطريق الاستراتيجية لـ Blumark24</p>
+          <p className="text-[#8ba3c7] text-sm mt-1">
+            {isInternal
+              ? "خارطة الطريق الاستراتيجية لـ Blumark24"
+              : "تخطيط ومتابعة أهداف منشأتك"}
+          </p>
         </div>
         <div className="glass-card px-4 py-2">
           <div className="text-xs text-[#8ba3c7] mb-1">التقدم الإجمالي</div>
@@ -219,13 +226,13 @@ function StrategyContent() {
         <div className="glass-card p-4 border border-red-500/30 text-red-400 text-sm">{error}</div>
       )}
 
-      {/* Roadmap: static vision from Blumark AI strategic plan */}
+      {isInternal && (
       <div className="glass-card p-5 border border-[#1e3a5f]">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp size={18} className="text-[#22d3ee]" />
           <div>
             <h3 className="text-white font-medium">خارطة التحول الاستراتيجي</h3>
-            <p className="text-xs text-[#8ba3c7]">من التأسيس إلى المشاريع الكبرى</p>
+            <p className="text-xs text-[#8ba3c7]">من التأسيس إلى المشاريع الكبرى — Blumark24</p>
           </div>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
@@ -245,6 +252,7 @@ function StrategyContent() {
           ))}
         </div>
       </div>
+      )}
 
       {/* AI Recommendations */}
       <div className="glass-card p-5 border border-[#22d3ee]/20">
@@ -268,6 +276,11 @@ function StrategyContent() {
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 size={32} className="animate-spin text-[#22d3ee]" />
+        </div>
+      ) : !isInternal && phases.length === 0 ? (
+        <div className="glass-card p-10 text-center border border-[#1e3a5f]">
+          <p className="text-[#8ba3c7] text-sm">{TENANT_EMPTY_STATE_MSG}</p>
+          <p className="text-[#6b87ab] text-xs mt-2">{TENANT_EMPTY_STATE_HINT}</p>
         </div>
       ) : (
         <div className="relative">

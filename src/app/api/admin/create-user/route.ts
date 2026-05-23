@@ -137,10 +137,12 @@ export async function POST(req: NextRequest) {
       "مدير المالية":        "finance_manager",
       "مدير مالي":           "finance_manager",
       "موظف":                "employee",
+      "مدير المنشأة":        "organization_manager",
+      "مدير_المنشأة":        "organization_manager",
     };
     const VALID_ROLES = [
       "super_admin", "board_member", "defense_manager",
-      "attack_manager", "finance_manager", "employee",
+      "attack_manager", "finance_manager", "organization_manager", "employee",
     ];
     const rawRole = typeof body.role === "string" ? body.role : "employee";
     const role    = ARABIC_TO_ROLE[rawRole] ?? rawRole;

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import WorkspaceRouteGuard from "@/components/ui/WorkspaceRouteGuard";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -108,7 +109,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         )}
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6 min-w-0">
-          {children}
+          <WorkspaceRouteGuard>{children}</WorkspaceRouteGuard>
         </main>
       </div>
 

@@ -11,6 +11,7 @@ import { usePermissions } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useBoardMembers } from "@/hooks/useData";
 import { supabase } from "@/lib/supabase";
+import { TENANT_EMPTY_STATE_MSG, TENANT_EMPTY_STATE_HINT } from "@/lib/features/packageFeatures";
 import type { BoardMember } from "@/lib/db";
 import { WS_PAGE, WS_CARD, WS_GLASS_MODAL, WS_SURFACE } from "@/components/ui/workspaceVisual";
 import { PageHero, WorkspaceEmpty } from "@/components/ui/workspaceUi";
@@ -470,8 +471,8 @@ export default function OrgPage() {
         {isInternalOrg === false && (
           <WorkspaceEmpty
             icon={Network}
-            title="لم يتم إعداد الهيكل التنظيمي بعد"
-            subtitle="سيظهر هنا الهيكل الإداري الخاص بمنشأتك عند إضافته. ابدأ بإضافة أعضاء مجلس الإدارة في الأعلى."
+            title={TENANT_EMPTY_STATE_MSG}
+            subtitle={`${TENANT_EMPTY_STATE_HINT}. سيظهر هنا الهيكل الإداري الخاص بمنشأتك عند إضافته.`}
             accent="cyan"
           />
         )}

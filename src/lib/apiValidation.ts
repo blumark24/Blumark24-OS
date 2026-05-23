@@ -2,7 +2,7 @@
 
 const VALID_ROLES = [
   "super_admin", "board_member", "defense_manager",
-  "attack_manager", "finance_manager", "employee",
+  "attack_manager", "finance_manager", "organization_manager", "employee",
 ];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

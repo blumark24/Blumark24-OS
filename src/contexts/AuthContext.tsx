@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { assertSupabaseEnv, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export interface AuthUser {
   id: string;

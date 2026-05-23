@@ -5,6 +5,7 @@ import { ToastProvider } from "@/contexts/ToastContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { MessagesProvider } from "@/contexts/MessagesContext";
 import { PermissionsProvider } from "@/contexts/PermissionsContext";
+import { TenantWorkspaceProvider } from "@/contexts/TenantWorkspaceContext";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
@@ -33,11 +34,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ToastProvider>
           <AuthProvider>
             <PermissionsProvider>
-              <NotificationsProvider>
-                <MessagesProvider>
-                  {children}
-                </MessagesProvider>
-              </NotificationsProvider>
+              <TenantWorkspaceProvider>
+                <NotificationsProvider>
+                  <MessagesProvider>
+                    {children}
+                  </MessagesProvider>
+                </NotificationsProvider>
+              </TenantWorkspaceProvider>
             </PermissionsProvider>
           </AuthProvider>
         </ToastProvider>

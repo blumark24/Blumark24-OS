@@ -7,7 +7,11 @@ import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisua
 import { PageHero, KpiStatCard } from "@/components/ui/workspaceUi";
 import { cn } from "@/lib/utils";
 import { Users, Plus, Search, Star, Edit2, Trash2, X, Eye, EyeOff } from "lucide-react";
-import { usePermissions, ROLE_LABELS, UserRole } from "@/contexts/PermissionsContext";
+import {
+  usePermissions,
+  ROLE_LABELS,
+  UserRole,
+} from "@/contexts/PermissionsContext";
 import { useEmployees } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import PageGuard from "@/components/ui/PageGuard";
@@ -39,7 +43,8 @@ const SYS_ROLE_LABELS: Record<string, string> = {
   defense_manager: "مدير وكالة الدفاع",
   attack_manager:  "مدير وكالة الهجوم",
   finance_manager: "مدير مالي",
-  employee:        "موظف",
+  employee:              "موظف",
+  organization_manager:  "مدير المنشأة",
 };
 
 const SYSTEM_ROLES = Object.keys(SYS_ROLE_LABELS) as UserRole[];
@@ -482,10 +487,18 @@ function EmployeesContent() {
   );
 }
 
+function EmployeesPageGuard({ children }: { children: React.ReactNode }) {
+  const { hasPermission } = usePermissions();
+  const allowed =
+    hasPermission("view_employees") || hasPermission("manage_users");
+  if (allowed) return <>{children}</>;
+  return <PageGuard permission="view_employees">{null}</PageGuard>;
+}
+
 export default function EmployeesPage() {
   return (
-    <PageGuard permission="manage_users">
+    <EmployeesPageGuard>
       <EmployeesContent />
-    </PageGuard>
+    </EmployeesPageGuard>
   );
 }

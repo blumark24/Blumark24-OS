@@ -7,37 +7,33 @@ import {
   DollarSign, Map, Bot, BarChart3, Settings, LogOut,
   ChevronLeft, Network, Zap, Activity, X, ArrowLeft,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
-import { usePermissions, Permission, ROLE_LABELS } from "@/contexts/PermissionsContext";
+import { usePermissions, ROLE_LABELS } from "@/contexts/PermissionsContext";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import {
+  getRouteLabel,
+  WORKSPACE_ROUTES,
+  type WorkspaceRouteId,
+} from "@/lib/features/packageFeatures";
 import OfficialBlumarkLogo from "@/components/brand/OfficialBlumarkLogo";
 
-// ─── Nav items ─────────────────────────────────────────────────────────────────
-
-interface NavItem {
-  href:       string;
-  label:      string;
-  icon:       React.ElementType;
-  permission: Permission;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard",  label: "الرئيسية",         icon: LayoutDashboard, permission: "view_dashboard"    },
-  { href: "/employees",  label: "الموظفين",          icon: Users,           permission: "manage_users"      },
-  { href: "/tasks",      label: "المهام",             icon: CheckSquare,     permission: "manage_tasks"      },
-  { href: "/clients",    label: "العملاء (CRM)",      icon: UserCircle,      permission: "manage_clients"    },
-  { href: "/finance",    label: "المالية",            icon: DollarSign,      permission: "manage_finance"    },
-  { href: "/strategy",   label: "الاستراتيجية",      icon: Map,             permission: "manage_reports"    },
-  { href: "/org",        label: "الهيكل الإداري",    icon: Network,         permission: "view_dashboard"    },
-  { href: "/automation", label: "مركز الأتمتة",      icon: Zap,             permission: "manage_automations"},
-  { href: "/attack",     label: "وكالة الهجوم",       icon: Activity,        permission: "manage_clients"    },
-  { href: "/ai",         label: "المساعد الذكي",     icon: Bot,             permission: "view_dashboard"    },
-  { href: "/reports",    label: "التقارير",           icon: BarChart3,       permission: "manage_reports"    },
-  { href: "/settings",   label: "الإعدادات",         icon: Settings,        permission: "manage_settings"   },
-];
-
-// ─── Props ─────────────────────────────────────────────────────────────────────
+const ICON_BY_NAME: Record<string, LucideIcon> = {
+  LayoutDashboard,
+  Users,
+  CheckSquare,
+  UserCircle,
+  DollarSign,
+  Map,
+  Network,
+  Zap,
+  Activity,
+  Bot,
+  BarChart3,
+  Settings,
+};
 
 interface SidebarProps {
   collapsed?:   boolean;
@@ -45,8 +41,6 @@ interface SidebarProps {
   mobileOpen?:  boolean;
   onMobileClose?:() => void;
 }
-
-// ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function Sidebar({
   collapsed = false,
@@ -57,7 +51,8 @@ export default function Sidebar({
   const pathname    = usePathname();
   const { user, loading: authLoading, loggingOut, logout } = useAuth();
   const toast       = useToast();
-  const { hasPermission, userRole } = usePermissions();
+  const { userRole } = usePermissions();
+  const { navRoutes, loading: wsLoading, isInternal } = useTenantWorkspace();
 
   const handleLogout = () => {
     if (loggingOut) return;
@@ -65,32 +60,21 @@ export default function Sidebar({
     void logout();
   };
 
-  // While auth/profile is still resolving: show all items (avoids a flash of a
-  // limited sidebar for super_admin on hard refresh).  After resolution:
-  // super_admin gets all, others get filtered items.  Treat unknown userRole
-  // (null) the same as loading — we don't yet know what to show.
-  const visibleItems = authLoading || !userRole
-    ? NAV_ITEMS
-    : userRole === "super_admin"
-      ? NAV_ITEMS
-      : NAV_ITEMS.filter((item) => hasPermission(item.permission));
+  const _wsNavLoading = authLoading || wsLoading || !userRole;
+
+  const visibleRoutes = _wsNavLoading
+    ? WORKSPACE_ROUTES.filter((r) => !r.internalOnly)
+    : navRoutes;
 
   const roleLabel = userRole ? (ROLE_LABELS[userRole] ?? userRole.replace(/_/g, " ")) : "";
 
-  // ─── Inner card (the visible glass panel — matches DemoSidebar look) ─────
-  // Outer <aside> handles positioning (sticky/fixed); inner div is the actual
-  // styled card.  Mobile uses an opaque background and NO backdrop-filter so
-  // the panel paints cheaply.  Desktop layers the subtle translucent glass.
   const innerCard = (
     <div
       className={cn(
         "flex flex-col flex-1 rounded-2xl border border-white/[0.08] overflow-hidden shadow-[0_8px_40px_-16px_rgba(0,0,0,0.55)]",
-        // Mobile: opaque navy so no expensive backdrop-filter is needed.
-        // Desktop (≥lg): translucent + blur for the glass effect.
         "bg-[#0a1628] lg:bg-[rgba(10,22,40,0.55)] lg:backdrop-blur-xl lg:shadow-[0_0_60px_-20px_rgba(34,211,238,0.12)]",
       )}
     >
-      {/* Header / logo */}
       <div className="relative flex items-center justify-center lg:justify-start px-4 py-4 border-b border-white/[0.06]">
         {collapsed ? (
           <div
@@ -105,7 +89,6 @@ export default function Sidebar({
         ) : (
           <OfficialBlumarkLogo className="w-[140px] sm:w-[150px] lg:w-[150px]" />
         )}
-        {/* Desktop collapse toggle */}
         <button
           onClick={onToggle}
           className="mr-auto ms-2 p-1.5 -m-1.5 text-white/55 hover:text-[#22D3EE] transition-colors hidden lg:block"
@@ -113,8 +96,6 @@ export default function Sidebar({
         >
           <ChevronLeft size={16} className={cn("transition-transform", collapsed && "rotate-180")} />
         </button>
-        {/* Mobile close button — absolute so the logo stays centered.
-            Padding gives a ≥40px touch target without changing the visual size. */}
         {onMobileClose && (
           <button
             onClick={onMobileClose}
@@ -126,10 +107,12 @@ export default function Sidebar({
         )}
       </div>
 
-      {/* Nav (scrollable) */}
       <nav className="flex-1 overflow-y-auto px-3 py-3">
         <ul className="space-y-1">
-          {visibleItems.map(({ href, label, icon: Icon }) => {
+          {visibleRoutes.map((route) => {
+            const Icon = ICON_BY_NAME[route.iconName] ?? LayoutDashboard;
+            const href = route.href;
+            const label = getRouteLabel(route.id as WorkspaceRouteId, isInternal);
             const isActive = href === "/dashboard"
               ? pathname === "/dashboard"
               : pathname.startsWith(href);
@@ -172,7 +155,6 @@ export default function Sidebar({
         </ul>
       </nav>
 
-      {/* User card — pinned at the bottom of the inner panel */}
       <div className="px-3 pb-3 pt-2 border-t border-white/[0.06]">
         <div
           className={cn(
@@ -189,8 +171,6 @@ export default function Sidebar({
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <div className="text-[12.5px] font-semibold text-white truncate">{user?.name ?? "المستخدم"}</div>
-              {/* Hide role text while we are still resolving the profile to
-                  avoid an "employee" fallback flash for super_admin users. */}
               <div className="text-[11px] text-white/55 truncate">{roleLabel || " "}</div>
             </div>
           )}
@@ -221,7 +201,6 @@ export default function Sidebar({
     </div>
   );
 
-  // ─── Outer aside: positioning + sizing (NOT the visible card) ────────────
   const sidebarContent = (
     <aside
       className={cn(
@@ -235,18 +214,13 @@ export default function Sidebar({
 
   return (
     <>
-      {/* Desktop sidebar */}
       <div className="hidden lg:block">{sidebarContent}</div>
-
-      {/* Mobile sidebar overlay */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
-          {/* Backdrop — no blur on mobile (perf), just a tinted scrim */}
           <div
             className="absolute inset-0 bg-black/55"
             onClick={onMobileClose}
           />
-          {/* Sidebar panel — RTL: slides in from right */}
           <div className="absolute top-0 right-0 h-full sidebar-mobile-enter" style={{ zIndex: 51 }}>
             {sidebarContent}
           </div>
