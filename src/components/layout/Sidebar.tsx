@@ -71,8 +71,8 @@ export default function Sidebar({
   const innerCard = (
     <div
       className={cn(
-        "flex flex-col flex-1 rounded-2xl border border-white/[0.08] overflow-hidden",
-        "bg-[#0a1628] lg:bg-[rgba(10,22,40,0.55)] lg:backdrop-blur-xl",
+        "flex flex-col flex-1 rounded-2xl border border-white/[0.08] overflow-hidden shadow-[0_8px_40px_-16px_rgba(0,0,0,0.55)]",
+        "bg-[#0a1628] lg:bg-[rgba(10,22,40,0.55)] lg:backdrop-blur-xl lg:shadow-[0_0_60px_-20px_rgba(34,211,238,0.12)]",
       )}
     >
       <div className="relative flex items-center justify-center lg:justify-start px-4 py-4 border-b border-white/[0.06]">
@@ -124,7 +124,7 @@ export default function Sidebar({
                   className={cn(
                     "flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-colors border",
                     isActive
-                      ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#3B82F6]/15 to-transparent border-[rgba(34,211,238,0.24)] text-white shadow-[0_2px_10px_-4px_rgba(34,211,238,0.30)]"
+                      ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#3B82F6]/15 to-transparent border-[rgba(34,211,238,0.24)] text-white shadow-[0_4px_16px_-4px_rgba(34,211,238,0.35)]"
                       : "text-white/[0.72] hover:bg-white/[0.04] border-transparent"
                   )}
                   title={collapsed ? label : undefined}
@@ -158,7 +158,7 @@ export default function Sidebar({
       <div className="px-3 pb-3 pt-2 border-t border-white/[0.06]">
         <div
           className={cn(
-            "flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5",
+            "flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2.5 backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
             collapsed && "justify-center"
           )}
         >

@@ -22,6 +22,10 @@ const REPORT_TYPES = [
 
 const DEPT_NAMES = ["الإدارة", "الهجوم", "الإبداع", "التصميم", "الحملات", "AI Lab"];
 
+import { WS_PAGE, WS_CARD, WS_SURFACE } from "@/components/ui/workspaceVisual";
+import { PageHero, KpiStatCard } from "@/components/ui/workspaceUi";
+import { cn } from "@/lib/utils";
+
 const TOOLTIP_STYLE = {
   background: "#0d1f3c",
   border: "1px solid #1e3a5f",
@@ -126,35 +130,29 @@ function ReportsContent() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-heading font-bold text-white flex items-center gap-2">
-              <BarChart3 size={24} className="text-[#22d3ee]" />
-              التقارير والتحليلات
-            </h1>
-            <p className="text-[#8ba3c7] text-sm mt-1">تقارير شاملة قابلة للتصدير</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <select className="input-dark text-sm py-2 w-36" value={period} onChange={(e) => setPeriod(e.target.value)}>
-              {["هذا الأسبوع", "هذا الشهر", "آخر 3 أشهر", "هذا العام"].map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-            <button onClick={exportPDF} className="btn-primary flex items-center gap-2">
-              <Download size={15} />
-              تصدير PDF
-            </button>
-          </div>
-        </div>
+      <div className={WS_PAGE}>
+        <PageHero title="التقارير والتحليلات" subtitle="تقارير شاملة قابلة للتصدير">
+          <select className="input-dark text-sm py-2 w-full sm:w-36 min-h-11" value={period} onChange={(e) => setPeriod(e.target.value)}>
+            {["هذا الأسبوع", "هذا الشهر", "آخر 3 أشهر", "هذا العام"].map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+          <button onClick={exportPDF} className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation">
+            <Download size={15} />
+            تصدير PDF
+          </button>
+        </PageHero>
 
-        {/* Report Type Selector */}
-        <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 min-w-0">
           {REPORT_TYPES.map((rt) => (
             <button
               key={rt.id}
               onClick={() => setActiveReport(rt.id as ReportId)}
-              className={`glass-card p-3 flex flex-col items-center gap-2 transition-all ${activeReport === rt.id ? "border-opacity-50" : "opacity-70 hover:opacity-100"}`}
+              className={cn(
+                WS_CARD,
+                "p-3 flex flex-col items-center gap-2 transition-all min-h-[72px] touch-manipulation",
+                activeReport === rt.id ? "opacity-100 ring-1" : "opacity-70 hover:opacity-100",
+              )}
               style={{ borderColor: activeReport === rt.id ? rt.color : undefined }}
             >
               <div className="p-2 rounded-xl" style={{ background: `${rt.color}20` }}>
@@ -172,29 +170,22 @@ function ReportsContent() {
         {/* Monthly Report */}
         {!loading && activeReport === "monthly" && (
           <div className="space-y-6">
-            <div className="glass-card p-6 border border-[#22d3ee]/20">
+            <div className={cn(WS_SURFACE, "p-6 border border-cyan-300/20")}>
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-xl font-heading font-bold text-white">التقرير الشهري الشامل</h2>
-                  <p className="text-[#8ba3c7] text-sm">{period} – Blumark24 OS</p>
+                  <p className="text-[#8ba3c7] text-sm">{period}</p>
                 </div>
                 <div className="text-xs text-[#8ba3c7] bg-[#1a3356]/50 px-3 py-1.5 rounded-xl">
                   تاريخ الإنشاء: {new Date().toLocaleDateString("ar-SA")}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {[
-                  { label: "إجمالي العملاء",     value: clients.length,                                              color: "#22d3ee" },
-                  { label: "الموظفون النشطون",   value: employees.filter((e) => e.status === "نشط").length,         color: "#10b981" },
-                  { label: "المهام المكتملة",    value: tasks.filter((t) => t.status === "مكتملة").length,          color: "#f59e0b" },
-                  { label: "صافي الربح",         value: `${formatCurrency(totalIncome - totalExpense)} SAR`,        color: "#ff7a3d" },
-                ].map((kpi) => (
-                  <div key={kpi.label} className="p-4 rounded-2xl border border-[#1e3a5f] bg-[#0d1f3c]/60">
-                    <div className="text-lg font-heading font-bold" style={{ color: kpi.color }}>{kpi.value}</div>
-                    <div className="text-xs text-[#8ba3c7] mt-1">{kpi.label}</div>
-                  </div>
-                ))}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 min-w-0">
+                <KpiStatCard label="إجمالي العملاء" value={String(clients.length)} icon={UserCircle} accent="cyan" showLive={false} showSparkline={false} />
+                <KpiStatCard label="الموظفون النشطون" value={String(employees.filter((e) => e.status === "نشط").length)} icon={Users} accent="emerald" showLive={false} showSparkline={false} />
+                <KpiStatCard label="المهام المكتملة" value={String(tasks.filter((t) => t.status === "مكتملة").length)} icon={CheckSquare} accent="amber" showLive={false} showSparkline={false} />
+                <KpiStatCard label="صافي الربح" value={formatCurrency(totalIncome - totalExpense)} subtitle="SAR" icon={DollarSign} accent="sky" showLive={false} showSparkline={false} />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -229,7 +220,7 @@ function ReportsContent() {
 
         {/* Employees Report */}
         {!loading && activeReport === "employees" && (
-          <div className="glass-card overflow-hidden">
+          <div className={cn(WS_CARD, "overflow-hidden p-0")}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e3a5f]">
               <h3 className="text-white font-medium">تقرير الموظفين</h3>
               <div className="flex gap-2">
@@ -286,7 +277,7 @@ function ReportsContent() {
 
         {/* Tasks Report */}
         {!loading && activeReport === "tasks" && (
-          <div className="glass-card overflow-hidden">
+          <div className={cn(WS_CARD, "overflow-hidden p-0")}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e3a5f]">
               <h3 className="text-white font-medium">تقرير المهام</h3>
             </div>
@@ -321,7 +312,7 @@ function ReportsContent() {
         {!loading && activeReport === "clients" && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="glass-card p-5">
+              <div className={cn(WS_CARD, "p-5")}>
                 <h4 className="text-sm font-medium text-[#8ba3c7] mb-3">توزيع العملاء بالحزمة</h4>
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
@@ -333,7 +324,7 @@ function ReportsContent() {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="glass-card p-5">
+              <div className={cn(WS_CARD, "p-5")}>
                 <h4 className="text-sm font-medium text-[#8ba3c7] mb-4">الإيرادات حسب الحزمة</h4>
                 {clientPkgData.map((pkg) => {
                   const revenue = clients.filter((c) => c.packageType === pkg.name).reduce((s, c) => s + c.contractValue, 0);
@@ -356,7 +347,7 @@ function ReportsContent() {
 
         {/* Finance Report */}
         {!loading && activeReport === "finance" && (
-          <div className="glass-card overflow-hidden">
+          <div className={cn(WS_CARD, "overflow-hidden p-0")}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e3a5f]">
               <h3 className="text-white font-medium">تقرير المالية</h3>
               <div className="flex gap-3 text-sm">
@@ -394,7 +385,7 @@ function ReportsContent() {
         )}
 
         {/* Export Options */}
-        <div className="glass-card p-5">
+        <div className={cn(WS_CARD, "p-5")}>
           <h3 className="text-white font-medium mb-4 flex items-center gap-2">
             <FileText size={16} className="text-[#22d3ee]" />
             خيارات التصدير

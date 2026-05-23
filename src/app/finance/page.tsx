@@ -15,6 +15,9 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell,
 } from "recharts";
+import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
+import { PageHero, GlassPanel } from "@/components/ui/workspaceUi";
+import { cn } from "@/lib/utils";
 
 const ARABIC_MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
@@ -164,30 +167,25 @@ function FinanceContent() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-heading font-bold text-white flex items-center gap-2">
-              <DollarSign size={24} className="text-[#22d3ee]" />
-              {showCompanyFund ? "نظام الخزينة المالية" : "مالية المنشأة"}
-            </h1>
-            <p className="text-[#8ba3c7] text-sm mt-1">
-              {showCompanyFund
-                ? "إدارة الإيرادات والمصروفات وتوزيع صناديق الشركة"
-                : "إدارة إيرادات ومصروفات منشأتك"}
-            </p>
-          </div>
+      <div className={WS_PAGE}>
+        <PageHero
+          title={showCompanyFund ? "نظام الخزينة المالية" : "مالية المنشأة"}
+          subtitle={
+            showCompanyFund
+              ? "إدارة الإيرادات والمصروفات وتوزيع صناديق الشركة"
+              : "إدارة إيرادات ومصروفات منشأتك"
+          }
+        >
           {isAdmin && (
-            <button onClick={openAdd} className="btn-primary flex items-center gap-2">
+            <button onClick={openAdd} className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation">
               <Plus size={16} />
               معاملة جديدة
             </button>
           )}
-        </div>
+        </PageHero>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="glass-card p-5 relative overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 min-w-0">
+          <div className={cn(WS_CARD, "p-5 relative overflow-hidden")}>
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 rounded-xl bg-emerald-500/20"><TrendingUp size={20} className="text-emerald-400" /></div>
               <span className="text-xs text-emerald-400 flex items-center gap-1"><ArrowUpRight size={12} />{momChanges.income}</span>
@@ -196,7 +194,7 @@ function FinanceContent() {
             <div className="text-sm text-[#8ba3c7] mt-1">إجمالي الدخل</div>
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-400 to-emerald-600" />
           </div>
-          <div className="glass-card p-5 relative overflow-hidden">
+          <div className={cn(WS_CARD, "p-5 relative overflow-hidden")}>
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 rounded-xl bg-red-500/20"><TrendingDown size={20} className="text-red-400" /></div>
               <span className="text-xs text-red-400 flex items-center gap-1"><ArrowUpRight size={12} />{momChanges.expense}</span>
@@ -205,7 +203,7 @@ function FinanceContent() {
             <div className="text-sm text-[#8ba3c7] mt-1">إجمالي المصروف</div>
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-400 to-red-600" />
           </div>
-          <div className="glass-card p-5 relative overflow-hidden">
+          <div className={cn(WS_CARD, "p-5 relative overflow-hidden")}>
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 rounded-xl bg-cyan-500/20"><DollarSign size={20} className="text-cyan-400" /></div>
               <span className="text-xs text-cyan-400 flex items-center gap-1"><ArrowUpRight size={12} />{momChanges.profit}</span>
@@ -223,9 +221,9 @@ function FinanceContent() {
           <h2 className="text-white font-medium mb-3">
             توزيع الصناديق <span className="text-xs text-[#8ba3c7]">(تلقائي عند إدخال دخل جديد)</span>
           </h2>
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 min-w-0">
             {fundBalances.map((fund) => (
-              <div key={fund.key} className="glass-card p-4 relative overflow-hidden">
+              <div key={fund.key} className={cn(WS_CARD, "p-4 relative overflow-hidden")}>
                 <div className="text-lg font-heading font-bold text-white">{formatCurrency(fund.balance)}</div>
                 <div className="text-xs text-[#8ba3c7] mt-1">{fund.label}</div>
                 <div className="text-xs font-bold mt-2" style={{ color: fund.color }}>{fund.pct * 100}%</div>
@@ -237,7 +235,7 @@ function FinanceContent() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={showCompanyFund ? "lg:col-span-2 glass-card p-5" : "lg:col-span-3 glass-card p-5"}>
+          <GlassPanel className={cn("p-5", showCompanyFund ? "lg:col-span-2" : "lg:col-span-3")}>
             <h3 className="text-white font-medium mb-4">مقارنة الإيرادات والمصروفات</h3>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={monthlyData}>
@@ -250,10 +248,10 @@ function FinanceContent() {
                 <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2}   dot={false} name="المصروفات" strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
-          </div>
+          </GlassPanel>
 
           {showCompanyFund && (
-          <div className="glass-card p-5">
+          <GlassPanel className="p-5">
             <h3 className="text-white font-medium mb-4">توزيع الصناديق</h3>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
@@ -264,7 +262,7 @@ function FinanceContent() {
                 <Legend formatter={(v) => <span className="text-xs text-[#8ba3c7]">{v}</span>} />
               </PieChart>
             </ResponsiveContainer>
-          </div>
+          </GlassPanel>
           )}
         </div>
 
@@ -274,12 +272,13 @@ function FinanceContent() {
 
         {/* Transactions Table */}
         {!loading && (
-          <div className="glass-card overflow-hidden">
+          <div className={cn(WS_CARD, "overflow-hidden p-0")}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e3a5f]">
               <h3 className="text-white font-medium">سجل المعاملات</h3>
               <span className="text-xs text-[#8ba3c7]">{transactions.length} معاملة</span>
             </div>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-[#1e3a5f]">
                   {["النوع", "الوصف", "الفئة", "التاريخ", "المبلغ", "العمليات", "الادخار", ""].map((h) => (
@@ -328,6 +327,7 @@ function FinanceContent() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>
@@ -335,7 +335,7 @@ function FinanceContent() {
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="glass-card w-full max-w-md p-6 mx-4">
+          <div className={cn(WS_GLASS_MODAL, "max-w-md mx-4")}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-white font-heading font-bold text-lg">
                 {editId ? "تعديل المعاملة" : "معاملة مالية جديدة"}
