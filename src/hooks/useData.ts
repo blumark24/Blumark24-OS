@@ -69,6 +69,10 @@ function clientUpdateToDB(changes: Partial<Client>): Record<string, unknown> {
 }
 
 function taskFromDB(row: Record<string, unknown>): Task {
+  const dueAt = row.due_at as string | undefined;
+  const dueDate =
+    (row.due_date as string | undefined) ??
+    (dueAt ? dueAt.slice(0, 10) : "");
   return {
     id:              row.id             as string,
     title:           row.title          as string,
@@ -80,13 +84,24 @@ function taskFromDB(row: Record<string, unknown>): Task {
     assigneeAvatar:  row.assignee_avatar as string | undefined,
     clientId:        row.client_id      as string | undefined,
     clientName:      row.client_name    as string | undefined,
-    dueDate:         row.due_date       as string,
+    dueDate,
+    dueAt,
     createdAt:       (row.created_at    as string) ?? "",
     tags:            row.tags           as string[] | undefined,
+    departmentId:    row.department_id  as string | undefined,
+    teamId:          row.team_id        as string | undefined,
+    completedAt:     row.completed_at   as string | undefined,
+    createdById:     row.created_by_id  as string | undefined,
+    createdByName:   row.created_by_name as string | undefined,
+    recurrenceRule:  row.recurrence_rule as Task["recurrenceRule"],
+    recurrenceParentId: row.recurrence_parent_id as string | undefined,
+    kanbanOrder:     row.kanban_order   as number | undefined,
+    notifyAssignee:  row.notify_assignee as boolean | undefined,
   };
 }
 
 function taskToDB(item: Omit<Task, "id" | "createdAt">): Record<string, unknown> {
+  const dueAt = item.dueAt ?? (item.dueDate ? `${item.dueDate}T12:00:00Z` : null);
   return {
     title:           item.title,
     description:     item.description,
@@ -98,7 +113,17 @@ function taskToDB(item: Omit<Task, "id" | "createdAt">): Record<string, unknown>
     client_id:       item.clientId,
     client_name:     item.clientName,
     due_date:        item.dueDate,
+    due_at:          dueAt,
     tags:            item.tags,
+    department_id:   item.departmentId ?? null,
+    team_id:         item.teamId ?? null,
+    created_by_id:   item.createdById ?? "",
+    created_by_name: item.createdByName ?? "",
+    recurrence_rule: item.recurrenceRule ?? null,
+    recurrence_parent_id: item.recurrenceParentId ?? null,
+    kanban_order:    item.kanbanOrder ?? 0,
+    notify_assignee: item.notifyAssignee ?? true,
+    completed_at:    item.completedAt ?? null,
   };
 }
 
@@ -114,7 +139,20 @@ function taskUpdateToDB(changes: Partial<Task>): Record<string, unknown> {
   if (changes.clientId       !== undefined) map.client_id       = changes.clientId;
   if (changes.clientName     !== undefined) map.client_name     = changes.clientName;
   if (changes.dueDate        !== undefined) map.due_date        = changes.dueDate;
+  if (changes.dueAt          !== undefined) map.due_at          = changes.dueAt;
   if (changes.tags           !== undefined) map.tags            = changes.tags;
+  if (changes.departmentId   !== undefined) map.department_id   = changes.departmentId;
+  if (changes.teamId         !== undefined) map.team_id         = changes.teamId;
+  if (changes.kanbanOrder    !== undefined) map.kanban_order    = changes.kanbanOrder;
+  if (changes.recurrenceRule !== undefined) map.recurrence_rule   = changes.recurrenceRule;
+  if (changes.recurrenceParentId !== undefined) {
+    map.recurrence_parent_id = changes.recurrenceParentId;
+  }
+  if (changes.completedAt    !== undefined) map.completed_at    = changes.completedAt;
+  if (changes.notifyAssignee !== undefined) map.notify_assignee = changes.notifyAssignee;
+  if (changes.dueDate !== undefined && changes.dueAt === undefined) {
+    map.due_at = changes.dueDate ? `${changes.dueDate}T12:00:00Z` : null;
+  }
   return map;
 }
 
@@ -329,7 +367,15 @@ export function useTasks() {
     if (error) throw new Error(error.message);
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
     logActivity("task", `تمت إضافة مهمة جديدة: ${item.title}`, "✅");
-    createNotification("task_due", "مهمة جديدة", `تمت إضافة المهمة: ${item.title}`, "/tasks");
+    if (item.notifyAssignee !== false && item.assigneeId) {
+      createNotification(
+        "task_due",
+        "مهمة جديدة",
+        `تمت إضافة المهمة: ${item.title}`,
+        "/tasks",
+        item.assigneeId,
+      );
+    }
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Task>) => {
