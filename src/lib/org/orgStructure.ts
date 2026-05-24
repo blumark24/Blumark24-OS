@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 
-export type OrgNodeKind = "agency" | "management" | "department";
+export type OrgNodeKind = "agency" | "management" | "department" | "team";
 
 export interface OrgUnitNode {
   id: string;

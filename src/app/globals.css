@@ -404,6 +404,17 @@ html, body {
   -webkit-overflow-scrolling: touch;
   max-width: 100%;
 }
+.org-chart-mode-switch {
+  position: relative;
+  z-index: 2;
+}
+@media (max-width: 640px) {
+  .org-chart-mode-switch button {
+    font-size: 0.8125rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
 
 /* ─── Org package cards (PR #165) ─────────────────────────────────────────── */
 .org-package-card {

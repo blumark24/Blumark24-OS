@@ -2,10 +2,11 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Network, Plus, Pencil, Trash2, X, Save, UserCheck, Mail, Phone,
+  Plus, Pencil, Trash2, X, Save, UserCheck, Mail, Phone,
   Sparkles, AlertCircle, Crown,
-  ChevronDown, Loader2, Send,
+  Loader2, Send,
 } from "lucide-react";
+import OrgDigitalChartSection from "@/components/org/OrgDigitalChartSection";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -16,11 +17,8 @@ import { normalizePlanSlug, type PlanSlug } from "@/lib/features/packageFeatures
 import OrgPackageCards from "@/components/org/OrgPackageCards";
 import { getOrgLimits } from "@/lib/org/orgPackageLimits";
 import {
-  countUnits,
-  createOrgUnit,
   loadOrgStructure,
   saveOrgStructure,
-  type OrgNodeKind,
   type OrgStructureSnapshot,
   type OrgUnitNode,
 } from "@/lib/org/orgStructure";
@@ -101,42 +99,6 @@ function BoardMemberModal({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function GlassNode({
-  title, subtitle, count, accent, onAdd, onDelete, canManage, addLabel,
-}: {
-  title: string;
-  subtitle?: string;
-  count?: number;
-  accent: string;
-  onAdd?: () => void;
-  onDelete?: () => void;
-  canManage: boolean;
-  addLabel?: string;
-}) {
-  return (
-    <div className="relative rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl p-3 min-w-[140px] max-w-[220px] text-center shadow-[0_8px_32px_-12px_rgba(0,0,0,0.5)]"
-      style={{ borderColor: `${accent}40`, boxShadow: `0 0 24px -8px ${accent}33` }}>
-      {canManage && onDelete && (
-        <button type="button" onClick={onDelete} className="absolute top-1 left-1 p-1 rounded-lg bg-red-500/10 text-red-300 hover:bg-red-500/20" aria-label="حذف">
-          <Trash2 size={12} />
-        </button>
-      )}
-      <div className="text-sm font-semibold text-white">{title}</div>
-      {subtitle && <div className="text-[10px] text-white/60 mt-0.5">{subtitle}</div>}
-      {typeof count === "number" && (
-        <div className="mt-1 text-[10px] rounded-full px-2 py-0.5 inline-block" style={{ background: `${accent}22`, color: accent }}>
-          {count} موظف
-        </div>
-      )}
-      {canManage && onAdd && addLabel && (
-        <button type="button" onClick={onAdd} className="mt-2 text-[10px] flex items-center justify-center gap-1 mx-auto text-cyan-300 hover:text-cyan-100">
-          <Plus size={12} /> {addLabel}
-        </button>
-      )}
     </div>
   );
 }
@@ -222,56 +184,7 @@ export default function OrgCommandBoard() {
     [employees, departments],
   );
 
-  const tryAddUnit = (kind: OrgNodeKind, parentId: string | null) => {
-    const name = window.prompt(
-      kind === "agency" ? "اسم الوكالة" : kind === "management" ? "اسم الإدارة" : "اسم القسم",
-    );
-    if (!name?.trim()) return;
-
-    const cap =
-      kind === "agency" ? limits.agencies :
-      kind === "management" ? limits.managements :
-      limits.departments;
-    const current = countUnits(structure.units, kind);
-    if (current >= cap) {
-      toast.error(`وصلت للحد الأعلى (${cap}) في باقة ${limits.label}`);
-      return;
-    }
-
-    const unit = createOrgUnit(kind, name, parentId);
-    void persistStructure({ ...structure, units: [...structure.units, unit] });
-  };
-
-  const removeUnit = (id: string) => {
-    const ids = new Set<string>([id]);
-    let changed = true;
-    while (changed) {
-      changed = false;
-      structure.units.forEach((u) => {
-        if (u.parentId && ids.has(u.parentId) && !ids.has(u.id)) {
-          ids.add(u.id);
-          changed = true;
-        }
-      });
-    }
-    void persistStructure({ ...structure, units: structure.units.filter((u) => !ids.has(u.id)) });
-  };
-
-  const smartAlerts = useMemo(() => {
-    const msgs: string[] = [];
-    if (departments.length === 0) msgs.push("لا توجد أقسام بعد — أضف قسماً لبدء ربط الموظفين.");
-    if (employees.length > 0 && unassignedEmployees.length > 0) {
-      msgs.push(`${unassignedEmployees.length} موظف غير مربوط بقسم — عيّنهم من لوحة الإرسال.`);
-    }
-    if (countUnits(structure.units, "department") >= limits.departments) {
-      msgs.push(`وصلت لحد الأقسام (${limits.departments}) في باقة ${limits.label}.`);
-    }
-    if (limits.agencies > 0 && countUnits(structure.units, "agency") === 0) {
-      msgs.push("يمكنك إضافة وكالة في الباقة المتقدمة لتنظيم فرق أكبر.");
-    }
-    msgs.push("كل تغيير على الهيكل أو مجلس الإدارة يُحفظ تلقائياً في Supabase.");
-    return msgs;
-  }, [departments.length, employees.length, unassignedEmployees.length, structure.units, limits]);
+  const assignPanelRef = React.useRef<HTMLElement | null>(null);
 
   const handleAssignEmployee = async () => {
     if (!assignEmpId || !assignDeptId) {
@@ -380,88 +293,37 @@ export default function OrgCommandBoard() {
         )}
       </section>
 
-      {/* Digital tree */}
-      <section className={cn(WS_SURFACE, "p-4 sm:p-5 overflow-hidden")}>
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <h2 className="text-lg font-bold text-white">المخطط التنظيمي الرقمي</h2>
-          {savingStruct && <span className="text-xs text-cyan-300 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> جارٍ الحفظ...</span>}
-        </div>
-        {canManage && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {limits.agencies > 0 && (
-              <button type="button" className="btn-secondary text-xs py-1.5" onClick={() => tryAddUnit("agency", null)}>+ وكالة</button>
-            )}
-            {limits.managements > 0 && (
-              <button type="button" className="btn-secondary text-xs py-1.5" onClick={() => tryAddUnit("management", agencies[0]?.id ?? null)}>+ إدارة</button>
-            )}
-            <button type="button" className="btn-secondary text-xs py-1.5" onClick={() => tryAddUnit("department", managements[0]?.id ?? agencies[0]?.id ?? null)}>+ قسم</button>
-          </div>
-        )}
-        {structLoading ? (
-          <p className="text-center text-white/50 py-10">جارٍ تحميل المخطط...</p>
-        ) : (
-          <div className="org-tree-scroll overflow-x-auto pb-2">
-            <div className="min-w-[min(100%,720px)] mx-auto flex flex-col items-center gap-4">
-              <GlassNode title="مجلس الإدارة" subtitle="القيادة العليا" accent="#a855f7" canManage={false} />
-              <ChevronDown className="text-cyan-400/60" size={20} />
-              {limits.agencies > 0 && (
-                <div className="flex flex-wrap justify-center gap-3 w-full">
-                  {agencies.length === 0 ? (
-                    <GlassNode title="وكالة (اختياري)" subtitle="أضف وكالة" accent="#8b5cf6" canManage={canManage} onAdd={() => tryAddUnit("agency", null)} addLabel="إضافة" />
-                  ) : agencies.map((a) => (
-                    <GlassNode key={a.id} title={a.name} subtitle="وكالة" accent="#8b5cf6" canManage={canManage} onDelete={() => removeUnit(a.id)} />
-                  ))}
-                </div>
-              )}
-              {limits.managements > 0 && (
-                <>
-                  <ChevronDown className="text-emerald-400/50" size={18} />
-                  <div className="flex flex-wrap justify-center gap-3">
-                    {managements.length === 0 ? (
-                      <GlassNode title="إدارة (اختياري)" accent="#10b981" canManage={canManage} onAdd={() => tryAddUnit("management", agencies[0]?.id ?? null)} addLabel="إضافة إدارة" />
-                    ) : managements.map((m) => (
-                      <GlassNode key={m.id} title={m.name} subtitle="إدارة" accent="#10b981" canManage={canManage} onDelete={() => removeUnit(m.id)} />
-                    ))}
-                  </div>
-                </>
-              )}
-              <ChevronDown className="text-cyan-400/50" size={18} />
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
-                {departments.length === 0 ? (
-                  <GlassNode title="قسم" subtitle="أضف أول قسم" accent="#22d3ee" canManage={canManage} onAdd={() => tryAddUnit("department", managements[0]?.id ?? agencies[0]?.id ?? null)} addLabel="قسم جديد" />
-                ) : departments.map((d) => (
-                  <div key={d.id} className="space-y-2">
-                    <GlassNode
-                      title={d.name}
-                      subtitle="قسم"
-                      count={(employeesByDept.get(d.id) ?? []).length}
-                      accent="#22d3ee"
-                      canManage={canManage}
-                      onDelete={() => removeUnit(d.id)}
-                    />
-                    <div className="flex flex-wrap gap-1 justify-center">
-                      {(employeesByDept.get(d.id) ?? []).slice(0, 6).map((e) => (
-                        <span key={e.id} className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 text-[10px] flex items-center justify-center text-white" title={e.name}>
-                          {e.name.slice(0, 2)}
-                        </span>
-                      ))}
-                      {canManage && (
-                        <button type="button" className="w-8 h-8 rounded-full border border-dashed border-white/30 text-white/50 flex items-center justify-center" onClick={() => { setAssignDeptId(d.id); toast.info("اختر الموظف من لوحة الإرسال"); }}>
-                          <Plus size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </section>
+      <OrgDigitalChartSection
+        plan={plan}
+        limits={limits}
+        canManage={canManage}
+        structure={structure}
+        structLoading={structLoading}
+        savingStruct={savingStruct}
+        employees={employees}
+        boardMembers={boardMembers}
+        employeesByDept={employeesByDept}
+        departments={departments}
+        unassignedCount={unassignedEmployees.length}
+        onPersistStructure={persistStructure}
+        onAddBoardMember={() => {
+          setEditBoard(null);
+          setShowBoardModal(true);
+        }}
+        onRequestAssignEmployee={() => {
+          assignPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          toast.info("اختر الموظف والقسم من لوحة الإرسال أدناه");
+        }}
+        onAssignToDept={(deptId) => {
+          setAssignDeptId(deptId);
+          assignPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          toast.info("اختر الموظف من لوحة الإرسال");
+        }}
+      />
 
       {/* Bottom panels */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 min-w-0">
-        <section className={cn(WS_CARD, "p-4 space-y-3")}>
+        <section ref={assignPanelRef} className={cn(WS_CARD, "p-4 space-y-3 scroll-mt-24")}>
           <h3 className="text-white font-semibold text-sm">تجربة تعيين موظف جديد</h3>
           <p className="text-[11px] text-white/50">١ اختيار المسار · ٢ الدور · ٣ الإرسال</p>
           <select className="input-dark text-sm w-full" value={assignEmpId} onChange={(e) => setAssignEmpId(e.target.value)}>
@@ -508,13 +370,8 @@ export default function OrgCommandBoard() {
           </ul>
           <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-[11px] text-amber-100/90">
             <AlertCircle size={14} className="inline ml-1" />
-            توصيات ذكية: {smartAlerts[0]}
+            التوصيات الذكية والتنبيهات تظهر داخل قسم «المخطط التنظيمي الرقمي» أعلاه.
           </div>
-          <ul className="space-y-1">
-            {smartAlerts.map((msg, i) => (
-              <li key={i} className="text-[11px] text-cyan-100/80 flex gap-1"><Sparkles size={12} className="shrink-0" />{msg}</li>
-            ))}
-          </ul>
         </section>
       </div>
 
