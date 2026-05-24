@@ -28,6 +28,7 @@ import {
 import {
   countUnits,
   createOrgUnit,
+  ORG_STRUCTURE_IS_PRODUCTION_UNITS,
   type OrgNodeKind,
   type OrgStructureSnapshot,
   type OrgUnitNode,
@@ -97,19 +98,27 @@ function OrgStructureTree({
   snapshot,
   limits,
   canManage,
+  boardMembers,
   employeesByDept,
   onAddUnit,
   onRemoveUnit,
   onAssignToDept,
+  onEditBoardMember,
+  onDeleteBoardMember,
+  onAddBoardMember,
   previewLabel,
 }: {
   snapshot: OrgStructureSnapshot;
   limits: OrgPackageLimits;
   canManage: boolean;
+  boardMembers: BoardMember[];
   employeesByDept: Map<string, Employee[]>;
   onAddUnit: (kind: OrgNodeKind, parentId: string | null) => void;
   onRemoveUnit: (id: string) => void;
   onAssignToDept: (deptId: string) => void;
+  onEditBoardMember: (member: BoardMember) => void;
+  onDeleteBoardMember: (id: string) => void;
+  onAddBoardMember: () => void;
   previewLabel?: string;
 }) {
   const agencies = snapshot.units.filter((u) => u.kind === "agency");
@@ -137,7 +146,50 @@ function OrgStructureTree({
         </p>
       )}
       <div className="min-w-0 w-full mx-auto flex flex-col items-center gap-4">
-        <GlassNode title="مجلس الإدارة" subtitle="القيادة العليا" accent="#a855f7" canManage={false} />
+        <div className="w-full max-w-md space-y-2">
+          <GlassNode
+            title="مجلس الإدارة"
+            subtitle={`${boardMembers.length} عضو — Supabase`}
+            accent="#a855f7"
+            canManage={canManage}
+            onAdd={onAddBoardMember}
+            addLabel="عضو مجلس"
+          />
+          {boardMembers.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-2">
+              {boardMembers.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => onEditBoardMember(m)}
+                  className="rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-center min-w-[100px] touch-manipulation"
+                >
+                  <div className="text-xs font-semibold text-white">{m.name}</div>
+                  <div className="text-[10px] text-cyan-200/90">{m.role}</div>
+                  {canManage && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="text-[10px] text-red-300 mt-1 inline-block"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteBoardMember(m.id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.stopPropagation();
+                          onDeleteBoardMember(m.id);
+                        }
+                      }}
+                    >
+                      حذف
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <ChevronDown className="text-cyan-400/60 shrink-0" size={20} />
         {limits.agencies > 0 && (
           <div className="flex flex-wrap justify-center gap-3 w-full min-w-0">
@@ -278,6 +330,8 @@ export interface OrgDigitalChartSectionProps {
   unassignedCount: number;
   onPersistStructure: (next: OrgStructureSnapshot) => Promise<void>;
   onAddBoardMember: () => void;
+  onEditBoardMember: (member: BoardMember) => void;
+  onDeleteBoardMember: (id: string) => void;
   onRequestAssignEmployee: () => void;
   onAssignToDept: (deptId: string) => void;
 }
@@ -307,6 +361,8 @@ export default function OrgDigitalChartSection({
   unassignedCount,
   onPersistStructure,
   onAddBoardMember,
+  onEditBoardMember,
+  onDeleteBoardMember,
   onRequestAssignEmployee,
   onAssignToDept,
 }: OrgDigitalChartSectionProps) {
@@ -314,7 +370,6 @@ export default function OrgDigitalChartSection({
   const [mode, setMode] = useState<OrgChartMode>("manual");
   const [smartPreview, setSmartPreview] = useState<SmartOrgSuggestion | null>(null);
   const [reviewing, setReviewing] = useState(false);
-  const [applying, setApplying] = useState(false);
 
   const smartAlerts = useMemo(
     () => buildSmartAlerts(limits, employees, departments, unassignedCount),
@@ -330,7 +385,7 @@ export default function OrgDigitalChartSection({
     });
     setSmartPreview(suggestion);
     setReviewing(false);
-    toast.success("تم إنشاء اقتراح الهيكل — راجعه ثم طبّقه عند الجاهزية");
+    toast.success("اقتراح من بيانات حقيقية فقط — معاينة قبل أي اعتماد إنتاجي");
   }, [plan, employees, boardMembers, structure, toast]);
 
   const handleReview = () => {
@@ -340,24 +395,6 @@ export default function OrgDigitalChartSection({
       return;
     }
     setReviewing(true);
-  };
-
-  const handleApplySuggestion = async () => {
-    if (!smartPreview) {
-      toast.error("نفّذ «تنظيم تلقائي» أولاً لإنشاء اقتراح");
-      return;
-    }
-    setApplying(true);
-    try {
-      await onPersistStructure(smartPreview.snapshot);
-      setReviewing(false);
-      setSmartPreview(null);
-      toast.success("تم تطبيق الاقتراح وحفظه");
-    } catch {
-      /* parent handles toast */
-    } finally {
-      setApplying(false);
-    }
   };
 
   const tryAddUnit = (kind: OrgNodeKind, parentId: string | null) => {
@@ -389,6 +426,9 @@ export default function OrgDigitalChartSection({
 
     const unit = createOrgUnit(kind, name, parentId);
     void onPersistStructure({ ...structure, units: [...structure.units, unit] });
+    if (!ORG_STRUCTURE_IS_PRODUCTION_UNITS) {
+      toast.info("وحدة مسودة — محفوظة في activities حتى اعتماد جدول org_units");
+    }
   };
 
   const removeUnit = (id: string) => {
@@ -473,6 +513,12 @@ export default function OrgDigitalChartSection({
             {label}
           </button>
         ))}
+      </div>
+
+      <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 mb-4 text-[11px] sm:text-xs text-amber-100/95 leading-relaxed">
+        <strong className="text-amber-200">تشغيلي:</strong> مجلس الإدارة والموظفون من Supabase.
+        الوحدات (وكالة/إدارة/قسم/فريق) مسودة في <code className="text-amber-50/90">activities</code> حتى migration
+        <code className="text-amber-50/90"> org_units</code>.
       </div>
 
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:p-4 mb-4">
@@ -566,12 +612,12 @@ export default function OrgDigitalChartSection({
           </button>
           <button
             type="button"
-            className="btn-secondary text-xs sm:text-sm py-2.5 min-h-11 flex-1 sm:flex-none touch-manipulation flex items-center justify-center gap-2 border-emerald-400/40 text-emerald-100 disabled:opacity-50"
-            onClick={() => void handleApplySuggestion()}
-            disabled={!canManage || !smartPreview || applying}
+            className="btn-secondary text-xs sm:text-sm py-2.5 min-h-11 flex-1 sm:flex-none touch-manipulation flex items-center justify-center gap-2 opacity-60 cursor-not-allowed"
+            disabled
+            title="يتطلب جدول org_units — معاينة فقط"
           >
-            {applying ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-            تطبيق الاقتراح
+            <CheckCircle2 size={16} />
+            تطبيق الاقتراح (معاينة فقط)
           </button>
         </div>
       )}
@@ -590,13 +636,17 @@ export default function OrgDigitalChartSection({
           snapshot={displaySnapshot}
           limits={limits}
           canManage={mode === "manual" && canManage}
+          boardMembers={boardMembers}
           employeesByDept={employeesByDeptForDisplay}
           onAddUnit={tryAddUnit}
           onRemoveUnit={removeUnit}
           onAssignToDept={onAssignToDept}
+          onEditBoardMember={onEditBoardMember}
+          onDeleteBoardMember={onDeleteBoardMember}
+          onAddBoardMember={onAddBoardMember}
           previewLabel={
             mode === "smart" && reviewing && smartPreview
-              ? "معاينة الاقتراح — لم يُطبَّق بعد. اضغط «تطبيق الاقتراح» للحفظ."
+              ? "معاينة فقط — لا يُحفظ في الإنتاج حتى جدول org_units. الوحدات اليدوية تُحفظ كمسودة في activities."
               : undefined
           }
         />
@@ -621,7 +671,7 @@ export default function OrgDigitalChartSection({
         )}
         {mode === "smart" && (
           <p className="text-[10px] text-white/40 pt-1 border-t border-white/5">
-            الحفظ عبر جدول الأنشطة الحالي (ORG_STRUCTURE_JSON) — لا حاجة لهجرة جديدة لتطبيق الوحدات؛ ربط الموظفين يبقى عبر بيانات الموظفين الحالية.
+            الاقتراح الذكي لا ينشئ وكالات/إدارات وهمية. التطبيق معطّل حتى migration org_units. نقل الموظفين عبر employees.department (RLS قد يمنع organization_manager).
           </p>
         )}
       </div>

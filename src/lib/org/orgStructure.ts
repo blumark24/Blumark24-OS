@@ -81,6 +81,9 @@ export async function loadOrgStructure(orgId: string | null): Promise<OrgStructu
   return emptyOrgStructure();
 }
 
+/** Org units are stored in activities JSON — not production org_units table yet. */
+export const ORG_STRUCTURE_IS_PRODUCTION_UNITS = false;
+
 /** Persist tree: Supabase activity (tenant-scoped insert) + localStorage mirror. */
 export async function saveOrgStructure(
   orgId: string | null,
@@ -103,6 +106,7 @@ export async function saveOrgStructure(
       type: "project",
       description: `${ACTIVITY_PREFIX}${json}`,
       icon: "🏛️",
+      organization_id: orgId,
     },
   ]);
 

@@ -42,12 +42,14 @@ export function buildSmartOrgSuggestion(input: SmartOrgInput): SmartOrgSuggestio
 
   if (limits.agencies <= 0) {
     blockedLevels.push("وكالة");
-  } else if (countUnits(input.current.units, "agency") === 0) {
-    const agencyName = input.plan === "advanced" ? "الوكالة الرئيسية" : "وكالة التشغيل";
-    units.push(createOrgUnit("agency", agencyName, null));
-    summary.push(`اقتراح وكالة واحدة: ${agencyName}`);
   } else {
-    units.push(...input.current.units.filter((u) => u.kind === "agency"));
+    const existingAgencies = input.current.units.filter((u) => u.kind === "agency");
+    if (existingAgencies.length === 0) {
+      warnings.push("لا توجد وكالة محفوظة — أضفها من الوضع اليدوي (لا ننشئ وكالة وهمية).");
+    } else {
+      units.push(...existingAgencies);
+      summary.push(`${existingAgencies.length} وكالة من الهيكل المحفوظ`);
+    }
   }
 
   const agencyId = units.find((u) => u.kind === "agency")?.id ?? null;
@@ -56,12 +58,11 @@ export function buildSmartOrgSuggestion(input: SmartOrgInput): SmartOrgSuggestio
     blockedLevels.push("إدارة");
   } else {
     const existingMgmt = input.current.units.filter((u) => u.kind === "management");
-    if (existingMgmt.length === 0 && units.length < limits.managements) {
-      const m = createOrgUnit("management", "الإدارة العامة", agencyId);
-      units.push(m);
-      summary.push("اقتراح إدارة عامة لتجميع الأقسام");
+    if (existingMgmt.length === 0) {
+      warnings.push("لا توجد إدارة محفوظة — أضفها يدوياً أو من موظفين بأقسام فقط.");
     } else {
       units.push(...existingMgmt);
+      summary.push(`${existingMgmt.length} إدارة من الهيكل المحفوظ`);
     }
   }
 
@@ -97,15 +98,10 @@ export function buildSmartOrgSuggestion(input: SmartOrgInput): SmartOrgSuggestio
     summary.push(`اقتراح ${deptAdded} قسم من بيانات الموظفين الحالية`);
   }
 
-  for (const d of units.filter((u) => u.kind === "department")) {
-    const teamEmployees = input.employees.filter((e) => e.department === d.name);
-    if (teamEmployees.length >= 4) {
-      const teamName = `فريق ${d.name}`;
-      if (!units.some((u) => u.kind === "team" && u.name === teamName)) {
-        units.push(createOrgUnit("team", teamName, d.id));
-        summary.push(`فريق مقترح تحت ${d.name} (${teamEmployees.length} موظفين)`);
-      }
-    }
+  const existingTeams = input.current.units.filter((u) => u.kind === "team");
+  if (existingTeams.length > 0) {
+    units.push(...existingTeams.filter((t) => !units.some((x) => x.id === t.id)));
+    summary.push(`${existingTeams.length} فريق من الهيكل المحفوظ`);
   }
 
   if (input.boardMembers.length === 0) {

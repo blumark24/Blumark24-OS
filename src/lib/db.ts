@@ -246,11 +246,19 @@ export async function updateBoardMember(id: string, changes: Partial<Omit<BoardM
 }
 
 export async function assignEmployeeDepartment(employeeId: string, department: string): Promise<void> {
-  const { error } = await supabase
-    .from("employees")
-    .update({ department })
-    .eq("id", employeeId);
-  if (error) throw new Error(error.message);
+  const orgId = await getCurrentTenantOrgId();
+  let query = supabase.from("employees").update({ department }).eq("id", employeeId);
+  if (orgId) query = query.eq("organization_id", orgId);
+  const { error } = await query;
+  if (error) {
+    const msg = error.message;
+    if (/policy|permission|denied|42501/i.test(msg)) {
+      throw new Error(
+        "تعذر نقل الموظف — صلاحية RLS تقتصر على المالك/المشرف. مطلوب migration: employees UPDATE لـ organization_manager.",
+      );
+    }
+    throw new Error(msg);
+  }
 }
 
 export async function deleteBoardMember(id: string): Promise<void> {

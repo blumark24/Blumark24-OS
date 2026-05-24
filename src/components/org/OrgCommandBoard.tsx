@@ -2,8 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Plus, Pencil, Trash2, X, Save, UserCheck, Mail, Phone,
-  Sparkles, AlertCircle, Crown,
+  Plus, Trash2, X, Save, UserCheck, Mail, Phone,
+  Sparkles, AlertCircle,
   Loader2, Send,
 } from "lucide-react";
 import OrgDigitalChartSection from "@/components/org/OrgDigitalChartSection";
@@ -184,6 +184,16 @@ export default function OrgCommandBoard() {
     [employees, departments],
   );
 
+  const departmentOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    departments.forEach((d) => map.set(d.name, d.id));
+    employees.forEach((e) => {
+      const n = String(e.department ?? "").trim();
+      if (n && !map.has(n)) map.set(n, `label:${n}`);
+    });
+    return Array.from(map.entries()).map(([name, id]) => ({ id, name }));
+  }, [departments, employees]);
+
   const assignPanelRef = React.useRef<HTMLElement | null>(null);
 
   const handleAssignEmployee = async () => {
@@ -191,7 +201,7 @@ export default function OrgCommandBoard() {
       toast.error("اختر الموظف والقسم");
       return;
     }
-    const dept = departments.find((d) => d.id === assignDeptId);
+    const dept = departmentOptions.find((d) => d.id === assignDeptId);
     if (!dept) return;
     setAssigning(true);
     try {
@@ -231,9 +241,9 @@ export default function OrgCommandBoard() {
             <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3 py-1 text-[11px] text-cyan-200 mb-3">
               <Sparkles size={12} /> نموذج تفاعلي — مركز القيادة
             </span>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">الهيكل الإداري الذكي</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">الهيكل الإداري التشغيلي</h1>
             <p className="text-sm sm:text-base text-white/70 mt-2 max-w-xl">
-              صمّم هيكل منشأتك بمرونة حسب حجم فريقك وباقتك
+              مركز بناء المنشأة — مجلس الإدارة والموظفون من قاعدة البيانات؛ الوحدات التنظيمية مسودة حتى جدول org_units
             </p>
             {isInternal && (
               <p className="text-xs text-amber-200/80 mt-2">وضع التشغيل الداخلي — تظهر بيانات منشأتك فقط (معزولة عن عملاء آخرين).</p>
@@ -250,48 +260,6 @@ export default function OrgCommandBoard() {
           departments: departments.length,
         }}
       />
-
-      {/* Board */}
-      <section className={cn(WS_SURFACE, "p-4 sm:p-5")}>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Crown size={18} className="text-amber-300" />
-              مجلس الإدارة
-            </h2>
-            <p className="text-xs text-white/55">الطبقة العليا — {boardMembers.length} عضو</p>
-          </div>
-          {canManage && (
-            <button type="button" onClick={() => { setEditBoard(null); setShowBoardModal(true); }} className="btn-primary text-sm flex items-center gap-2 min-h-11 touch-manipulation">
-              <Plus size={16} /> إضافة عضو مجلس
-            </button>
-          )}
-        </div>
-        {boardMembers.length === 0 ? (
-          <p className="text-sm text-white/50 text-center py-6">لا يوجد أعضاء مجلس بعد</p>
-        ) : (
-          <div className="flex flex-wrap justify-center gap-3">
-            {boardMembers.map((m) => (
-              <div key={m.id} className="rounded-2xl border border-cyan-400/25 bg-cyan-500/10 p-4 min-w-[150px] text-center relative group">
-                {canManage && (
-                  <div className="absolute top-2 left-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-                    <button type="button" onClick={() => { setEditBoard(m); setShowBoardModal(true); }} className="p-1 rounded bg-white/10"><Pencil size={11} /></button>
-                    <button type="button" onClick={() => void removeBoard(m.id)} className="p-1 rounded bg-red-500/20"><Trash2 size={11} className="text-red-300" /></button>
-                  </div>
-                )}
-                <div className="w-10 h-10 rounded-full mx-auto bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-sm font-bold text-white">
-                  {m.name.slice(0, 2)}
-                </div>
-                <div className="text-white text-sm font-medium mt-2">{m.name}</div>
-                <div className="text-cyan-200 text-[11px]">{m.role}</div>
-                {m.email && <div className="text-[10px] text-white/45 mt-1 flex items-center justify-center gap-1"><Mail size={9} />{m.email}</div>}
-                {m.phone && <div className="text-[10px] text-white/45 flex items-center justify-center gap-1"><Phone size={9} />{m.phone}</div>}
-                <span className="badge text-[10px] mt-2">{m.status}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
 
       <OrgDigitalChartSection
         plan={plan}
@@ -310,6 +278,11 @@ export default function OrgCommandBoard() {
           setEditBoard(null);
           setShowBoardModal(true);
         }}
+        onEditBoardMember={(m) => {
+          setEditBoard(m);
+          setShowBoardModal(true);
+        }}
+        onDeleteBoardMember={(id) => void removeBoard(id)}
         onRequestAssignEmployee={() => {
           assignPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
           toast.info("اختر الموظف والقسم من لوحة الإرسال أدناه");
@@ -324,15 +297,15 @@ export default function OrgCommandBoard() {
       {/* Bottom panels */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 min-w-0">
         <section ref={assignPanelRef} className={cn(WS_CARD, "p-4 space-y-3 scroll-mt-24")}>
-          <h3 className="text-white font-semibold text-sm">تجربة تعيين موظف جديد</h3>
-          <p className="text-[11px] text-white/50">١ اختيار المسار · ٢ الدور · ٣ الإرسال</p>
+          <h3 className="text-white font-semibold text-sm">تعيين موظف لقسم (Supabase)</h3>
+          <p className="text-[11px] text-white/50">يحدّث employees.department — يتطلب صلاحية RLS (قد لا ينجح لمدير المنشأة حتى migration)</p>
           <select className="input-dark text-sm w-full" value={assignEmpId} onChange={(e) => setAssignEmpId(e.target.value)}>
             <option value="">اختر موظفاً</option>
             {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>
           <select className="input-dark text-sm w-full" value={assignDeptId} onChange={(e) => setAssignDeptId(e.target.value)}>
             <option value="">اختر القسم</option>
-            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            {departmentOptions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
           <select className="input-dark text-sm w-full" value={assignRole} onChange={(e) => setAssignRole(e.target.value)}>
             {ASSIGNMENT_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -375,7 +348,9 @@ export default function OrgCommandBoard() {
         </section>
       </div>
 
-      <p className="text-center text-[10px] text-white/40 pb-2">تصميم ذكي · هيكل مرن · تحكم كامل · كل حفظ يُسجّل في Supabase</p>
+      <p className="text-center text-[10px] text-white/40 pb-2">
+        مجلس الإدارة + الموظفون: Supabase · الوحدات: مسودة activities · التقرير: docs/ORG_OPERATIONAL_AUDIT_PR165.md
+      </p>
 
       {showBoardModal && (
         <BoardMemberModal member={editBoard} onSave={handleBoardSave} onClose={() => { setShowBoardModal(false); setEditBoard(null); }} />
