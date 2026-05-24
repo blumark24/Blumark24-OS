@@ -26,9 +26,10 @@ import {
   type SmartOrgSuggestion,
 } from "@/lib/org/orgSmartSuggest";
 import {
+  addOrgUnit,
+  applyOrgStructure,
   countUnits,
-  createOrgUnit,
-  ORG_STRUCTURE_IS_PRODUCTION_UNITS,
+  removeOrgUnit,
   type OrgNodeKind,
   type OrgStructureSnapshot,
   type OrgUnitNode,
@@ -317,6 +318,7 @@ function OrgStructureTree({
 }
 
 export interface OrgDigitalChartSectionProps {
+  organizationId: string;
   plan: PlanSlug;
   limits: OrgPackageLimits;
   canManage: boolean;
@@ -328,7 +330,7 @@ export interface OrgDigitalChartSectionProps {
   employeesByDept: Map<string, Employee[]>;
   departments: OrgUnitNode[];
   unassignedCount: number;
-  onPersistStructure: (next: OrgStructureSnapshot) => Promise<void>;
+  onReloadStructure: () => Promise<void>;
   onAddBoardMember: () => void;
   onEditBoardMember: (member: BoardMember) => void;
   onDeleteBoardMember: (id: string) => void;
@@ -348,6 +350,7 @@ const MODE_COPY: Record<OrgChartMode, { title: string; body: string }> = {
 };
 
 export default function OrgDigitalChartSection({
+  organizationId,
   plan,
   limits,
   canManage,
@@ -359,7 +362,7 @@ export default function OrgDigitalChartSection({
   employeesByDept,
   departments,
   unassignedCount,
-  onPersistStructure,
+  onReloadStructure,
   onAddBoardMember,
   onEditBoardMember,
   onDeleteBoardMember,
@@ -370,6 +373,7 @@ export default function OrgDigitalChartSection({
   const [mode, setMode] = useState<OrgChartMode>("manual");
   const [smartPreview, setSmartPreview] = useState<SmartOrgSuggestion | null>(null);
   const [reviewing, setReviewing] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   const smartAlerts = useMemo(
     () => buildSmartAlerts(limits, employees, departments, unassignedCount),
@@ -397,7 +401,7 @@ export default function OrgDigitalChartSection({
     setReviewing(true);
   };
 
-  const tryAddUnit = (kind: OrgNodeKind, parentId: string | null) => {
+  const tryAddUnit = async (kind: OrgNodeKind, parentId: string | null) => {
     const labels: Record<OrgNodeKind, string> = {
       agency: "اسم الوكالة",
       management: "اسم الإدارة",
@@ -424,32 +428,51 @@ export default function OrgDigitalChartSection({
       return;
     }
 
-    const unit = createOrgUnit(kind, name, parentId);
-    void onPersistStructure({ ...structure, units: [...structure.units, unit] });
-    if (!ORG_STRUCTURE_IS_PRODUCTION_UNITS) {
-      toast.info("وحدة مسودة — محفوظة في activities حتى اعتماد جدول org_units");
+    try {
+      await addOrgUnit(organizationId, kind, name, parentId);
+      await onReloadStructure();
+      toast.success("تمت إضافة الوحدة في org_units");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "تعذر الإضافة");
     }
   };
 
-  const removeUnit = (id: string) => {
-    const ids = new Set<string>([id]);
-    let changed = true;
-    while (changed) {
-      changed = false;
-      structure.units.forEach((u) => {
-        if (u.parentId && ids.has(u.parentId) && !ids.has(u.id)) {
-          ids.add(u.id);
-          changed = true;
-        }
-      });
+  const deleteUnit = async (id: string) => {
+    try {
+      await removeOrgUnit(organizationId, id);
+      await onReloadStructure();
+      toast.success("تم حذف الوحدة");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "تعذر الحذف");
     }
-    void onPersistStructure({ ...structure, units: structure.units.filter((u) => !ids.has(u.id)) });
+  };
+
+  const handleApplySuggestion = async () => {
+    if (!smartPreview) {
+      toast.error("نفّذ «تنظيم تلقائي» أولاً");
+      return;
+    }
+    setApplying(true);
+    try {
+      const added = await applyOrgStructure(organizationId, smartPreview.snapshot);
+      await onReloadStructure();
+      setReviewing(false);
+      setSmartPreview(null);
+      toast.success(added > 0 ? `تمت إضافة ${added} وحدة في org_units` : "لا وحدات جديدة للإضافة");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "تعذر تطبيق الاقتراح");
+    } finally {
+      setApplying(false);
+    }
   };
 
   const displaySnapshot =
     mode === "smart" && smartPreview && reviewing ? smartPreview.snapshot : structure;
 
   const employeesByDeptForDisplay = useMemo(() => {
+    if (!(mode === "smart" && reviewing && smartPreview)) {
+      return employeesByDept;
+    }
     const depts = displaySnapshot.units.filter((u) => u.kind === "department");
     const map = new Map<string, Employee[]>();
     depts.forEach((d) => map.set(d.id, []));
@@ -458,7 +481,7 @@ export default function OrgDigitalChartSection({
       if (dept) map.get(dept.id)?.push(e);
     });
     return map;
-  }, [displaySnapshot, employees]);
+  }, [mode, reviewing, smartPreview, employeesByDept, displaySnapshot, employees]);
 
   const recommendationLines = useMemo(() => {
     if (mode === "smart" && smartPreview) {
@@ -515,10 +538,10 @@ export default function OrgDigitalChartSection({
         ))}
       </div>
 
-      <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 mb-4 text-[11px] sm:text-xs text-amber-100/95 leading-relaxed">
-        <strong className="text-amber-200">تشغيلي:</strong> مجلس الإدارة والموظفون من Supabase.
-        الوحدات (وكالة/إدارة/قسم/فريق) مسودة في <code className="text-amber-50/90">activities</code> حتى migration
-        <code className="text-amber-50/90"> org_units</code>.
+      <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 p-3 mb-4 text-[11px] sm:text-xs text-emerald-100/95 leading-relaxed">
+        <strong className="text-emerald-200">Production:</strong> الهيكل في <code className="text-emerald-50/90">org_units</code>
+        ، ربط الموظفين في <code className="text-emerald-50/90">org_unit_members</code>
+        ، مجلس الإدارة في <code className="text-emerald-50/90">board_members</code>.
       </div>
 
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:p-4 mb-4">
@@ -612,12 +635,12 @@ export default function OrgDigitalChartSection({
           </button>
           <button
             type="button"
-            className="btn-secondary text-xs sm:text-sm py-2.5 min-h-11 flex-1 sm:flex-none touch-manipulation flex items-center justify-center gap-2 opacity-60 cursor-not-allowed"
-            disabled
-            title="يتطلب جدول org_units — معاينة فقط"
+            className="btn-secondary text-xs sm:text-sm py-2.5 min-h-11 flex-1 sm:flex-none touch-manipulation flex items-center justify-center gap-2 border-emerald-400/40 text-emerald-100 disabled:opacity-50"
+            onClick={() => void handleApplySuggestion()}
+            disabled={!canManage || !smartPreview || applying}
           >
-            <CheckCircle2 size={16} />
-            تطبيق الاقتراح (معاينة فقط)
+            {applying ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+            تطبيق الاقتراح (آمن)
           </button>
         </div>
       )}
@@ -639,14 +662,14 @@ export default function OrgDigitalChartSection({
           boardMembers={boardMembers}
           employeesByDept={employeesByDeptForDisplay}
           onAddUnit={tryAddUnit}
-          onRemoveUnit={removeUnit}
+          onRemoveUnit={(id) => void deleteUnit(id)}
           onAssignToDept={onAssignToDept}
           onEditBoardMember={onEditBoardMember}
           onDeleteBoardMember={onDeleteBoardMember}
           onAddBoardMember={onAddBoardMember}
           previewLabel={
             mode === "smart" && reviewing && smartPreview
-              ? "معاينة فقط — لا يُحفظ في الإنتاج حتى جدول org_units. الوحدات اليدوية تُحفظ كمسودة في activities."
+              ? "معاينة — التطبيق يضيف وحدات ناقصة فقط (بدون حذف) إلى org_units."
               : undefined
           }
         />
@@ -671,7 +694,7 @@ export default function OrgDigitalChartSection({
         )}
         {mode === "smart" && (
           <p className="text-[10px] text-white/40 pt-1 border-t border-white/5">
-            الاقتراح الذكي لا ينشئ وكالات/إدارات وهمية. التطبيق معطّل حتى migration org_units. نقل الموظفين عبر employees.department (RLS قد يمنع organization_manager).
+            الاقتراح من بيانات حقيقية فقط. التطبيق الآمن يضيف وحدات غير موجودة دون حذف. ربط الموظفين عبر org_unit_members.
           </p>
         )}
       </div>

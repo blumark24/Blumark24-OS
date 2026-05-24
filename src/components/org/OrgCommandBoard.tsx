@@ -12,16 +12,17 @@ import { usePermissions } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { useBoardMembers, useEmployees } from "@/hooks/useData";
-import { assignEmployeeDepartment, type BoardMember } from "@/lib/db";
+import { type BoardMember } from "@/lib/db";
+import {
+  assignEmployeeToOrgUnit,
+  employeesNotInOrgUnits,
+  fetchEmployeesByOrgUnits,
+  fetchOrgUnitMembers,
+} from "@/lib/org/orgUnitsDb";
 import { normalizePlanSlug, type PlanSlug } from "@/lib/features/packageFeatures";
 import OrgPackageCards from "@/components/org/OrgPackageCards";
 import { getOrgLimits } from "@/lib/org/orgPackageLimits";
-import {
-  loadOrgStructure,
-  saveOrgStructure,
-  type OrgStructureSnapshot,
-  type OrgUnitNode,
-} from "@/lib/org/orgStructure";
+import { loadOrgStructure, type OrgStructureSnapshot, type OrgUnitNode } from "@/lib/org/orgStructure";
 import { ASSIGNMENT_ROLES, ORG_SYSTEM_ROLES } from "@/lib/org/orgRoles";
 import { WS_CARD, WS_GLASS_MODAL, WS_PAGE, WS_SURFACE } from "@/components/ui/workspaceVisual";
 
@@ -122,6 +123,7 @@ export default function OrgCommandBoard() {
   const [structure, setStructure] = useState<OrgStructureSnapshot>({ units: [], updatedAt: "" });
   const [structLoading, setStructLoading] = useState(true);
   const [savingStruct, setSavingStruct] = useState(false);
+  const [employeesByDept, setEmployeesByDept] = useState<Map<string, typeof employees>>(new Map());
   const [showBoardModal, setShowBoardModal] = useState(false);
   const [editBoard, setEditBoard] = useState<BoardMember | null>(null);
 
@@ -133,6 +135,7 @@ export default function OrgCommandBoard() {
   const loadStructure = useCallback(async () => {
     if (!organizationId) {
       setStructure({ units: [], updatedAt: "" });
+      setEmployeesByDept(new Map());
       setStructLoading(false);
       return;
     }
@@ -140,59 +143,47 @@ export default function OrgCommandBoard() {
     try {
       const snap = await loadOrgStructure(organizationId);
       setStructure(snap);
+      const byUnit = await fetchEmployeesByOrgUnits(organizationId, employees);
+      setEmployeesByDept(byUnit);
     } catch {
-      toast.error("تعذر تحميل الهيكل المحفوظ");
+      toast.error("تعذر تحميل الهيكل من org_units");
     } finally {
       setStructLoading(false);
     }
-  }, [organizationId, toast]);
+  }, [organizationId, employees, toast]);
 
   useEffect(() => { void loadStructure(); }, [loadStructure]);
 
-  const persistStructure = useCallback(async (next: OrgStructureSnapshot) => {
-    setStructure(next);
+  const reloadStructure = useCallback(async () => {
     if (!organizationId) return;
     setSavingStruct(true);
     try {
-      await saveOrgStructure(organizationId, next);
-      toast.success("تم حفظ الهيكل في قاعدة البيانات");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "تعذر الحفظ في Supabase");
+      await loadStructure();
     } finally {
       setSavingStruct(false);
     }
-  }, [organizationId, toast]);
+  }, [organizationId, loadStructure]);
 
   const agencies = useMemo(() => structure.units.filter((u) => u.kind === "agency"), [structure.units]);
   const managements = useMemo(() => structure.units.filter((u) => u.kind === "management"), [structure.units]);
   const departments = useMemo(() => structure.units.filter((u) => u.kind === "department"), [structure.units]);
 
-  const employeesByDept = useMemo(() => {
-    const map = new Map<string, typeof employees>();
-    departments.forEach((d) => map.set(d.id, []));
-    employees.forEach((e) => {
-      const dept = departments.find((d) => d.name === e.department);
-      if (dept) {
-        map.get(dept.id)?.push(e);
-      }
-    });
-    return map;
-  }, [departments, employees]);
+  const [unassignedCount, setUnassignedCount] = useState(0);
 
-  const unassignedEmployees = useMemo(
-    () => employees.filter((e) => !departments.some((d) => d.name === e.department)),
-    [employees, departments],
+  useEffect(() => {
+    if (!organizationId) {
+      setUnassignedCount(0);
+      return;
+    }
+    void fetchOrgUnitMembers(organizationId).then((members) => {
+      setUnassignedCount(employeesNotInOrgUnits(employees, members).length);
+    });
+  }, [organizationId, employees]);
+
+  const departmentOptions = useMemo(
+    () => departments.map((d) => ({ id: d.id, name: d.name })),
+    [departments],
   );
-
-  const departmentOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    departments.forEach((d) => map.set(d.name, d.id));
-    employees.forEach((e) => {
-      const n = String(e.department ?? "").trim();
-      if (n && !map.has(n)) map.set(n, `label:${n}`);
-    });
-    return Array.from(map.entries()).map(([name, id]) => ({ id, name }));
-  }, [departments, employees]);
 
   const assignPanelRef = React.useRef<HTMLElement | null>(null);
 
@@ -201,15 +192,17 @@ export default function OrgCommandBoard() {
       toast.error("اختر الموظف والقسم");
       return;
     }
+    if (!organizationId) return;
     const dept = departmentOptions.find((d) => d.id === assignDeptId);
     if (!dept) return;
     setAssigning(true);
     try {
-      await assignEmployeeDepartment(assignEmpId, dept.name);
+      await assignEmployeeToOrgUnit(organizationId, assignEmpId, assignDeptId, assignRole);
       await refetchEmployees();
-      toast.success("تم إرسال الموظف لمكانه في الهيكل");
+      await reloadStructure();
+      toast.success("تم ربط الموظف بالقسم في org_unit_members");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "تعذر تحديث الموظف — قد تتطلب صلاحية أعلى");
+      toast.error(err instanceof Error ? err.message : "تعذر ربط الموظف");
     } finally {
       setAssigning(false);
     }
@@ -261,7 +254,9 @@ export default function OrgCommandBoard() {
         }}
       />
 
+      {organizationId && (
       <OrgDigitalChartSection
+        organizationId={organizationId}
         plan={plan}
         limits={limits}
         canManage={canManage}
@@ -272,8 +267,8 @@ export default function OrgCommandBoard() {
         boardMembers={boardMembers}
         employeesByDept={employeesByDept}
         departments={departments}
-        unassignedCount={unassignedEmployees.length}
-        onPersistStructure={persistStructure}
+        unassignedCount={unassignedCount}
+        onReloadStructure={reloadStructure}
         onAddBoardMember={() => {
           setEditBoard(null);
           setShowBoardModal(true);
@@ -293,12 +288,13 @@ export default function OrgCommandBoard() {
           toast.info("اختر الموظف من لوحة الإرسال");
         }}
       />
+      )}
 
       {/* Bottom panels */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 min-w-0">
         <section ref={assignPanelRef} className={cn(WS_CARD, "p-4 space-y-3 scroll-mt-24")}>
-          <h3 className="text-white font-semibold text-sm">تعيين موظف لقسم (Supabase)</h3>
-          <p className="text-[11px] text-white/50">يحدّث employees.department — يتطلب صلاحية RLS (قد لا ينجح لمدير المنشأة حتى migration)</p>
+          <h3 className="text-white font-semibold text-sm">تعيين موظف لقسم</h3>
+          <p className="text-[11px] text-white/50">يحفظ في org_unit_members (مصدر الهيكل التشغيلي)</p>
           <select className="input-dark text-sm w-full" value={assignEmpId} onChange={(e) => setAssignEmpId(e.target.value)}>
             <option value="">اختر موظفاً</option>
             {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -349,7 +345,7 @@ export default function OrgCommandBoard() {
       </div>
 
       <p className="text-center text-[10px] text-white/40 pb-2">
-        مجلس الإدارة + الموظفون: Supabase · الوحدات: مسودة activities · التقرير: docs/ORG_OPERATIONAL_AUDIT_PR165.md
+        مجلس الإدارة: board_members · الهيكل: org_units · الموظفون: org_unit_members
       </p>
 
       {showBoardModal && (
