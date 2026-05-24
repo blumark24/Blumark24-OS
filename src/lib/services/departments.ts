@@ -28,7 +28,6 @@ export async function listDepartments(): Promise<Department[]> {
   const { data, error } = await supabase
     .from("departments")
     .select("*")
-    .eq("is_active", true)
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
 
@@ -75,7 +74,7 @@ export async function updateDepartment(
 }
 
 export async function deleteDepartment(id: string): Promise<void> {
-  const { error } = await supabase.from("departments").update({ is_active: false }).eq("id", id);
+  const { error } = await supabase.from("departments").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 

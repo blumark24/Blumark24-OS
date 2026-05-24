@@ -11,13 +11,17 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
-import { usePermissions, ROLE_LABELS } from "@/contexts/PermissionsContext";
+import {
+  mapAuthRoleToUserRole,
+  usePermissions,
+} from "@/contexts/PermissionsContext";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import {
   getRouteLabel,
   WORKSPACE_ROUTES,
   type WorkspaceRouteId,
 } from "@/lib/features/packageFeatures";
+import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import OfficialBlumarkLogo from "@/components/brand/OfficialBlumarkLogo";
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
@@ -53,6 +57,8 @@ export default function Sidebar({
   const toast       = useToast();
   const { userRole } = usePermissions();
   const { navRoutes, loading: wsLoading } = useTenantWorkspace();
+  const effectiveRole =
+    userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
 
   const handleLogout = () => {
     if (loggingOut) return;
@@ -60,17 +66,24 @@ export default function Sidebar({
     void logout();
   };
 
-  const _wsNavLoading = authLoading || wsLoading || !userRole;
+  const _wsNavLoading = authLoading || wsLoading || (!!user?.id && !effectiveRole);
 
   const visibleRoutes = _wsNavLoading ? WORKSPACE_ROUTES : navRoutes;
 
-  const roleLabel = userRole ? (ROLE_LABELS[userRole] ?? userRole.replace(/_/g, " ")) : "";
+  // Use tenant-aware label so an internal-only role (defense_manager /
+  // attack_manager) that ever ends up on a customer profile is rewritten to
+  // a neutral tenant-safe label instead of leaking "وكالة الدفاع/الهجوم".
+  // The user-card label and the existing INTERNAL_ROLE_LABELS map cover both
+  // tenant + internal contexts.
+  const roleLabel = effectiveRole
+    ? getTenantRoleLabel(effectiveRole)
+    : "";
 
   const innerCard = (
     <div
       className={cn(
-        "flex flex-col flex-1 rounded-2xl border border-white/[0.08] overflow-hidden shadow-[0_8px_40px_-16px_rgba(0,0,0,0.55)]",
-        "bg-[#0a1628] lg:bg-[rgba(10,22,40,0.55)] lg:backdrop-blur-xl lg:shadow-[0_0_60px_-20px_rgba(34,211,238,0.12)]",
+        "flex flex-col flex-1 rounded-2xl border border-white/[0.08] overflow-hidden",
+        "bg-[#0a1628] lg:bg-[rgba(10,22,40,0.55)] lg:backdrop-blur-xl",
       )}
     >
       <div className="relative flex items-center justify-center lg:justify-start px-4 py-4 border-b border-white/[0.06]">
@@ -122,7 +135,7 @@ export default function Sidebar({
                   className={cn(
                     "flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-colors border",
                     isActive
-                      ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#3B82F6]/15 to-transparent border-[rgba(34,211,238,0.24)] text-white shadow-[0_4px_16px_-4px_rgba(34,211,238,0.35)]"
+                      ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#3B82F6]/15 to-transparent border-[rgba(34,211,238,0.24)] text-white shadow-[0_2px_10px_-4px_rgba(34,211,238,0.30)]"
                       : "text-white/[0.72] hover:bg-white/[0.04] border-transparent"
                   )}
                   title={collapsed ? label : undefined}
@@ -156,7 +169,7 @@ export default function Sidebar({
       <div className="px-3 pb-3 pt-2 border-t border-white/[0.06]">
         <div
           className={cn(
-            "flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2.5 backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+            "flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5",
             collapsed && "justify-center"
           )}
         >

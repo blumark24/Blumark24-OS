@@ -4,13 +4,13 @@ import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { departmentColor } from "@/lib/services/departments";
 import { useDepartments } from "@/hooks/useDepartments";
+import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard } from "@/components/ui/workspaceUi";
 import { cn } from "@/lib/utils";
 import { Users, Plus, Search, Star, Edit2, Trash2, X, Eye, EyeOff } from "lucide-react";
 import {
   usePermissions,
-  ROLE_LABELS,
   TENANT_ROLES,
   UserRole,
 } from "@/contexts/PermissionsContext";
@@ -23,11 +23,6 @@ import { withSoftTimeout, withTimeout } from "@/lib/asyncHelpers";
 const statusBadge = (status: string) =>
   status === "نشط" ? "status-active" : "status-inactive";
 
-const TENANT_ROLE_LABELS: Record<string, string> = {
-  organization_manager: "مدير المنشأة",
-  finance_manager: "مدير مالي",
-  employee: "موظف",
-};
 
 type FormState = {
   name:       string;
@@ -43,13 +38,14 @@ type FormState = {
 function EmployeesContent() {
   const { data: employees, loading, error, update, remove, refetch, setData } = useEmployees();
   const { data: departments } = useDepartments();
-  const { userRole } = usePermissions();
+  const { userRole, hasPermission } = usePermissions();
   const assignableRoles: UserRole[] =
     userRole === "super_admin" ? [...TENANT_ROLES, "super_admin"] : TENANT_ROLES;
   const deptNames = departments.map((d) => d.name);
   const defaultDept = deptNames[0] ?? "";
   const toast = useToast();
-  const isAdmin = userRole === "super_admin";
+  const canManageEmployees =
+    userRole === "super_admin" || hasPermission("manage_users");
 
   const [search,     setSearch]     = useState("");
   const [deptFilter, setDeptFilter] = useState("الكل");
@@ -228,7 +224,7 @@ function EmployeesContent() {
     <DashboardLayout>
       <div className={WS_PAGE}>
         <PageHero title="إدارة الموظفين" subtitle="إدارة بيانات فريق العمل">
-          {isAdmin && (
+          {canManageEmployees && (
             <button onClick={openAdd} className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation">
               <Plus size={16} />
               إضافة موظف
@@ -314,7 +310,7 @@ function EmployeesContent() {
                         {emp.department}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{TENANT_ROLE_LABELS[emp.role] ?? ROLE_LABELS[emp.role as UserRole] ?? emp.role}</td>
+                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{getTenantRoleLabel(emp.role)}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-0.5">
                         {[1,2,3,4,5].map((s) => (
@@ -333,7 +329,7 @@ function EmployeesContent() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {isAdmin && (
+                      {canManageEmployees && (
                         <div className="flex items-center gap-2">
                           <button onClick={() => openEdit(emp)} aria-label="تعديل الموظف" className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
                             <Edit2 size={14} />
@@ -437,7 +433,7 @@ function EmployeesContent() {
                   <select className="input-dark text-sm" value={form.department}
                     onChange={(e) => setForm({ ...form, department: e.target.value })}>
                     {deptNames.length === 0 ? (
-                      <option value="">— أضف أقساماً من الإعدادات —</option>
+                      <option value="">— أضف أقساماً من الهيكل الإداري —</option>
                     ) : (
                       deptNames.map((d) => <option key={d} value={d}>{d}</option>)
                     )}
@@ -447,7 +443,7 @@ function EmployeesContent() {
                   <label className="block text-xs text-[#8ba3c7] mb-1.5">الدور</label>
                   <select className="input-dark text-sm" value={form.role}
                     onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}>
-                    {assignableRoles.map((r) => <option key={r} value={r}>{TENANT_ROLE_LABELS[r] ?? ROLE_LABELS[r] ?? r}</option>)}
+                    {assignableRoles.map((r) => <option key={r} value={r}>{getTenantRoleLabel(r)}</option>)}
                   </select>
                 </div>
               </div>

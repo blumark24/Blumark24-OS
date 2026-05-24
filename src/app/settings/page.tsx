@@ -26,18 +26,21 @@ import {
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { getSystemSettings, setSystemSetting } from "@/lib/db";
+import {
+  getSystemSettings,
+  setSystemSetting,
+  getTenantWorkspaceSettings,
+  upsertTenantWorkspaceSettings,
+} from "@/lib/db";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useAutomations } from "@/hooks/useData";
 import { withTimeout } from "@/lib/asyncHelpers";
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-import { useDepartments } from "@/hooks/useDepartments";
-import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
-
 const TABS = [
   { id: "general",      label: "عام",              icon: Building2 },
-  { id: "departments",  label: "الأقسام",          icon: Building2 },
   { id: "account",      label: "الحساب",            icon: Lock      },
   { id: "users",        label: "المستخدمون",        icon: Users     },
   { id: "permissions",  label: "الصلاحيات والأدوار",icon: Shield    },
@@ -58,67 +61,14 @@ const RULE_TRIGGERS: Record<string, string> = {
   "weekly-report":  "كل إثنين 8 صباحاً",
 };
 
-function DepartmentsTab() {
-  const { data, loading, insert, remove } = useDepartments();
-  const { planLimits } = useTenantWorkspace();
-  const toast = useToast();
-  const [name, setName] = useState("");
-  const [desc, setDesc] = useState("");
-  const maxDepts = planLimits.max_departments ?? 1;
-
-  const handleAdd = async () => {
-    if (!name.trim()) { toast.error("اسم القسم مطلوب"); return; }
-    if (data.length >= maxDepts) {
-      toast.error(`الحد الأقصى ${maxDepts} أقسام ضمن باقتك`);
-      return;
-    }
-    try {
-      await insert({ name: name.trim(), description: desc.trim() });
-      setName("");
-      setDesc("");
-      toast.success("تمت إضافة القسم");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "تعذر الإضافة");
-    }
-  };
-
-  return (
-    <div className="glass-card p-5 space-y-4">
-      <h3 className="text-white font-heading font-bold">أقسام المنشأة</h3>
-      <p className="text-[#8ba3c7] text-sm">الأقسام تظهر في الموظفين والتقارير والهيكل الإداري ({data.length}/{maxDepts})</p>
-      <div className="grid sm:grid-cols-2 gap-3">
-        <input className="input-dark text-sm" placeholder="اسم القسم" value={name} onChange={(e) => setName(e.target.value)} />
-        <input className="input-dark text-sm" placeholder="وصف مختصر (اختياري)" value={desc} onChange={(e) => setDesc(e.target.value)} />
-      </div>
-      <button type="button" onClick={() => void handleAdd()} className="btn-primary text-sm min-h-11 touch-manipulation flex items-center gap-2">
-        <Plus size={14} /> إضافة قسم
-      </button>
-      {loading ? (
-        <p className="text-[#8ba3c7] text-sm">جارٍ التحميل...</p>
-      ) : data.length === 0 ? (
-        <p className="text-[#8ba3c7] text-sm">لا توجد أقسام بعد.</p>
-      ) : (
-        <ul className="space-y-2">
-          {data.map((d) => (
-            <li key={d.id} className="flex items-center justify-between p-3 rounded-xl bg-[#0d1f3c]/60 border border-[#1e3a5f]">
-              <div>
-                <div className="text-white text-sm font-medium">{d.name}</div>
-                {d.description && <div className="text-[#8ba3c7] text-xs">{d.description}</div>}
-              </div>
-              <button
-                type="button"
-                onClick={() => void remove(d.id).then(() => toast.success("تم إلغاء تفعيل القسم")).catch(() => toast.error("تعذر الحذف"))}
-                className="text-red-400 text-xs hover:underline"
-              >
-                إزالة
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
+const TENANT_COMPANY_DEFAULTS = {
+  name: "",
+  tagline: "",
+  email: "",
+  phone: "",
+  website: "",
+  city: "",
+};
 
 // Add user redirect banner (real user creation happens in /employees)
 function AddUserBanner({ onClose }: { onClose: () => void }) {
@@ -149,6 +99,7 @@ function AddUserBanner({ onClose }: { onClose: () => void }) {
 
 function PermissionsTab() {
   const { managedUsers, rolePermissions, updateUserRole, toggleUserStatus, savePermissions } = usePermissions();
+  const roleLabel = (role: UserRole) => getTenantRoleLabel(role);
   const toast  = useToast();
   const [selectedRole,   setSelectedRole]   = useState<UserRole>("super_admin");
   const [localPerms,     setLocalPerms]     = useState<Record<UserRole, Permission[]>>({ ...rolePermissions });
@@ -165,7 +116,7 @@ function PermissionsTab() {
 
   const handleResetRole = () => {
     setLocalPerms((prev) => ({ ...prev, [selectedRole]: [...DEFAULT_ROLE_PERMISSIONS[selectedRole]] }));
-    toast.info(`تم إعادة ضبط صلاحيات ${ROLE_LABELS[selectedRole]}`);
+    toast.info(`تم إعادة ضبط صلاحيات ${roleLabel(selectedRole)}`);
   };
 
   const handleSavePerms = async () => {
@@ -235,13 +186,15 @@ function PermissionsTab() {
                         defaultValue={u.role}
                         onChange={(e) => handleRoleChange(u.userId, e.target.value as UserRole)}
                       >
-                        {ALL_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                        {ALL_ROLES.map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
                       </select>
                     ) : (
-                      <span className="badge bg-[#22d3ee]/20 text-[#22d3ee] text-xs">{ROLE_LABELS[u.role]}</span>
+                      <span className="badge bg-[#22d3ee]/20 text-[#22d3ee] text-xs">{roleLabel(u.role)}</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-[#8ba3c7] text-xs">{u.department}</td>
+                  <td className="px-4 py-3 text-[#8ba3c7] text-xs">
+                    {formatTenantDepartment(u.department).text}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`badge text-xs ${u.isActive ? "status-active" : "status-inactive"}`}>
                       {u.isActive ? "نشط" : "موقوف"}
@@ -299,7 +252,7 @@ function PermissionsTab() {
               onClick={() => setSelectedRole(role)}
               className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${selectedRole === role ? "bg-[#22d3ee] text-[#0a1628]" : "bg-[#1a3356]/50 text-[#8ba3c7] hover:text-white"}`}
             >
-              {ROLE_LABELS[role]}
+              {roleLabel(role)}
             </button>
           ))}
         </div>
@@ -307,7 +260,7 @@ function PermissionsTab() {
         {/* Permissions grid */}
         <div className="p-5">
           <div className="text-xs text-[#8ba3c7] mb-4">
-            صلاحيات دور: <span className="text-[#22d3ee] font-medium">{ROLE_LABELS[selectedRole]}</span>
+            صلاحيات دور: <span className="text-[#22d3ee] font-medium">{roleLabel(selectedRole)}</span>
             {" "}·{" "}
             <span className="text-white">{(localPerms[selectedRole] ?? []).length}</span> من {ALL_PERMISSIONS.length} صلاحية
           </div>
@@ -348,12 +301,19 @@ function PermissionsTab() {
 // `accountOnly` renders ONLY the personal account/password section — used for
 // forced-password users who lack manage_settings (e.g. organization_manager).
 // It never exposes company/global settings or other users.
+const TENANT_MANAGER_TABS = new Set(["general", "account", "notifications", "appearance"]);
+
 function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const toast = useToast();
   const { hasPermission } = usePermissions();
   const { user, clearForcePasswordChange } = useAuth();
+  const { organizationId } = useTenantWorkspace();
   const router = useRouter();
   const forcedAccount = user?.forcePasswordChange === true;
+  const tenantMode =
+    !accountOnly &&
+    hasPermission("manage_tenant_settings") &&
+    !hasPermission("manage_settings");
 
   const [activeTab,  setActiveTab]  = useState(accountOnly ? "account" : "general");
 
@@ -367,10 +327,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const [showConfirmPw,setShowConfirmPw]= useState(false);
   const [saved,      setSaved]      = useState(false);
   const [saving,     setSaving]     = useState(false);
-  const [companyForm, setCompanyForm] = useState({
-    name: "", tagline: "",
-    email: "", phone: "", website: "", city: "",
-  });
+  const [companyForm, setCompanyForm] = useState({ ...TENANT_COMPANY_DEFAULTS });
   const [darkMode,     setDarkMode]     = useState(true);
   const [accentColor,  setAccentColor]  = useState("#22d3ee");
   const [language,     setLanguage]     = useState("العربية");
@@ -384,17 +341,54 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   // into a tenant manager's client.
   useEffect(() => {
     if (accountOnly) return;
-    getSystemSettings().then((s) => {
-      if (s.company_info) setCompanyForm(s.company_info as typeof companyForm);
-      if (s.notifications) setNotifs(s.notifications as typeof notifs);
-      const app = s.appearance as { darkMode?: boolean; accentColor?: string; language?: string } | undefined;
-      if (app) {
-        setDarkMode(app.darkMode ?? true);
-        if (app.accentColor) setAccentColor(app.accentColor);
-        if (app.language)    setLanguage(app.language);
+
+    const load = async () => {
+      try {
+        if (tenantMode && organizationId) {
+          const row = await getTenantWorkspaceSettings(organizationId);
+          if (row?.company_info && typeof row.company_info === "object") {
+            setCompanyForm((prev) => ({ ...prev, ...(row.company_info as typeof companyForm) }));
+          }
+          if (row?.notifications && typeof row.notifications === "object") {
+            setNotifs((prev) => ({ ...prev, ...(row.notifications as typeof notifs) }));
+          }
+          const app = row?.appearance as { darkMode?: boolean; accentColor?: string; language?: string } | undefined;
+          if (app) {
+            setDarkMode(app.darkMode ?? true);
+            if (app.accentColor) setAccentColor(app.accentColor);
+            if (app.language) setLanguage(app.language);
+          }
+          return;
+        }
+
+        const s = await getSystemSettings();
+        if (s.company_info) {
+          setCompanyForm(s.company_info as typeof companyForm);
+        } else if (!tenantMode) {
+          setCompanyForm({
+            name: "Blumark24",
+            tagline: "نظام إدارة الأعمال بالذكاء الاصطناعي",
+            email: "info@blumark24.com",
+            phone: "0550000000",
+            website: "blumark24.com",
+            city: "جدة",
+          });
+        }
+        if (s.notifications) setNotifs(s.notifications as typeof notifs);
+        const app = s.appearance as { darkMode?: boolean; accentColor?: string; language?: string } | undefined;
+        if (app) {
+          setDarkMode(app.darkMode ?? true);
+          if (app.accentColor) setAccentColor(app.accentColor);
+          if (app.language) setLanguage(app.language);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "تعذر تحميل الإعدادات";
+        toast.error(msg);
       }
-    }).catch(console.error);
-  }, [accountOnly]);
+    };
+
+    load();
+  }, [accountOnly, tenantMode, organizationId, toast]);
 
   // Read ?tab= from URL on mount (ignored in account-only mode).
   useEffect(() => {
@@ -468,15 +462,30 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await withTimeout(
-        Promise.all([
-          setSystemSetting("company_info",  companyForm),
-          setSystemSetting("notifications", notifs),
-          setSystemSetting("appearance",    { darkMode, accentColor, language }),
-        ]),
-        12_000,
-        "انتهت مهلة حفظ الإعدادات — تحقق من الاتصال"
-      );
+      if (tenantMode) {
+        if (!organizationId) {
+          throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول");
+        }
+        await withTimeout(
+          upsertTenantWorkspaceSettings(organizationId, {
+            company_info: companyForm,
+            notifications: notifs,
+            appearance: { darkMode, accentColor, language },
+          }),
+          12_000,
+          "انتهت مهلة حفظ الإعدادات — تحقق من الاتصال",
+        );
+      } else {
+        await withTimeout(
+          Promise.all([
+            setSystemSetting("company_info", companyForm),
+            setSystemSetting("notifications", notifs),
+            setSystemSetting("appearance", { darkMode, accentColor, language }),
+          ]),
+          12_000,
+          "انتهت مهلة حفظ الإعدادات — تحقق من الاتصال",
+        );
+      }
       setSaved(true);
       toast.success("تم حفظ الإعدادات بنجاح");
       setTimeout(() => setSaved(false), 2500);
@@ -517,7 +526,9 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
               <Settings size={24} className="text-[#22d3ee]" />
               الإعدادات
             </h1>
-            <p className="text-[#8ba3c7] text-sm mt-1">إدارة إعدادات النظام والتفضيلات</p>
+            <p className="text-[#8ba3c7] text-sm mt-1">
+              {tenantMode ? "إعدادات منشأتك ضمن باقة الاشتراك" : "إدارة إعدادات النظام والتفضيلات"}
+            </p>
           </div>
           {activeTab !== "permissions" && activeTab !== "account" && (
             <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2 disabled:opacity-50">
@@ -535,7 +546,9 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
           <div className="glass-card p-2 h-fit">
             {TABS
               .filter((t) => (accountOnly ? t.id === "account" : true))
+              .filter((t) => (!tenantMode ? true : TENANT_MANAGER_TABS.has(t.id)))
               .filter((t) => t.id !== "permissions" || hasPermission("manage_roles"))
+              .filter((t) => t.id !== "automation" || hasPermission("manage_automations"))
               .map((tab) => {
               const locked = forcedAccount && tab.id !== "account";
               return (
@@ -580,7 +593,6 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
               </div>
             )}
 
-            {activeTab === "departments" && <DepartmentsTab />}
 
             {/* ── Account ── */}
             {activeTab === "account" && (
@@ -894,7 +906,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
-  const { rolePermissions } = usePermissions();
+  const { hasPermission } = usePermissions();
 
   // Forced-password users who lack manage_settings (e.g. organization_manager)
   // must be able to clear the temporary password to finish first login. They
@@ -905,14 +917,15 @@ export default function SettingsPage() {
     const role = mapAuthRoleToUserRole(user.role);
     const canManageSettings =
       role === "super_admin" ||
-      (rolePermissions[role] ?? []).includes("manage_settings");
+      hasPermission("manage_settings") ||
+      hasPermission("manage_tenant_settings");
     if (!canManageSettings) {
       return <SettingsContent accountOnly />;
     }
   }
 
   return (
-    <PageGuard permission="manage_settings">
+    <PageGuard anyPermission={["manage_settings", "manage_tenant_settings"]}>
       <SettingsContent />
     </PageGuard>
   );

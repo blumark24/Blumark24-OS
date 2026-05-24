@@ -4,7 +4,7 @@
  */
 
 export const WS_PAGE =
-  "space-y-5 sm:space-y-6 min-w-0 max-w-full pb-[calc(10rem+env(safe-area-inset-bottom))] lg:pb-6";
+  "space-y-5 sm:space-y-6 min-w-0 max-w-full lg:pb-6";
 
 export const WS_CARD =
   "relative overflow-hidden rounded-3xl border border-white/[0.07] bg-[#070d20]/90 lg:bg-[#070d20]/80 backdrop-blur-xl";
@@ -44,7 +44,7 @@ export type KpiTheme = {
 
 const KPI_THEMES: Record<KpiAccent, KpiTheme> = {
   cyan: {
-    glow: "shadow-[0_14px_44px_-18px_rgba(34,211,238,0.5)]",
+    glow: "shadow-[0_18px_52px_-14px_rgba(34,211,238,0.65),0_0_0_1px_rgba(34,211,238,0.12)]",
     ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(34,211,238,0.20),transparent_55%)]",
     orb: "bg-cyan-400/10 ring-1 ring-cyan-300/25",
     iconColor: "text-cyan-300",
@@ -55,7 +55,7 @@ const KPI_THEMES: Record<KpiAccent, KpiTheme> = {
     spark: "text-cyan-400/70",
   },
   emerald: {
-    glow: "shadow-[0_14px_44px_-18px_rgba(16,185,129,0.5)]",
+    glow: "shadow-[0_18px_52px_-14px_rgba(16,185,129,0.65),0_0_0_1px_rgba(16,185,129,0.12)]",
     ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(16,185,129,0.20),transparent_55%)]",
     orb: "bg-emerald-400/10 ring-1 ring-emerald-300/25",
     iconColor: "text-emerald-300",
@@ -66,7 +66,7 @@ const KPI_THEMES: Record<KpiAccent, KpiTheme> = {
     spark: "text-emerald-400/70",
   },
   amber: {
-    glow: "shadow-[0_14px_44px_-18px_rgba(251,191,36,0.45)]",
+    glow: "shadow-[0_18px_52px_-14px_rgba(251,191,36,0.6),0_0_0_1px_rgba(251,191,36,0.12)]",
     ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(251,191,36,0.18),transparent_55%)]",
     orb: "bg-amber-400/10 ring-1 ring-amber-300/25",
     iconColor: "text-amber-300",
@@ -77,7 +77,7 @@ const KPI_THEMES: Record<KpiAccent, KpiTheme> = {
     spark: "text-amber-400/70",
   },
   rose: {
-    glow: "shadow-[0_14px_44px_-18px_rgba(244,63,94,0.45)]",
+    glow: "shadow-[0_18px_52px_-14px_rgba(244,63,94,0.6),0_0_0_1px_rgba(244,63,94,0.12)]",
     ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(244,63,94,0.18),transparent_55%)]",
     orb: "bg-rose-400/10 ring-1 ring-rose-300/25",
     iconColor: "text-rose-300",

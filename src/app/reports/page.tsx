@@ -49,10 +49,9 @@ function toCSV(rows: string[][]): string {
 }
 
 function ReportsContent() {
+  const { data: departments } = useDepartments();
   const [activeReport, setActiveReport] = useState<ReportId>("monthly");
   const [period, setPeriod]             = useState("هذا الشهر");
-
-  const { data: departments } = useDepartments();
   const { data: employees, loading: loadingEmp }  = useEmployees();
   const { data: clients,   loading: loadingCli }  = useClients();
   const { data: tasks,     loading: loadingTsk }  = useTasks();

@@ -4,6 +4,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  authorizeUserProvisioner,
+  sanitizeRoleForProvisioner,
+} from "@/lib/api/tenantUserAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,40 +58,20 @@ export async function POST(req: NextRequest) {
         { status: 401 },
       );
     }
-    const callerEmail  = tokenResp.data.user.email ?? "";
-    const callerId     = tokenResp.data.user.id;
-    const ADMIN_EMAILS = ["blumark24@gmail.com", "blumark.sa@gmail.com"];
-
-    const profResp = await admin
-      .from("profiles")
-      .select("role, organization_id")
-      .eq("id", callerId)
-      .maybeSingle();
-    const callerRole = String(profResp.data?.role ?? "");
-    const isPlatformAdmin =
-      ADMIN_EMAILS.includes(callerEmail) || callerRole === "super_admin";
-    const isOrgManager = callerRole === "organization_manager";
-    if (!isPlatformAdmin && !isOrgManager) {
+    const authResult = await authorizeUserProvisioner(admin, token);
+    if (!authResult.ok) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "غير مصرح — يتطلب مدير المنشأة أو المدير الأعلى",
-          debug: `caller=${callerEmail} role=${callerRole}`,
-        },
-        { status: 403 },
+        { success: false, error: authResult.error, debug: authResult.debug },
+        { status: authResult.status },
       );
     }
-    console.log(`[create-user] caller verified email=${callerEmail} role=${callerRole}`);
-
-    // ── 3b. resolve caller's organization (Tenant Isolation Phase B.1) ────
-    // Service-role writes bypass RLS *and* the BEFORE INSERT auto-stamp
-    // trigger (auth.uid() is null here), so the new profile + employee must
-    // be tagged explicitly with the caller's org. Without this the new user
-    // would be invisible to the rest of their own organization. Best-effort:
-    // if the caller has no org we leave it null (owner/super_admin still see
-    // the row), and a missing organization_id column is tolerated.
-    const callerOrgId =
-      (profResp.data as { organization_id?: string | null } | null)?.organization_id ?? null;
+    const provisioner = authResult.auth;
+    const callerEmail = provisioner.callerEmail;
+    const callerId = provisioner.callerId;
+    const callerOrgId = provisioner.callerOrgId;
+    console.log(
+      `[create-user] caller verified email=${callerEmail} platform=${provisioner.isPlatformAdmin} orgManager=${provisioner.isOrgManager}`,
+    );
 
     // ── 4. parse body (await; outer catch handles malformed JSON) ─────────
     const body = (await req.json()) as Record<string, unknown>;
@@ -126,37 +110,37 @@ export async function POST(req: NextRequest) {
       "مدير وكالة الهجوم":  "attack_manager",
       "مدير المالية":        "finance_manager",
       "مدير مالي":           "finance_manager",
-      "موظف":                "employee",
       "مدير المنشأة":        "organization_manager",
       "مدير_المنشأة":        "organization_manager",
+      "موظف":                "employee",
     };
-    const TENANT_ROLES = [
-      "organization_manager", "finance_manager", "employee",
-    ];
-    const VALID_ROLES = [
-      "super_admin", "board_member", "defense_manager",
-      "attack_manager", "finance_manager", "organization_manager", "employee",
+    const PLATFORM_ROLES = [
+      "super_admin",
+      "board_member",
+      "defense_manager",
+      "attack_manager",
+      "finance_manager",
+      "organization_manager",
+      "employee",
     ];
     const rawRole = typeof body.role === "string" ? body.role : "employee";
-    const role    = ARABIC_TO_ROLE[rawRole] ?? rawRole;
-    if (!VALID_ROLES.includes(role)) {
+    let role = ARABIC_TO_ROLE[rawRole] ?? rawRole;
+    if (provisioner.isPlatformAdmin) {
+      if (!PLATFORM_ROLES.includes(role)) {
+        return NextResponse.json(
+          { success: false, error: `الدور غير مقبول: ${rawRole}`, debug: `mapped=${role}` },
+          { status: 400 },
+        );
+      }
+    }
+    const roleCheck = sanitizeRoleForProvisioner(provisioner, role);
+    if (typeof roleCheck !== "string") {
       return NextResponse.json(
-        { success: false, error: `الدور غير مقبول: ${rawRole}`, debug: `mapped=${role}` },
-        { status: 400 },
+        { success: false, error: roleCheck.error, debug: roleCheck.debug },
+        { status: roleCheck.status },
       );
     }
-    if (!isPlatformAdmin && !TENANT_ROLES.includes(role)) {
-      return NextResponse.json(
-        { success: false, error: "لا يمكن تعيين أدوار المنصة الداخلية لموظفي المنشأة" },
-        { status: 400 },
-      );
-    }
-    if (isOrgManager && !callerOrgId) {
-      return NextResponse.json(
-        { success: false, error: "حسابك غير مرتبط بمنشأة" },
-        { status: 403 },
-      );
-    }
+    role = roleCheck;
 
     const name       = typeof body.name === "string" && body.name.trim()
                           ? body.name.trim().slice(0, 100)
