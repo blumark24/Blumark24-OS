@@ -1,137 +1,220 @@
 /**
- * Shared visual tokens for the client workspace (UI-only).
- * Static Tailwind class strings — no data fetching or business logic.
+ * Crystal Glass workspace tokens — UI-only.
+ *
+ * All visual primitives consumed by the client workspace (DashboardLayout
+ * subtree). Pure className strings; CSS custom properties live in
+ * `workspaceTheme.css` and respond to `data-theme="dark|light"` on <html>.
+ *
+ * Semantic color map (consistent across every section):
+ *   • cyan / sky / blue → primary, system, navigation
+ *   • emerald           → success, completed, positive
+ *   • amber / gold      → waiting, attention, pending
+ *   • rose / red        → overdue, error, risk
+ *   • violet / purple   → AI, automation, premium
  */
 
+/* ─── Page rhythm ─────────────────────────────────────────────────────── */
+
+/**
+ * Vertical rhythm + mobile safe-area padding (bottom nav + FAB + iOS notch).
+ * Uses logical properties; works in RTL today and LTR later without changes.
+ */
 export const WS_PAGE =
   "space-y-5 sm:space-y-6 min-w-0 max-w-full pb-[calc(10rem+env(safe-area-inset-bottom))] lg:pb-6";
 
-export const WS_CARD =
-  "relative overflow-hidden rounded-3xl border border-white/[0.07] bg-[#070d20]/90 lg:bg-[#070d20]/80 backdrop-blur-xl";
+/* ─── Crystal levels ──────────────────────────────────────────────────── */
 
-export const WS_SURFACE =
-  "relative overflow-hidden rounded-3xl border border-white/[0.07] bg-[linear-gradient(150deg,rgba(13,25,48,0.92),rgba(7,15,32,0.95))] backdrop-blur-xl";
+/** L1 — Hero / large sheet. Strongest backdrop, prism gradient fill. */
+export const WS_HERO = "crystal crystal-l1 overflow-hidden rounded-[28px]";
 
-export const WS_SECTION_TITLE = "text-white font-heading font-semibold";
-export const WS_MUTED = "text-[#8ba3c7]";
-export const WS_SUBTEXT = "text-[#9db1cf]";
+/** L2 — Default glass card (KPIs without accent, panels, tables). */
+export const WS_CARD = "crystal crystal-l2 overflow-hidden rounded-[24px]";
 
+/** L1 alias (kept for backward compat with existing imports). */
+export const WS_SURFACE = "crystal crystal-l1 overflow-hidden rounded-[28px]";
+
+/** L3 — Accent KPI body. Combine with `WS_ACCENT(accent)` for prism wash. */
+export const WS_CARD_ACCENT =
+  "crystal crystal-l3 overflow-hidden rounded-[24px]";
+
+/** L4 — Floating chrome: bottom nav, FAB menu, popovers. */
+export const WS_FLOAT = "crystal crystal-l4 overflow-hidden rounded-2xl";
+
+/** L5 — Modal dialog body. */
+export const WS_GLASS_MODAL =
+  "crystal crystal-l5 w-full max-w-lg rounded-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto";
+
+/** Inset / nested surface (table body, kanban column inside a card). */
+export const WS_INSET =
+  "rounded-2xl border border-[var(--ws-border-subtle)] bg-[var(--ws-surface-2)]";
+
+/* ─── Typography ──────────────────────────────────────────────────────── */
+
+export const WS_SECTION_TITLE =
+  "font-heading font-semibold text-[color:var(--ws-text-primary)]";
+export const WS_MUTED   = "text-[color:var(--ws-text-secondary)]";
+export const WS_SUBTEXT = "text-[color:var(--ws-text-tertiary)]";
+
+/* ─── Icon orbs ───────────────────────────────────────────────────────── */
+
+/**
+ * Base orb (icon tile). Compose with accent class:
+ *   <span className={`${WS_ICON_ORB} w-10 h-10 ${orbAccent('cyan')}`} />
+ */
 export const WS_ICON_ORB =
   "grid place-items-center rounded-2xl backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]";
 
-export const WS_GLASS_MODAL =
-  "glass-card w-full max-w-lg rounded-2xl border border-white/[0.10] bg-[#0b1e3a]/95 p-4 sm:p-6 max-h-[90vh] overflow-y-auto";
+/* ─── AI pill (violet/cyan prism) ─────────────────────────────────────── */
 
 export const WS_AI_PILL =
-  "inline-flex items-center gap-1.5 rounded-full border border-violet-300/25 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-100 transition-colors hover:bg-violet-500/15";
+  "inline-flex items-center gap-1.5 rounded-full border border-[var(--ws-violet-ring)] ws-ai-prism px-3 py-1.5 text-xs font-medium text-[color:var(--ws-text-primary)] transition-colors hover:opacity-90";
 
+/** Live status pill (paired with an accent theme). */
 export const WS_LIVE_PILL =
   "inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium";
 
-export type KpiAccent = "cyan" | "emerald" | "amber" | "rose" | "violet" | "sky";
+/* ─── Accent system ───────────────────────────────────────────────────── */
+
+export type KpiAccent =
+  | "cyan"
+  | "emerald"
+  | "amber"
+  | "rose"
+  | "violet"
+  | "sky";
 
 export type KpiTheme = {
+  /* Crystal accent (outer glow + box-shadow) — apply on the card root */
+  card: string;
+  /* Inner soft prism wash, absolutely positioned <div className="ws-accent-wash absolute inset-0" /> */
+  wash: string;
+  /* Orb fill + ring */
+  orb: string;
+  /* Icon color (text-*) */
+  iconColor: string;
+  /* Subtle text accent (footer / live pill text) */
+  accent: string;
+  /* Full live pill (with bg, color, ring) */
+  livePill: string;
+  /* Icon tile (used inside drilldown modals) */
+  iconTile: string;
+  /* Panel border + glow (used by drilldown modals) */
+  panelBorder: string;
+  /* Sparkline color */
+  spark: string;
+  /* Legacy aliases preserved for compatibility */
   glow: string;
   ambient: string;
-  orb: string;
-  iconColor: string;
-  accent: string;
-  livePill: string;
-  iconTile: string;
-  panelBorder: string;
-  spark: string;
 };
 
-const KPI_THEMES: Record<KpiAccent, KpiTheme> = {
+const THEMES: Record<KpiAccent, KpiTheme> = {
   cyan: {
-    glow: "shadow-[0_14px_44px_-18px_rgba(34,211,238,0.5)]",
-    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(34,211,238,0.20),transparent_55%)]",
-    orb: "bg-cyan-400/10 ring-1 ring-cyan-300/25",
+    card: "crystal-accent-cyan",
+    wash: "ws-accent-wash",
+    orb: "bg-[var(--ws-cyan-soft)] ring-1 ring-[var(--ws-cyan-ring)]",
     iconColor: "text-cyan-300",
     accent: "text-cyan-200/85",
-    livePill: "bg-cyan-400/10 text-cyan-200 ring-1 ring-cyan-300/25",
-    iconTile: "bg-cyan-400/15 border border-cyan-300/30",
+    livePill: "bg-[var(--ws-cyan-soft)] text-cyan-200 ring-1 ring-[var(--ws-cyan-ring)]",
+    iconTile: "bg-[var(--ws-cyan-soft)] border border-[var(--ws-cyan-ring)]",
     panelBorder: "border-cyan-300/45 shadow-[0_0_50px_rgba(34,211,238,.18)]",
     spark: "text-cyan-400/70",
+    glow: "shadow-[0_14px_44px_-18px_rgba(34,211,238,0.5)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(34,211,238,0.20),transparent_55%)]",
   },
   emerald: {
-    glow: "shadow-[0_14px_44px_-18px_rgba(16,185,129,0.5)]",
-    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(16,185,129,0.20),transparent_55%)]",
-    orb: "bg-emerald-400/10 ring-1 ring-emerald-300/25",
+    card: "crystal-accent-emerald",
+    wash: "ws-accent-wash",
+    orb: "bg-[var(--ws-emerald-soft)] ring-1 ring-[var(--ws-emerald-ring)]",
     iconColor: "text-emerald-300",
     accent: "text-emerald-200/85",
-    livePill: "bg-emerald-400/10 text-emerald-200 ring-1 ring-emerald-300/25",
-    iconTile: "bg-emerald-400/15 border border-emerald-300/30",
+    livePill: "bg-[var(--ws-emerald-soft)] text-emerald-200 ring-1 ring-[var(--ws-emerald-ring)]",
+    iconTile: "bg-[var(--ws-emerald-soft)] border border-[var(--ws-emerald-ring)]",
     panelBorder: "border-emerald-300/45 shadow-[0_0_50px_rgba(16,185,129,.18)]",
     spark: "text-emerald-400/70",
+    glow: "shadow-[0_14px_44px_-18px_rgba(16,185,129,0.5)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(16,185,129,0.20),transparent_55%)]",
   },
   amber: {
-    glow: "shadow-[0_14px_44px_-18px_rgba(251,191,36,0.45)]",
-    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(251,191,36,0.18),transparent_55%)]",
-    orb: "bg-amber-400/10 ring-1 ring-amber-300/25",
+    card: "crystal-accent-amber",
+    wash: "ws-accent-wash",
+    orb: "bg-[var(--ws-amber-soft)] ring-1 ring-[var(--ws-amber-ring)]",
     iconColor: "text-amber-300",
     accent: "text-amber-200/85",
-    livePill: "bg-amber-400/10 text-amber-200 ring-1 ring-amber-300/25",
-    iconTile: "bg-amber-400/15 border border-amber-300/30",
+    livePill: "bg-[var(--ws-amber-soft)] text-amber-200 ring-1 ring-[var(--ws-amber-ring)]",
+    iconTile: "bg-[var(--ws-amber-soft)] border border-[var(--ws-amber-ring)]",
     panelBorder: "border-amber-300/45 shadow-[0_0_50px_rgba(251,191,36,.18)]",
     spark: "text-amber-400/70",
+    glow: "shadow-[0_14px_44px_-18px_rgba(251,191,36,0.45)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(251,191,36,0.18),transparent_55%)]",
   },
   rose: {
-    glow: "shadow-[0_14px_44px_-18px_rgba(244,63,94,0.45)]",
-    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(244,63,94,0.18),transparent_55%)]",
-    orb: "bg-rose-400/10 ring-1 ring-rose-300/25",
+    card: "crystal-accent-rose",
+    wash: "ws-accent-wash",
+    orb: "bg-[var(--ws-rose-soft)] ring-1 ring-[var(--ws-rose-ring)]",
     iconColor: "text-rose-300",
     accent: "text-rose-200/85",
-    livePill: "bg-rose-400/10 text-rose-200 ring-1 ring-rose-300/25",
-    iconTile: "bg-rose-400/15 border border-rose-300/30",
+    livePill: "bg-[var(--ws-rose-soft)] text-rose-200 ring-1 ring-[var(--ws-rose-ring)]",
+    iconTile: "bg-[var(--ws-rose-soft)] border border-[var(--ws-rose-ring)]",
     panelBorder: "border-rose-300/45 shadow-[0_0_50px_rgba(244,63,94,.18)]",
     spark: "text-rose-400/70",
+    glow: "shadow-[0_14px_44px_-18px_rgba(244,63,94,0.45)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(244,63,94,0.18),transparent_55%)]",
   },
   violet: {
-    glow: "shadow-[0_14px_44px_-18px_rgba(168,85,247,0.45)]",
-    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(168,85,247,0.18),transparent_55%)]",
-    orb: "bg-violet-400/10 ring-1 ring-violet-300/25",
+    card: "crystal-accent-violet",
+    wash: "ws-accent-wash",
+    orb: "bg-[var(--ws-violet-soft)] ring-1 ring-[var(--ws-violet-ring)]",
     iconColor: "text-violet-300",
     accent: "text-violet-200/85",
-    livePill: "bg-violet-400/10 text-violet-200 ring-1 ring-violet-300/25",
-    iconTile: "bg-violet-400/15 border border-violet-300/30",
+    livePill: "bg-[var(--ws-violet-soft)] text-violet-200 ring-1 ring-[var(--ws-violet-ring)]",
+    iconTile: "bg-[var(--ws-violet-soft)] border border-[var(--ws-violet-ring)]",
     panelBorder: "border-violet-300/45 shadow-[0_0_50px_rgba(168,85,247,.18)]",
     spark: "text-violet-400/70",
+    glow: "shadow-[0_14px_44px_-18px_rgba(168,85,247,0.45)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(168,85,247,0.18),transparent_55%)]",
   },
   sky: {
-    glow: "shadow-[0_14px_44px_-18px_rgba(56,189,248,0.45)]",
-    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(56,189,248,0.18),transparent_55%)]",
-    orb: "bg-sky-400/10 ring-1 ring-sky-300/25",
+    card: "crystal-accent-sky",
+    wash: "ws-accent-wash",
+    orb: "bg-[var(--ws-sky-soft)] ring-1 ring-[var(--ws-sky-ring)]",
     iconColor: "text-sky-300",
     accent: "text-sky-200/85",
-    livePill: "bg-sky-400/10 text-sky-200 ring-1 ring-sky-300/25",
-    iconTile: "bg-sky-400/15 border border-sky-300/30",
+    livePill: "bg-[var(--ws-sky-soft)] text-sky-200 ring-1 ring-[var(--ws-sky-ring)]",
+    iconTile: "bg-[var(--ws-sky-soft)] border border-[var(--ws-sky-ring)]",
     panelBorder: "border-sky-300/45 shadow-[0_0_50px_rgba(56,189,248,.18)]",
     spark: "text-sky-400/70",
+    glow: "shadow-[0_14px_44px_-18px_rgba(56,189,248,0.45)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(56,189,248,0.18),transparent_55%)]",
   },
 };
 
 export function kpiTheme(accent: KpiAccent): KpiTheme {
-  return KPI_THEMES[accent];
+  return THEMES[accent];
 }
 
+/** Compact tint map for pills / orbs that just need {orb, icon}. */
 export const WS_TINTS: Record<KpiAccent, { orb: string; icon: string }> = {
-  cyan:    { orb: KPI_THEMES.cyan.orb,    icon: KPI_THEMES.cyan.iconColor },
-  emerald: { orb: KPI_THEMES.emerald.orb, icon: KPI_THEMES.emerald.iconColor },
-  amber:   { orb: KPI_THEMES.amber.orb,   icon: KPI_THEMES.amber.iconColor },
-  rose:    { orb: KPI_THEMES.rose.orb,    icon: KPI_THEMES.rose.iconColor },
-  violet:  { orb: KPI_THEMES.violet.orb,  icon: KPI_THEMES.violet.iconColor },
-  sky:     { orb: KPI_THEMES.sky.orb,     icon: KPI_THEMES.sky.iconColor },
+  cyan:    { orb: THEMES.cyan.orb,    icon: THEMES.cyan.iconColor },
+  emerald: { orb: THEMES.emerald.orb, icon: THEMES.emerald.iconColor },
+  amber:   { orb: THEMES.amber.orb,   icon: THEMES.amber.iconColor },
+  rose:    { orb: THEMES.rose.orb,    icon: THEMES.rose.iconColor },
+  violet:  { orb: THEMES.violet.orb,  icon: THEMES.violet.iconColor },
+  sky:     { orb: THEMES.sky.orb,     icon: THEMES.sky.iconColor },
 };
 
-// Dashboard KPI board keys (same mapping as before)
-export type BoardKey = "activeClients" | "completedTasks" | "incompleteTasks" | "overdueTasks";
+/* ─── Dashboard KPI board keys ────────────────────────────────────────── */
+
+export type BoardKey =
+  | "activeClients"
+  | "completedTasks"
+  | "incompleteTasks"
+  | "overdueTasks";
 
 export const BOARD_THEME: Record<BoardKey, KpiTheme> = {
-  activeClients: KPI_THEMES.cyan,
-  completedTasks: KPI_THEMES.emerald,
-  incompleteTasks: KPI_THEMES.amber,
-  overdueTasks: KPI_THEMES.rose,
+  activeClients:   THEMES.cyan,
+  completedTasks:  THEMES.emerald,
+  incompleteTasks: THEMES.amber,
+  overdueTasks:    THEMES.rose,
 };
 
 export const SPARK_POINTS =
