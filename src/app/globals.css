@@ -380,3 +380,70 @@ html, body {
 .animate-pulse-slow {
   animation: landing-pulse-slow 4s ease-in-out infinite;
 }
+
+/* ─── Org command board hero ───────────────────────────────────────────────── */
+.org-hero-aurora {
+  background:
+    radial-gradient(120% 80% at 85% 0%, rgba(34, 211, 238, 0.14), transparent 55%),
+    radial-gradient(90% 70% at 10% 100%, rgba(124, 58, 237, 0.12), transparent 50%);
+}
+.org-hero-cube {
+  width: 88px;
+  height: 88px;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(124, 58, 237, 0.2));
+  box-shadow: 0 0 40px rgba(34, 211, 238, 0.25);
+  animation: org-cube-float 5s ease-in-out infinite;
+}
+@keyframes org-cube-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-6px) rotate(3deg); }
+}
+.org-tree-scroll {
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+.org-chart-mode-switch {
+  position: relative;
+  z-index: 2;
+}
+@media (max-width: 640px) {
+  .org-chart-mode-switch button {
+    font-size: 0.8125rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
+/* ─── Org package cards (PR #165) ─────────────────────────────────────────── */
+.org-package-card {
+  isolation: isolate;
+}
+.org-package-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.22),
+    rgba(255, 255, 255, 0.04) 40%,
+    transparent 70%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.org-package-card--active {
+  transform: translateZ(0);
+}
+.org-package-progress-fill {
+  animation: org-progress-shimmer 2.8s ease-in-out infinite;
+}
+@keyframes org-progress-shimmer {
+  0%, 100% { opacity: 0.92; filter: brightness(1); }
+  50% { opacity: 1; filter: brightness(1.15); }
+}
