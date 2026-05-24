@@ -27,6 +27,7 @@ export interface TenantWorkspaceState {
   planSlug: PlanSlug;
   isPlatformAdmin: boolean;
   organizationId: string | null;
+  organizationName: string | null;
   organizationStatus: string | null;
   loading: boolean;
   error: string | null;
@@ -40,6 +41,7 @@ const defaultState: TenantWorkspaceState = {
   planSlug: "basic",
   isPlatformAdmin: false,
   organizationId: null,
+  organizationName: null,
   organizationStatus: null,
   loading: true,
   error: null,
@@ -58,6 +60,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
   const [planSlug, setPlanSlug] = useState<PlanSlug>("basic");
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [organizationName, setOrganizationName] = useState<string | null>(null);
   const [organizationStatus, setOrganizationStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +103,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
         planSlug?: string;
         isPlatformAdmin?: boolean;
         organizationId?: string | null;
+        organizationName?: string | null;
         organizationStatus?: string | null;
       };
 
@@ -107,6 +111,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       setPlanSlug(normalizePlanSlug(body.planSlug));
       setIsPlatformAdmin(body.isPlatformAdmin === true);
       setOrganizationId(body.organizationId ?? null);
+      setOrganizationName(body.organizationName ?? null);
       setOrganizationStatus(body.organizationStatus ?? null);
     } catch {
       setError("تعذر تحميل سياق مساحة العمل");
@@ -128,6 +133,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       setPlanSlug("basic");
       setIsPlatformAdmin(false);
       setOrganizationId(null);
+      setOrganizationName(null);
       setOrganizationStatus(null);
       return;
     }
@@ -173,6 +179,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       planSlug,
       isPlatformAdmin: accessCtx.isPlatformAdmin,
       organizationId,
+      organizationName,
       organizationStatus,
       loading: authLoading || loading,
       error,
@@ -185,6 +192,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       planSlug,
       accessCtx.isPlatformAdmin,
       organizationId,
+      organizationName,
       organizationStatus,
       authLoading,
       loading,

@@ -58,13 +58,14 @@ export async function GET(req: NextRequest) {
         planSlug: (isPlatformAdmin ? "advanced" : "basic") satisfies PlanSlug,
         isPlatformAdmin,
         organizationId: null,
+        organizationName: null,
         organizationStatus: null,
       });
     }
 
     const { data: org, error: orgErr } = await admin
       .from("organizations")
-      .select("id, is_internal, plan_id, status, deleted_at")
+      .select("id, name, is_internal, plan_id, status, deleted_at")
       .eq("id", orgId)
       .maybeSingle();
 
@@ -79,6 +80,7 @@ export async function GET(req: NextRequest) {
         planSlug: "basic" satisfies PlanSlug,
         isPlatformAdmin,
         organizationId: orgId,
+        organizationName: null,
         organizationStatus: "missing",
       });
     }
@@ -98,6 +100,7 @@ export async function GET(req: NextRequest) {
       planSlug,
       isPlatformAdmin,
       organizationId: org.id,
+      organizationName: (org.name as string | null) ?? null,
       organizationStatus: org.status ?? null,
     });
   } catch (err) {
