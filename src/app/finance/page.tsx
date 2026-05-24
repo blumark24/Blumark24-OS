@@ -324,7 +324,8 @@ function FinanceContent() {
                 ))}
                 {transactions.length === 0 && (
                   <tr><td colSpan={8} className="text-center py-8 text-[#8ba3c7]">
-                    {TENANT_EMPTY_STATE_MSG}
+                    <span className="block">{TENANT_EMPTY_STATE_MSG}</span>
+                    <span className="block text-xs mt-2 text-[#6b87ab]">{TENANT_EMPTY_STATE_HINT}</span>
                   </td></tr>
                 )}
               </tbody>

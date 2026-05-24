@@ -204,17 +204,18 @@ const NAV_ORDER_INDEX = new Map(
   TENANT_NAV_ORDER.map((id, i) => [id, i] as const),
 );
 
+/** Tenant-facing nav labels — must match deployed customer dashboard baseline. */
 const ROUTE_LABELS_AR: Record<WorkspaceRouteId, string> = {
   dashboard: "الرئيسية",
   employees: "الموظفون",
   tasks: "المهام",
-  clients: "العملاء",
+  clients: "العملاء CRM",
   finance: "مالية المنشأة",
   strategy: "استراتيجية المنشأة",
-  org: "الهيكل الإداري",
+  org: "الهيكل الإداري للمنشأة",
   automation: "مركز الأتمتة",
   ai: "المساعد الذكي",
-  reports: "التقارير",
+  reports: "التقارير والتحليلات",
   settings: "الإعدادات",
 };
 
