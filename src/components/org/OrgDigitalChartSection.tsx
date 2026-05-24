@@ -150,7 +150,7 @@ function OrgStructureTree({
         <div className="w-full max-w-md space-y-2">
           <GlassNode
             title="مجلس الإدارة"
-            subtitle={`${boardMembers.length} عضو — Supabase`}
+            subtitle={`${boardMembers.length} عضو · board_members + org_units (board)`}
             accent="#a855f7"
             canManage={canManage}
             onAdd={onAddBoardMember}
@@ -389,7 +389,7 @@ export default function OrgDigitalChartSection({
     });
     setSmartPreview(suggestion);
     setReviewing(false);
-    toast.success("اقتراح من بيانات حقيقية فقط — معاينة قبل أي اعتماد إنتاجي");
+    toast.success("معاينة من بيانات حقيقية — راجع ثم طبّق على org_units و org_unit_members");
   }, [plan, employees, boardMembers, structure, toast]);
 
   const handleReview = () => {
@@ -429,7 +429,7 @@ export default function OrgDigitalChartSection({
     }
 
     try {
-      await addOrgUnit(organizationId, kind, name, parentId);
+      await addOrgUnit(organizationId, kind, name, parentId, plan);
       await onReloadStructure();
       toast.success("تمت إضافة الوحدة في org_units");
     } catch (err) {
@@ -454,11 +454,20 @@ export default function OrgDigitalChartSection({
     }
     setApplying(true);
     try {
-      const added = await applyOrgStructure(organizationId, smartPreview.snapshot);
+      const { unitsAdded, membersAdded } = await applyOrgStructure(
+        organizationId,
+        smartPreview.snapshot,
+        employees,
+        plan,
+      );
       await onReloadStructure();
       setReviewing(false);
       setSmartPreview(null);
-      toast.success(added > 0 ? `تمت إضافة ${added} وحدة في org_units` : "لا وحدات جديدة للإضافة");
+      toast.success(
+        unitsAdded > 0 || membersAdded > 0
+          ? `تم التطبيق: ${unitsAdded} وحدة، ${membersAdded} ربط موظف في org_unit_members`
+          : "لا تغييرات جديدة للتطبيق",
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "تعذر تطبيق الاقتراح");
     } finally {
@@ -669,7 +678,7 @@ export default function OrgDigitalChartSection({
           onAddBoardMember={onAddBoardMember}
           previewLabel={
             mode === "smart" && reviewing && smartPreview
-              ? "معاينة — التطبيق يضيف وحدات ناقصة فقط (بدون حذف) إلى org_units."
+              ? "معاينة — التطبيق يضيف وحدات وربط موظفين ناقصين فقط (بدون حذف)."
               : undefined
           }
         />

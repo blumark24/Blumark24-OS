@@ -1,5 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Employee } from "@/types";
+import type { PlanSlug } from "@/lib/features/packageFeatures";
+import { resolveParentForKind } from "@/lib/org/orgHierarchy";
 import type { OrgNodeKind, OrgStructureSnapshot, OrgUnitNode } from "@/lib/org/orgStructure";
 
 export type OrgUnitType = "board" | "agency" | "management" | "department" | "team";
@@ -60,6 +62,45 @@ async function getCurrentTenantOrgId(): Promise<string | null> {
   return (orgId as string | null) ?? null;
 }
 
+const BOARD_UNIT_NAME = "مجلس الإدارة";
+
+export async function fetchBoardRootUnit(orgId: string): Promise<DbOrgUnitRow | null> {
+  const { data, error } = await supabase
+    .from("org_units")
+    .select("*")
+    .eq("organization_id", orgId)
+    .eq("unit_type", "board")
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return (data as DbOrgUnitRow | null) ?? null;
+}
+
+/** Ensures exactly one board root row per organization (tree anchor). */
+export async function ensureBoardRootUnit(orgId: string): Promise<string> {
+  const existing = await fetchBoardRootUnit(orgId);
+  if (existing) return existing.id;
+
+  const { data, error } = await supabase
+    .from("org_units")
+    .insert([
+      {
+        organization_id: orgId,
+        unit_type: "board",
+        name: BOARD_UNIT_NAME,
+        parent_id: null,
+        sort_order: 0,
+        metadata: { system: true, represents: "board_members" },
+      },
+    ])
+    .select("id")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return (data as { id: string }).id;
+}
+
 export async function fetchOrgUnits(orgId: string): Promise<DbOrgUnitRow[]> {
   const { data, error } = await supabase
     .from("org_units")
@@ -74,6 +115,7 @@ export async function fetchOrgUnits(orgId: string): Promise<DbOrgUnitRow[]> {
 }
 
 export async function loadOrgStructureFromDb(orgId: string): Promise<OrgStructureSnapshot> {
+  await ensureBoardRootUnit(orgId);
   const rows = await fetchOrgUnits(orgId);
   const units = rows
     .filter((r) => r.unit_type !== "board")
@@ -89,13 +131,23 @@ export async function insertOrgUnit(
   kind: OrgNodeKind,
   name: string,
   parentId: string | null,
+  plan: PlanSlug = "basic",
 ): Promise<OrgUnitNode> {
+  const boardRootId = await ensureBoardRootUnit(orgId);
+  const existing = await fetchOrgUnits(orgId);
+  const units = existing.map(rowToOrgNode);
+  const resolvedParent = resolveParentForKind(plan, kind, parentId, units, boardRootId);
+
+  if (kind === "team" && !resolvedParent) {
+    throw new Error("يجب اختيار قسم أب للفريق");
+  }
+
   const { data, error } = await supabase
     .from("org_units")
     .insert([
       {
         organization_id: orgId,
-        parent_id: parentId,
+        parent_id: resolvedParent,
         unit_type: KIND_TO_TYPE[kind],
         name: name.trim(),
       },
@@ -175,11 +227,19 @@ export async function assignEmployeeToOrgUnit(
   if (insErr) throw new Error(insErr.message);
 }
 
-/** Safe apply: insert missing units from suggestion (no deletes). */
+export interface ApplyOrgSuggestionResult {
+  unitsAdded: number;
+  membersAdded: number;
+}
+
+/** Safe apply: insert missing units + link employees via org_unit_members (no deletes). */
 export async function applyOrgStructureSuggestion(
   orgId: string,
   snapshot: OrgStructureSnapshot,
-): Promise<number> {
+  employees: Employee[] = [],
+  plan: PlanSlug = "basic",
+): Promise<ApplyOrgSuggestionResult> {
+  const boardRootId = await ensureBoardRootUnit(orgId);
   const existing = await fetchOrgUnits(orgId);
   const existingKeys = new Set(
     existing.map((u) => `${u.unit_type}:${u.name}:${u.parent_id ?? "root"}`),
@@ -198,10 +258,21 @@ export async function applyOrgStructureSuggestion(
     const nextPass: OrgUnitNode[] = [];
 
     for (const unit of pending) {
-      const parentUuid = unit.parentId ? idMap.get(unit.parentId) ?? unit.parentId : null;
+      let parentUuid = unit.parentId ? idMap.get(unit.parentId) ?? unit.parentId : null;
       if (unit.parentId && !parentUuid) {
         nextPass.push(unit);
         continue;
+      }
+
+      if (!parentUuid) {
+        const snapUnits = snapshot.units.filter((u) => idMap.has(u.id) || existing.some((e) => e.id === u.id));
+        parentUuid = resolveParentForKind(
+          plan,
+          unit.kind,
+          null,
+          snapUnits,
+          boardRootId,
+        );
       }
 
       const key = `${KIND_TO_TYPE[unit.kind]}:${unit.name}:${parentUuid ?? "root"}`;
@@ -216,9 +287,21 @@ export async function applyOrgStructureSuggestion(
         continue;
       }
 
-      const inserted = await insertOrgUnit(orgId, unit.kind, unit.name, parentUuid);
+      const inserted = await insertOrgUnit(orgId, unit.kind, unit.name, parentUuid, plan);
       idMap.set(unit.id, inserted.id);
       existingKeys.add(key);
+      existing.push({
+        id: inserted.id,
+        organization_id: orgId,
+        parent_id: parentUuid,
+        unit_type: KIND_TO_TYPE[unit.kind],
+        name: inserted.name,
+        description: null,
+        sort_order: 0,
+        metadata: {},
+        created_at: "",
+        updated_at: "",
+      });
       added++;
     }
 
@@ -226,7 +309,25 @@ export async function applyOrgStructureSuggestion(
     pending.push(...nextPass);
   }
 
-  return added;
+  const allUnits = await fetchOrgUnits(orgId);
+  const deptByName = new Map(
+    allUnits.filter((u) => u.unit_type === "department").map((u) => [u.name.trim(), u.id]),
+  );
+  const members = await fetchOrgUnitMembers(orgId);
+  const assigned = new Set(members.map((m) => m.employee_id).filter(Boolean) as string[]);
+  let membersAdded = 0;
+
+  for (const emp of employees) {
+    const deptName = String(emp.department ?? "").trim();
+    if (!deptName) continue;
+    const unitId = deptByName.get(deptName);
+    if (!unitId || assigned.has(emp.id)) continue;
+    await assignEmployeeToOrgUnit(orgId, emp.id, unitId);
+    assigned.add(emp.id);
+    membersAdded++;
+  }
+
+  return { unitsAdded: added, membersAdded };
 }
 
 export function employeesNotInOrgUnits(

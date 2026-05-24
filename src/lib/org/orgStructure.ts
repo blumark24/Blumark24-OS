@@ -1,5 +1,8 @@
+import type { PlanSlug } from "@/lib/features/packageFeatures";
+import type { Employee } from "@/types";
 import {
   applyOrgStructureSuggestion,
+  type ApplyOrgSuggestionResult,
   deleteOrgUnit,
   insertOrgUnit,
   loadOrgStructureFromDb,
@@ -56,8 +59,9 @@ export async function addOrgUnit(
   kind: OrgNodeKind,
   name: string,
   parentId: string | null,
+  plan?: PlanSlug,
 ): Promise<OrgUnitNode> {
-  return insertOrgUnit(orgId, kind, name, parentId);
+  return insertOrgUnit(orgId, kind, name, parentId, plan);
 }
 
 export async function removeOrgUnit(orgId: string, unitId: string): Promise<void> {
@@ -67,8 +71,10 @@ export async function removeOrgUnit(orgId: string, unitId: string): Promise<void
 export async function applyOrgStructure(
   orgId: string,
   snapshot: OrgStructureSnapshot,
-): Promise<number> {
-  return applyOrgStructureSuggestion(orgId, snapshot);
+  employees: Employee[] = [],
+  plan?: PlanSlug,
+): Promise<ApplyOrgSuggestionResult> {
+  return applyOrgStructureSuggestion(orgId, snapshot, employees, plan);
 }
 
 export function countUnits(units: OrgUnitNode[], kind: OrgNodeKind): number {

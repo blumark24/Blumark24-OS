@@ -1,8 +1,9 @@
 # PR: Org Production Units (`org_units` + `org_unit_members`)
 
-## Migration
+## Migrations
 
-- `supabase/migrations/028_org_units_production.sql`
+- `supabase/migrations/028_org_units_production.sql` — tables, RLS, JSON backfill
+- `supabase/migrations/029_org_units_board_root.sql` — one `board` root per org, reparent orphans
 
 ## Data model
 
@@ -12,8 +13,8 @@ Hierarchy node per tenant: `board | agency | management | department | team`.
 ### `org_unit_members`
 Links `employee_id` (or `profile_id`) to `org_unit_id` within the same `organization_id`.
 
-### `board_members`
-Unchanged — board layer stays in existing table; UI shows members under «مجلس الإدارة».
+### `board_members` + board root
+`board_members` unchanged (CRUD as before). Each org gets one `org_units` row `unit_type='board'` as tree anchor; operational units parent under it per package rules.
 
 ## Backfill
 
