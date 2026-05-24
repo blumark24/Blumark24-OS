@@ -74,6 +74,7 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
       },
       (perm) =>
         roleHasPermission(resolvedRole, rolePermissions, perm, platformAdmin),
+      resolvedRole,
     );
 
   if (hasPerm && workspaceOk) {

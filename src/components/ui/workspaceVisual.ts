@@ -136,3 +136,18 @@ export const BOARD_THEME: Record<BoardKey, KpiTheme> = {
 
 export const SPARK_POINTS =
   "0,24 12,18 24,21 36,10 48,15 60,6 72,13 84,9 96,16 108,8 120,14";
+
+/** Gradient frame for premium KPI / package-style cards */
+export const PREMIUM_KPI_FRAME: Record<BoardKey, string> = {
+  activeClients:
+    "bg-[linear-gradient(145deg,rgba(34,211,238,0.55),rgba(56,189,248,0.22)_42%,rgba(15,23,42,0.15))]",
+  completedTasks:
+    "bg-[linear-gradient(145deg,rgba(16,185,129,0.55),rgba(34,211,238,0.2)_45%,rgba(15,23,42,0.12))]",
+  incompleteTasks:
+    "bg-[linear-gradient(145deg,rgba(251,191,36,0.5),rgba(245,158,11,0.18)_42%,rgba(15,23,42,0.12))]",
+  overdueTasks:
+    "bg-[linear-gradient(145deg,rgba(244,63,94,0.55),rgba(251,113,133,0.2)_42%,rgba(15,23,42,0.12))]",
+};
+
+export const WS_HERO_SHELL =
+  "relative overflow-hidden rounded-3xl border border-white/[0.09] bg-[linear-gradient(155deg,rgba(10,22,42,0.88),rgba(6,14,30,0.94))] backdrop-blur-xl shadow-[0_24px_80px_-32px_rgba(34,211,238,0.22)]";

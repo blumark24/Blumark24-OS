@@ -1,0 +1,188 @@
+/* Workspace ambient background — scoped to .workspace-ambient only */
+
+.workspace-ambient {
+  isolation: isolate;
+}
+
+/* Layer 2: orb drift (transform only — no blur animation) */
+@keyframes workspace-orb-drift-1 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(4%, -3%, 0) scale(1.04);
+  }
+  66% {
+    transform: translate3d(-2%, 2%, 0) scale(0.98);
+  }
+}
+
+@keyframes workspace-orb-drift-2 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  40% {
+    transform: translate3d(-3%, 4%, 0) scale(1.03);
+  }
+  70% {
+    transform: translate3d(3%, -2%, 0) scale(0.99);
+  }
+}
+
+@keyframes workspace-orb-drift-3 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, 3%, 0) scale(1.02);
+  }
+}
+
+/* Layer 3: aurora band via background-position */
+@keyframes workspace-aurora-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.workspace-ambient__base {
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(30, 111, 217, 0.22), transparent 55%),
+    radial-gradient(ellipse 90% 60% at 100% 50%, rgba(168, 85, 247, 0.08), transparent 50%),
+    linear-gradient(180deg, var(--bg-darkest) 0%, var(--bg-dark) 42%, var(--bg-darkest) 100%);
+}
+
+.workspace-ambient__orb {
+  border-radius: 9999px;
+  will-change: transform;
+}
+
+.workspace-ambient__orb--cyan {
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.14) 0%, transparent 68%);
+}
+
+.workspace-ambient__orb--blue {
+  background: radial-gradient(circle, rgba(30, 111, 217, 0.12) 0%, transparent 68%);
+}
+
+.workspace-ambient__orb--violet {
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.11) 0%, transparent 68%);
+}
+
+.workspace-ambient__aurora {
+  background-image: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(34, 211, 238, 0.06) 22%,
+    rgba(59, 130, 246, 0.08) 42%,
+    rgba(168, 85, 247, 0.07) 58%,
+    rgba(34, 211, 238, 0.05) 78%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  opacity: 0.85;
+}
+
+.workspace-ambient__mesh {
+  background-image:
+    radial-gradient(circle at center, rgba(34, 211, 238, 0.35) 0.6px, transparent 0.6px);
+  background-size: 28px 28px;
+  opacity: 0.035;
+  mask-image: radial-gradient(ellipse 95% 85% at 50% 40%, black 20%, transparent 75%);
+}
+
+.workspace-ambient__spotlight {
+  background: radial-gradient(
+    ellipse 70% 55% at 50% 8%,
+    rgba(34, 211, 238, 0.09) 0%,
+    rgba(124, 58, 237, 0.04) 35%,
+    transparent 62%
+  );
+}
+
+.workspace-ambient--motion-1 {
+  animation: workspace-orb-drift-1 22s ease-in-out infinite;
+}
+
+.workspace-ambient--motion-2 {
+  animation: workspace-orb-drift-2 18s ease-in-out infinite;
+  animation-delay: -4s;
+}
+
+.workspace-ambient--motion-3 {
+  animation: workspace-orb-drift-3 20s ease-in-out infinite;
+  animation-delay: -8s;
+}
+
+.workspace-ambient--motion-aurora {
+  animation: workspace-aurora-shift 24s ease-in-out infinite;
+}
+
+/* Mobile: fewer layers, lighter aurora motion */
+@media (max-width: 767px) {
+  .workspace-ambient__orb--desktop-only {
+    display: none;
+  }
+
+  .workspace-ambient__orb {
+    opacity: 0.85;
+  }
+
+  .workspace-ambient__aurora {
+    opacity: 0.55;
+  }
+
+  .workspace-ambient--motion-aurora {
+    animation-duration: 28s;
+  }
+
+  .workspace-ambient__mesh {
+    opacity: 0.025;
+    background-size: 32px 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-ambient .workspace-ambient--motion {
+    animation: none !important;
+  }
+}
+
+/* Dashboard hero — digital glass accents (CSS-only) */
+.dashboard-hero__mesh {
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.35;
+  mask-image: radial-gradient(ellipse 90% 75% at 50% 30%, black 15%, transparent 72%);
+}
+
+@keyframes dashboard-hero-diamond-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(-50%) rotate(45deg) scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: translateY(-50%) rotate(45deg) scale(1.04);
+  }
+}
+
+.dashboard-hero__diamond {
+  animation: dashboard-hero-diamond-pulse 14s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-hero__diamond {
+    animation: none;
+  }
+}
