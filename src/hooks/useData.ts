@@ -11,6 +11,8 @@ import {
   createNotification,
 } from "@/lib/db";
 import { withTimeout, withSoftTimeout } from "@/lib/asyncHelpers";
+import { withOrganizationScope } from "@/lib/tenantScope";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import type { Client, Task, Transaction, Employee, Project, Activity, StrategyPhase } from "@/types";
 import type { BoardMember } from "@/lib/db";
 
@@ -414,18 +416,33 @@ export function useTransactions() {
 
 // ─── Employees ────────────────────────────────────────────────────────────────
 
-async function fetchEmployees(): Promise<Employee[]> {
-  const { data, error } = await supabase
+async function fetchEmployees(organizationId: string | null, scopeToOrg: boolean): Promise<Employee[]> {
+  let query = supabase
     .from("employees")
     .select("*")
     .order("created_at", { ascending: false });
+  if (scopeToOrg) {
+    query = withOrganizationScope(query, organizationId);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(employeeFromDB);
 }
 
 export function useEmployees() {
-  const result = useAsyncData<Employee[]>(fetchEmployees, []);
+  const { organizationId, isPlatformAdmin, loading: wsLoading } = useTenantWorkspace();
+  const scopeToOrg = Boolean(organizationId) && !isPlatformAdmin;
+  const loadEmployees = useCallback(
+    () => fetchEmployees(organizationId, scopeToOrg),
+    [organizationId, scopeToOrg],
+  );
+  const result = useAsyncData<Employee[]>(loadEmployees, []);
   const { refetch } = result;
+
+  useEffect(() => {
+    if (wsLoading) return;
+    void refetch();
+  }, [organizationId, scopeToOrg, wsLoading, refetch]);
 
   useEffect(() => {
     const ch = supabase
@@ -492,7 +509,9 @@ async function fetchActivities(): Promise<Activity[]> {
     .order("timestamp", { ascending: false })
     .limit(10);
   if (error) throw new Error(error.message);
-  return ((data ?? []) as Record<string, unknown>[]).map(activityFromDB);
+  return ((data ?? []) as Record<string, unknown>[])
+    .filter((row) => !String(row.description ?? "").startsWith("ORG_STRUCTURE_JSON:"))
+    .map(activityFromDB);
 }
 
 export function useActivities() {

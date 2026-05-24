@@ -154,7 +154,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
 
   const navRoutes = useMemo(() => {
     if (authLoading || !userRole) return [];
-    return filterNavRoutes(accessCtx, checkPermission);
+    return filterNavRoutes(accessCtx, checkPermission, userRole);
   }, [authLoading, userRole, accessCtx, checkPermission]);
 
   const canAccessPath = useCallback(
@@ -162,7 +162,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       const route = getRouteByPathname(pathname);
       if (!route) return true;
       if (!userRole && !accessCtx.isPlatformAdmin) return false;
-      return canAccessWorkspaceRoute(route, accessCtx, checkPermission);
+      return canAccessWorkspaceRoute(route, accessCtx, checkPermission, userRole);
     },
     [userRole, accessCtx, checkPermission],
   );

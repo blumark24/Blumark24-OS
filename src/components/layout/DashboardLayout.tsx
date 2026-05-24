@@ -11,6 +11,7 @@ import { usePermissions } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { AlertTriangle, Home, CheckSquare, UserCircle, MoreHorizontal, Plus, Users, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
+import WorkspaceAmbient from "@/components/ui/WorkspaceAmbient";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -65,13 +66,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [openQuickCreate]);
 
   return (
-    <div className="relative flex h-screen overflow-hidden" style={{ background: "#0a1628" }}>
-      {/* Ambient command-center glow (desktop + mobile) */}
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-32 right-[-10%] h-[420px] w-[420px] rounded-full bg-[#22d3ee]/10 blur-3xl" />
-        <div className="absolute top-1/3 left-[-12%] h-[460px] w-[460px] rounded-full bg-[#a855f7]/10 blur-3xl" />
-        <div className="absolute bottom-[-12%] right-1/4 h-[400px] w-[400px] rounded-full bg-[#1e6fd9]/10 blur-3xl" />
-      </div>
+    <div className="relative flex h-screen overflow-hidden bg-[var(--bg-darkest)]">
+      <WorkspaceAmbient />
 
       <Sidebar
         collapsed={sidebarCollapsed}
@@ -108,7 +104,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6 min-w-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-[calc(10rem+env(safe-area-inset-bottom))] lg:p-6 lg:pb-6 min-w-0">
           <WorkspaceRouteGuard>{children}</WorkspaceRouteGuard>
         </main>
       </div>

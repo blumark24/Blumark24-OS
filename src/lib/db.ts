@@ -198,19 +198,15 @@ export interface BoardMember {
   status: "نشط" | "غير نشط";
 }
 
-/** Internal Blumark24 board only — customer tenants must never load these rows. */
-async function assertInternalOrgForBoard(): Promise<string | null> {
-  const { data: isInternal, error: internalErr } = await supabase.rpc("current_org_is_internal");
-  if (internalErr || isInternal !== true) {
-    return null;
-  }
+/** Caller tenant organization — used for board_members RLS scoping. */
+async function getCurrentTenantOrgId(): Promise<string | null> {
   const { data: orgId, error: orgErr } = await supabase.rpc("current_org_id");
   if (orgErr) return null;
   return (orgId as string | null) ?? null;
 }
 
 export async function getBoardMembers(): Promise<BoardMember[]> {
-  const orgId = await assertInternalOrgForBoard();
+  const orgId = await getCurrentTenantOrgId();
   if (!orgId) return [];
 
   let query = supabase
@@ -225,8 +221,8 @@ export async function getBoardMembers(): Promise<BoardMember[]> {
 }
 
 export async function insertBoardMember(member: Omit<BoardMember, "id">): Promise<BoardMember> {
-  const orgId = await assertInternalOrgForBoard();
-  if (!orgId) throw new Error("مجلس الإدارة متاح لمنشأة Blumark24 الداخلية فقط");
+  const orgId = await getCurrentTenantOrgId();
+  if (!orgId) throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول");
 
   const { data, error } = await supabase
     .from("board_members")
@@ -238,8 +234,8 @@ export async function insertBoardMember(member: Omit<BoardMember, "id">): Promis
 }
 
 export async function updateBoardMember(id: string, changes: Partial<Omit<BoardMember, "id">>): Promise<void> {
-  const orgId = await assertInternalOrgForBoard();
-  if (!orgId) throw new Error("مجلس الإدارة متاح لمنشأة Blumark24 الداخلية فقط");
+  const orgId = await getCurrentTenantOrgId();
+  if (!orgId) throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول");
 
   const { error } = await supabase
     .from("board_members")
@@ -249,9 +245,25 @@ export async function updateBoardMember(id: string, changes: Partial<Omit<BoardM
   if (error) throw new Error(error.message);
 }
 
+export async function assignEmployeeDepartment(employeeId: string, department: string): Promise<void> {
+  const orgId = await getCurrentTenantOrgId();
+  let query = supabase.from("employees").update({ department }).eq("id", employeeId);
+  if (orgId) query = query.eq("organization_id", orgId);
+  const { error } = await query;
+  if (error) {
+    const msg = error.message;
+    if (/policy|permission|denied|42501/i.test(msg)) {
+      throw new Error(
+        "تعذر نقل الموظف — صلاحية RLS تقتصر على المالك/المشرف. مطلوب migration: employees UPDATE لـ organization_manager.",
+      );
+    }
+    throw new Error(msg);
+  }
+}
+
 export async function deleteBoardMember(id: string): Promise<void> {
-  const orgId = await assertInternalOrgForBoard();
-  if (!orgId) throw new Error("مجلس الإدارة متاح لمنشأة Blumark24 الداخلية فقط");
+  const orgId = await getCurrentTenantOrgId();
+  if (!orgId) throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول");
 
   const { error } = await supabase
     .from("board_members")
@@ -354,11 +366,15 @@ export async function getUserProfile(userId: string): Promise<DBProfile | null> 
   return (data as DBProfile) ?? null;
 }
 
-export async function getAllProfiles(): Promise<DBProfile[]> {
-  const { data } = await supabase
+export async function getAllProfiles(organizationId?: string | null): Promise<DBProfile[]> {
+  let query = supabase
     .from("profiles")
     .select("id, email, name, role, is_active, department, avatar")
     .order("name");
+  if (organizationId) {
+    query = query.eq("organization_id", organizationId);
+  }
+  const { data } = await query;
   return (data ?? []) as DBProfile[];
 }
 
