@@ -39,6 +39,7 @@ export type Permission =
   | "manage_finance"
   | "manage_reports"
   | "manage_settings"
+  | "manage_tenant_settings"
   | "manage_automations";
 
 // Flexible labels mapping — keep labels for known internal roles,
@@ -68,8 +69,9 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   manage_clients:    "إدارة العملاء",
   manage_finance:    "إدارة المالية",
   manage_reports:    "عرض التقارير",
-  manage_settings:   "إدارة الإعدادات",
-  manage_automations:"إدارة الأتمتة",
+  manage_settings:        "إدارة الإعدادات",
+  manage_tenant_settings: "إعدادات المنشأة",
+  manage_automations:     "إدارة الأتمتة",
 };
 
 export const ALL_PERMISSIONS: Permission[] = [
@@ -83,6 +85,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "manage_finance",
   "manage_reports",
   "manage_settings",
+  "manage_tenant_settings",
   "manage_automations",
 ];
 
@@ -130,16 +133,43 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   organization_manager: [
     "view_dashboard",
     "view_employees",
+    "manage_users",
     "manage_tasks",
     "manage_clients",
     "manage_finance",
     "manage_reports",
+    "manage_tenant_settings",
+    "manage_board",
   ],
   employee: [
     "view_dashboard",
     "manage_tasks",
   ],
 };
+
+/** Defaults always apply; DB rows may extend but never revoke coded tenant-manager access. */
+export function mergePermissionsForRole(
+  role: UserRole,
+  fromDb?: Permission[],
+): Permission[] {
+  const defaults = DEFAULT_ROLE_PERMISSIONS[role] ?? [];
+  const db = fromDb ?? [];
+  return Array.from(new Set<Permission>([...defaults, ...db]));
+}
+
+/** Tenant org structure CRUD (departments, teams, positions). */
+export function canManageTenantOrgStructure(
+  role: UserRole | null,
+  hasPermission: (perm: Permission) => boolean,
+): boolean {
+  if (!role) return false;
+  if (role === "super_admin" || role === "organization_manager") return true;
+  return (
+    hasPermission("manage_tenant_settings") ||
+    hasPermission("manage_users") ||
+    hasPermission("manage_board")
+  );
+}
 
 export function mapAuthRoleToUserRole(role: string): UserRole {
   const normalizedRole = String(role ?? "").trim();
@@ -152,21 +182,23 @@ export function mapAuthRoleToUserRole(role: string): UserRole {
       return "super_admin";
     case "admin":
       return "super_admin";
+    case "organization_manager":
+    case "مدير_المنشأة":
+    case "owner":
+    case "tenant_owner":
+      return "organization_manager";
     case "department_manager":
     case "manager":
     case "مدير_قسم":
-      return "defense_manager";
+    case "مدير":
+      return "organization_manager";
     case "finance_manager":
     case "مدير_مالي":
       return "finance_manager";
     case "attack_manager":
     case "مدير_مبيعات":
       return "attack_manager";
-    case "organization_manager":
-    case "مدير_المنشأة":
-      return "organization_manager";
     case "defense_manager":
-    case "مدير":
       return "defense_manager";
     case "board_member":
       return "board_member";
@@ -254,33 +286,42 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  // Load persisted role permissions from DB.  Soft timeout — if Supabase
-  // is slow we silently fall back to DEFAULT_ROLE_PERMISSIONS.
+  const loadRolePermissionsFromDb = useCallback(async () => {
+    const res = await withSoftTimeout(
+      Promise.resolve(supabase.from("role_permissions").select("role, permissions")),
+      PERMS_QUERY_TIMEOUT,
+    );
+    const data = res?.data as { role: string; permissions: string[] }[] | undefined;
+    if (!data?.length) return;
+    const loaded: Partial<Record<UserRole, Permission[]>> = {};
+    data.forEach((row) => {
+      const r = row.role as UserRole;
+      if (ALL_ROLES.includes(r)) {
+        const dbPerms = (row.permissions as Permission[]).filter((p) =>
+          ALL_PERMISSIONS.includes(p),
+        );
+        loaded[r] = mergePermissionsForRole(r, dbPerms);
+      }
+    });
+    if (Object.keys(loaded).length > 0) {
+      setRolePermissions((prev) => ({ ...prev, ...loaded }));
+    }
+  }, []);
+
+  // Reload when session or profile role changes (post-login / role promotion).
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
-    withSoftTimeout(
-      Promise.resolve(supabase.from("role_permissions").select("role, permissions")),
-      PERMS_QUERY_TIMEOUT,
-    )
-      .then((res) => {
-        if (cancelled) return;
-        const data = res?.data as { role: string; permissions: string[] }[] | undefined;
-        if (!data?.length) return;
-        const loaded: Partial<Record<UserRole, Permission[]>> = {};
-        data.forEach((row) => {
-          const r = row.role as UserRole;
-          if (ALL_ROLES.includes(r)) {
-            loaded[r] = (row.permissions as Permission[]).filter((p) => ALL_PERMISSIONS.includes(p));
-          }
-        });
-        if (Object.keys(loaded).length > 0) {
-          setRolePermissions((prev) => ({ ...prev, ...loaded }));
-        }
-      })
-      .catch(() => { /* silent — defaults remain */ });
-    return () => { cancelled = true; };
-  }, [user?.id]);
+    const run = () => {
+      if (!cancelled) void loadRolePermissionsFromDb();
+    };
+    run();
+    const retry = setTimeout(run, 900);
+    return () => {
+      cancelled = true;
+      clearTimeout(retry);
+    };
+  }, [user?.id, user?.role, loadRolePermissionsFromDb]);
 
   // ── userRole: single authoritative source is user.role from AuthContext
   //    (which reads directly from profiles table by auth user id).
@@ -297,9 +338,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     (perm: Permission) => {
       if (!userRole) return false;
       if (userRole === "super_admin") return true;
-      return (rolePermissions[userRole] ?? []).includes(perm);
+      return mergePermissionsForRole(userRole, rolePermissions[userRole]).includes(perm);
     },
-    [userRole, rolePermissions]
+    [userRole, rolePermissions],
   );
 
   const updateUserRole = useCallback(

@@ -18,24 +18,16 @@ import { ShieldOff } from "lucide-react";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 
 interface PageGuardProps {
-  permission: Permission;
+  /** Single required permission (ignored if anyPermission is set). */
+  permission?: Permission;
+  /** Grant access when the user has any of these permissions. */
+  anyPermission?: Permission[];
   children: React.ReactNode;
 }
 
-function roleHasPermission(
-  resolvedRole: ReturnType<typeof mapAuthRoleToUserRole>,
-  rolePermissions: Record<string, Permission[]>,
-  perm: Permission,
-  isPlatformAdmin: boolean,
-): boolean {
-  if (isPlatformAdmin || resolvedRole === "super_admin") return true;
-  const perms = rolePermissions[resolvedRole] ?? [];
-  return satisfiesPermission(perm, (p) => perms.includes(p));
-}
-
-export default function PageGuard({ permission, children }: PageGuardProps) {
+export default function PageGuard({ permission, anyPermission, children }: PageGuardProps) {
   const pathname = usePathname();
-  const { rolePermissions } = usePermissions();
+  const { hasPermission } = usePermissions();
   const { loading, user } = useAuth();
   const { loading: wsLoading, isInternal, planSlug, isPlatformAdmin } =
     useTenantWorkspace();
@@ -55,12 +47,18 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
   const platformAdmin =
     isPlatformAdmin || resolvedRole === "super_admin";
 
-  const hasPerm = roleHasPermission(
-    resolvedRole,
-    rolePermissions,
-    permission,
-    platformAdmin,
-  );
+  const requiredPerms = anyPermission?.length
+    ? anyPermission
+    : permission
+      ? [permission]
+      : [];
+
+  const checkPerm = (perm: Permission) =>
+    platformAdmin || satisfiesPermission(perm, hasPermission);
+
+  const hasPerm =
+    platformAdmin ||
+    requiredPerms.some((perm) => checkPerm(perm));
 
   const route = getRouteByPathname(pathname ?? "");
   const workspaceOk =
@@ -72,8 +70,7 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
         planSlug,
         isPlatformAdmin: platformAdmin,
       },
-      (perm) =>
-        roleHasPermission(resolvedRole, rolePermissions, perm, platformAdmin),
+      checkPerm,
     );
 
   if (hasPerm && workspaceOk) {
@@ -88,7 +85,9 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
         </div>
         <h2 className="text-white text-xl font-heading font-bold">لا تملك صلاحية الوصول</h2>
         <p className="text-[#8ba3c7] text-sm max-w-xs">
-          هذا القسم محجوز أو غير مفعّل ضمن باقة منشأتك. تواصل مع مدير المنشأة أو Blumark24.
+          {isInternal
+            ? "هذا القسم محجوز أو غير مفعّل. تواصل مع مدير المنصة."
+            : "هذا القسم غير مفعّل ضمن باقة منشأتك. تواصل مع مدير المنشأة."}
         </p>
       </div>
     </DashboardLayout>

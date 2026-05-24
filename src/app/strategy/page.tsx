@@ -178,7 +178,10 @@ function StrategyContent() {
   const toast = useToast();
   const [editingPhase, setEditingPhase] = useState<StrategyPhase | null>(null);
 
-  const canEdit = userRole === "super_admin" || userRole === "board_member";
+  const canEdit =
+    userRole === "super_admin" ||
+    userRole === "board_member" ||
+    userRole === "organization_manager";
 
   const overallProgress = phases.length > 0
     ? Math.round(phases.reduce((s, p) => s + p.progress, 0) / phases.length)

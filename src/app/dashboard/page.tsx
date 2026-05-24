@@ -13,6 +13,7 @@ import {
   Bot, CheckSquare, UserPlus, FileText, Wallet, BarChart3, ListChecks,
   ArrowLeft, ShieldCheck, Building2, Zap, Plus,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import { useDashboardKPI, useProjects, useActivities, useTransactions, useEmployees, useClients, useTasks } from "@/hooks/useData";
 import { useMemo, useState } from "react";
@@ -24,7 +25,11 @@ import {
   WS_CARD, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE, WS_AI_PILL,
   BOARD_THEME, WS_TINTS, type BoardKey, type KpiAccent,
 } from "@/components/ui/workspaceVisual";
-import { StatPill, QuickActionTile, Sparkline, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
+import { StatPill, QuickActionTile, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
+import { PremiumKpiCard } from "@/components/ui/PremiumKpiCard";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
+import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
@@ -91,6 +96,7 @@ function todayArabic() {
 export default function DashboardPage() {
   const { user, loading }                      = useAuth();
   const { userRole }                           = usePermissions();
+  const { isInternal }                           = useTenantWorkspace();
   const { kpi, loading: kpiLoading }           = useDashboardKPI();
   const { data: projects, loading: projLoad }  = useProjects();
   const { data: activities, loading: actLoad } = useActivities();
@@ -130,9 +136,13 @@ export default function DashboardPage() {
     return Math.round((active / clients.length) * 100);
   }, [clients]);
 
-  const roleLabel = user?.role
-    ? ROLE_LABELS[mapAuthRoleToUserRole(user.role)] ?? user.role
-    : "—";
+  const resolvedRole = userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
+  const roleLabel = resolvedRole
+    ? getTenantRoleLabel(resolvedRole, isInternal)
+    : user?.role
+      ? getTenantRoleLabel(mapAuthRoleToUserRole(user.role), isInternal)
+      : "عضو الفريق";
+  const { display: departmentDisplay } = useProfileOrgDepartment();
 
   const activeEmployeeNames = useMemo(() => {
     if (!isSuperAdmin) return [];
@@ -364,9 +374,13 @@ export default function DashboardPage() {
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{todayArabic()}
                 </span>
                 <span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} className="text-cyan-300" />{roleLabel}</span>
-                {user?.department && (
-                  <span className="inline-flex items-center gap-1.5"><Building2 size={13} className="text-cyan-300" />{user.department}</span>
-                )}
+                <span className={cn(
+                  "inline-flex items-center gap-1.5",
+                  departmentDisplay.isEmpty ? "text-white/40 italic" : "text-[#8ba3c7]",
+                )}>
+                  <Building2 size={13} className={departmentDisplay.isEmpty ? "text-white/30" : "text-cyan-300"} />
+                  {departmentDisplay.text}
+                </span>
               </div>
 
               {/* Three compact live metrics (derived from existing data only; chips wrap, never clip) */}
@@ -402,88 +416,60 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           {kpiLoading
             ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
-            : kpiCards.map((card, i) => {
-                // Overdue turns emerald (positive) when there is nothing overdue.
+            : kpiCards.map((card) => {
                 const theme = card.key === "overdueTasks" && kpi.overdueTasks === 0
                   ? BOARD_THEME.completedTasks
                   : BOARD_THEME[card.key];
-                return (
-                  <div
-                    key={i}
-                    className={`${WS_CARD} group w-full min-h-[150px] sm:min-h-[180px] transition-shadow duration-300 ${theme.glow}`}
-                  >
-                    <div className={`pointer-events-none absolute inset-0 ${theme.ambient}`} />
-                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_60%_at_50%_0%,rgba(255,255,255,0.05),transparent_60%)]" />
+                const progress =
+                  card.key === "completedTasks"
+                    ? kpi.completedTasksPct
+                    : card.key === "incompleteTasks"
+                      ? tasks.length
+                        ? Math.round((1 - kpi.incompleteTasks / tasks.length) * 100)
+                        : 100
+                      : card.key === "activeClients"
+                        ? totalClients
+                          ? Math.round((kpi.activeClients / totalClients) * 100)
+                          : 0
+                        : kpi.overdueTasks === 0
+                          ? 100
+                          : Math.max(15, 100 - kpi.overdueTasks * 12);
 
-                    <div className="relative z-10 flex h-full flex-col justify-between gap-3 p-3.5 sm:p-4 min-w-0">
-                      {/* Top: live drilldown trigger + icon orb */}
-                      <div className="flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          draggable={false}
-                          aria-label={`عرض تفاصيل ${card.label}`}
-                          onMouseDown={(event) => event.preventDefault()}
-                          onTouchStart={(event) => event.currentTarget.blur()}
-                          onClick={() => setActiveBoard(card.key)}
-                          className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full leading-none select-none cursor-pointer touch-manipulation transition-colors ${theme.livePill}`}
-                          style={DISABLE_TEXT_SELECT_STYLE}
-                        >
-                          <span className="relative flex h-1.5 w-1.5">
-                            <span className="absolute inline-flex h-full w-full rounded-full bg-current opacity-60 animate-ping" />
-                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
-                          </span>
-                          <span className="select-none" style={DISABLE_TEXT_SELECT_STYLE}>مباشر</span>
-                        </button>
-                        <div className={`${WS_ICON_ORB} w-9 h-9 sm:w-11 sm:h-11 ${theme.orb}`}>
-                          <card.icon size={18} className={card.iconColor} />
-                        </div>
-                      </div>
-
-                      {/* Hero number + caption */}
-                      <div className="min-w-0">
-                        <div className="font-heading font-bold tracking-tight text-white leading-[0.9] text-[clamp(1.85rem,7vw,3.375rem)] drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]">
-                          {card.value}
-                        </div>
-                        <div className="mt-1.5 truncate text-[12.5px] font-medium text-white/80">{card.label}</div>
-                        <div className="truncate text-[10.5px] text-white/40">{card.subtitle}</div>
-                      </div>
-
-                      {/* Footer: live insight (left) + small accent sparkline (right) */}
-                      <div className="flex items-end justify-between gap-2 min-w-0">
-                        <div className="min-w-0 flex-1 text-[11px]">
-                          {card.key === "activeClients" && (
-                            <div className={`flex items-center gap-1.5 ${theme.accent}`}>
-                              <TrendingUp size={13} className="shrink-0" />
-                              <span className="truncate">{latestClient ? `آخر عميل: ${latestClient.name}` : "لا يوجد عميل جديد"}</span>
-                            </div>
-                          )}
-                          {card.key === "completedTasks" && (
-                            <div className={`flex items-center gap-1.5 ${theme.accent}`}>
-                              <CheckCircle2 size={13} className="shrink-0" />
-                              <span className="truncate">معدل إنجاز مستقر اليوم</span>
-                            </div>
-                          )}
-                          {card.key === "incompleteTasks" && (
-                            <div className={`flex items-center gap-2 ${theme.accent}`}>
-                              <div className="h-1.5 w-12 shrink-0 rounded-full bg-white/10 overflow-hidden">
-                                <div className="h-full rounded-full bg-amber-300/80" style={{ width: `${Math.min(100, Math.max(8, (kpi.incompleteTasks / Math.max(tasks.length, 1)) * 100))}%` }} />
-                              </div>
-                              <span className="truncate">متبقي {kpi.incompleteTasks} من {tasks.length || 0}</span>
-                            </div>
-                          )}
-                          {card.key === "overdueTasks" && (
-                            <div className={`flex items-center gap-1.5 ${theme.accent}`}>
-                              <Siren size={13} className="shrink-0" />
-                              <span className="truncate">{kpi.overdueTasks > 0 ? "تتطلب متابعة فورية" : "لا يوجد تعثر حرج"}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="h-5 w-12 shrink-0 opacity-50">
-                          <Sparkline colorClass={theme.iconColor} />
-                        </div>
-                      </div>
+                const footer =
+                  card.key === "activeClients" ? (
+                    <div className={`flex items-center gap-1.5 ${theme.accent}`}>
+                      <TrendingUp size={13} className="shrink-0" />
+                      <span className="truncate">{latestClient ? `آخر عميل: ${latestClient.name}` : "لا يوجد عميل جديد"}</span>
                     </div>
-                  </div>
+                  ) : card.key === "completedTasks" ? (
+                    <div className={`flex items-center gap-1.5 ${theme.accent}`}>
+                      <CheckCircle2 size={13} className="shrink-0" />
+                      <span className="truncate">معدل إنجاز مستقر اليوم</span>
+                    </div>
+                  ) : card.key === "incompleteTasks" ? (
+                    <div className={`flex items-center gap-1.5 ${theme.accent}`}>
+                      <span className="truncate">متبقي {kpi.incompleteTasks} من {tasks.length || 0}</span>
+                    </div>
+                  ) : (
+                    <div className={`flex items-center gap-1.5 ${theme.accent}`}>
+                      <Siren size={13} className="shrink-0" />
+                      <span className="truncate">{kpi.overdueTasks > 0 ? "تتطلب متابعة فورية" : "لا يوجد تعثر حرج"}</span>
+                    </div>
+                  );
+
+                return (
+                  <PremiumKpiCard
+                    key={card.key}
+                    label={card.label}
+                    value={card.value}
+                    subtitle={card.subtitle}
+                    icon={card.icon}
+                    iconColor={card.iconColor}
+                    theme={theme}
+                    progress={progress}
+                    footer={footer}
+                    onLiveClick={() => setActiveBoard(card.key)}
+                  />
                 );
               })}
         </div>

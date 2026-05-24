@@ -18,6 +18,10 @@ import { useMessages } from "@/contexts/MessagesContext";
 import { supabase } from "@/lib/supabase";
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { GlassPopover } from "@/components/ui/GlassPopover";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
+import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 import { withTimeout } from "@/lib/asyncHelpers";
 
 // Header global-search timeout — a slow Supabase must never hang the dropdown.
@@ -108,17 +112,19 @@ interface ProfileDropdownProps {
 }
 
 function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, open, onToggle }: ProfileDropdownProps) {
+  const { isInternal } = useTenantWorkspace();
+  const { display: departmentInfo } = useProfileOrgDepartment();
   if (!user) return null;
 
   // Department and active status come from the authenticated user's own
   // profile row — never look these up via managedUsers (which is for the
   // admin panel and may not be loaded yet, causing a "—" / "موظف" flash).
-  const department = user.department || "—";
+
   const isActive   = user.is_active !== false;
   const initials   = user.name?.slice(0, 2) ?? "م";
   const roleLabel  = userRole
-    ? (ROLE_LABELS[userRole] ?? userRole.replace(/_/g, " "))
-    : "";
+    ? getTenantRoleLabel(userRole, isInternal)
+    : getTenantRoleLabel(user.role, isInternal);
 
   return (
     <div className="relative">
@@ -146,10 +152,7 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
       </button>
 
       {open && (
-        <div
-          className="absolute left-0 top-full mt-2 w-72 rounded-2xl border border-[#1e3a5f] shadow-2xl z-50 overflow-hidden"
-          style={{ background: "rgba(10,22,40,0.98)", backdropFilter: "blur(20px)" }}
-        >
+        <GlassPopover className="absolute left-0 top-full mt-2 w-72 z-50">
           {/* User card */}
           <div className="p-4 border-b border-[#1e3a5f]">
             <div className="flex items-center gap-3">
@@ -184,12 +187,12 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
             <div className="flex items-center gap-3 text-xs">
               <ShieldCheck size={14} className="text-[#22d3ee] flex-shrink-0" />
               <span className="text-[#8ba3c7]">الدور:</span>
-              <span className="text-white font-medium mr-auto">{roleLabel || "—"}</span>
+              <span className="text-white font-medium mr-auto">{roleLabel || "عضو الفريق"}</span>
             </div>
             <div className="flex items-center gap-3 text-xs">
               <Building2 size={14} className="text-[#22d3ee] flex-shrink-0" />
               <span className="text-[#8ba3c7]">القسم:</span>
-              <span className="text-white font-medium mr-auto">{department}</span>
+              <span className={cn("mr-auto font-medium", departmentInfo.isEmpty ? "text-[11px] italic text-white/45" : "text-white")}>{departmentInfo.text}</span>
             </div>
           </div>
 
@@ -219,7 +222,7 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
               {loggingOut ? "جارٍ تسجيل الخروج..." : "تسجيل الخروج"}
             </button>
           </div>
-        </div>
+        </GlassPopover>
       )}
     </div>
   );
@@ -323,10 +326,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
           ⌘ K
         </kbd>
         {openSearch && results.length > 0 && (
-          <div
-            className="absolute top-full mt-2 w-full rounded-2xl border border-[#1e3a5f] shadow-xl overflow-hidden z-50"
-            style={{ background: "rgba(13,31,60,0.98)", backdropFilter: "blur(16px)" }}
-          >
+          <GlassPopover className="absolute top-full mt-2 w-full z-50 overflow-hidden">
             {results.map((r) => (
               <button
                 key={r.id}
@@ -343,15 +343,12 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
                 <ChevronLeft size={12} className="text-[#8ba3c7] mr-auto flex-shrink-0" />
               </button>
             ))}
-          </div>
+          </GlassPopover>
         )}
         {openSearch && query && results.length === 0 && (
-          <div
-            className="absolute top-full mt-2 w-full rounded-2xl border border-[#1e3a5f] px-4 py-3 text-sm text-[#8ba3c7] z-50"
-            style={{ background: "rgba(13,31,60,0.98)" }}
-          >
+          <GlassPopover className="absolute top-full mt-2 w-full z-50 px-4 py-3 text-sm text-[#8ba3c7]">
             لا توجد نتائج لـ &quot;{query}&quot;
-          </div>
+          </GlassPopover>
         )}
       </div>
 
@@ -388,10 +385,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
             <Plus size={18} />
           </button>
           {openNew && (
-            <div
-              className="absolute left-0 top-full mt-2 w-48 rounded-2xl border border-[#1e3a5f] shadow-xl overflow-hidden z-50"
-              style={{ background: "rgba(13,31,60,0.98)", backdropFilter: "blur(16px)" }}
-            >
+            <GlassPopover className="absolute left-0 top-full mt-2 w-48 z-50">
               {QUICK_CREATE.map((item) => (
                 <button
                   key={item.label}
@@ -404,7 +398,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
                   <span className="text-sm text-white">{item.label}</span>
                 </button>
               ))}
-            </div>
+            </GlassPopover>
           )}
         </div>
 
@@ -421,10 +415,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
             )}
           </button>
           {openNotif && (
-            <div
-              className="absolute left-0 top-full mt-2 w-80 rounded-2xl border border-[#1e3a5f] shadow-xl z-50 overflow-hidden"
-              style={{ background: "rgba(13,31,60,0.98)", backdropFilter: "blur(16px)" }}
-            >
+            <GlassPopover className="absolute left-0 top-full mt-2 w-80 z-50 max-h-[min(70vh,420px)] flex flex-col">
               <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e3a5f]">
                 <span className="text-white font-medium text-sm">الإشعارات</span>
                 <button onClick={markAllRead} className="text-xs text-[#22d3ee] hover:underline">تحديد الكل كمقروء</button>
@@ -459,7 +450,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
                   عرض جميع التنبيهات
                 </button>
               </div>
-            </div>
+            </GlassPopover>
           )}
         </div>
 
@@ -476,10 +467,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
             )}
           </button>
           {openMsg && (
-            <div
-              className="absolute left-0 top-full mt-2 w-80 rounded-2xl border border-[#1e3a5f] shadow-xl z-50 overflow-hidden"
-              style={{ background: "rgba(13,31,60,0.98)", backdropFilter: "blur(16px)" }}
-            >
+            <GlassPopover className="absolute left-0 top-full mt-2 w-80 z-50 max-h-[min(70vh,420px)] flex flex-col">
               <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e3a5f]">
                 <span className="text-white font-medium text-sm">الرسائل</span>
                 <button onClick={markAllMsgRead} className="text-xs text-[#22d3ee] hover:underline">تحديد الكل كمقروء</button>
@@ -506,7 +494,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
                   </button>
                 ))}
               </div>
-            </div>
+            </GlassPopover>
           )}
         </div>
 

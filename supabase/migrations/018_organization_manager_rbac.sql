@@ -55,10 +55,12 @@ BEGIN
       ARRAY[
         'view_dashboard',
         'view_employees',
+        'manage_users',
         'manage_tasks',
         'manage_clients',
         'manage_finance',
         'manage_reports',
+        'manage_tenant_settings',
         'manage_board'
       ]
     )

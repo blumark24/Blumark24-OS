@@ -251,6 +251,8 @@ export function satisfiesPermission(
 ): boolean {
   if (hasPermission(required)) return true;
   if (required === "view_employees" && hasPermission("manage_users")) return true;
+  if (required === "manage_settings" && hasPermission("manage_tenant_settings")) return true;
+  if (required === "manage_tenant_settings" && hasPermission("manage_settings")) return true;
   return false;
 }
 
@@ -292,10 +294,10 @@ export function getRouteLabel(routeId: WorkspaceRouteId, isInternal: boolean): s
 }
 
 export const TENANT_EMPTY_STATE_MSG =
-  "لم يتم إعداد بيانات هذه المنشأة بعد";
+  "لم يتم إعداد الهيكل التنظيمي بعد";
 
 export const TENANT_EMPTY_STATE_HINT =
-  "ابدأ بإضافة البيانات من لوحة مدير المنشأة";
+  "ابدأ بإضافة قسم رئيسي من زر «قسم جديد» — الأقسام والفرق والمسميات تُحفظ لمنشأتك فقط.";
 
 export interface WorkspaceAccessContext {
   isInternal: boolean;

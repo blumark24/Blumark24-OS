@@ -10,7 +10,11 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePermissions, type Permission } from "@/contexts/PermissionsContext";
+import {
+  mapAuthRoleToUserRole,
+  usePermissions,
+  type Permission,
+} from "@/contexts/PermissionsContext";
 import { supabase } from "@/lib/supabase";
 import {
   canAccessWorkspaceRoute,
@@ -53,6 +57,8 @@ const TenantWorkspaceContext = createContext<TenantWorkspaceState>(defaultState)
 export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const { hasPermission, userRole } = usePermissions();
+  const resolvedRole =
+    userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
 
   const [isInternal, setIsInternal] = useState(false);
   const [planSlug, setPlanSlug] = useState<PlanSlug>("basic");
@@ -138,33 +144,33 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
     () => ({
       isInternal,
       planSlug,
-      isPlatformAdmin: isPlatformAdmin || userRole === "super_admin",
+      isPlatformAdmin: isPlatformAdmin || resolvedRole === "super_admin",
     }),
-    [isInternal, planSlug, isPlatformAdmin, userRole],
+    [isInternal, planSlug, isPlatformAdmin, resolvedRole],
   );
 
   const checkPermission = useCallback(
     (perm: Permission) => {
-      if (!userRole) return false;
+      if (!resolvedRole) return false;
       if (accessCtx.isPlatformAdmin) return true;
       return satisfiesPermission(perm, hasPermission);
     },
-    [userRole, accessCtx.isPlatformAdmin, hasPermission],
+    [resolvedRole, accessCtx.isPlatformAdmin, hasPermission],
   );
 
   const navRoutes = useMemo(() => {
-    if (authLoading || !userRole) return [];
+    if (authLoading || !user?.id || !resolvedRole) return [];
     return filterNavRoutes(accessCtx, checkPermission);
-  }, [authLoading, userRole, accessCtx, checkPermission]);
+  }, [authLoading, user?.id, resolvedRole, accessCtx, checkPermission]);
 
   const canAccessPath = useCallback(
     (pathname: string) => {
       const route = getRouteByPathname(pathname);
       if (!route) return true;
-      if (!userRole && !accessCtx.isPlatformAdmin) return false;
+      if (!resolvedRole && !accessCtx.isPlatformAdmin) return false;
       return canAccessWorkspaceRoute(route, accessCtx, checkPermission);
     },
-    [userRole, accessCtx, checkPermission],
+    [resolvedRole, accessCtx, checkPermission],
   );
 
   const value = useMemo<TenantWorkspaceState>(

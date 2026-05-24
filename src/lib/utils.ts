@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { TENANT_DEPARTMENTS } from "@/lib/tenant/tenantDisplay";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -39,17 +40,7 @@ export function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-export const DEPARTMENTS = [
-  "الإدارة",
-  "الهجوم",
-  "الإبداع",
-  "التصميم",
-  "الحملات",
-  "خدمة العملاء",
-  "المالي",
-  "العمليات",
-  "AI Lab",
-];
+export const DEPARTMENTS: string[] = [...TENANT_DEPARTMENTS];
 
 export const CITIES = ["مكة", "جدة", "الرياض", "الطائف", "المدينة"];
 
