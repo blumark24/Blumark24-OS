@@ -112,9 +112,9 @@ export default function OrgCommandBoard() {
   const limits = getOrgLimits(plan);
 
   const canManage =
-    hasPermission("manage_board") ||
     userRole === "organization_manager" ||
-    userRole === "super_admin";
+    userRole === "super_admin" ||
+    hasPermission("manage_board");
 
   const boardEnabled = !wsLoading && Boolean(organizationId);
   const { data: boardMembers, insert: insertBoard, update: updateBoard, remove: removeBoard } = useBoardMembers(boardEnabled);
@@ -168,6 +168,16 @@ export default function OrgCommandBoard() {
   const managements = useMemo(() => structure.units.filter((u) => u.kind === "management"), [structure.units]);
   const departments = useMemo(() => structure.units.filter((u) => u.kind === "department"), [structure.units]);
 
+  const boardIds = useMemo(
+    () => new Set(boardMembers.map((m) => m.id)),
+    [boardMembers],
+  );
+
+  const workforceEmployees = useMemo(
+    () => employees.filter((e) => !boardIds.has(e.id)),
+    [employees, boardIds],
+  );
+
   const [unassignedCount, setUnassignedCount] = useState(0);
 
   useEffect(() => {
@@ -176,9 +186,9 @@ export default function OrgCommandBoard() {
       return;
     }
     void fetchOrgUnitMembers(organizationId).then((members) => {
-      setUnassignedCount(employeesNotInOrgUnits(employees, members).length);
+      setUnassignedCount(employeesNotInOrgUnits(workforceEmployees, members).length);
     });
-  }, [organizationId, employees]);
+  }, [organizationId, workforceEmployees]);
 
   const departmentOptions = useMemo(
     () => departments.map((d) => ({ id: d.id, name: d.name })),
@@ -263,7 +273,7 @@ export default function OrgCommandBoard() {
         structure={structure}
         structLoading={structLoading}
         savingStruct={savingStruct}
-        employees={employees}
+        employees={workforceEmployees}
         boardMembers={boardMembers}
         employeesByDept={employeesByDept}
         departments={departments}
@@ -297,7 +307,7 @@ export default function OrgCommandBoard() {
           <p className="text-[11px] text-white/50">يحفظ في org_unit_members (مصدر الهيكل التشغيلي)</p>
           <select className="input-dark text-sm w-full" value={assignEmpId} onChange={(e) => setAssignEmpId(e.target.value)}>
             <option value="">اختر موظفاً</option>
-            {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            {workforceEmployees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>
           <select className="input-dark text-sm w-full" value={assignDeptId} onChange={(e) => setAssignDeptId(e.target.value)}>
             <option value="">اختر القسم</option>

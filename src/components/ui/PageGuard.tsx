@@ -19,6 +19,8 @@ import { CardSkeleton } from "@/components/ui/Skeleton";
 
 interface PageGuardProps {
   permission: Permission;
+  /** If set, allow when any listed permission passes (e.g. /org). */
+  anyOf?: Permission[];
   children: React.ReactNode;
 }
 
@@ -33,7 +35,7 @@ function roleHasPermission(
   return satisfiesPermission(perm, (p) => perms.includes(p));
 }
 
-export default function PageGuard({ permission, children }: PageGuardProps) {
+export default function PageGuard({ permission, anyOf, children }: PageGuardProps) {
   const pathname = usePathname();
   const { rolePermissions } = usePermissions();
   const { loading, user } = useAuth();
@@ -55,11 +57,9 @@ export default function PageGuard({ permission, children }: PageGuardProps) {
   const platformAdmin =
     isPlatformAdmin || resolvedRole === "super_admin";
 
-  const hasPerm = roleHasPermission(
-    resolvedRole,
-    rolePermissions,
-    permission,
-    platformAdmin,
+  const permsToCheck = anyOf?.length ? anyOf : [permission];
+  const hasPerm = permsToCheck.some((p) =>
+    roleHasPermission(resolvedRole, rolePermissions, p, platformAdmin),
   );
 
   const route = getRouteByPathname(pathname ?? "");

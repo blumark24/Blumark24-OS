@@ -138,8 +138,11 @@ function employeeFromDB(row: Record<string, unknown>): Employee {
   };
 }
 
-function employeeToDB(item: Omit<Employee, "id">): Record<string, unknown> {
-  return {
+function employeeToDB(
+  item: Omit<Employee, "id">,
+  organizationId?: string | null,
+): Record<string, unknown> {
+  const row: Record<string, unknown> = {
     name:            item.name,
     email:           item.email,
     role:            item.role,
@@ -153,6 +156,10 @@ function employeeToDB(item: Omit<Employee, "id">): Record<string, unknown> {
     avatar:          item.avatar,
     salary:          item.salary,
   };
+  if (organizationId) {
+    row.organization_id = organizationId;
+  }
+  return row;
 }
 
 function employeeUpdateToDB(changes: Partial<Employee>): Record<string, unknown> {
@@ -417,16 +424,8 @@ export function useTransactions() {
 // ─── Employees ────────────────────────────────────────────────────────────────
 
 async function fetchEmployees(organizationId: string | null, scopeToOrg: boolean): Promise<Employee[]> {
-  let query = supabase
-    .from("employees")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (scopeToOrg) {
-    query = withOrganizationScope(query, organizationId);
-  }
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  return ((data ?? []) as Record<string, unknown>[]).map(employeeFromDB);
+  const { fetchTenantWorkforce } = await import("@/lib/org/tenantWorkforce");
+  return fetchTenantWorkforce(organizationId, scopeToOrg);
 }
 
 export function useEmployees() {
@@ -454,13 +453,15 @@ export function useEmployees() {
 
   const insert = useCallback(async (item: Omit<Employee, "id">) => {
     const { error } = await withTimeout(
-      Promise.resolve(supabase.from("employees").insert([employeeToDB(item)])),
+      Promise.resolve(
+        supabase.from("employees").insert([employeeToDB(item, scopeToOrg ? organizationId : null)]),
+      ),
       DB_WRITE_TIMEOUT, "انتهت مهلة إضافة الموظف"
     );
     if (error) throw new Error(error.message);
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
     logActivity("employee", `تمت إضافة موظف جديد: ${item.name}`, "👥");
-  }, [refetch]);
+  }, [refetch, scopeToOrg, organizationId]);
 
   const update = useCallback(async (id: string, changes: Partial<Employee>) => {
     const { error } = await withTimeout(

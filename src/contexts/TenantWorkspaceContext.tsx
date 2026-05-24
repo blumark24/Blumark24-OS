@@ -17,10 +17,12 @@ import {
   filterNavRoutes,
   getRouteByPathname,
   normalizePlanSlug,
+  planIncludesFeature,
   satisfiesPermission,
   type PlanSlug,
   type WorkspaceRouteDef,
 } from "@/lib/features/packageFeatures";
+import { mapAuthRoleToUserRole, type UserRole } from "@/contexts/PermissionsContext";
 
 export interface TenantWorkspaceState {
   isInternal: boolean;
@@ -157,14 +159,30 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
     return filterNavRoutes(accessCtx, checkPermission, userRole);
   }, [authLoading, userRole, accessCtx, checkPermission]);
 
+  const effectiveRole = useMemo((): UserRole | null => {
+    if (userRole) return userRole;
+    if (user?.role) return mapAuthRoleToUserRole(user.role);
+    return null;
+  }, [userRole, user?.role]);
+
   const canAccessPath = useCallback(
     (pathname: string) => {
       const route = getRouteByPathname(pathname);
       if (!route) return true;
-      if (!userRole && !accessCtx.isPlatformAdmin) return false;
-      return canAccessWorkspaceRoute(route, accessCtx, checkPermission, userRole);
+      if (!effectiveRole && !accessCtx.isPlatformAdmin) return false;
+
+      if (
+        route.id === "org" &&
+        (effectiveRole === "organization_manager" || accessCtx.isPlatformAdmin)
+      ) {
+        if (accessCtx.isPlatformAdmin) return true;
+        if (route.internalOnly && !accessCtx.isInternal) return false;
+        return planIncludesFeature(accessCtx.planSlug, "org");
+      }
+
+      return canAccessWorkspaceRoute(route, accessCtx, checkPermission, effectiveRole);
     },
-    [userRole, accessCtx, checkPermission],
+    [effectiveRole, accessCtx, checkPermission],
   );
 
   const value = useMemo<TenantWorkspaceState>(

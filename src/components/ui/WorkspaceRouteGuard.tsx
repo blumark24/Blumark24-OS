@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { ShieldOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/contexts/PermissionsContext";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { getRouteByPathname } from "@/lib/features/packageFeatures";
 import { CardSkeleton } from "@/components/ui/Skeleton";
@@ -17,11 +18,13 @@ interface WorkspaceRouteGuardProps {
 export default function WorkspaceRouteGuard({ children }: WorkspaceRouteGuardProps) {
   const pathname = usePathname();
   const { loading: authLoading, user } = useAuth();
+  const { userRole } = usePermissions();
   const { loading: wsLoading, canAccessPath } = useTenantWorkspace();
 
   const route = getRouteByPathname(pathname ?? "");
+  const roleReady = Boolean(userRole ?? user?.role);
 
-  if (authLoading || wsLoading || !user) {
+  if (authLoading || wsLoading || !user || !roleReady) {
     return (
       <div className="space-y-4">
         <CardSkeleton rows={3} />

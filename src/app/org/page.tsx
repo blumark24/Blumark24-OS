@@ -6,7 +6,7 @@ import OrgCommandBoard from "@/components/org/OrgCommandBoard";
 
 export default function OrgPage() {
   return (
-    <PageGuard permission="view_dashboard">
+    <PageGuard permission="view_dashboard" anyOf={["view_dashboard", "manage_board"]}>
       <DashboardLayout>
         <OrgCommandBoard />
       </DashboardLayout>

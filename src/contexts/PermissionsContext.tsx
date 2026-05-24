@@ -289,7 +289,15 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
           }
         });
         if (Object.keys(loaded).length > 0) {
-          setRolePermissions((prev) => ({ ...prev, ...loaded }));
+          setRolePermissions((prev) => {
+            const merged = { ...prev };
+            (Object.keys(loaded) as UserRole[]).forEach((role) => {
+              const defaults = DEFAULT_ROLE_PERMISSIONS[role] ?? [];
+              const fromDb = loaded[role] ?? [];
+              merged[role] = Array.from(new Set([...defaults, ...fromDb]));
+            });
+            return merged;
+          });
         }
       })
       .catch(() => { /* silent — defaults remain */ });
@@ -309,11 +317,14 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
 
   const hasPermission = useCallback(
     (perm: Permission) => {
-      if (!userRole) return false;
-      if (userRole === "super_admin") return true;
-      return (rolePermissions[userRole] ?? []).includes(perm);
+      const role =
+        userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
+      if (!role) return false;
+      if (role === "super_admin") return true;
+      const effective = rolePermissions[role] ?? DEFAULT_ROLE_PERMISSIONS[role] ?? [];
+      return effective.includes(perm);
     },
-    [userRole, rolePermissions]
+    [userRole, user?.role, rolePermissions],
   );
 
   const updateUserRole = useCallback(

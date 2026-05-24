@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Employee } from "@/types";
 import type { PlanSlug } from "@/lib/features/packageFeatures";
+import { getOrgLimits } from "@/lib/org/orgPackageLimits";
 import { resolveParentForKind } from "@/lib/org/orgHierarchy";
 import type { OrgNodeKind, OrgStructureSnapshot, OrgUnitNode } from "@/lib/org/orgStructure";
 
@@ -140,6 +141,16 @@ export async function insertOrgUnit(
 
   if (kind === "team" && !resolvedParent) {
     throw new Error("يجب اختيار قسم أب للفريق");
+  }
+
+  const limits = getOrgLimits(plan);
+  if (kind !== "team") {
+    const cap =
+      kind === "agency" ? limits.agencies : kind === "management" ? limits.managements : limits.departments;
+    const current = units.filter((u) => u.kind === kind).length;
+    if (current >= cap) {
+      throw new Error(`وصلت للحد الأعلى (${cap}) في باقة ${limits.label}`);
+    }
   }
 
   const { data, error } = await supabase
