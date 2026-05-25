@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
+import { OWNER_UNAVAILABLE_HINT } from "../../_data";
 import {
   fetchOrganizationsPage,
   setOrganizationStatus,
@@ -281,7 +282,9 @@ function OrgCard(props: RowActionsProps) {
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
         <div className="col-span-2 flex items-center gap-1.5">
           <span className="text-[#8ba3c7]">رقم العميل:</span>
-          <span className="font-mono tabular-nums text-[#22d3ee]">{org.customerCode ?? "—"}</span>
+          <span className={cn("tabular-nums", org.customerCode ? "font-mono text-[#22d3ee]" : "text-[#8ba3c7]")}>
+            {org.customerCode ?? OWNER_UNAVAILABLE_HINT}
+          </span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-[#8ba3c7]">الباقة:</span>
@@ -558,9 +561,12 @@ export default function OrganizationsPageContent() {
                         </td>
                         {/* Customer code */}
                         <td className="py-3.5">
-                          <span className="inline-flex items-center gap-1 text-[12px] text-[#22d3ee] font-mono tabular-nums">
-                            <Hash size={11} className="text-[#22d3ee]/60" />
-                            {org.customerCode ?? "—"}
+                          <span className={cn(
+                            "inline-flex items-center gap-1 text-[12px] tabular-nums",
+                            org.customerCode ? "text-[#22d3ee] font-mono" : "text-[#8ba3c7]",
+                          )}>
+                            <Hash size={11} className={org.customerCode ? "text-[#22d3ee]/60" : "text-[#8ba3c7]/60"} />
+                            {org.customerCode ?? OWNER_UNAVAILABLE_HINT}
                           </span>
                         </td>
                         {/* Slug */}

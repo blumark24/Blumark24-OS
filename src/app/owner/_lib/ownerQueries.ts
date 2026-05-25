@@ -433,7 +433,8 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
   const [orgsRes, plansRes, subsRes, linksRes] = await Promise.all([
     supabase
       .from("organizations")
-      .select("id, name, slug, customer_code, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at")
+      // customer_code omitted — migration 014 may not be applied yet; selecting it fails the whole query.
+      .select("id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at")
       .order("created_at"),
     supabase
       .from("plans")
@@ -474,7 +475,7 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
       id: org.id,
       name: org.name,
       slug: org.slug,
-      customerCode: org.customer_code,
+      customerCode: null,
       ownerEmail: org.owner_email,
       isInternal: org.is_internal === true,
       statusRaw: org.status,

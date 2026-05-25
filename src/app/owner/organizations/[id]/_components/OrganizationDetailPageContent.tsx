@@ -25,6 +25,10 @@ import {
   OWNER_ACTIVITY_EMPTY,
   OWNER_UNAVAILABLE_HINT,
 } from "../../../_data";
+
+function formatCustomerCode(code: string | null): string {
+  return code ?? OWNER_UNAVAILABLE_HINT;
+}
 import {
   fetchOrganizationDetail,
   type OrganizationDetailData,
@@ -211,7 +215,7 @@ export default function OrganizationDetailPageContent({ orgId }: Props) {
               value={
                 <span className="inline-flex items-center gap-1 font-mono tabular-nums text-[#22d3ee]">
                   <Hash size={11} className="text-[#22d3ee]/60" />
-                  {profile.customerCode ?? "—"}
+                  {formatCustomerCode(profile.customerCode)}
                 </span>
               }
             />
