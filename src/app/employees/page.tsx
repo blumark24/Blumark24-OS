@@ -28,11 +28,15 @@ import { TENANT_ASSIGNABLE_ROLES } from "@/lib/tenant/tenantDisplay";
 import { useEmployees } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import PageGuard from "@/components/ui/PageGuard";
-import { createAuthUser, deleteAuthUser } from "@/lib/db";
+import { createAuthUser, deleteAuthUser, updateAuthUser } from "@/lib/db";
 import { withSoftTimeout, withTimeout } from "@/lib/asyncHelpers";
 
 const statusBadge = (status: string) =>
   status === "نشط" ? "status-active" : "status-inactive";
+
+function isMissingLoginProfile(message: string): boolean {
+  return /المستخدم غير موجود|not found|404/i.test(message);
+}
 
 
 type FormState = {
@@ -186,7 +190,30 @@ function EmployeesContent() {
             manager_id: null,
           });
         }
-        toast.success("تم تحديث بيانات الموظف بنجاح");
+        try {
+          await withTimeout(
+            updateAuthUser(editId, {
+              role: form.role,
+              department: departmentLabel,
+              isActive: form.status === "نشط",
+              name: form.name.trim(),
+            }),
+            12_000,
+            "انتهت مهلة مزامنة حساب الدخول — تحقق من اتصالك بالإنترنت",
+          );
+          toast.success("تم تحديث بيانات الموظف ومزامنة صلاحيات الدخول بنجاح");
+        } catch (syncErr) {
+          const syncMsg = syncErr instanceof Error ? syncErr.message : String(syncErr);
+          if (isMissingLoginProfile(syncMsg)) {
+            toast.warning(
+              "تم حفظ بيانات الموظف — لا يوجد حساب دخول مرتبط بهذا السجل، لم تُحدَّث صلاحيات تسجيل الدخول",
+            );
+          } else {
+            toast.warning(
+              `تم حفظ بيانات الموظف، لكن فشلت مزامنة حساب الدخول: ${syncMsg.split("\n")[0]}`,
+            );
+          }
+        }
       } else {
         // Hard 15-second client timeout — button NEVER hangs beyond this.
         // (Network AbortController in db.ts fires at 12 s; this is the fallback.)
