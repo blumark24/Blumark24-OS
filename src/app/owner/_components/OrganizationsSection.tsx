@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Building2, Eye, ArrowUpCircle, PauseCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DisplayOrg } from "../_lib/ownerQueries";
@@ -15,16 +16,31 @@ const STATUS_BADGE: Record<string, string> = {
   "معلقة": "bg-[#f59e0b]/15 text-[#fbbf24]",
 };
 
-function ActionButtons() {
+function ActionButtons({ org }: { org: DisplayOrg }) {
+  if (org.isInternal) {
+    return <span className="text-[11px] text-[#8ba3c7]/60">محمية</span>;
+  }
+
   return (
     <div className="flex items-center gap-1.5">
-      <button disabled className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/25 bg-[#22d3ee]/[0.08] px-2.5 py-1 text-[11px] text-[#22d3ee]/50 cursor-not-allowed">
+      <Link
+        href="/owner/organizations"
+        className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/25 bg-[#22d3ee]/[0.08] px-2.5 py-1 text-[11px] text-[#22d3ee] hover:bg-[#22d3ee]/15 transition-colors"
+      >
         <Eye size={12} /> عرض
-      </button>
-      <button disabled className="inline-flex items-center gap-1 rounded-lg border border-[#a855f7]/25 bg-[#a855f7]/[0.08] px-2.5 py-1 text-[11px] text-[#c084fc]/50 cursor-not-allowed">
+      </Link>
+      <Link
+        href="/owner/organizations"
+        className="inline-flex items-center gap-1 rounded-lg border border-[#a855f7]/25 bg-[#a855f7]/[0.08] px-2.5 py-1 text-[11px] text-[#c084fc] hover:bg-[#a855f7]/15 transition-colors"
+      >
         <ArrowUpCircle size={12} /> ترقية
-      </button>
-      <button disabled className="inline-flex items-center gap-1 rounded-lg border border-[#ff7a3d]/25 bg-[#ff7a3d]/[0.08] px-2.5 py-1 text-[11px] text-[#ff9a68]/50 cursor-not-allowed">
+      </Link>
+      <button
+        type="button"
+        disabled
+        title="إدارة التعليق من صفحة المنشآت"
+        className="inline-flex items-center gap-1 rounded-lg border border-[#ff7a3d]/25 bg-[#ff7a3d]/[0.08] px-2.5 py-1 text-[11px] text-[#ff9a68]/50 cursor-not-allowed"
+      >
         <PauseCircle size={12} /> تعليق
       </button>
     </div>
@@ -88,7 +104,7 @@ function OrgCardMobile({ org }: { org: DisplayOrg }) {
         </div>
       </div>
 
-      <ActionButtons />
+      <ActionButtons org={org} />
     </div>
   );
 }
@@ -122,7 +138,6 @@ export default function OrganizationsSection({ organizations, loading, error }: 
 
       {!error && (
         <>
-          {/* Desktop table */}
           <div className="hidden lg:block">
             <table className="w-full text-right border-collapse">
               <thead>
@@ -160,7 +175,9 @@ export default function OrganizationsSection({ organizations, loading, error }: 
                         <td className="py-3 text-[12px] text-[#8ba3c7]">
                           {org.isInternal ? "داخلي" : "عميل"}
                         </td>
-                        <td className="py-3"><ActionButtons /></td>
+                        <td className="py-3">
+                          <ActionButtons org={org} />
+                        </td>
                       </tr>
                     ))}
                 {!loading && count === 0 && (
@@ -174,7 +191,6 @@ export default function OrganizationsSection({ organizations, loading, error }: 
             </table>
           </div>
 
-          {/* Mobile cards */}
           <div className="lg:hidden space-y-3">
             {loading
               ? [1, 2].map((i) => <SkeletonCard key={i} />)

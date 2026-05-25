@@ -34,9 +34,10 @@ function TasksContent() {
   const { data: tasks, loading, insert, update, remove } = useTasks();
   const { data: clients } = useClients();
   const { data: employees } = useEmployees();
-  const { userRole } = usePermissions();
+  const { userRole, hasPermission } = usePermissions();
   const { user } = useAuth();
   const toast = useToast();
+  const canManageTasks = hasPermission("manage_tasks");
   const isAdmin = userRole === "super_admin";
   const [view, setView] = useState<ViewMode>("kanban");
   const [showModal, setShowModal] = useState(false);
@@ -147,7 +148,7 @@ function TasksContent() {
               <List size={16} />
             </button>
           </div>
-          {isAdmin && (
+          {canManageTasks && (
             <button onClick={openAdd} className="btn-primary min-h-11 px-4 flex items-center gap-2 whitespace-nowrap touch-manipulation">
               <Plus size={16} />
               مهمة جديدة
