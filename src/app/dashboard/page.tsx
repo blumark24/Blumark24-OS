@@ -18,7 +18,7 @@ import { formatCurrency, timeAgo } from "@/lib/utils";
 import { useDashboardKPI, useProjects, useActivities, useTransactions, useEmployees, useClients, useTasks } from "@/hooks/useData";
 import { useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { ROLE_LABELS, usePermissions, mapAuthRoleToUserRole } from "@/contexts/PermissionsContext";
+import { usePermissions, mapAuthRoleToUserRole } from "@/contexts/PermissionsContext";
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import type { UserRole } from "@/contexts/PermissionsContext";
 import {

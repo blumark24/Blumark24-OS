@@ -48,7 +48,7 @@ type FormState = {
 
 function EmployeesContent() {
   const { data: employees, loading, error, update, remove, refetch, setData } = useEmployees();
-  const { data: orgSnapshot } = useOrgStructure(true);
+  const { data: orgSnapshot, loading: orgLoading } = useOrgStructure(true);
   const orgUnits = getAssignableOrgUnits(orgSnapshot?.departments ?? []);
   const { userRole, hasPermission } = usePermissions();
   const assignableRoles: UserRole[] =
@@ -78,6 +78,7 @@ function EmployeesContent() {
   const [editId,     setEditId]     = useState<string | null>(null);
   const [saving,     setSaving]     = useState(false);
   const [showPass,   setShowPass]   = useState(false);
+  const [legacyDeptHint, setLegacyDeptHint] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>({
     name: "", email: "", password: "", phone: "", departmentId: defaultDeptId,
     role: "employee", status: "نشط", salary: "",
@@ -102,6 +103,7 @@ function EmployeesContent() {
 
   const openAdd = () => {
     setEditId(null);
+    setLegacyDeptHint(null);
     setForm({ name: "", email: "", password: "", phone: "", departmentId: defaultDeptId, role: "employee", status: "نشط", salary: "" });
     setShowPass(false);
     setShowModal(true);
@@ -109,12 +111,14 @@ function EmployeesContent() {
 
   const openEdit = (emp: typeof employees[0]) => {
     setEditId(emp.id);
+    const resolvedId = resolveDeptId(emp);
+    setLegacyDeptHint(!resolvedId && emp.department?.trim() ? emp.department.trim() : null);
     setForm({
       name:       emp.name,
       email:      emp.email,
       password:   "",
       phone:      emp.phone || "",
-      departmentId: resolveDeptId(emp) || defaultDeptId,
+      departmentId: resolvedId,
       role:       emp.role as UserRole,
       status:     emp.status,
       salary:     String(emp.salary ?? ""),
@@ -123,7 +127,7 @@ function EmployeesContent() {
     setShowModal(true);
   };
 
-  const closeModal = () => { setShowModal(false); };
+  const closeModal = () => { setShowModal(false); setLegacyDeptHint(null); };
 
   const handleSave = async () => {
     // ── client-side clean + validate ──────────────────────────────────────────
@@ -362,6 +366,7 @@ function EmployeesContent() {
                   key={emp.id}
                   emp={emp}
                   canManage={canManageEmployees}
+                  departmentColorFn={deptColorFor}
                   onEdit={() => openEdit(emp)}
                   onDelete={() => handleDelete(emp)}
                 />
@@ -529,7 +534,11 @@ function EmployeesContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-[#8ba3c7] mb-1.5">القسم *</label>
-                  {orgUnits.length === 0 ? (
+                  {orgLoading ? (
+                    <div className="input-dark text-sm text-[#8ba3c7] px-3 py-2.5 rounded-xl">
+                      جارٍ تحميل وحدات الهيكل...
+                    </div>
+                  ) : orgUnits.length === 0 ? (
                     <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2.5 text-[11px] text-amber-100/90 leading-relaxed">
                       أنشئ وحدة تنظيمية أولاً من{" "}
                       <Link href="/org" className="text-[#22d3ee] underline underline-offset-2">
@@ -548,6 +557,11 @@ function EmployeesContent() {
                         <option key={d.id} value={d.id}>{formatOrgUnitOption(d)}</option>
                       ))}
                     </select>
+                  )}
+                  {legacyDeptHint && (
+                    <p className="text-[10px] text-amber-200/90 mt-1.5 leading-relaxed">
+                      القسم الحالي: {legacyDeptHint} — اختر وحدة من الهيكل الإداري للربط
+                    </p>
                   )}
                 </div>
                 <div>

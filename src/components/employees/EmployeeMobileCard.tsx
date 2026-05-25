@@ -25,20 +25,23 @@ export function EmployeeMobileCard({
   canManage,
   onEdit,
   onDelete,
+  departmentColorFn = departmentColor,
 }: {
   emp: EmployeeRow;
   canManage: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  departmentColorFn?: (name: string) => string;
 }) {
   const isActive = emp.status === "نشط";
+  const deptColor = departmentColorFn(emp.department);
 
   return (
     <article className={cn(WS_CARD, "p-3.5 space-y-3 min-w-0")}>
       <div className="flex items-start gap-3 min-w-0">
         <div
           className="w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ring-1 ring-white/10"
-          style={{ background: `linear-gradient(135deg,${departmentColor(emp.department)},#0a1628)` }}
+          style={{ background: `linear-gradient(135deg,${deptColor},#0a1628)` }}
         >
           {emp.name.slice(0, 2)}
         </div>
@@ -49,8 +52,8 @@ export function EmployeeMobileCard({
             <span
               className="badge text-[10px] max-w-full truncate"
               style={{
-                background: `${departmentColor(emp.department)}20`,
-                color: departmentColor(emp.department),
+                background: `${deptColor}20`,
+                color: deptColor,
               }}
             >
               {emp.department}

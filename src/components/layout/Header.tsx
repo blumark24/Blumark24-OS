@@ -319,6 +319,8 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
           open ? "bg-[#1a3356]" : "hover:bg-[#1a3356]/50",
         )}
         title="الملف الشخصي"
+        aria-label="الملف الشخصي"
+        aria-expanded={open}
       >
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
