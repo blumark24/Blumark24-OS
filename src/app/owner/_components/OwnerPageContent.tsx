@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { fetchOwnerDashboardData, type OwnerDashboardData } from "../_lib/ownerQueries";
+import { useCallback, useEffect, useState } from "react";
+import {
+  fetchOwnerDashboardData,
+  fetchOwnerKpiAggregates,
+  type OwnerDashboardData,
+  type OwnerKpiAggregates,
+} from "../_lib/ownerQueries";
 import HeroCard from "./HeroCard";
 import KpiCards from "./KpiCards";
 import OrganizationsSection from "./OrganizationsSection";
@@ -14,15 +19,30 @@ import SystemStatusFooter from "./SystemStatusFooter";
 
 export default function OwnerPageContent() {
   const [data, setData] = useState<OwnerDashboardData | null>(null);
+  const [kpiAggregates, setKpiAggregates] = useState<OwnerKpiAggregates | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchOwnerDashboardData()
-      .then(setData)
-      .catch(() => setError("فشل تحميل البيانات من قاعدة البيانات"))
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [next, kpis] = await Promise.all([
+        fetchOwnerDashboardData(),
+        fetchOwnerKpiAggregates(),
+      ]);
+      setData(next);
+      setKpiAggregates(kpis);
+    } catch {
+      setError("فشل تحميل البيانات من قاعدة البيانات");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-5 lg:space-y-6">
@@ -37,12 +57,13 @@ export default function OwnerPageContent() {
 
       <HeroCard />
 
-      <KpiCards activeOrgCount={data?.activeOrgCount} loading={loading} />
+      <KpiCards activeOrgCount={data?.activeOrgCount} kpiAggregates={kpiAggregates} loading={loading} />
 
       <OrganizationsSection
         organizations={data?.organizations}
         loading={loading}
         error={error}
+        onRefresh={load}
       />
 
       <PlansSection plans={data?.plans} loading={loading} />
