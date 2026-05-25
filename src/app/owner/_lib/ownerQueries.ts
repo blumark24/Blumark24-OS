@@ -341,7 +341,9 @@ export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
     ? normalizeSubscription(internalSubRaw, rawPlans)
     : null;
 
-  const activeOrgCount = rawOrgs.filter((o) => o.status === "active").length;
+  const activeOrgCount = rawOrgs.filter(
+    (o) => !o.is_internal && (o.status === "active" || o.status === "trial"),
+  ).length;
 
   return {
     organizations,
