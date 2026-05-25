@@ -21,7 +21,7 @@ import {
   type WorkspaceRouteId,
 } from "@/lib/features/packageFeatures";
 import { MOBILE_ROUTE_LABELS } from "@/lib/tenant/tenantDisplay";
-import { MobileBottomSheet } from "@/components/ui/MobileBottomSheet";
+import { CommandOrbPanel } from "@/components/ui/CommandOverlay";
 import { QuickActionsList } from "@/components/layout/QuickActionsMenu";
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
@@ -79,13 +79,13 @@ export default function MobileBottomNav() {
 
   return (
     <>
-      <MobileBottomSheet
+      <CommandOrbPanel
         open={quickOpen}
         onClose={() => setQuickOpen(false)}
-        title="إنشاء سريع"
+        title="إجراء سريع"
       >
-        <QuickActionsList onNavigate={() => setQuickOpen(false)} />
-      </MobileBottomSheet>
+        <QuickActionsList onNavigate={() => setQuickOpen(false)} compact />
+      </CommandOrbPanel>
 
       <div
         className="lg:hidden fixed inset-x-0 bottom-0 z-40 pointer-events-none flex justify-center px-3"
@@ -103,13 +103,16 @@ export default function MobileBottomNav() {
                 "bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white",
                 "shadow-[0_0_0_1px_rgba(255,255,255,0.25),0_12px_40px_-8px_rgba(34,211,238,0.75),0_0_48px_-12px_rgba(124,58,237,0.9)]",
                 "transition-transform active:scale-95",
-                quickOpen && "rotate-45",
+                quickOpen && "rotate-45 scale-105",
               )}
               aria-label={quickOpen ? "إغلاق الإنشاء السريع" : "إنشاء جديد"}
               aria-expanded={quickOpen}
             >
               <span
-                className="absolute inset-0 rounded-full animate-pulse opacity-40"
+                className={cn(
+                  "absolute inset-0 rounded-full transition-opacity",
+                  quickOpen ? "opacity-60" : "opacity-40 animate-pulse",
+                )}
                 style={{
                   background:
                     "radial-gradient(circle at 50% 50%, rgba(34,211,238,0.55), transparent 70%)",

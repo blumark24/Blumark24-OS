@@ -19,7 +19,7 @@ import { supabase } from "@/lib/supabase";
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { GlassPopover } from "@/components/ui/GlassPopover";
-import { MobileBottomSheet } from "@/components/ui/MobileBottomSheet";
+import { CommandFloatingOverlay, CommandPopover } from "@/components/ui/CommandOverlay";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { QuickActionsList } from "@/components/layout/QuickActionsMenu";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
@@ -110,76 +110,82 @@ function ProfilePanelContent({
     : getTenantRoleLabel(user.role);
 
   return (
-    <>
-      <div className="p-4 border-b border-[#1e3a5f]">
+    <div className="flex flex-col">
+      {/* Identity header */}
+      <div className="px-3.5 pt-3.5 pb-3 border-b border-white/[0.06]">
         <div className="flex items-center gap-3">
           <div
-            className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold text-white flex-shrink-0"
+            className="w-11 h-11 rounded-2xl flex items-center justify-center text-base font-bold text-white flex-shrink-0 ring-1 ring-white/10"
             style={{ background: "linear-gradient(135deg,#ff7a3d,#ff5722)" }}
           >
             {initials}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-white font-semibold text-sm truncate">{user.name}</div>
-            <div className="text-[#8ba3c7] text-xs truncate mt-0.5">{user.email}</div>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium",
-                  isActive
-                    ? "bg-emerald-500/15 text-emerald-400"
-                    : "bg-red-500/15 text-red-400",
-                )}
-              >
-                <span className={cn("w-1.5 h-1.5 rounded-full", isActive ? "bg-emerald-400" : "bg-red-400")} />
-                {isActive ? "نشط" : "غير نشط"}
-              </span>
-            </div>
+            <div className="text-[#8ba3c7] text-[11px] truncate mt-0.5">{user.email}</div>
           </div>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0",
+              isActive
+                ? "bg-emerald-500/12 text-emerald-400 border border-emerald-400/20"
+                : "bg-red-500/12 text-red-400 border border-red-400/20",
+            )}
+          >
+            <span className={cn("w-1.5 h-1.5 rounded-full", isActive ? "bg-emerald-400" : "bg-red-400")} />
+            {isActive ? "نشط" : "غير نشط"}
+          </span>
         </div>
       </div>
 
-      <div className="px-4 py-3 space-y-2 border-b border-[#1e3a5f]">
-        <div className="flex items-center gap-3 text-xs">
-          <ShieldCheck size={14} className="text-[#22d3ee] flex-shrink-0" />
-          <span className="text-[#8ba3c7]">الدور:</span>
-          <span className="text-white font-medium mr-auto">{roleLabel || "عضو الفريق"}</span>
+      {/* Info chips */}
+      <div className="px-3.5 py-2.5 flex flex-wrap gap-2 border-b border-white/[0.06]">
+        <div className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-2.5 py-1.5 text-[11px]">
+          <ShieldCheck size={12} className="text-cyan-300 shrink-0" />
+          <span className="text-[#8ba3c7]">الدور</span>
+          <span className="text-white font-medium">{roleLabel || "عضو الفريق"}</span>
         </div>
-        <div className="flex items-center gap-3 text-xs">
-          <Building2 size={14} className="text-[#22d3ee] flex-shrink-0" />
-          <span className="text-[#8ba3c7]">القسم:</span>
-          <span className={cn("mr-auto font-medium", departmentInfo.isEmpty ? "text-[11px] italic text-white/45" : "text-white")}>
+        <div className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-2.5 py-1.5 text-[11px] min-w-0">
+          <Building2 size={12} className="text-cyan-300 shrink-0" />
+          <span className="text-[#8ba3c7] shrink-0">القسم</span>
+          <span className={cn("font-medium truncate", departmentInfo.isEmpty ? "text-white/40 italic" : "text-white")}>
             {departmentInfo.text}
           </span>
         </div>
       </div>
 
-      <div className="p-2">
+      {/* Actions */}
+      <div className="p-2 space-y-0.5">
         <button
           onClick={() => { onNavigate("/employees"); onClose(); }}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[#8ba3c7] hover:text-white hover:bg-[#1a3356]/60 transition-all text-right"
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-[#8ba3c7] hover:text-white hover:bg-white/[0.05] transition-all text-right"
         >
-          <User size={15} className="text-[#22d3ee] flex-shrink-0" />
+          <span className="grid h-8 w-8 place-items-center rounded-lg border border-white/[0.08] bg-cyan-500/10">
+            <User size={14} className="text-cyan-300" />
+          </span>
           الملف الشخصي
         </button>
         <button
           onClick={() => { onNavigate("/settings"); onClose(); }}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[#8ba3c7] hover:text-white hover:bg-[#1a3356]/60 transition-all text-right"
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-[#8ba3c7] hover:text-white hover:bg-white/[0.05] transition-all text-right"
         >
-          <Settings size={15} className="text-[#22d3ee] flex-shrink-0" />
+          <span className="grid h-8 w-8 place-items-center rounded-lg border border-white/[0.08] bg-cyan-500/10">
+            <Settings size={14} className="text-cyan-300" />
+          </span>
           إعدادات الحساب
         </button>
-        <div className="my-1 border-t border-[#1e3a5f]" />
         <button
           onClick={() => { if (loggingOut) return; onLogout(); onClose(); }}
           disabled={loggingOut}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all text-right disabled:opacity-50 disabled:hover:text-red-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-red-400/90 hover:text-red-300 hover:bg-red-500/10 transition-all text-right disabled:opacity-50"
         >
-          <LogOut size={15} className="flex-shrink-0" />
+          <span className="grid h-8 w-8 place-items-center rounded-lg border border-red-400/15 bg-red-500/10">
+            <LogOut size={14} className="text-red-400" />
+          </span>
           {loggingOut ? "جارٍ تسجيل الخروج..." : "تسجيل الخروج"}
         </button>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -190,57 +196,88 @@ function NotificationsPanelContent({
   onMarkRead,
   onMarkAllRead,
   onNavigate,
+  unreadCount = 0,
+  compact = false,
 }: {
   notifications: ReturnType<typeof useNotifications>["notifications"];
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
   onNavigate: (href: string) => void;
+  unreadCount?: number;
+  compact?: boolean;
 }) {
   return (
-    <>
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e3a5f]">
-        <span className="text-white font-medium text-sm">الإشعارات</span>
-        <button onClick={onMarkAllRead} className="text-xs text-[#22d3ee] hover:underline">
-          تحديد الكل كمقروء
-        </button>
-      </div>
-      <div className="max-h-[min(60vh,360px)] overflow-y-auto overscroll-contain">
+    <div className="flex flex-col min-h-0">
+      {!compact && (
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] px-3.5 py-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-white">الإشعارات</span>
+            {unreadCount > 0 && (
+              <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[#ff7a3d]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#ff7a3d] border border-[#ff7a3d]/30">
+                {unreadCount}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={onMarkAllRead}
+            className="text-[11px] text-cyan-300/90 hover:text-cyan-200 transition-colors"
+          >
+            تحديد الكل كمقروء
+          </button>
+        </div>
+      )}
+
+      <div className={cn("overflow-y-auto overscroll-contain", compact ? "max-h-[50vh] p-2" : "max-h-[min(52vh,320px)] p-2")}>
         {notifications.length === 0 && (
-          <div className="px-4 py-10 text-center">
-            <Bell size={28} className="mx-auto mb-2 text-[#8ba3c7]/50" />
-            <p className="text-sm text-[#8ba3c7]">لا توجد إشعارات</p>
+          <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+            <span className="grid h-12 w-12 place-items-center rounded-2xl border border-cyan-400/20 bg-cyan-500/10 mb-3">
+              <Bell size={22} className="text-cyan-300/70" />
+            </span>
+            <p className="text-sm text-white/80 font-medium">لا توجد إشعارات</p>
+            <p className="text-[11px] text-[#8ba3c7] mt-1">ستظهر التنبيهات هنا عند وصولها</p>
           </div>
         )}
-        {notifications.map((n) => {
-          const cfg = NOTIF_ICONS[n.type];
-          return (
-            <button
-              key={n.id}
-              onClick={() => { onMarkRead(n.id); onNavigate(n.href); }}
-              className={cn(
-                "w-full flex items-start gap-3 px-4 py-3 hover:bg-[#1a3356]/60 transition-colors text-right border-b border-[#1e3a5f]/40 last:border-0",
-                !n.read && "bg-[#1a3356]/60",
-              )}
-            >
-              <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>
-                <cfg.icon size={14} className={cfg.color} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-white">{n.title}</div>
-                <div className="text-xs text-[#8ba3c7] mt-0.5 truncate">{n.body}</div>
-                <div className="text-[10px] text-[#6b87ab] mt-1">{timeAgo(n.at)}</div>
-              </div>
-              {!n.read && <div className="w-2 h-2 rounded-full bg-[#22d3ee] flex-shrink-0 mt-1" />}
-            </button>
-          );
-        })}
+        <div className="space-y-1.5">
+          {notifications.map((n) => {
+            const cfg = NOTIF_ICONS[n.type];
+            return (
+              <button
+                key={n.id}
+                onClick={() => { onMarkRead(n.id); onNavigate(n.href); }}
+                className={cn(
+                  "w-full flex items-start gap-2.5 rounded-xl px-2.5 py-2.5 text-right transition-all",
+                  "border border-transparent hover:border-white/[0.06] hover:bg-white/[0.04]",
+                  !n.read && "bg-cyan-500/[0.06] border-cyan-400/10",
+                )}
+              >
+                <div className={cn("grid h-9 w-9 place-items-center rounded-xl shrink-0 border border-white/[0.06]", cfg.bg)}>
+                  <cfg.icon size={15} className={cfg.color} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-[12px] font-medium text-white leading-snug line-clamp-2">{n.title}</div>
+                    {!n.read && <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 mt-1 shadow-[0_0_6px_#22d3ee]" />}
+                  </div>
+                  {n.body && (
+                    <div className="text-[11px] text-[#8ba3c7] mt-0.5 line-clamp-1">{n.body}</div>
+                  )}
+                  <div className="text-[10px] text-[#6b87ab] mt-1">{timeAgo(n.at)}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <div className="px-4 py-2.5 border-t border-[#1e3a5f]">
-        <button onClick={() => onNavigate("/tasks")} className="text-xs text-[#22d3ee] hover:underline w-full text-center">
+
+      <div className="shrink-0 border-t border-white/[0.06] px-3.5 py-2">
+        <button
+          onClick={() => onNavigate("/tasks")}
+          className="text-[11px] text-cyan-300/90 hover:text-cyan-200 w-full text-center transition-colors"
+        >
           عرض جميع التنبيهات
         </button>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -309,18 +346,24 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
         </GlassPopover>
       )}
 
-      {open && isMobile && (
-        <MobileBottomSheet open={open} onClose={onToggle} title="الملف الشخصي">
-          <ProfilePanelContent
-            user={user}
-            userRole={userRole}
-            loggingOut={loggingOut}
-            onLogout={onLogout}
-            onNavigate={onNavigate}
-            onClose={onToggle}
-          />
-        </MobileBottomSheet>
-      )}
+      <CommandFloatingOverlay
+        open={open && isMobile}
+        onClose={onToggle}
+        width="92vw"
+        maxWidth={420}
+        maxHeight="72vh"
+        placement="bottom-float"
+        showClose
+      >
+        <ProfilePanelContent
+          user={user}
+          userRole={userRole}
+          loggingOut={loggingOut}
+          onLogout={onLogout}
+          onNavigate={onNavigate}
+          onClose={onToggle}
+        />
+      </CommandFloatingOverlay>
     </div>
   );
 }
@@ -374,6 +417,20 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
     }
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
+  }, []);
+
+  // Escape closes desktop dropdowns (mobile overlays also listen independently)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      setOpenNotif(false);
+      setOpenMsg(false);
+      setOpenNew(false);
+      setOpenSearch(false);
+      setOpenProfile(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -483,9 +540,16 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
             <Plus size={18} />
           </button>
           {openNew && (
-            <GlassPopover className="absolute left-0 top-full mt-2 w-56 z-50">
-              <QuickActionsList onNavigate={() => setOpenNew(false)} compact />
-            </GlassPopover>
+            <div className="absolute left-0 top-full mt-2 z-50">
+              <CommandPopover width="320px">
+                <div className="border-b border-white/[0.07] px-3 py-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-200/70">
+                    إجراء سريع
+                  </p>
+                </div>
+                <QuickActionsList onNavigate={() => setOpenNew(false)} compact />
+              </CommandPopover>
+            </div>
           )}
         </div>
 
@@ -502,29 +566,52 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
             )}
           </button>
           {openNotif && !isMobile && (
-            <GlassPopover className="absolute left-0 top-full mt-2 w-80 z-50 max-h-[min(70vh,420px)] flex flex-col">
+            <GlassPopover className="absolute left-0 top-full mt-2 w-[min(340px,92vw)] z-50 flex flex-col">
               <NotificationsPanelContent
                 notifications={notifications}
                 onMarkRead={markRead}
                 onMarkAllRead={markAllRead}
                 onNavigate={goTo}
+                unreadCount={unreadNotif}
               />
             </GlassPopover>
           )}
         </div>
 
-        <MobileBottomSheet
+        <CommandFloatingOverlay
           open={openNotif && isMobile}
           onClose={() => setOpenNotif(false)}
           title="الإشعارات"
+          width="94vw"
+          maxWidth={460}
+          maxHeight="70vh"
+          placement="bottom-float"
+          headerAction={
+            <div className="flex items-center gap-2">
+              {unreadNotif > 0 && (
+                <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[#ff7a3d]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#ff7a3d] border border-[#ff7a3d]/30">
+                  {unreadNotif}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={markAllRead}
+                className="text-[11px] text-cyan-300/90 hover:text-cyan-200 whitespace-nowrap"
+              >
+                تحديد الكل كمقروء
+              </button>
+            </div>
+          }
         >
           <NotificationsPanelContent
             notifications={notifications}
             onMarkRead={markRead}
             onMarkAllRead={markAllRead}
             onNavigate={(href) => { goTo(href); setOpenNotif(false); }}
+            unreadCount={unreadNotif}
+            compact
           />
-        </MobileBottomSheet>
+        </CommandFloatingOverlay>
 
         {/* Messages (desktop) */}
         <div className="relative hidden lg:block">

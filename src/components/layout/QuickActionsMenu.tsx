@@ -45,7 +45,7 @@ export function useQuickActions(): QuickActionDef[] {
         href: "/tasks",
         color: "#22d3ee",
         enabled: canTasks,
-        disabledReason: canTasks ? undefined : "لا تملك صلاحية إدارة المهام",
+        disabledReason: canTasks ? undefined : "لا تملك صلاحية",
       },
       {
         id: "employee",
@@ -54,7 +54,7 @@ export function useQuickActions(): QuickActionDef[] {
         href: "/employees",
         color: "#a855f7",
         enabled: canEmployees,
-        disabledReason: canEmployees ? undefined : "لا تملك صلاحية إدارة الموظفين",
+        disabledReason: canEmployees ? undefined : "لا تملك صلاحية",
       },
       {
         id: "client",
@@ -63,7 +63,7 @@ export function useQuickActions(): QuickActionDef[] {
         href: "/clients",
         color: "#10b981",
         enabled: canClients,
-        disabledReason: canClients ? undefined : "لا تملك صلاحية إدارة العملاء",
+        disabledReason: canClients ? undefined : "لا تملك صلاحية",
       },
       {
         id: "invoice",
@@ -72,11 +72,7 @@ export function useQuickActions(): QuickActionDef[] {
         href: "/finance",
         color: "#ff7a3d",
         enabled: canFinance,
-        disabledReason: !financeOn
-          ? "ميزة المالية غير مفعّلة في باقتك"
-          : !hasPermission("manage_finance")
-            ? "لا تملك صلاحية إدارة المالية"
-            : undefined,
+        disabledReason: !financeOn ? "غير متاح في باقتك" : "لا تملك صلاحية",
       },
       {
         id: "expense",
@@ -85,11 +81,7 @@ export function useQuickActions(): QuickActionDef[] {
         href: "/finance",
         color: "#ef4444",
         enabled: canFinance,
-        disabledReason: !financeOn
-          ? "ميزة المالية غير مفعّلة في باقتك"
-          : !hasPermission("manage_finance")
-            ? "لا تملك صلاحية إدارة المالية"
-            : undefined,
+        disabledReason: !financeOn ? "غير متاح في باقتك" : "لا تملك صلاحية",
       },
     ];
   }, [hasPermission, financeOn]);
@@ -114,7 +106,7 @@ export function QuickActionsList({
   };
 
   return (
-    <div className={cn("py-1", compact ? "px-1" : "px-2")}>
+    <div className={cn(compact ? "p-1.5" : "p-2")}>
       {actions.map((item) => (
         <button
           key={item.id}
@@ -123,23 +115,30 @@ export function QuickActionsList({
           title={item.disabledReason}
           onClick={() => go(item)}
           className={cn(
-            "w-full flex items-center gap-3 rounded-xl text-right transition-colors border-b border-white/[0.06] last:border-0",
-            compact ? "px-3 py-2.5" : "px-4 py-3.5",
+            "w-full flex items-center gap-2.5 rounded-xl text-right transition-all",
+            compact ? "px-2.5 py-2" : "px-3 py-2.5",
             item.enabled
-              ? "hover:bg-white/[0.06] text-white"
-              : "opacity-45 cursor-not-allowed text-white/60",
+              ? "hover:bg-white/[0.06] text-white active:scale-[0.99]"
+              : "opacity-40 cursor-not-allowed text-white/55",
           )}
         >
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: `${item.color}22` }}
+            className={cn(
+              "grid place-items-center rounded-xl border border-white/[0.08] flex-shrink-0",
+              compact ? "h-8 w-8" : "h-9 w-9",
+            )}
+            style={{
+              background: `linear-gradient(135deg, ${item.color}33, ${item.color}11)`,
+            }}
           >
-            <item.icon size={16} style={{ color: item.color }} />
+            <item.icon size={compact ? 14 : 15} style={{ color: item.color }} />
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">{item.label}</div>
+          <div className="min-w-0 flex-1 text-right">
+            <div className={cn("font-medium leading-snug", compact ? "text-[13px]" : "text-sm")}>
+              {item.label}
+            </div>
             {!item.enabled && item.disabledReason && (
-              <div className="text-[10px] text-[#8ba3c7] mt-0.5 leading-snug">{item.disabledReason}</div>
+              <div className="text-[10px] text-[#8ba3c7]/90 mt-0.5">{item.disabledReason}</div>
             )}
           </div>
         </button>
