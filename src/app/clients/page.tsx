@@ -31,10 +31,10 @@ const STATUSES: ClientStatus[] = ["محتمل", "متعاقد", "نشط", "مت�
 
 function ClientsContent() {
   const { data: clients, loading, insert, update, remove } = useClients();
-  const { userRole } = usePermissions();
+  const { hasPermission } = usePermissions();
   const { user } = useAuth();
   const toast = useToast();
-  const isAdmin = userRole === "super_admin";
+  const canManageClients = hasPermission("manage_clients");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "الكل">("الكل");
   const [cityFilter, setCityFilter] = useState("الكل");
@@ -127,7 +127,7 @@ function ClientsContent() {
     <DashboardLayout>
       <div className={WS_PAGE}>
         <PageHero title="إدارة العملاء (CRM)" subtitle="إدارة علاقات العملاء والعقود">
-          {isAdmin && (
+          {canManageClients && (
             <button onClick={openAdd} className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto min-h-11 touch-manipulation">
               <Plus size={16} />
               عميل جديد
@@ -260,7 +260,7 @@ function ClientsContent() {
                 {client.accountManagerName && (
                   <div className="text-[11px] text-[#6b87ab] mt-2 truncate">المسؤول: {client.accountManagerName}</div>
                 )}
-                {isAdmin && (
+                {canManageClients && (
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#1e3a5f]/40">
                     <button onClick={() => openEdit(client)} aria-label="تعديل العميل" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
                       <Edit2 size={13} />
@@ -319,7 +319,7 @@ function ClientsContent() {
                         <span className={`badge ${STATUS_CONFIG[client.status].class}`}>{STATUS_CONFIG[client.status].label}</span>
                       </td>
                       <td className="px-4 py-3">
-                        {isAdmin && (
+                        {canManageClients && (
                           <div className="flex items-center gap-2">
                             <button onClick={() => openEdit(client)} aria-label="تعديل العميل" className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
                               <Edit2 size={14} />

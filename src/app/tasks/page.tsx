@@ -34,10 +34,10 @@ function TasksContent() {
   const { data: tasks, loading, insert, update, remove } = useTasks();
   const { data: clients } = useClients();
   const { data: employees } = useEmployees();
-  const { userRole } = usePermissions();
+  const { hasPermission } = usePermissions();
   const { user } = useAuth();
   const toast = useToast();
-  const isAdmin = userRole === "super_admin";
+  const canManageTasks = hasPermission("manage_tasks");
   const [view, setView] = useState<ViewMode>("kanban");
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -147,7 +147,7 @@ function TasksContent() {
               <List size={16} />
             </button>
           </div>
-          {isAdmin && (
+          {canManageTasks && (
             <button onClick={openAdd} className="btn-primary min-h-11 px-4 flex items-center gap-2 whitespace-nowrap touch-manipulation">
               <Plus size={16} />
               مهمة جديدة
@@ -171,7 +171,7 @@ function TasksContent() {
             subtitle="أنشئ أول مهمة لتتبع عمل فريقك"
             accent="cyan"
             action={
-              isAdmin ? (
+              canManageTasks ? (
                 <button onClick={openAdd} className="btn-primary min-h-11 px-4 flex items-center gap-2 touch-manipulation">
                   <Plus size={16} />
                   مهمة جديدة
@@ -209,7 +209,7 @@ function TasksContent() {
                               {isOverdue(task.dueDate, task.status) && task.status !== "متأخرة" && <AlertTriangle size={12} className="text-red-400" />}
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                              {isAdmin && (
+                              {canManageTasks && (
                                 <>
                                   <button onClick={() => openEdit(task)} aria-label="تعديل المهمة" className="rounded-md p-1.5 text-[#8ba3c7] transition-colors hover:text-[#22d3ee]">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
