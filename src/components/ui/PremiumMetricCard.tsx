@@ -3,7 +3,14 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { KpiTheme } from "@/components/ui/workspaceVisual";
-import { WS_ICON_ORB } from "@/components/ui/workspaceVisual";
+import {
+  WS_CARD,
+  WS_CARD_HOVER,
+  WS_ICON_ORB,
+  WS_METRIC_LABEL,
+  WS_METRIC_VALUE,
+  WS_STATUS_CHIP,
+} from "@/components/ui/workspaceVisual";
 import { Sparkline } from "@/components/ui/workspaceUi";
 
 const DISABLE_TEXT_SELECT_STYLE = {
@@ -27,8 +34,7 @@ export interface PremiumMetricCardProps {
 }
 
 /**
- * Dashboard KPI tile — matches OrgPackagePlanCards premium language:
- * gradient border, soft glow, glass background, icon tile, status badge, sparkline.
+ * Dashboard KPI tile — premium glass card with icon tile, status badge, sparkline.
  */
 export function PremiumMetricCard({
   label,
@@ -48,33 +54,33 @@ export function PremiumMetricCard({
   return (
     <div
       className={cn(
-        "group relative w-full h-full flex flex-col overflow-hidden rounded-3xl transition-all duration-300",
+        "group relative w-full h-full flex flex-col overflow-hidden",
+        WS_CARD,
+        WS_CARD_HOVER,
         "min-h-[168px] sm:min-h-[188px]",
-        "border bg-[#070d20]/88 backdrop-blur-xl",
         theme.panelBorder,
         theme.glow,
-        "hover:scale-[1.01] active:scale-[0.99]",
         className,
       )}
     >
-      {/* Package-card style ambient layers */}
+      {/* Ambient layers */}
       <div className={cn("pointer-events-none absolute inset-0", theme.ambient)} />
       <div
-        className="pointer-events-none absolute -top-12 -right-8 h-28 w-28 rounded-full blur-2xl opacity-55"
-        style={{ background: "var(--kpi-orb, rgba(34,211,238,0.35))" }}
+        className="pointer-events-none absolute -top-12 -right-8 h-28 w-28 rounded-full blur-2xl opacity-40"
+        style={{ background: "var(--kpi-orb, rgba(34,211,238,0.25))" }}
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute -bottom-10 -left-6 h-24 w-24 rounded-full blur-2xl opacity-35"
-        style={{ background: "var(--kpi-orb-secondary, rgba(34,211,238,0.22))" }}
+        className="pointer-events-none absolute -bottom-10 -left-6 h-24 w-24 rounded-full blur-2xl opacity-25"
+        style={{ background: "var(--kpi-orb-secondary, rgba(34,211,238,0.15))" }}
         aria-hidden
       />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_55%_at_50%_0%,rgba(255,255,255,0.08),transparent_62%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_55%_at_50%_0%,rgba(255,255,255,0.06),transparent_62%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
-      <div className="relative z-10 flex h-full flex-col justify-between gap-3 p-3.5 sm:p-4 min-w-0">
+      <div className="relative z-10 flex h-full flex-col justify-between gap-3 p-4 sm:p-5 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <div className={cn(WS_ICON_ORB, "w-10 h-10 sm:w-11 sm:h-11 shrink-0", theme.iconTile, theme.orb)}>
+          <div className={cn(WS_ICON_ORB, "w-[42px] h-[42px] shrink-0", theme.iconTile, theme.orb)}>
             <Icon size={18} className={iconColor} />
           </div>
           {onLiveClick ? (
@@ -86,7 +92,8 @@ export function PremiumMetricCard({
               onTouchStart={(e) => e.currentTarget.blur()}
               onClick={onLiveClick}
               className={cn(
-                "inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full leading-none select-none cursor-pointer touch-manipulation transition-colors border",
+                WS_STATUS_CHIP,
+                "cursor-pointer touch-manipulation select-none transition-colors hover:border-[rgba(34,211,238,0.28)]",
                 theme.livePill,
               )}
               style={DISABLE_TEXT_SELECT_STYLE}
@@ -103,11 +110,11 @@ export function PremiumMetricCard({
         </div>
 
         <div className="min-w-0">
-          <div className="font-heading font-bold tracking-tight text-white leading-[0.9] text-[clamp(1.75rem,6.8vw,3.25rem)] drop-shadow-[0_2px_16px_rgba(0,0,0,0.45)]">
+          <div className={cn(WS_METRIC_VALUE, "drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]")}>
             {value}
           </div>
-          <div className="mt-1.5 text-[12.5px] font-semibold text-white/90 leading-snug line-clamp-2">{label}</div>
-          <div className="text-[10.5px] text-white/45 mt-0.5 leading-snug line-clamp-1">{subtitle}</div>
+          <div className={cn(WS_METRIC_LABEL, "mt-2 font-semibold text-white/90 line-clamp-2")}>{label}</div>
+          <div className="text-[11px] text-white/45 mt-1 leading-snug line-clamp-1">{subtitle}</div>
         </div>
 
         <div className="space-y-2 min-w-0">
@@ -121,7 +128,7 @@ export function PremiumMetricCard({
                 style={{ width: progressWidth ?? "42%" }}
               />
             </div>
-            <div className={cn("h-5 w-14 shrink-0 opacity-70", theme.spark)}>
+            <div className={cn("h-5 w-14 shrink-0 opacity-60", theme.spark)}>
               <Sparkline colorClass={theme.iconColor} />
             </div>
           </div>
