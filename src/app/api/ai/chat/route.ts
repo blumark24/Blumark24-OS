@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { getAiRequestCap, loadPlanLimitContext } from "@/lib/planLimits";
 
 export const runtime = "nodejs";
@@ -82,7 +83,7 @@ function getAccessTokenFromSupabaseCookies(req: NextRequest): string | null {
 
 async function requireAuthenticatedUser(
   req: NextRequest,
-): Promise<{ ok: true } | { ok: false; response: NextResponse }> {
+): Promise<{ ok: true; accessToken: string } | { ok: false; response: NextResponse }> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
