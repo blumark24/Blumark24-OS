@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Blumark24 Owner Command Center — static UI preview data (Phase 1, read-only).
-// No DB, no localStorage. These arrays exist only to render the owner dashboard.
+// Blumark24 Owner Command Center — layout metadata and placeholder-only sections.
+// Operational KPI / AI / activity data must come from ownerTruthQueries + Supabase.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { LucideIcon } from "lucide-react";
@@ -9,31 +9,25 @@ import {
   Wallet,
   Sparkles,
   Users,
-  ArrowUpCircle,
-  PauseCircle,
-  AlertTriangle,
-  MessageCircle,
 } from "lucide-react";
 
 export type Accent = "cyan" | "blue" | "purple" | "orange" | "green";
 
 // ─── 4. KPI cards ────────────────────────────────────────────────────────────
 
-export interface Kpi {
+export interface KpiDefinition {
   id: string;
   label: string;
-  value: string;
-  trend: string;
-  trendUp: boolean;
   icon: LucideIcon;
   accent: Accent;
 }
 
-export const KPIS: Kpi[] = [
-  { id: "orgs",   label: "المنشآت النشطة",          value: "124",        trend: "+12%", trendUp: true,  icon: Building2, accent: "cyan"   },
-  { id: "mrr",    label: "الاشتراكات الشهرية",      value: "SAR 48,000", trend: "+8%",  trendUp: true,  icon: Wallet,    accent: "blue"   },
-  { id: "ai",     label: "استخدام الذكاء الاصطناعي", value: "78%",        trend: "+5%",  trendUp: true,  icon: Sparkles,  accent: "purple" },
-  { id: "staff",  label: "إجمالي موظفي العملاء",     value: "1,248",      trend: "+23",  trendUp: true,  icon: Users,     accent: "green"  },
+/** KPI card layout metadata — values are loaded from Supabase or show unavailable. */
+export const KPI_DEFINITIONS: KpiDefinition[] = [
+  { id: "orgs",  label: "المنشآت النشطة",           icon: Building2, accent: "cyan"   },
+  { id: "mrr",   label: "الاشتراكات الشهرية",       icon: Wallet,    accent: "blue"   },
+  { id: "ai",    label: "استخدام الذكاء الاصطناعي", icon: Sparkles,  accent: "purple" },
+  { id: "staff", label: "إجمالي موظفي العملاء",      icon: Users,     accent: "green"  },
 ];
 
 // ─── 5. Organizations ────────────────────────────────────────────────────────
@@ -142,16 +136,7 @@ export const LIMIT_PREVIEW = {
   ] satisfies LimitMetric[],
 };
 
-// ─── 8. AI usage ─────────────────────────────────────────────────────────────
-
-export const AI_USAGE: LimitMetric[] = [
-  { label: "إجمالي الرسائل", value: "45,628" },
-  { label: "التحليلات",       value: "18,542" },
-  { label: "التقارير",        value: "12,154" },
-  { label: "تكلفة تقريبية",   value: "SAR 2,450" },
-];
-
-// ─── 9. WhatsApp bot ─────────────────────────────────────────────────────────
+// ─── 8. WhatsApp bot (placeholder — Phase 1+ follow-up) ─────────────────────
 
 export const WHATSAPP = {
   status: "نشط",
@@ -164,26 +149,7 @@ export const WHATSAPP = {
   successRate: 87.7,
 };
 
-// ─── 10. Activity timeline ───────────────────────────────────────────────────
-
-export interface ActivityItem {
-  id: string;
-  title: string;
-  detail: string;
-  time: string;
-  icon: LucideIcon;
-  accent: Accent;
-}
-
-export const ACTIVITY: ActivityItem[] = [
-  { id: "a1", title: "تم إنشاء منشأة جديدة",          detail: "شركة القمة التقنية", time: "منذ 5 دقائق", icon: Building2,     accent: "cyan"   },
-  { id: "a2", title: "تم ترقية باقة مؤسسة الريادة",   detail: "إلى باقة نمو",        time: "منذ ساعة",    icon: ArrowUpCircle, accent: "blue"   },
-  { id: "a3", title: "تم تعليق اشتراك مؤسسة النور",   detail: "بسبب تأخر الدفع",     time: "منذ 3 ساعات", icon: PauseCircle,   accent: "orange" },
-  { id: "a4", title: "تجاوز استخدام AI في شركة البناء الحديث", detail: "بلغ 93% من الحد", time: "منذ 6 ساعات", icon: AlertTriangle, accent: "orange" },
-  { id: "a5", title: "تم تفعيل واتساب بوت لشركة القمة التقنية", detail: "الجلسة متصلة",   time: "أمس",        icon: MessageCircle, accent: "green"  },
-];
-
-// ─── 11. System status footer ────────────────────────────────────────────────
+// ─── 9. System status footer (placeholder — Phase 1+ follow-up) ──────────────
 
 export const SYSTEM_STATUS = {
   headline: "جميع الأنظمة تعمل بشكل طبيعي",
