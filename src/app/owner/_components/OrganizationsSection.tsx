@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Building2, Eye, ArrowUpCircle, PauseCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DisplayOrg } from "../_lib/ownerQueries";
@@ -15,12 +16,15 @@ const STATUS_BADGE: Record<string, string> = {
   "معلقة": "bg-[#f59e0b]/15 text-[#fbbf24]",
 };
 
-function ActionButtons() {
+function ActionButtons({ orgId }: { orgId: string }) {
   return (
     <div className="flex items-center gap-1.5">
-      <button disabled className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/25 bg-[#22d3ee]/[0.08] px-2.5 py-1 text-[11px] text-[#22d3ee]/50 cursor-not-allowed">
+      <Link
+        href={`/owner/organizations/${orgId}`}
+        className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/30 bg-[#22d3ee]/[0.10] px-2.5 py-1 text-[11px] text-[#22d3ee] hover:bg-[#22d3ee]/20 hover:border-[#22d3ee]/50 transition-colors"
+      >
         <Eye size={12} /> عرض
-      </button>
+      </Link>
       <button disabled className="inline-flex items-center gap-1 rounded-lg border border-[#a855f7]/25 bg-[#a855f7]/[0.08] px-2.5 py-1 text-[11px] text-[#c084fc]/50 cursor-not-allowed">
         <ArrowUpCircle size={12} /> ترقية
       </button>
@@ -88,7 +92,7 @@ function OrgCardMobile({ org }: { org: DisplayOrg }) {
         </div>
       </div>
 
-      <ActionButtons />
+      <ActionButtons orgId={org.id} />
     </div>
   );
 }
@@ -160,7 +164,7 @@ export default function OrganizationsSection({ organizations, loading, error }: 
                         <td className="py-3 text-[12px] text-[#8ba3c7]">
                           {org.isInternal ? "داخلي" : "عميل"}
                         </td>
-                        <td className="py-3"><ActionButtons /></td>
+                        <td className="py-3"><ActionButtons orgId={org.id} /></td>
                       </tr>
                     ))}
                 {!loading && count === 0 && (
