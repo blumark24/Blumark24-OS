@@ -6,7 +6,8 @@ import { departmentColor } from "@/lib/services/departments";
 import { useDepartments } from "@/hooks/useDepartments";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
-import { PageHero, KpiStatCard } from "@/components/ui/workspaceUi";
+import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Users, Plus, Search, Star, Edit2, Trash2, X, Eye, EyeOff } from "lucide-react";
 import {
@@ -14,6 +15,7 @@ import {
   TENANT_ROLES,
   UserRole,
 } from "@/contexts/PermissionsContext";
+import { TENANT_ASSIGNABLE_ROLES } from "@/lib/tenant/tenantDisplay";
 import { useEmployees } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import PageGuard from "@/components/ui/PageGuard";
@@ -40,7 +42,7 @@ function EmployeesContent() {
   const { data: departments } = useDepartments();
   const { userRole, hasPermission } = usePermissions();
   const assignableRoles: UserRole[] =
-    userRole === "super_admin" ? [...TENANT_ROLES, "super_admin"] : TENANT_ROLES;
+    userRole === "super_admin" ? [...TENANT_ASSIGNABLE_ROLES, "super_admin"] : [...TENANT_ASSIGNABLE_ROLES];
   const deptNames = departments.map((d) => d.name);
   const defaultDept = deptNames[0] ?? "";
   const toast = useToast();
@@ -106,6 +108,19 @@ function EmployeesContent() {
     const cleanEmail = form.email.replace(/[^\x00-\x7F]/g, "").replace(/\s/g, "").trim().toLowerCase();
 
     if (!form.name.trim()) { toast.error("الاسم الكامل مطلوب"); return; }
+    if (!form.role) { toast.error("الدور مطلوب"); return; }
+    if (!assignableRoles.includes(form.role)) {
+      toast.error("الدور المحدد غير مسموح به في واجهة المنشأة");
+      return;
+    }
+    if (deptNames.length > 0 && !form.department.trim()) {
+      toast.error("القسم مطلوب — اختر قسمًا من القائمة");
+      return;
+    }
+    if (deptNames.length === 0 && !editId) {
+      toast.error("أضف قسمًا أولاً من الإعدادات أو الهيكل الإداري");
+      return;
+    }
     if (!cleanEmail) { toast.error("البريد الإلكتروني مطلوب"); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       toast.error("البريد الإلكتروني غير صالح — مثال: user@domain.com");
@@ -277,7 +292,24 @@ function EmployeesContent() {
         )}
         {loading && <div className="text-center py-8 text-[#8ba3c7] text-sm">جارٍ التحميل...</div>}
 
-        {!loading && (
+        {!loading && employees.length === 0 && !error && (
+          <WorkspaceEmpty
+            icon={Users}
+            title="لا يوجد موظفون بعد"
+            subtitle="ابدأ ببناء فريق عملك بإضافة أول موظف"
+            accent="violet"
+            action={
+              canManageEmployees ? (
+                <button onClick={openAdd} className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation">
+                  <Plus size={16} />
+                  إضافة موظف
+                </button>
+              ) : undefined
+            }
+          />
+        )}
+
+        {!loading && employees.length > 0 && (
           <div className={cn(WS_CARD, "overflow-hidden p-0")}>
             <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[700px]">
@@ -346,7 +378,9 @@ function EmployeesContent() {
             </table>
             </div>
             {filtered.length === 0 && (
-              <div className="text-center py-12 text-[#8ba3c7]">لا توجد نتائج</div>
+              <div className="text-center py-12 text-[#8ba3c7]">
+                <p className="text-sm">لا توجد نتائج مطابقة للبحث</p>
+              </div>
             )}
           </div>
         )}
@@ -429,21 +463,43 @@ function EmployeesContent() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">القسم</label>
-                  <select className="input-dark text-sm" value={form.department}
-                    onChange={(e) => setForm({ ...form, department: e.target.value })}>
-                    {deptNames.length === 0 ? (
-                      <option value="">— أضف أقساماً من الهيكل الإداري —</option>
-                    ) : (
-                      deptNames.map((d) => <option key={d} value={d}>{d}</option>)
-                    )}
-                  </select>
+                  <label className="block text-xs text-[#8ba3c7] mb-1.5">القسم *</label>
+                  {deptNames.length === 0 ? (
+                    <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2.5 text-[11px] text-amber-100/90 leading-relaxed">
+                      أضف قسمًا أولاً من{" "}
+                      <Link href="/org" className="text-[#22d3ee] underline underline-offset-2">
+                        الهيكل الإداري
+                      </Link>
+                      {" "}أو{" "}
+                      <Link href="/settings" className="text-[#22d3ee] underline underline-offset-2">
+                        الإعدادات
+                      </Link>
+                    </div>
+                  ) : (
+                    <select
+                      className="input-dark text-sm"
+                      value={form.department}
+                      required
+                      onChange={(e) => setForm({ ...form, department: e.target.value })}
+                    >
+                      <option value="">— اختر القسم —</option>
+                      {deptNames.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الدور</label>
-                  <select className="input-dark text-sm" value={form.role}
-                    onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}>
-                    {assignableRoles.map((r) => <option key={r} value={r}>{getTenantRoleLabel(r)}</option>)}
+                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الدور *</label>
+                  <select
+                    className="input-dark text-sm"
+                    value={form.role}
+                    required
+                    onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}
+                  >
+                    {assignableRoles.map((r) => (
+                      <option key={r} value={r}>{getTenantRoleLabel(r)}</option>
+                    ))}
                   </select>
                 </div>
               </div>

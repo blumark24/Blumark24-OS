@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
@@ -20,8 +20,9 @@ import {
   getRouteLabel,
   type WorkspaceRouteId,
 } from "@/lib/features/packageFeatures";
-import { useToast } from "@/contexts/ToastContext";
 import { MOBILE_ROUTE_LABELS } from "@/lib/tenant/tenantDisplay";
+import { MobileBottomSheet } from "@/components/ui/MobileBottomSheet";
+import { QuickActionsList } from "@/components/layout/QuickActionsMenu";
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -40,13 +41,6 @@ const BOTTOM_SLOT_ORDER: WorkspaceRouteId[] = [
   "clients",
 ];
 
-const QUICK_CREATE = [
-  { label: "عميل جديد", icon: UserCircle, href: "/clients", color: "#10b981" },
-  { label: "مهمة جديدة", icon: CheckSquare, href: "/tasks", color: "#22d3ee" },
-  { label: "موظف جديد", icon: Users, href: "/employees", color: "#a855f7" },
-  { label: "فاتورة جديدة", icon: DollarSign, href: "/finance", color: "#ff7a3d" },
-];
-
 function isRouteActive(pathname: string, href: string) {
   return href === "/dashboard"
     ? pathname === "/dashboard"
@@ -55,8 +49,6 @@ function isRouteActive(pathname: string, href: string) {
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
-  const router = useRouter();
-  const toast = useToast();
   const { navRoutes, loading } = useTenantWorkspace();
   const [quickOpen, setQuickOpen] = useState(false);
 
@@ -83,27 +75,17 @@ export default function MobileBottomNav() {
   const leftTabs = tabRoutes.slice(0, 2);
   const rightTabs = tabRoutes.slice(2, 4);
 
-  const goQuick = useCallback(
-    (href: string, label: string) => {
-      setQuickOpen(false);
-      router.push(href);
-      toast.info(`انتقلت إلى ${label.replace(" جديد", "")}`);
-    },
-    [router, toast],
-  );
-
   if (loading || tabRoutes.length === 0) return null;
 
   return (
     <>
-      {quickOpen && (
-        <button
-          type="button"
-          aria-label="إغلاق"
-          className="lg:hidden fixed inset-0 z-[45] bg-[#030913]/50 backdrop-blur-[2px]"
-          onClick={() => setQuickOpen(false)}
-        />
-      )}
+      <MobileBottomSheet
+        open={quickOpen}
+        onClose={() => setQuickOpen(false)}
+        title="إنشاء سريع"
+      >
+        <QuickActionsList onNavigate={() => setQuickOpen(false)} />
+      </MobileBottomSheet>
 
       <div
         className="lg:hidden fixed inset-x-0 bottom-0 z-40 pointer-events-none flex justify-center px-3"
@@ -124,6 +106,7 @@ export default function MobileBottomNav() {
                 quickOpen && "rotate-45",
               )}
               aria-label={quickOpen ? "إغلاق الإنشاء السريع" : "إنشاء جديد"}
+              aria-expanded={quickOpen}
             >
               <span
                 className="absolute inset-0 rounded-full animate-pulse opacity-40"
@@ -133,35 +116,12 @@ export default function MobileBottomNav() {
                 }}
                 aria-hidden
               />
-              {quickOpen ? <X size={22} className="relative z-[1]" /> : <Plus size={24} className="relative z-[1]" strokeWidth={2.5} />}
+              {quickOpen ? (
+                <X size={22} className="relative z-[1]" />
+              ) : (
+                <Plus size={24} className="relative z-[1]" strokeWidth={2.5} />
+              )}
             </button>
-
-            {quickOpen && (
-              <div
-                className="absolute bottom-[calc(100%+0.75rem)] left-1/2 -translate-x-1/2 w-52 rounded-2xl border border-white/10 overflow-hidden shadow-2xl"
-                style={{
-                  background: "rgba(10,22,40,0.94)",
-                  backdropFilter: "blur(20px)",
-                }}
-              >
-                {QUICK_CREATE.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => goQuick(item.href, item.label)}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-right hover:bg-white/[0.06] transition-colors border-b border-white/[0.06] last:border-0"
-                  >
-                    <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: `${item.color}22` }}
-                    >
-                      <item.icon size={15} style={{ color: item.color }} />
-                    </div>
-                    <span className="text-sm text-white">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Floating glass bar */}

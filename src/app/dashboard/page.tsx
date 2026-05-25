@@ -26,7 +26,7 @@ import {
   BOARD_THEME, WS_TINTS, type BoardKey, type KpiAccent,
 } from "@/components/ui/workspaceVisual";
 import { StatPill, QuickActionTile, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
-import { PremiumKpiCard } from "@/components/ui/PremiumKpiCard";
+import { PremiumMetricCard } from "@/components/ui/PremiumMetricCard";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 
@@ -456,7 +456,7 @@ export default function DashboardPage() {
                   );
 
                 return (
-                  <PremiumKpiCard
+                  <PremiumMetricCard
                     key={card.key}
                     label={card.label}
                     value={card.value}
