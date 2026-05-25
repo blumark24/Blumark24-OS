@@ -38,7 +38,7 @@ export async function authorizeUserProvisioner(
   if (error || !data?.user) {
     return {
       ok: false,
-      status: 403,
+      status: 401,
       error: "جلسة المستخدم غير صالحة أو انتهت — يرجى تسجيل الدخول مجدداً",
       debug: error?.message ?? "no user",
     };

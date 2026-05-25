@@ -221,7 +221,7 @@ export async function getBoardMembers(): Promise<BoardMember[]> {
 
 export async function insertBoardMember(member: Omit<BoardMember, "id">): Promise<BoardMember> {
   const orgId = await currentOrgIdForBoard();
-  if (!orgId) throw new Error("تعذر تحديد المنشأة");
+  if (!orgId) throw new Error("تعذر تحديد المنشأة أو صلاحيات الوصول.");
 
   const { data, error } = await supabase
     .from("board_members")
@@ -234,7 +234,7 @@ export async function insertBoardMember(member: Omit<BoardMember, "id">): Promis
 
 export async function updateBoardMember(id: string, changes: Partial<Omit<BoardMember, "id">>): Promise<void> {
   const orgId = await currentOrgIdForBoard();
-  if (!orgId) throw new Error("تعذر تحديد المنشأة");
+  if (!orgId) throw new Error("تعذر تحديد المنشأة أو صلاحيات الوصول.");
 
   const { error } = await supabase
     .from("board_members")
@@ -246,7 +246,7 @@ export async function updateBoardMember(id: string, changes: Partial<Omit<BoardM
 
 export async function deleteBoardMember(id: string): Promise<void> {
   const orgId = await currentOrgIdForBoard();
-  if (!orgId) throw new Error("مجلس الإدارة متاح لمنشأة Blumark24 الداخلية فقط");
+  if (!orgId) throw new Error("تعذر تحديد المنشأة أو صلاحيات الوصول.");
 
   const { error } = await supabase
     .from("board_members")

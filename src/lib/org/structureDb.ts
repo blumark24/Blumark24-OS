@@ -14,7 +14,7 @@ import type {
 
 async function resolveOrgId(): Promise<string> {
   const { data, error } = await supabase.rpc("current_org_id");
-  if (error || !data) throw new Error("تعذر تحديد المنشأة (organization_id)");
+  if (error || !data) throw new Error("تعذر تحديد المنشأة أو صلاحيات الوصول.");
   return data as string;
 }
 
