@@ -16,6 +16,7 @@ import {
   PieChart, Pie, Cell,
 } from "recharts";
 import { useQueryAction } from "@/hooks/useQueryAction";
+import { featureEnabled } from "@/lib/features/packageFeatures";
 
 const ARABIC_MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
@@ -33,10 +34,12 @@ function emptyForm(): FormState {
 
 function FinanceContent() {
   const { data: transactions, loading, insert, update, remove } = useTransactions();
-  const { userRole } = usePermissions();
-  const { planLimits } = useTenantWorkspace();
+  const { userRole, hasPermission } = usePermissions();
+  const { planLimits, enabledFeatures, isPlatformAdmin } = useTenantWorkspace();
   const toast = useToast();
   const isAdmin = userRole === "super_admin";
+  const financeOn = isPlatformAdmin || featureEnabled(enabledFeatures, "finance");
+  const canManageFinance = hasPermission("manage_finance") && financeOn;
   const showCompanyFund = (planLimits.company_fund_enabled ?? 0) > 0;
 
   const [showModal, setShowModal] = useState(false);
@@ -120,8 +123,8 @@ function FinanceContent() {
     setShowModal(true);
   }, []);
 
-  useQueryAction("action", "invoice", () => openAddWithType("دخل"), isAdmin);
-  useQueryAction("action", "expense", () => openAddWithType("مصروف"), isAdmin);
+  useQueryAction("action", "invoice", () => openAddWithType("دخل"), canManageFinance);
+  useQueryAction("action", "expense", () => openAddWithType("مصروف"), canManageFinance);
 
   const openEdit = (tx: Transaction) => {
     setEditId(tx.id);

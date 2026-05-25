@@ -110,7 +110,8 @@ function EmployeesContent() {
     setShowModal(true);
   }, [defaultDeptId]);
 
-  useQueryAction("action", "create", openAdd, canManageEmployees);
+  const canOpenCreateFromQuery = hasPermission("manage_users");
+  useQueryAction("action", "create", openAdd, canOpenCreateFromQuery);
 
   const openEdit = (emp: typeof employees[0]) => {
     setEditId(emp.id);

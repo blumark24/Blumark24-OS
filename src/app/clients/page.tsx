@@ -32,10 +32,11 @@ const STATUSES: ClientStatus[] = ["محتمل", "متعاقد", "نشط", "مت�
 
 function ClientsContent() {
   const { data: clients, loading, insert, update, remove } = useClients();
-  const { userRole } = usePermissions();
+  const { userRole, hasPermission } = usePermissions();
   const { user } = useAuth();
   const toast = useToast();
   const isAdmin = userRole === "super_admin";
+  const canManageClients = hasPermission("manage_clients");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "الكل">("الكل");
   const [cityFilter, setCityFilter] = useState("الكل");
@@ -76,7 +77,7 @@ function ClientsContent() {
     setShowModal(true);
   }, []);
 
-  useQueryAction("action", "create", openAdd, isAdmin);
+  useQueryAction("action", "create", openAdd, canManageClients);
 
   const openEdit = (c: typeof clients[0]) => {
     setEditId(c.id);

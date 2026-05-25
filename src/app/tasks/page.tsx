@@ -39,10 +39,11 @@ function TasksContent() {
   const filterParam = searchParams.get("filter");
   const { data: clients } = useClients();
   const { data: employees } = useEmployees();
-  const { userRole } = usePermissions();
+  const { userRole, hasPermission } = usePermissions();
   const { user } = useAuth();
   const toast = useToast();
   const isAdmin = userRole === "super_admin";
+  const canManageTasks = hasPermission("manage_tasks");
   const [view, setView] = useState<ViewMode>("kanban");
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -69,7 +70,7 @@ function TasksContent() {
     setShowModal(true);
   }, []);
 
-  useQueryAction("action", "create", openAdd, isAdmin);
+  useQueryAction("action", "create", openAdd, canManageTasks);
 
   useEffect(() => {
     if (statusParam || filterParam) setView("list");
