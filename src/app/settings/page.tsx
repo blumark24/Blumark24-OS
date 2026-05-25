@@ -34,6 +34,7 @@ import {
 } from "@/lib/db";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
+import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
 import { useAutomations } from "@/hooks/useData";
 import { withTimeout } from "@/lib/asyncHelpers";
 
@@ -184,13 +185,17 @@ function PermissionsTab() {
                   </td>
                   <td className="px-4 py-3">
                     {editingUserId === u.userId ? (
-                      <select
-                        className="input-dark text-xs py-1 px-2"
-                        defaultValue={u.role}
-                        onChange={(e) => handleRoleChange(u.userId, e.target.value as UserRole)}
-                      >
-                        {assignableRoles.map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
-                      </select>
+                      <div className="min-w-[180px]">
+                        <PremiumRolePicker
+                          hideLabel
+                          value={u.role}
+                          options={assignableRoles.map((r) => ({
+                            value: r,
+                            label: roleLabel(r),
+                          }))}
+                          onChange={(v) => handleRoleChange(u.userId, v as UserRole)}
+                        />
+                      </div>
                     ) : (
                       <span className="badge bg-[#22d3ee]/20 text-[#22d3ee] text-xs">{roleLabel(u.role)}</span>
                     )}

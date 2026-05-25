@@ -7,6 +7,8 @@ import { useDepartments } from "@/hooks/useDepartments";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
+import { EmployeeMobileCard } from "@/components/employees/EmployeeMobileCard";
+import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Users, Plus, Search, Star, Edit2, Trash2, X, Eye, EyeOff } from "lucide-react";
@@ -237,7 +239,7 @@ function EmployeesContent() {
 
   return (
     <DashboardLayout>
-      <div className={WS_PAGE}>
+      <div className={cn(WS_PAGE, "min-w-0 max-w-full overflow-x-hidden")}>
         <PageHero title="إدارة الموظفين" subtitle="إدارة بيانات فريق العمل">
           {canManageEmployees && (
             <button onClick={openAdd} className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation">
@@ -310,9 +312,29 @@ function EmployeesContent() {
         )}
 
         {!loading && employees.length > 0 && (
-          <div className={cn(WS_CARD, "overflow-hidden p-0")}>
+          <>
+            {/* Mobile: premium employee cards */}
+            <div className="lg:hidden space-y-3 min-w-0">
+              {filtered.map((emp) => (
+                <EmployeeMobileCard
+                  key={emp.id}
+                  emp={emp}
+                  canManage={canManageEmployees}
+                  onEdit={() => openEdit(emp)}
+                  onDelete={() => handleDelete(emp)}
+                />
+              ))}
+              {filtered.length === 0 && (
+                <div className={cn(WS_CARD, "py-10 text-center text-[#8ba3c7] text-sm")}>
+                  لا توجد نتائج مطابقة للبحث
+                </div>
+              )}
+            </div>
+
+            {/* Desktop: table */}
+            <div className={cn(WS_CARD, "overflow-hidden p-0 hidden lg:block")}>
             <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[700px]">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#1e3a5f]">
                   {["الموظف", "القسم", "الدور", "الأداء", "المهام", "تاريخ الانضمام", "الحالة", ""].map((h) => (
@@ -383,6 +405,7 @@ function EmployeesContent() {
               </div>
             )}
           </div>
+          </>
         )}
       </div>
 
@@ -490,17 +513,16 @@ function EmployeesContent() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الدور *</label>
-                  <select
-                    className="input-dark text-sm"
-                    value={form.role}
+                  <PremiumRolePicker
+                    label="الدور"
                     required
-                    onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}
-                  >
-                    {assignableRoles.map((r) => (
-                      <option key={r} value={r}>{getTenantRoleLabel(r)}</option>
-                    ))}
-                  </select>
+                    value={form.role}
+                    options={assignableRoles.map((r) => ({
+                      value: r,
+                      label: getTenantRoleLabel(r),
+                    }))}
+                    onChange={(v) => setForm({ ...form, role: v as UserRole })}
+                  />
                 </div>
               </div>
 

@@ -115,6 +115,13 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
   const [teamModal, setTeamModal] = useState<{ team?: Team | null; deptId?: string } | null>(null);
   const [assignModal, setAssignModal] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<"canvas" | "tree" | "roles">("canvas");
+
+  const ORG_MOBILE_TABS = [
+    { id: "canvas" as const, label: "المخطط" },
+    { id: "tree" as const, label: "الشجرة" },
+    { id: "roles" as const, label: "الأدوار" },
+  ];
 
   const employeeNames = useMemo(() => {
     const m = new Map<string, string>();
@@ -339,12 +346,43 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
           )}
         </div>
       ) : (
+        <>
+        {/* Mobile org tabs — desktop keeps 3-column grid */}
+        <div
+          className="xl:hidden flex gap-1 p-1 rounded-2xl border border-white/[0.08] bg-[#070d20]/60 backdrop-blur-sm"
+          role="tablist"
+          aria-label="عرض الهيكل الإداري"
+        >
+          {ORG_MOBILE_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === tab.id}
+              onClick={() => setMobileTab(tab.id)}
+              className={cn(
+                "flex-1 min-h-10 rounded-xl text-xs font-medium transition-all touch-manipulation",
+                mobileTab === tab.id
+                  ? "bg-cyan-500/15 text-cyan-200 border border-cyan-400/25"
+                  : "text-[#8ba3c7] hover:text-white",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <div
           className="grid grid-cols-1 xl:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_minmax(260px,300px)] gap-4"
           dir="rtl"
         >
           {data && (
-            <div className="order-2 xl:order-none min-h-[280px] xl:min-h-[min(68vh,580px)]">
+            <div
+              className={cn(
+                "order-2 xl:order-none min-h-[280px] xl:min-h-[min(68vh,580px)]",
+                mobileTab !== "tree" && "hidden xl:block",
+              )}
+            >
               <OrgHierarchySidebar
                 snapshot={data}
                 selectedId={selectedId}
@@ -355,7 +393,12 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
               />
             </div>
           )}
-          <div className="space-y-3 min-w-0 order-1 xl:order-none">
+          <div
+            className={cn(
+              "space-y-3 min-w-0 order-1 xl:order-none",
+              mobileTab !== "canvas" && "hidden xl:block",
+            )}
+          >
             {canManage && (
               <>
               <p className="text-[#6b87ab] text-xs w-full">
@@ -466,8 +509,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
             )}
 
             <div
-              className={cn(ORG_CANVAS, "relative")}
-              style={{ height: "min(68vh, 580px)" }}
+              className={cn(ORG_CANVAS, "relative h-[min(52vh,420px)] xl:h-[min(68vh,580px)]")}
             >
               <div className={ORG_CANVAS_GLOW} aria-hidden />
               <div className="relative z-[1] h-full">
@@ -495,12 +537,17 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
               </ReactFlow>
               </div>
             </div>
-            <p className="text-[#6b87ab] text-xs text-center">
+            <p className="text-[#6b87ab] text-xs text-center hidden sm:block">
               انقر للتوسيع · اسحب العقدة تحت الأب لتغيير التبعية · لا صور — بطاقات زجاجية فقط
             </p>
           </div>
 
-          <aside className="space-y-4 order-3 xl:order-none">
+          <aside
+            className={cn(
+              "space-y-4 order-3 xl:order-none",
+              mobileTab !== "roles" && "hidden xl:block",
+            )}
+          >
             {data && (
               <PositionsPanel
                 positions={data.positions}
@@ -541,6 +588,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
             </div>
           </aside>
         </div>
+        </>
       )}
 
       {levelModal && data && (

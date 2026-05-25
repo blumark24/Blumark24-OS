@@ -48,7 +48,8 @@ export function PremiumMetricCard({
   return (
     <div
       className={cn(
-        "group relative w-full min-h-[158px] sm:min-h-[188px] overflow-hidden rounded-3xl transition-all duration-300",
+        "group relative w-full h-full flex flex-col overflow-hidden rounded-3xl transition-all duration-300",
+        "min-h-[168px] sm:min-h-[188px]",
         "border bg-[#070d20]/88 backdrop-blur-xl",
         theme.panelBorder,
         theme.glow,
@@ -105,8 +106,8 @@ export function PremiumMetricCard({
           <div className="font-heading font-bold tracking-tight text-white leading-[0.9] text-[clamp(1.75rem,6.8vw,3.25rem)] drop-shadow-[0_2px_16px_rgba(0,0,0,0.45)]">
             {value}
           </div>
-          <div className="mt-1.5 text-[12.5px] font-semibold text-white/90 leading-snug">{label}</div>
-          <div className="text-[10.5px] text-white/45 mt-0.5 leading-snug">{subtitle}</div>
+          <div className="mt-1.5 text-[12.5px] font-semibold text-white/90 leading-snug line-clamp-2">{label}</div>
+          <div className="text-[10.5px] text-white/45 mt-0.5 leading-snug line-clamp-1">{subtitle}</div>
         </div>
 
         <div className="space-y-2 min-w-0">

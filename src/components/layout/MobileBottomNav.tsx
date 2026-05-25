@@ -200,4 +200,4 @@ export default function MobileBottomNav() {
 
 /** Bottom inset so charts/content clear the floating bar (mobile only). */
 export const MOBILE_BOTTOM_NAV_INSET =
-  "pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0";
+  "pb-[calc(7.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0";

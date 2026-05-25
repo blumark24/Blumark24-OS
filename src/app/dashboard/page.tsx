@@ -353,7 +353,7 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className={WS_PAGE}>
+      <div className={cn(WS_PAGE, "min-w-0 max-w-full overflow-x-hidden")}>
         {/* ─── Hero: welcome banner ──────────────────────────────────────── */}
         <section className={`${WS_SURFACE} p-4 sm:p-5 lg:p-6`}>
           <JellyfishBackground />
@@ -411,7 +411,7 @@ export default function DashboardPage() {
         </section>
 
         {/* ─── KPI cards ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 auto-rows-fr items-stretch min-w-0">
           {kpiLoading
             ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
             : kpiCards.map((card) => {
@@ -467,6 +467,7 @@ export default function DashboardPage() {
                     progress={progress}
                     footer={footer}
                     onLiveClick={() => setActiveBoard(card.key)}
+                    className="h-full"
                   />
                 );
               })}
