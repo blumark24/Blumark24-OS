@@ -23,6 +23,7 @@ import {
 import { MOBILE_ROUTE_LABELS } from "@/lib/tenant/tenantDisplay";
 import { CommandOrbPanel } from "@/components/ui/CommandOverlay";
 import { QuickActionsList } from "@/components/layout/QuickActionsMenu";
+import { UI_NO_SELECT_CLASS } from "@/lib/ui/interactionStyles";
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -99,7 +100,7 @@ export default function MobileBottomNav() {
               type="button"
               onClick={() => setQuickOpen((v) => !v)}
               className={cn(
-                "relative flex h-[3.35rem] w-[3.35rem] items-center justify-center rounded-full",
+                "relative flex h-[3.35rem] w-[3.35rem] items-center justify-center rounded-full select-none touch-manipulation",
                 "bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white",
                 "shadow-[0_0_0_1px_rgba(255,255,255,0.25),0_12px_40px_-8px_rgba(34,211,238,0.75),0_0_48px_-12px_rgba(124,58,237,0.9)]",
                 "transition-transform active:scale-95",

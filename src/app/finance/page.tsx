@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import { FUND_DISTRIBUTION, formatCurrency } from "@/lib/utils";
@@ -15,6 +15,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell,
 } from "recharts";
+import { useQueryAction } from "@/hooks/useQueryAction";
+import { featureEnabled } from "@/lib/features/packageFeatures";
 
 const ARABIC_MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
@@ -32,10 +34,12 @@ function emptyForm(): FormState {
 
 function FinanceContent() {
   const { data: transactions, loading, insert, update, remove } = useTransactions();
-  const { userRole } = usePermissions();
-  const { planLimits } = useTenantWorkspace();
+  const { userRole, hasPermission } = usePermissions();
+  const { planLimits, enabledFeatures, isPlatformAdmin } = useTenantWorkspace();
   const toast = useToast();
   const isAdmin = userRole === "super_admin";
+  const financeOn = isPlatformAdmin || featureEnabled(enabledFeatures, "finance");
+  const canManageFinance = hasPermission("manage_finance") && financeOn;
   const showCompanyFund = (planLimits.company_fund_enabled ?? 0) > 0;
 
   const [showModal, setShowModal] = useState(false);
@@ -112,6 +116,15 @@ function FinanceContent() {
     setForm(emptyForm());
     setShowModal(true);
   };
+
+  const openAddWithType = useCallback((type: "دخل" | "مصروف") => {
+    setEditId(null);
+    setForm({ ...emptyForm(), type });
+    setShowModal(true);
+  }, []);
+
+  useQueryAction("action", "invoice", () => openAddWithType("دخل"), canManageFinance);
+  useQueryAction("action", "expense", () => openAddWithType("مصروف"), canManageFinance);
 
   const openEdit = (tx: Transaction) => {
     setEditId(tx.id);
@@ -408,7 +421,9 @@ function FinanceContent() {
 export default function FinancePage() {
   return (
     <PageGuard permission="manage_finance">
-      <FinanceContent />
+      <Suspense fallback={null}>
+        <FinanceContent />
+      </Suspense>
     </PageGuard>
   );
 }

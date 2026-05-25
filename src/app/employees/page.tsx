@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { departmentColor } from "@/lib/services/departments";
 import { useOrgStructure } from "@/hooks/useOrgStructure";
@@ -28,6 +28,7 @@ import { TENANT_ASSIGNABLE_ROLES } from "@/lib/tenant/tenantDisplay";
 import { useEmployees } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import PageGuard from "@/components/ui/PageGuard";
+import { useQueryAction } from "@/hooks/useQueryAction";
 import { createAuthUser, deleteAuthUser } from "@/lib/db";
 import { withSoftTimeout, withTimeout } from "@/lib/asyncHelpers";
 
@@ -101,13 +102,16 @@ function EmployeesContent() {
       && (e.name.toLowerCase().includes(q) || (e.email ?? "").toLowerCase().includes(q));
   });
 
-  const openAdd = () => {
+  const openAdd = useCallback(() => {
     setEditId(null);
     setLegacyDeptHint(null);
     setForm({ name: "", email: "", password: "", phone: "", departmentId: defaultDeptId, role: "employee", status: "نشط", salary: "" });
     setShowPass(false);
     setShowModal(true);
-  };
+  }, [defaultDeptId]);
+
+  const canOpenCreateFromQuery = hasPermission("manage_users");
+  useQueryAction("action", "create", openAdd, canOpenCreateFromQuery);
 
   const openEdit = (emp: typeof employees[0]) => {
     setEditId(emp.id);
@@ -613,7 +617,9 @@ function EmployeesPageGuard({ children }: { children: React.ReactNode }) {
 export default function EmployeesPage() {
   return (
     <EmployeesPageGuard>
-      <EmployeesContent />
+      <Suspense fallback={null}>
+        <EmployeesContent />
+      </Suspense>
     </EmployeesPageGuard>
   );
 }

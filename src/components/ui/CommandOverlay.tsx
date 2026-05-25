@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UI_NO_SELECT_CLASS } from "@/lib/ui/interactionStyles";
 
 /** Premium glass surface — matches /org package card language. */
 export function CommandSurface({
@@ -70,7 +71,7 @@ export function CommandOverlayBackdrop({
       type="button"
       aria-label="إغلاق"
       className={cn(
-        "fixed inset-0 bg-[#030913]/30 backdrop-blur-[2px] transition-opacity",
+        "fixed inset-0 bg-[#030913]/30 backdrop-blur-[2px] transition-opacity duration-200 ease-out",
         className,
       )}
       style={{ zIndex }}
@@ -166,7 +167,10 @@ export function CommandFloatingOverlay({
       >
         <CommandSurface
           accent={accent}
-          className="flex flex-col w-full animate-in fade-in zoom-in-95 duration-200"
+          className={cn(
+            "flex flex-col w-full animate-in fade-in zoom-in-95 duration-200",
+            UI_NO_SELECT_CLASS,
+          )}
           style={{
             width,
             maxWidth,
@@ -249,7 +253,7 @@ export function CommandOrbPanel({
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
       >
-        <CommandSurface accent="violet" className="overflow-hidden">
+        <CommandSurface accent="violet" className={cn("overflow-hidden", UI_NO_SELECT_CLASS)}>
           {title && (
             <div className="border-b border-white/[0.07] px-3.5 py-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-200/70">

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X } from "lucide-react";
@@ -12,6 +13,7 @@ import { useTasks, useClients, useEmployees } from "@/hooks/useData";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
+import { useQueryAction } from "@/hooks/useQueryAction";
 
 const STATUS_COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
   { key: "جديدة", label: "جديدة", color: "#22d3ee" },
@@ -32,12 +34,16 @@ type ViewMode = "kanban" | "list";
 
 function TasksContent() {
   const { data: tasks, loading, insert, update, remove } = useTasks();
+  const searchParams = useSearchParams();
+  const statusParam = searchParams.get("status");
+  const filterParam = searchParams.get("filter");
   const { data: clients } = useClients();
   const { data: employees } = useEmployees();
-  const { userRole } = usePermissions();
+  const { userRole, hasPermission } = usePermissions();
   const { user } = useAuth();
   const toast = useToast();
   const isAdmin = userRole === "super_admin";
+  const canManageTasks = hasPermission("manage_tasks");
   const [view, setView] = useState<ViewMode>("kanban");
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -59,10 +65,42 @@ function TasksContent() {
     setEditTask(null);
   };
 
-  const openAdd = () => {
+  const openAdd = useCallback(() => {
     resetForm();
     setShowModal(true);
-  };
+  }, []);
+
+  useQueryAction("action", "create", openAdd, canManageTasks);
+
+  useEffect(() => {
+    if (statusParam || filterParam) setView("list");
+  }, [statusParam, filterParam]);
+
+  const displayTasks = useMemo(() => {
+    if (statusParam === "done") {
+      return tasks.filter((t) => t.status === "مكتملة");
+    }
+    if (filterParam === "remaining") {
+      return tasks.filter((t) => t.status !== "مكتملة");
+    }
+    if (filterParam === "overdue") {
+      return tasks.filter(
+        (t) =>
+          t.status === "متأخرة" ||
+          (t.status !== "مكتملة" && t.dueDate && new Date(t.dueDate) < new Date()),
+      );
+    }
+    return tasks;
+  }, [tasks, statusParam, filterParam]);
+
+  const filterBanner =
+    statusParam === "done"
+      ? "عرض المهام المكتملة"
+      : filterParam === "remaining"
+        ? "عرض المهام المتبقية"
+        : filterParam === "overdue"
+          ? "عرض المهام المتأخرة"
+          : null;
 
   const openEdit = (task: typeof tasks[0]) => {
     setEditTask(task);
@@ -155,6 +193,13 @@ function TasksContent() {
           )}
         </PageHero>
 
+        {filterBanner && (
+          <div className={cn(WS_CARD, "px-4 py-3 text-sm text-[#8ba3c7] flex items-center justify-between gap-2")}>
+            <span>{filterBanner}</span>
+            <span className="text-white font-medium">{displayTasks.length} مهمة</span>
+          </div>
+        )}
+
         <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 min-w-0">
           <KpiStatCard label="إجمالي المهام" value={String(stats.total)} icon={CheckSquare} accent="cyan" showLive={false} showSparkline={false} />
           <KpiStatCard label="مكتملة" value={String(stats.completed)} icon={CheckSquare} accent="emerald" showLive={false} showSparkline={false} />
@@ -181,11 +226,15 @@ function TasksContent() {
           />
         )}
 
-        {!loading && tasks.length > 0 && view === "kanban" && (
+        {!loading && tasks.length > 0 && displayTasks.length === 0 && filterBanner && (
+          <div className={cn(WS_CARD, "py-10 text-center text-sm text-[#8ba3c7]")}>لا توجد مهام مطابقة للفلتر الحالي</div>
+        )}
+
+        {!loading && displayTasks.length > 0 && view === "kanban" && (
           <section className="overflow-x-auto pb-2">
             <div className="flex min-w-max gap-3 sm:gap-4 lg:gap-5 px-0.5">
               {STATUS_COLUMNS.map((col) => {
-                const colTasks = tasks.filter((t) => t.status === col.key);
+                const colTasks = displayTasks.filter((t) => t.status === col.key);
                 return (
                   <div key={col.key} className={cn(WS_CARD, "w-[280px] sm:w-[300px] lg:w-[320px] shrink-0 p-3")}>
                     <div className="mb-3 flex items-center gap-2">
@@ -238,10 +287,10 @@ function TasksContent() {
           </section>
         )}
 
-        {!loading && tasks.length > 0 && view === "list" && (
+        {!loading && displayTasks.length > 0 && view === "list" && (
           <section className={cn(WS_CARD, "overflow-hidden p-0")}>
             <div className="block md:hidden space-y-2 p-3">
-              {tasks.map((task) => (
+              {displayTasks.map((task) => (
                 <article key={task.id} className="rounded-xl border border-[#2a4c79] bg-[#0f2344]/80 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <h4 className="min-w-0 text-sm font-semibold text-white line-clamp-2">{task.title}</h4>
@@ -269,7 +318,7 @@ function TasksContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tasks.map((task) => (
+                  {displayTasks.map((task) => (
                     <tr key={task.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
                       <td className="px-4 py-3">
                         <div className="font-medium text-white">{task.title}</div>
@@ -367,7 +416,9 @@ function TasksContent() {
 export default function TasksPage() {
   return (
     <PageGuard permission="manage_tasks">
-      <TasksContent />
+      <Suspense fallback={null}>
+        <TasksContent />
+      </Suspense>
     </PageGuard>
   );
 }

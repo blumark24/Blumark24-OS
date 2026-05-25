@@ -1,17 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { KpiTheme } from "@/components/ui/workspaceVisual";
 import { WS_ICON_ORB } from "@/components/ui/workspaceVisual";
 import { Sparkline } from "@/components/ui/workspaceUi";
-
-const DISABLE_TEXT_SELECT_STYLE = {
-  WebkitUserSelect: "none",
-  userSelect: "none",
-  WebkitTouchCallout: "none",
-  WebkitTapHighlightColor: "transparent",
-} as const;
+import { DISABLE_TEXT_SELECT_STYLE, UI_NO_SELECT_CLASS } from "@/lib/ui/interactionStyles";
 
 export interface PremiumMetricCardProps {
   label: string;
@@ -22,6 +17,9 @@ export interface PremiumMetricCardProps {
   theme: KpiTheme;
   progress?: number;
   footer?: React.ReactNode;
+  /** Navigate when the card body is tapped (live pill keeps drill-down). */
+  href?: string;
+  hrefAriaLabel?: string;
   onLiveClick?: () => void;
   className?: string;
 }
@@ -29,6 +27,8 @@ export interface PremiumMetricCardProps {
 /**
  * Dashboard KPI tile — matches OrgPackagePlanCards premium language:
  * gradient border, soft glow, glass background, icon tile, status badge, sparkline.
+ *
+ * Interaction: card body uses a stretched link (sibling), live pill is a separate button (never nested in Link).
  */
 export function PremiumMetricCard({
   label,
@@ -39,25 +39,35 @@ export function PremiumMetricCard({
   theme,
   progress,
   footer,
+  href,
+  hrefAriaLabel,
   onLiveClick,
   className,
 }: PremiumMetricCardProps) {
   const progressWidth =
     progress === undefined ? undefined : `${Math.min(100, Math.max(0, progress))}%`;
 
+  const shellClass = cn(
+    "group relative w-full h-full flex flex-col overflow-hidden rounded-3xl transition-all duration-300",
+    "min-h-[168px] sm:min-h-[188px]",
+    "border bg-[#070d20]/88 backdrop-blur-xl",
+    theme.panelBorder,
+    theme.glow,
+    href && "hover:scale-[1.01] active:scale-[0.99] touch-manipulation",
+    UI_NO_SELECT_CLASS,
+    className,
+  );
+
   return (
-    <div
-      className={cn(
-        "group relative w-full h-full flex flex-col overflow-hidden rounded-3xl transition-all duration-300",
-        "min-h-[168px] sm:min-h-[188px]",
-        "border bg-[#070d20]/88 backdrop-blur-xl",
-        theme.panelBorder,
-        theme.glow,
-        "hover:scale-[1.01] active:scale-[0.99]",
-        className,
-      )}
-    >
-      {/* Package-card style ambient layers */}
+    <div className={shellClass} style={DISABLE_TEXT_SELECT_STYLE}>
+      {href ? (
+        <Link
+          href={href}
+          aria-label={hrefAriaLabel ?? `الانتقال إلى ${label}`}
+          className="absolute inset-0 z-0 rounded-3xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400/50"
+        />
+      ) : null}
+
       <div className={cn("pointer-events-none absolute inset-0", theme.ambient)} />
       <div
         className="pointer-events-none absolute -top-12 -right-8 h-28 w-28 rounded-full blur-2xl opacity-55"
@@ -86,8 +96,9 @@ export function PremiumMetricCard({
               onTouchStart={(e) => e.currentTarget.blur()}
               onClick={onLiveClick}
               className={cn(
-                "inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full leading-none select-none cursor-pointer touch-manipulation transition-colors border",
+                "relative z-20 pointer-events-auto inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full leading-none cursor-pointer touch-manipulation transition-colors border",
                 theme.livePill,
+                UI_NO_SELECT_CLASS,
               )}
               style={DISABLE_TEXT_SELECT_STYLE}
             >
@@ -95,9 +106,7 @@ export function PremiumMetricCard({
                 <span className="absolute inline-flex h-full w-full rounded-full bg-current opacity-60 animate-ping" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
               </span>
-              <span className="select-none" style={DISABLE_TEXT_SELECT_STYLE}>
-                مباشر
-              </span>
+              مباشر
             </button>
           ) : null}
         </div>

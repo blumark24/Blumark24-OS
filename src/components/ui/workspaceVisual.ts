@@ -9,6 +9,12 @@ export const WS_PAGE =
 export const WS_CARD =
   "relative overflow-hidden rounded-3xl border border-white/[0.07] bg-[#070d20]/90 lg:bg-[#070d20]/80 backdrop-blur-xl";
 
+/** Softer premium panel — matches KPI language without heavy glow overload. */
+export const WS_DASHBOARD_PANEL =
+  "group relative block w-full min-w-0 overflow-hidden rounded-3xl border border-white/[0.07] bg-[#070d20]/88 backdrop-blur-xl shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.04)] transition-all duration-300 hover:border-white/[0.10] hover:shadow-[0_18px_48px_-16px_rgba(34,211,238,0.10)] active:scale-[0.995] cursor-pointer touch-manipulation text-right select-none";
+
+export const WS_DASHBOARD_PANEL_HEADER = "mb-4 sm:mb-5 flex items-center justify-between gap-3 min-w-0";
+
 export const WS_SURFACE =
   "relative overflow-hidden rounded-3xl border border-white/[0.07] bg-[linear-gradient(150deg,rgba(13,25,48,0.92),rgba(7,15,32,0.95))] backdrop-blur-xl";
 
