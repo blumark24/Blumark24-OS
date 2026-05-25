@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { logAiUsage, resolveOrganizationIdForUser } from "@/lib/aiUsageLog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,7 +83,7 @@ function getAccessTokenFromSupabaseCookies(req: NextRequest): string | null {
 
 async function requireAuthenticatedUser(
   req: NextRequest,
-): Promise<{ ok: true } | { ok: false; response: NextResponse }> {
+): Promise<{ ok: true; userId: string } | { ok: false; response: NextResponse }> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
@@ -127,7 +128,7 @@ async function requireAuthenticatedUser(
     };
   }
 
-  return { ok: true };
+  return { ok: true, userId: user.id };
 }
 
 export async function POST(req: NextRequest) {
@@ -162,6 +163,7 @@ export async function POST(req: NextRequest) {
 
   const model = resolveModel();
   const client = new Anthropic({ apiKey });
+  const inputTokenEstimate = Math.ceil((userMessage.length + SYSTEM_PROMPT.length) / 4);
 
   try {
     console.log(`${TAG} streaming | model=${model} msg_len=${userMessage.length}`);
@@ -179,6 +181,8 @@ export async function POST(req: NextRequest) {
     );
 
     const encoder = new TextEncoder();
+    let outputChars = 0;
+
     const readable = new ReadableStream({
       async start(controller) {
         try {
@@ -187,16 +191,24 @@ export async function POST(req: NextRequest) {
               chunk.type === "content_block_delta" &&
               chunk.delta.type === "text_delta"
             ) {
+              outputChars += chunk.delta.text.length;
               controller.enqueue(encoder.encode(chunk.delta.text));
             }
           }
         } catch (streamErr) {
-          // AbortError means the client disconnected — not a bug
           if (!(streamErr instanceof Error && streamErr.name === "AbortError")) {
             console.error(`${TAG} stream error:`, streamErr);
           }
         } finally {
           controller.close();
+          const orgId = await resolveOrganizationIdForUser(auth.userId);
+          void logAiUsage({
+            organizationId: orgId,
+            userId: auth.userId,
+            model,
+            inputTokens: inputTokenEstimate,
+            outputTokens: Math.ceil(outputChars / 4),
+          });
         }
       },
     });

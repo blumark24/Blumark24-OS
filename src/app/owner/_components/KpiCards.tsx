@@ -4,22 +4,31 @@ import { TrendingUp, TrendingDown } from "lucide-react";
 import { KPIS } from "../_data";
 import { ACCENT } from "../_accent";
 import { cn } from "@/lib/utils";
+import type { OwnerKpiAggregates } from "../_lib/ownerQueries";
 
 interface Props {
   activeOrgCount?: number;
+  kpiAggregates?: OwnerKpiAggregates | null;
   loading?: boolean;
 }
 
-export default function KpiCards({ activeOrgCount, loading }: Props) {
+export default function KpiCards({ activeOrgCount, kpiAggregates, loading }: Props) {
+  const valueOverrides: Record<string, string | undefined> = {
+    orgs: activeOrgCount !== undefined ? String(activeOrgCount) : undefined,
+    mrr: kpiAggregates?.mrrLabel,
+    ai: kpiAggregates?.aiUsagePct,
+    staff: kpiAggregates?.staffTotal,
+  };
+
   return (
     <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       {KPIS.map((kpi) => {
         const a = ACCENT[kpi.accent];
         const Icon = kpi.icon;
         const Trend = kpi.trendUp ? TrendingUp : TrendingDown;
-        const isOrgKpi = kpi.id === "orgs";
-        const displayValue =
-          isOrgKpi && activeOrgCount !== undefined ? String(activeOrgCount) : kpi.value;
+        const override = valueOverrides[kpi.id];
+        const displayValue = override ?? kpi.value;
+        const isLive = override !== undefined;
         return (
           <div
             key={kpi.id}
@@ -28,7 +37,6 @@ export default function KpiCards({ activeOrgCount, loading }: Props) {
               a.border,
             )}
           >
-            {/* corner glow */}
             <div className={cn("pointer-events-none absolute -top-10 -left-8 h-28 w-28 rounded-full bg-gradient-to-br to-transparent blur-2xl opacity-60", a.ring)} />
 
             <div className="relative flex items-start justify-between">
@@ -42,7 +50,7 @@ export default function KpiCards({ activeOrgCount, loading }: Props) {
                 )}
               >
                 <Trend size={11} />
-                {kpi.trend}
+                {isLive ? "مباشر" : kpi.trend}
               </span>
             </div>
 
@@ -50,7 +58,7 @@ export default function KpiCards({ activeOrgCount, loading }: Props) {
               <div
                 className={cn(
                   "font-heading text-2xl font-bold text-white tracking-tight",
-                  isOrgKpi && loading && "opacity-40 animate-pulse",
+                  loading && isLive && "opacity-40 animate-pulse",
                 )}
               >
                 {displayValue}
