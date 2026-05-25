@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import { BarChart3, Download, FileText, Users, CheckSquare, UserCircle, DollarSign, Map, Calendar, Printer } from "lucide-react";
-import { useEmployees, useClients, useTasks, useTransactions } from "@/hooks/useData";
+import { useEmployees, useClients, useTasks, useTransactions, useStrategyPhases } from "@/hooks/useData";
 import { formatCurrency } from "@/lib/utils";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -37,6 +37,31 @@ const TOOLTIP_STYLE = {
 
 type ReportId = "employees" | "tasks" | "clients" | "finance" | "strategy" | "monthly";
 
+function getPeriodStart(period: string): Date | null {
+  const now = new Date();
+  switch (period) {
+    case "هذا الأسبوع": {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 7);
+      return d;
+    }
+    case "هذا الشهر":
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    case "آخر 3 أشهر":
+      return new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+    case "هذا العام":
+      return new Date(now.getFullYear(), 0, 1);
+    default:
+      return null;
+  }
+}
+
+function inPeriod(dateStr: string | undefined, start: Date | null): boolean {
+  if (!start || !dateStr) return true;
+  const d = new Date(dateStr);
+  return !Number.isNaN(d.getTime()) && d >= start;
+}
+
 // ─── Export helpers ───────────────────────────────────────────────────────────
 
 function downloadBlob(content: string, filename: string, mime: string) {
@@ -61,35 +86,55 @@ function ReportsContent() {
   const { data: clients,   loading: loadingCli }  = useClients();
   const { data: tasks,     loading: loadingTsk }  = useTasks();
   const { data: txs,       loading: loadingTx }   = useTransactions();
+  const { data: phases,    loading: loadingPh } = useStrategyPhases();
 
-  const loading = loadingEmp || loadingCli || loadingTsk || loadingTx;
+  const periodStart = useMemo(() => getPeriodStart(period), [period]);
 
-  const totalIncome  = useMemo(() => txs.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0),  [txs]);
-  const totalExpense = useMemo(() => txs.filter((t) => t.type === "مصروف").reduce((s, t) => s + t.amount, 0), [txs]);
+  const filteredEmployees = useMemo(
+    () => employees.filter((e) => inPeriod(e.joinDate, periodStart)),
+    [employees, periodStart],
+  );
+  const filteredClients = useMemo(
+    () => clients.filter((c) => inPeriod(c.createdAt, periodStart)),
+    [clients, periodStart],
+  );
+  const filteredTasks = useMemo(
+    () => tasks.filter((t) => inPeriod(t.dueDate, periodStart) || inPeriod(t.createdAt, periodStart)),
+    [tasks, periodStart],
+  );
+  const filteredTxs = useMemo(
+    () => txs.filter((t) => inPeriod(t.date, periodStart)),
+    [txs, periodStart],
+  );
+
+  const loading = loadingEmp || loadingCli || loadingTsk || loadingTx || loadingPh;
+
+  const totalIncome  = useMemo(() => filteredTxs.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0),  [filteredTxs]);
+  const totalExpense = useMemo(() => filteredTxs.filter((t) => t.type === "مصروف").reduce((s, t) => s + t.amount, 0), [filteredTxs]);
 
   const deptData = useMemo(
     () =>
       deptNames.map((dept) => ({
         name: dept,
-        count: employees.filter((e) => e.department === dept).length,
+        count: filteredEmployees.filter((e) => e.department === dept).length,
       })),
-    [employees, deptNames],
+    [filteredEmployees, deptNames],
   );
 
   const taskStatusData = useMemo(() => [
-    { name: "جديدة",       value: tasks.filter((t) => t.status === "جديدة").length,       color: "#22d3ee" },
-    { name: "قيد التنفيذ", value: tasks.filter((t) => t.status === "قيد_التنفيذ").length, color: "#f59e0b" },
-    { name: "مكتملة",      value: tasks.filter((t) => t.status === "مكتملة").length,       color: "#10b981" },
-    { name: "متأخرة",      value: tasks.filter((t) => t.status === "متأخرة").length,       color: "#ef4444" },
-  ], [tasks]);
+    { name: "جديدة",       value: filteredTasks.filter((t) => t.status === "جديدة").length,       color: "#22d3ee" },
+    { name: "قيد التنفيذ", value: filteredTasks.filter((t) => t.status === "قيد_التنفيذ").length, color: "#f59e0b" },
+    { name: "مكتملة",      value: filteredTasks.filter((t) => t.status === "مكتملة").length,       color: "#10b981" },
+    { name: "متأخرة",      value: filteredTasks.filter((t) => t.status === "متأخرة").length,       color: "#ef4444" },
+  ], [filteredTasks]);
 
   const clientPkgData = useMemo(() => [
-    { name: "صغيرة",  value: clients.filter((c) => c.packageType === "صغيرة").length,  color: "#22d3ee" },
-    { name: "متوسطة", value: clients.filter((c) => c.packageType === "متوسطة").length, color: "#a855f7" },
-    { name: "كبيرة",  value: clients.filter((c) => c.packageType === "كبيرة").length,  color: "#ff7a3d" },
-  ], [clients]);
+    { name: "صغيرة",  value: filteredClients.filter((c) => c.packageType === "صغيرة").length,  color: "#22d3ee" },
+    { name: "متوسطة", value: filteredClients.filter((c) => c.packageType === "متوسطة").length, color: "#a855f7" },
+    { name: "كبيرة",  value: filteredClients.filter((c) => c.packageType === "كبيرة").length,  color: "#ff7a3d" },
+  ], [filteredClients]);
 
-  const totalContractValue = useMemo(() => clients.reduce((s, c) => s + c.contractValue, 0), [clients]);
+  const totalContractValue = useMemo(() => filteredClients.reduce((s, c) => s + c.contractValue, 0), [filteredClients]);
 
   // ─── Export functions ───────────────────────────────────────────────────────
 
@@ -98,31 +143,31 @@ function ReportsContent() {
     if (activeReport === "employees") {
       const rows = [
         ["الاسم", "القسم", "الدور", "المهام المكتملة", "الأداء", "الحالة"],
-        ...employees.map((e) => [e.name, e.department, e.role, String(e.completedTasks ?? 0), String(e.performance ?? 0), e.status]),
+        ...filteredEmployees.map((e) => [e.name, e.department, e.role, String(e.completedTasks ?? 0), String(e.performance ?? 0), e.status]),
       ];
       downloadBlob(toCSV(rows), `تقرير-الموظفين-${dateStr}.csv`, "text/csv");
     } else if (activeReport === "clients") {
       const rows = [
         ["الاسم", "نوع النشاط", "المدينة", "الحزمة", "قيمة العقد", "الحالة"],
-        ...clients.map((c) => [c.name, c.businessType, c.city, c.packageType, String(c.contractValue), c.status]),
+        ...filteredClients.map((c) => [c.name, c.businessType, c.city, c.packageType, String(c.contractValue), c.status]),
       ];
       downloadBlob(toCSV(rows), `تقرير-العملاء-${dateStr}.csv`, "text/csv");
     } else if (activeReport === "tasks") {
       const rows = [
         ["المهمة", "المُكلَّف", "العميل", "الأولوية", "الموعد", "الحالة"],
-        ...tasks.map((t) => [t.title, t.assigneeName, t.clientName ?? "", t.priority, t.dueDate, t.status]),
+        ...filteredTasks.map((t) => [t.title, t.assigneeName, t.clientName ?? "", t.priority, t.dueDate, t.status]),
       ];
       downloadBlob(toCSV(rows), `تقرير-المهام-${dateStr}.csv`, "text/csv");
     } else if (activeReport === "finance") {
       const rows = [
         ["النوع", "الوصف", "الفئة", "التاريخ", "المبلغ"],
-        ...txs.map((t) => [t.type, t.description, t.category, t.date, String(t.amount)]),
+        ...filteredTxs.map((t) => [t.type, t.description, t.category, t.date, String(t.amount)]),
       ];
       downloadBlob(toCSV(rows), `تقرير-المالية-${dateStr}.csv`, "text/csv");
     } else {
       const rows = [
         ["الموظفون", "العملاء", "المهام المكتملة", "صافي الربح"],
-        [String(employees.length), String(clients.length), String(tasks.filter((t) => t.status === "مكتملة").length), `${formatCurrency(totalIncome - totalExpense)} SAR`],
+        [String(filteredEmployees.length), String(filteredClients.length), String(filteredTasks.filter((t) => t.status === "مكتملة").length), `${formatCurrency(totalIncome - totalExpense)} SAR`],
       ];
       downloadBlob(toCSV(rows), `تقرير-شهري-${dateStr}.csv`, "text/csv");
     }
@@ -191,9 +236,9 @@ function ReportsContent() {
               </div>
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 min-w-0">
-                <KpiStatCard label="إجمالي العملاء" value={String(clients.length)} icon={UserCircle} accent="cyan" showLive={false} showSparkline={false} />
-                <KpiStatCard label="الموظفون النشطون" value={String(employees.filter((e) => e.status === "نشط").length)} icon={Users} accent="emerald" showLive={false} showSparkline={false} />
-                <KpiStatCard label="المهام المكتملة" value={String(tasks.filter((t) => t.status === "مكتملة").length)} icon={CheckSquare} accent="amber" showLive={false} showSparkline={false} />
+                <KpiStatCard label="إجمالي العملاء" value={String(filteredClients.length)} icon={UserCircle} accent="cyan" showLive={false} showSparkline={false} />
+                <KpiStatCard label="الموظفون النشطون" value={String(filteredEmployees.filter((e) => e.status === "نشط").length)} icon={Users} accent="emerald" showLive={false} showSparkline={false} />
+                <KpiStatCard label="المهام المكتملة" value={String(filteredTasks.filter((t) => t.status === "مكتملة").length)} icon={CheckSquare} accent="amber" showLive={false} showSparkline={false} />
                 <KpiStatCard label="صافي الربح" value={formatCurrency(totalIncome - totalExpense)} subtitle="SAR" icon={DollarSign} accent="sky" showLive={false} showSparkline={false} />
               </div>
 
@@ -253,7 +298,7 @@ function ReportsContent() {
                 </tr>
               </thead>
               <tbody>
-                {employees.map((emp) => (
+                {filteredEmployees.map((emp) => (
                   <tr key={emp.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
                     <td className="px-4 py-3 text-white font-medium">{emp.name}</td>
                     <td className="px-4 py-3 text-[#8ba3c7]">{emp.department}</td>
@@ -276,7 +321,7 @@ function ReportsContent() {
                     </td>
                   </tr>
                 ))}
-                {employees.length === 0 && (
+                {filteredEmployees.length === 0 && (
                   <tr><td colSpan={6} className="text-center py-8 text-[#8ba3c7]">لا توجد بيانات</td></tr>
                 )}
               </tbody>
@@ -299,7 +344,7 @@ function ReportsContent() {
                 </tr>
               </thead>
               <tbody>
-                {tasks.map((task) => (
+                {filteredTasks.map((task) => (
                   <tr key={task.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
                     <td className="px-4 py-3 text-white font-medium">{task.title}</td>
                     <td className="px-4 py-3 text-[#8ba3c7]">{task.assigneeName}</td>
@@ -309,7 +354,7 @@ function ReportsContent() {
                     <td className="px-4 py-3"><span className="badge text-xs">{task.status.replace("_", " ")}</span></td>
                   </tr>
                 ))}
-                {tasks.length === 0 && (
+                {filteredTasks.length === 0 && (
                   <tr><td colSpan={6} className="text-center py-8 text-[#8ba3c7]">لا توجد بيانات</td></tr>
                 )}
               </tbody>
@@ -336,7 +381,7 @@ function ReportsContent() {
               <div className={cn(WS_CARD, "p-5")}>
                 <h4 className="text-sm font-medium text-[#8ba3c7] mb-4">الإيرادات حسب الحزمة</h4>
                 {clientPkgData.map((pkg) => {
-                  const revenue = clients.filter((c) => c.packageType === pkg.name).reduce((s, c) => s + c.contractValue, 0);
+                  const revenue = filteredClients.filter((c) => c.packageType === pkg.name).reduce((s, c) => s + c.contractValue, 0);
                   return (
                     <div key={pkg.name} className="mb-3">
                       <div className="flex justify-between text-xs mb-1">
@@ -351,6 +396,50 @@ function ReportsContent() {
                 })}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Strategy Report */}
+        {!loading && activeReport === "strategy" && (
+          <div className={cn(WS_CARD, "overflow-hidden p-0")}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e3a5f]">
+              <h3 className="text-white font-medium">تقرير الاستراتيجية</h3>
+              <span className="text-xs text-[#8ba3c7]">{period}</span>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#1e3a5f]">
+                  {["المرحلة", "الهدف", "التقدم", "الحالة", "الموعد"].map((h) => (
+                    <th key={h} className="text-right text-[#8ba3c7] font-medium px-4 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {phases.map((phase) => (
+                  <tr key={phase.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
+                    <td className="px-4 py-3 text-white font-medium">{phase.title}</td>
+                    <td className="px-4 py-3 text-[#8ba3c7]">{phase.description}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="progress-bar w-24">
+                          <div className="progress-fill" style={{ width: `${phase.progress}%`, background: "linear-gradient(90deg,#a855f7,#22d3ee)" }} />
+                        </div>
+                        <span className="text-xs text-[#8ba3c7]">{phase.progress}%</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`badge ${phase.status === "مكتملة" ? "status-active" : "status-pending"}`}>
+                        {phase.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{phase.endDate || "—"}</td>
+                  </tr>
+                ))}
+                {phases.length === 0 && (
+                  <tr><td colSpan={5} className="text-center py-8 text-[#8ba3c7]">لا توجد مراحل استراتيجية</td></tr>
+                )}
+              </tbody>
+            </table>
           </div>
         )}
 
@@ -374,7 +463,7 @@ function ReportsContent() {
                 </tr>
               </thead>
               <tbody>
-                {txs.map((tx) => (
+                {filteredTxs.map((tx) => (
                   <tr key={tx.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
                     <td className="px-4 py-3"><span className={`badge ${tx.type === "دخل" ? "status-active" : "status-inactive"}`}>{tx.type}</span></td>
                     <td className="px-4 py-3 text-white">{tx.description}</td>
@@ -385,7 +474,7 @@ function ReportsContent() {
                     </td>
                   </tr>
                 ))}
-                {txs.length === 0 && (
+                {filteredTxs.length === 0 && (
                   <tr><td colSpan={5} className="text-center py-8 text-[#8ba3c7]">لا توجد بيانات</td></tr>
                 )}
               </tbody>

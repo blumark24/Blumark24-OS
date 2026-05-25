@@ -130,6 +130,8 @@ export interface DisplayOrgFull {
 
 export interface DisplaySubscriptionFull {
   id: string;
+  organizationId: string;
+  planId: string;
   orgName: string;
   orgSlug: string | null;
   isInternal: boolean;
@@ -508,6 +510,8 @@ export async function fetchSubscriptionsPage(): Promise<DisplaySubscriptionFull[
     const planSlug = plan?.slug ?? "";
     return {
       id: sub.id,
+      organizationId: sub.organization_id,
+      planId: sub.plan_id,
       orgName: org?.name ?? "—",
       orgSlug: org?.slug ?? null,
       isInternal: org?.is_internal === true,
@@ -955,4 +959,167 @@ export async function softDeleteOrganization(input: { id: string }): Promise<Own
 
   await logOwnerAction("soft_delete_organization", input.id, {});
   return { ok: true };
+}
+
+// Cancel a tenant subscription without soft-deleting the organization row.
+export async function cancelSubscription(input: { organizationId: string }): Promise<OwnerActionResult> {
+  const now = new Date().toISOString();
+  const { error: subErr } = await supabase
+    .from("subscriptions")
+    .update({ status: "cancelled", updated_at: now })
+    .eq("organization_id", input.organizationId);
+
+  if (subErr) {
+    console.error("[owner] cancel subscription error:", subErr.message);
+    return { ok: false, error: "تعذّر إلغاء الاشتراك — حاول مجدداً" };
+  }
+
+  const { error: orgErr } = await supabase
+    .from("organizations")
+    .update({ status: "cancelled", updated_at: now })
+    .eq("id", input.organizationId);
+
+  if (orgErr) {
+    console.warn("[owner] org status sync on cancel skipped:", orgErr.message);
+  }
+
+  await logOwnerAction("cancel_subscription", input.organizationId, {});
+  return { ok: true };
+}
+
+// ─── Owner observability aggregates (Phase 2) ─────────────────────────────────
+
+export interface OwnerKpiAggregates {
+  mrrLabel: string;
+  aiUsagePct: string;
+  staffTotal: string;
+}
+
+export interface AiUsageSummaryItem {
+  label: string;
+  value: string;
+}
+
+export interface OwnerAuditEntry {
+  id: string;
+  action: string;
+  targetType: string;
+  ownerEmail: string;
+  createdAt: string;
+  detail: string;
+}
+
+export async function fetchOwnerKpiAggregates(): Promise<OwnerKpiAggregates> {
+  const [subsRes, plansRes, empRes, aiRes, orgsRes] = await Promise.all([
+    supabase.from("subscriptions").select("plan_id, status, billing_cycle").eq("status", "active"),
+    supabase.from("plans").select("id, price_monthly"),
+    supabase.from("employees").select("id, organization_id"),
+    supabase.from("ai_usage_logs").select("id, organization_id").gte(
+      "created_at",
+      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    ),
+    supabase.from("organizations").select("id, status, is_internal").eq("status", "active"),
+  ]);
+
+  const plans = (plansRes.data ?? []) as { id: string; price_monthly: number | null }[];
+  const subs = (subsRes.data ?? []) as { plan_id: string; billing_cycle: string }[];
+  let mrr = 0;
+  subs.forEach((s) => {
+    const plan = plans.find((p) => p.id === s.plan_id);
+    if (plan?.price_monthly) {
+      mrr += Number(plan.price_monthly);
+    }
+  });
+
+  const staffTotal = (empRes.data ?? []).length;
+  const activeOrgs = ((orgsRes.data ?? []) as { id: string; is_internal: boolean }[]).filter((o) => !o.is_internal);
+  const aiOrgIds = new Set(
+    ((aiRes.data ?? []) as { organization_id: string | null }[])
+      .map((r) => r.organization_id)
+      .filter(Boolean),
+  );
+  const aiPct = activeOrgs.length
+    ? Math.round((aiOrgIds.size / activeOrgs.length) * 100)
+    : 0;
+
+  return {
+    mrrLabel: mrr > 0 ? `SAR ${mrr.toLocaleString("ar-SA")}` : "—",
+    aiUsagePct: `${aiPct}%`,
+    staffTotal: staffTotal.toLocaleString("ar-SA"),
+  };
+}
+
+export async function fetchAiUsageSummary(): Promise<AiUsageSummaryItem[]> {
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("ai_usage_logs")
+    .select("input_tokens, output_tokens, created_at")
+    .gte("created_at", since);
+
+  if (error) {
+    console.warn("[owner] ai_usage_logs fetch skipped:", error.message);
+    return [
+      { label: "إجمالي الطلبات", value: "0" },
+      { label: "رموز الإدخال", value: "0" },
+      { label: "رموز الإخراج", value: "0" },
+      { label: "تكلفة تقريبية", value: "SAR 0" },
+    ];
+  }
+
+  const rows = data ?? [];
+  const inputTokens = rows.reduce((s, r) => s + (r.input_tokens ?? 0), 0);
+  const outputTokens = rows.reduce((s, r) => s + (r.output_tokens ?? 0), 0);
+  const estimatedCost = Math.round((inputTokens * 0.000001 + outputTokens * 0.000003) * 3.75 * 100) / 100;
+
+  return [
+    { label: "إجمالي الطلبات", value: rows.length.toLocaleString("ar-SA") },
+    { label: "رموز الإدخال", value: inputTokens.toLocaleString("ar-SA") },
+    { label: "رموز الإخراج", value: outputTokens.toLocaleString("ar-SA") },
+    { label: "تكلفة تقريبية", value: `SAR ${estimatedCost.toLocaleString("ar-SA")}` },
+  ];
+}
+
+const AUDIT_ACTION_AR: Record<string, string> = {
+  activate_subscription: "تفعيل اشتراك",
+  update_organization: "تحديث منشأة",
+  change_plan: "تغيير باقة",
+  suspend_organization: "تعليق منشأة",
+  reactivate_organization: "إعادة تفعيل منشأة",
+  soft_delete_organization: "حذف منشأة",
+  cancel_subscription: "إلغاء اشتراك",
+  create_organization: "إنشاء منشأة",
+};
+
+export async function fetchOwnerAuditTimeline(limit = 10): Promise<OwnerAuditEntry[]> {
+  const { data, error } = await supabase
+    .from("owner_audit_logs")
+    .select("id, action, target_type, target_id, owner_email, metadata, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.warn("[owner] audit logs fetch:", error.message);
+    return [];
+  }
+
+  return ((data ?? []) as {
+    id: string;
+    action: string;
+    target_type: string;
+    target_id: string;
+    owner_email: string;
+    metadata: Record<string, unknown> | null;
+    created_at: string;
+  }[]).map((row) => ({
+    id: row.id,
+    action: row.action,
+    targetType: row.target_type,
+    ownerEmail: row.owner_email,
+    createdAt: formatDate(row.created_at),
+    detail: AUDIT_ACTION_AR[row.action] ?? row.action,
+  }));
+}
+
+export async function fetchOwnerAuditLogs(limit = 50): Promise<OwnerAuditEntry[]> {
+  return fetchOwnerAuditTimeline(limit);
 }
