@@ -60,6 +60,29 @@ export function getOrgPlanLimits(planSlug: PlanSlug): OrgPlanLimits {
   };
 }
 
+/**
+ * Merge live plan_limits from workspace-context with client fallbacks.
+ * DB keys (owner panel): max_agencies → وكالة, max_departments → إدارة, max_sections → قسم
+ */
+export function mergeOrgPlanLimits(
+  planSlug: PlanSlug,
+  dbLimits: Record<string, number> | undefined,
+): OrgPlanLimits {
+  const base = getOrgPlanLimits(planSlug);
+  if (!dbLimits || Object.keys(dbLimits).length === 0) return base;
+
+  return {
+    ...base,
+    structureCaps: {
+      agency: dbLimits.max_agencies ?? base.structureCaps.agency,
+      management: dbLimits.max_departments ?? base.structureCaps.management,
+      department: dbLimits.max_sections ?? base.structureCaps.department,
+    },
+    maxTeams: dbLimits.max_teams ?? base.maxTeams,
+    maxPositions: dbLimits.max_positions ?? base.maxPositions,
+  };
+}
+
 export function countDepartmentsAtLevel(
   departments: Department[],
   level: StructureLevel,
@@ -84,11 +107,11 @@ export type OrgLimitCheck =
 
 /** Enforce per-level caps (agency / management / department). */
 export function checkCanAddStructureLevel(
-  plan: PlanSlug,
+  limits: OrgPlanLimits,
   level: StructureLevel,
   departments: Department[],
 ): OrgLimitCheck {
-  const cap = PLAN_STRUCTURE_CAPS[plan]?.[level] ?? 0;
+  const cap = limits.structureCaps[level] ?? 0;
   if (cap === 0) {
     return {
       allowed: false,

@@ -29,7 +29,7 @@ export default function PageGuard({ permission, anyPermission, children }: PageG
   const pathname = usePathname();
   const { hasPermission } = usePermissions();
   const { loading, user } = useAuth();
-  const { loading: wsLoading, isInternal, planSlug, isPlatformAdmin } =
+  const { loading: wsLoading, enabledFeatures, planSlug, isPlatformAdmin } =
     useTenantWorkspace();
 
   if (loading || wsLoading || !user) {
@@ -66,7 +66,7 @@ export default function PageGuard({ permission, anyPermission, children }: PageG
     canAccessWorkspaceRoute(
       route,
       {
-        isInternal,
+        enabledFeatures,
         planSlug,
         isPlatformAdmin: platformAdmin,
       },
@@ -85,9 +85,7 @@ export default function PageGuard({ permission, anyPermission, children }: PageG
         </div>
         <h2 className="text-white text-xl font-heading font-bold">لا تملك صلاحية الوصول</h2>
         <p className="text-[#8ba3c7] text-sm max-w-xs">
-          {isInternal
-            ? "هذا القسم محجوز أو غير مفعّل. تواصل مع مدير المنصة."
-            : "هذا القسم غير مفعّل ضمن باقة منشأتك. تواصل مع مدير المنشأة."}
+          هذا القسم غير مفعّل ضمن باقة منشأتك. تواصل مع مدير المنشأة لترقية الباقة.
         </p>
       </div>
     </DashboardLayout>

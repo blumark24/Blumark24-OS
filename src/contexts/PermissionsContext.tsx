@@ -99,6 +99,20 @@ export const ALL_ROLES: UserRole[] = [
   "employee",
 ];
 
+/** Roles assignable in tenant workspace (no internal agency roles). */
+export const TENANT_ROLES: UserRole[] = [
+  "organization_manager",
+  "finance_manager",
+  "employee",
+];
+
+export const PLATFORM_ONLY_ROLES: UserRole[] = [
+  "super_admin",
+  "board_member",
+  "defense_manager",
+  "attack_manager",
+];
+
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   super_admin: [...ALL_PERMISSIONS],
   board_member: [

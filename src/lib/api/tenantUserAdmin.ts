@@ -5,9 +5,8 @@ const OWNER_EMAILS = ["blumark24@gmail.com", "blumark.sa@gmail.com"];
 /** Roles a tenant organization_manager may assign (never platform roles). */
 export const TENANT_ASSIGNABLE_ROLES = new Set([
   "employee",
-  "defense_manager",
-  "attack_manager",
   "finance_manager",
+  "organization_manager",
 ]);
 
 const BLOCKED_TARGET_ROLES = new Set(["super_admin", "board_member", "admin"]);
@@ -39,7 +38,7 @@ export async function authorizeUserProvisioner(
   if (error || !data?.user) {
     return {
       ok: false,
-      status: 403,
+      status: 401,
       error: "جلسة المستخدم غير صالحة أو انتهت — يرجى تسجيل الدخول مجدداً",
       debug: error?.message ?? "no user",
     };

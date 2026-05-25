@@ -31,9 +31,12 @@ export const TENANT_ASSIGNABLE_ROLES: UserRole[] = [
   "employee",
 ];
 
+/** Safe labels for tenant-facing UI — legacy internal roles are rewritten. */
 const TENANT_ROLE_LABELS: Record<string, string> = {
   super_admin: "مدير أعلى",
-  board_member: "عضو مجلس الإدارة",
+  board_member: "عضو إدارة",
+  attack_manager: "مدير تشغيل",
+  defense_manager: "مدير تشغيل",
   organization_manager: "مدير المنشأة",
   finance_manager: "مدير مالي",
   employee: "موظف",

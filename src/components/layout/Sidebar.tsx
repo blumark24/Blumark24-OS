@@ -56,7 +56,7 @@ export default function Sidebar({
   const { user, loading: authLoading, loggingOut, logout } = useAuth();
   const toast       = useToast();
   const { userRole } = usePermissions();
-  const { navRoutes, loading: wsLoading, isInternal } = useTenantWorkspace();
+  const { navRoutes, loading: wsLoading } = useTenantWorkspace();
   const effectiveRole =
     userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
 
@@ -68,9 +68,7 @@ export default function Sidebar({
 
   const _wsNavLoading = authLoading || wsLoading || (!!user?.id && !effectiveRole);
 
-  const visibleRoutes = _wsNavLoading
-    ? WORKSPACE_ROUTES.filter((r) => !r.internalOnly)
-    : navRoutes;
+  const visibleRoutes = _wsNavLoading ? WORKSPACE_ROUTES : navRoutes;
 
   // Use tenant-aware label so an internal-only role (defense_manager /
   // attack_manager) that ever ends up on a customer profile is rewritten to
@@ -78,7 +76,7 @@ export default function Sidebar({
   // The user-card label and the existing INTERNAL_ROLE_LABELS map cover both
   // tenant + internal contexts.
   const roleLabel = effectiveRole
-    ? getTenantRoleLabel(effectiveRole, isInternal)
+    ? getTenantRoleLabel(effectiveRole)
     : "";
 
   const innerCard = (
@@ -125,7 +123,7 @@ export default function Sidebar({
           {visibleRoutes.map((route) => {
             const Icon = ICON_BY_NAME[route.iconName] ?? LayoutDashboard;
             const href = route.href;
-            const label = getRouteLabel(route.id as WorkspaceRouteId, isInternal);
+            const label = getRouteLabel(route.id as WorkspaceRouteId);
             const isActive = href === "/dashboard"
               ? pathname === "/dashboard"
               : pathname.startsWith(href);

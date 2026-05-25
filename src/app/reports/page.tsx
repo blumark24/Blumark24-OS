@@ -20,13 +20,11 @@ const REPORT_TYPES = [
   { id: "monthly",   label: "تقرير شهري", icon: Calendar,    color: "#1e6fd9" },
 ];
 
-
-
+import { useDepartments } from "@/hooks/useDepartments";
 import { WS_PAGE, WS_CARD, WS_SURFACE } from "@/components/ui/workspaceVisual";
-import { PageHero, KpiStatCard } from "@/components/ui/workspaceUi";
+import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
+import { getTenantRoleLabel, formatTenantDepartment } from "@/lib/tenant/tenantDisplay";
 import { cn } from "@/lib/utils";
-import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
-import { getChartDepartmentFallback } from "@/lib/tenant/tenantDisplay";
 
 const TOOLTIP_STYLE = {
   background: "#0d1f3c",
@@ -52,11 +50,9 @@ function toCSV(rows: string[][]): string {
 }
 
 function ReportsContent() {
-  const { isInternal } = useTenantWorkspace();
-  const deptNames = useMemo(() => getChartDepartmentFallback(isInternal), [isInternal]);
+  const { data: departments } = useDepartments();
   const [activeReport, setActiveReport] = useState<ReportId>("monthly");
   const [period, setPeriod]             = useState("هذا الشهر");
-
   const { data: employees, loading: loadingEmp }  = useEmployees();
   const { data: clients,   loading: loadingCli }  = useClients();
   const { data: tasks,     loading: loadingTsk }  = useTasks();
@@ -67,14 +63,20 @@ function ReportsContent() {
   const totalIncome  = useMemo(() => txs.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0),  [txs]);
   const totalExpense = useMemo(() => txs.filter((t) => t.type === "مصروف").reduce((s, t) => s + t.amount, 0), [txs]);
 
-  const deptData = useMemo(
-    () =>
-      deptNames.map((dept) => ({
-        name: dept,
-        count: employees.filter((e) => e.department === dept).length,
-      })),
-    [employees, deptNames],
-  );
+  const deptData = useMemo(() => {
+    const names = departments.map((d) => d.name);
+    const fromEmployees = Array.from(new Set(employees.map((e) => e.department).filter(Boolean)));
+    const all = Array.from(new Set([...names, ...fromEmployees]));
+    const rows = all.map((dept) => ({
+      name: dept,
+      count: employees.filter((e) => e.department === dept).length,
+    }));
+    const unassigned = employees.filter(
+      (e) => !e.department || !all.includes(e.department),
+    ).length;
+    if (unassigned > 0) rows.push({ name: "غير مصنف", count: unassigned });
+    return rows;
+  }, [employees, departments]);
 
   const taskStatusData = useMemo(() => [
     { name: "جديدة",       value: tasks.filter((t) => t.status === "جديدة").length,       color: "#22d3ee" },
@@ -256,8 +258,8 @@ function ReportsContent() {
                 {employees.map((emp) => (
                   <tr key={emp.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
                     <td className="px-4 py-3 text-white font-medium">{emp.name}</td>
-                    <td className="px-4 py-3 text-[#8ba3c7]">{emp.department}</td>
-                    <td className="px-4 py-3 text-[#8ba3c7]">{emp.role.replace("_", " ")}</td>
+                    <td className="px-4 py-3 text-[#8ba3c7]">{formatTenantDepartment(emp.department).text}</td>
+                    <td className="px-4 py-3 text-[#8ba3c7]">{getTenantRoleLabel(emp.role)}</td>
                     <td className="px-4 py-3">
                       <span className="text-white">{emp.completedTasks ?? 0}</span>
                       <span className="text-[#8ba3c7]">/{emp.tasks ?? 0}</span>
@@ -277,7 +279,16 @@ function ReportsContent() {
                   </tr>
                 ))}
                 {employees.length === 0 && (
-                  <tr><td colSpan={6} className="text-center py-8 text-[#8ba3c7]">لا توجد بيانات</td></tr>
+                  <tr>
+                    <td colSpan={6} className="p-0">
+                      <WorkspaceEmpty
+                        icon={Users}
+                        title="لا يوجد موظفون للتقرير"
+                        subtitle="أضف موظفين من صفحة الفريق لعرض تقاريرهم هنا"
+                        accent="cyan"
+                      />
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -310,7 +321,16 @@ function ReportsContent() {
                   </tr>
                 ))}
                 {tasks.length === 0 && (
-                  <tr><td colSpan={6} className="text-center py-8 text-[#8ba3c7]">لا توجد بيانات</td></tr>
+                  <tr>
+                    <td colSpan={6} className="p-0">
+                      <WorkspaceEmpty
+                        icon={CheckSquare}
+                        title="لا توجد مهام للتقرير"
+                        subtitle="أنشئ مهامًا من صفحة المهام لعرض تقاريرها"
+                        accent="amber"
+                      />
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>

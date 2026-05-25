@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { normalizePlanSlug, type PlanSlug } from "@/lib/features/packageFeatures";
+import {
+  normalizePlanSlug,
+  type PlanSlug,
+  type WorkspaceFeature,
+} from "@/lib/features/packageFeatures";
 import { isPlatformAdminEmail } from "@/lib/platformAdmins";
 
 export const runtime = "nodejs";
@@ -52,19 +56,28 @@ export async function GET(req: NextRequest) {
     const isPlatformAdmin =
       isPlatformAdminEmail(email) || role === "super_admin";
 
+    const emptyPayload = {
+      planSlug: "basic" as PlanSlug,
+      enabledFeatures: [] as WorkspaceFeature[],
+      planLimits: {} as Record<string, number>,
+      isPlatformAdmin,
+      organizationId: orgId ?? null,
+      organizationStatus: null as string | null,
+    };
+
     if (!orgId) {
       return NextResponse.json({
-        isInternal: isPlatformAdmin,
-        planSlug: (isPlatformAdmin ? "advanced" : "basic") satisfies PlanSlug,
-        isPlatformAdmin,
-        organizationId: null,
+        ...emptyPayload,
+        planSlug: "basic",
+        enabledFeatures: [],
+        featuresConfigured: false,
         organizationStatus: null,
       });
     }
 
     const { data: org, error: orgErr } = await admin
       .from("organizations")
-      .select("id, is_internal, plan_id, status, deleted_at")
+      .select("id, plan_id, status, deleted_at")
       .eq("id", orgId)
       .maybeSingle();
 
@@ -75,27 +88,64 @@ export async function GET(req: NextRequest) {
 
     if (!org || org.deleted_at) {
       return NextResponse.json({
-        isInternal: false,
-        planSlug: "basic" satisfies PlanSlug,
-        isPlatformAdmin,
-        organizationId: orgId,
+        ...emptyPayload,
         organizationStatus: "missing",
       });
     }
 
     let planSlug: PlanSlug = "basic";
+    let planId: string | null = null;
     if (org.plan_id) {
+      planId = org.plan_id as string;
       const { data: plan } = await admin
         .from("plans")
         .select("slug")
-        .eq("id", org.plan_id)
+        .eq("id", planId)
         .maybeSingle();
       planSlug = normalizePlanSlug(plan?.slug);
     }
 
+    let enabledFeatures: WorkspaceFeature[] = [];
+    let featuresConfigured = false;
+
+    if (planId) {
+      const { data: features, error: featErr } = await admin
+        .from("plan_features")
+        .select("feature_key")
+        .eq("plan_id", planId);
+
+      if (featErr) {
+        console.error("[workspace-context] plan_features error:", featErr.message);
+        return NextResponse.json(
+          { error: "تعذر قراءة ميزات الباقة" },
+          { status: 500 },
+        );
+      }
+
+      if (features && features.length > 0) {
+        enabledFeatures = features.map(
+          (f) => f.feature_key as WorkspaceFeature,
+        );
+        featuresConfigured = true;
+      }
+    }
+
+    const planLimits: Record<string, number> = {};
+    if (planId) {
+      const { data: limits } = await admin
+        .from("plan_limits")
+        .select("limit_key, limit_value")
+        .eq("plan_id", planId);
+      for (const row of limits ?? []) {
+        planLimits[row.limit_key] = row.limit_value;
+      }
+    }
+
     return NextResponse.json({
-      isInternal: org.is_internal === true,
       planSlug,
+      enabledFeatures,
+      planLimits,
+      featuresConfigured,
       isPlatformAdmin,
       organizationId: org.id,
       organizationStatus: org.status ?? null,

@@ -18,7 +18,7 @@ import { formatCurrency, timeAgo } from "@/lib/utils";
 import { useDashboardKPI, useProjects, useActivities, useTransactions, useEmployees, useClients, useTasks } from "@/hooks/useData";
 import { useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { ROLE_LABELS, usePermissions, mapAuthRoleToUserRole } from "@/contexts/PermissionsContext";
+import { usePermissions, mapAuthRoleToUserRole } from "@/contexts/PermissionsContext";
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import type { UserRole } from "@/contexts/PermissionsContext";
 import {
@@ -26,8 +26,7 @@ import {
   BOARD_THEME, WS_TINTS, type BoardKey, type KpiAccent,
 } from "@/components/ui/workspaceVisual";
 import { StatPill, QuickActionTile, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
-import { PremiumKpiCard } from "@/components/ui/PremiumKpiCard";
-import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import { PremiumMetricCard } from "@/components/ui/PremiumMetricCard";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 
@@ -96,7 +95,6 @@ function todayArabic() {
 export default function DashboardPage() {
   const { user, loading }                      = useAuth();
   const { userRole }                           = usePermissions();
-  const { isInternal }                           = useTenantWorkspace();
   const { kpi, loading: kpiLoading }           = useDashboardKPI();
   const { data: projects, loading: projLoad }  = useProjects();
   const { data: activities, loading: actLoad } = useActivities();
@@ -138,9 +136,9 @@ export default function DashboardPage() {
 
   const resolvedRole = userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
   const roleLabel = resolvedRole
-    ? getTenantRoleLabel(resolvedRole, isInternal)
+    ? getTenantRoleLabel(resolvedRole)
     : user?.role
-      ? getTenantRoleLabel(mapAuthRoleToUserRole(user.role), isInternal)
+      ? getTenantRoleLabel(mapAuthRoleToUserRole(user.role))
       : "عضو الفريق";
   const { display: departmentDisplay } = useProfileOrgDepartment();
 
@@ -355,7 +353,7 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className={WS_PAGE}>
+      <div className={cn(WS_PAGE, "min-w-0 max-w-full overflow-x-hidden")}>
         {/* ─── Hero: welcome banner ──────────────────────────────────────── */}
         <section className={`${WS_SURFACE} p-4 sm:p-5 lg:p-6`}>
           <JellyfishBackground />
@@ -413,7 +411,7 @@ export default function DashboardPage() {
         </section>
 
         {/* ─── KPI cards ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 auto-rows-fr items-stretch min-w-0">
           {kpiLoading
             ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
             : kpiCards.map((card) => {
@@ -458,7 +456,7 @@ export default function DashboardPage() {
                   );
 
                 return (
-                  <PremiumKpiCard
+                  <PremiumMetricCard
                     key={card.key}
                     label={card.label}
                     value={card.value}
@@ -469,6 +467,7 @@ export default function DashboardPage() {
                     progress={progress}
                     footer={footer}
                     onLiveClick={() => setActiveBoard(card.key)}
+                    className="h-full"
                   />
                 );
               })}

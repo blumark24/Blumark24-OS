@@ -45,6 +45,8 @@ import {
   isStructureLevelLocked,
   rulesForPlan,
   STRUCTURE_LEVEL_LABELS,
+  validateParentForLevel,
+  getLevelFromDepartment,
 } from "@/lib/org/packageHierarchy";
 import { PLAN_LABELS_AR, type PlanSlug } from "@/lib/features/packageFeatures";
 import {
@@ -61,8 +63,9 @@ import TeamFormModal from "./TeamFormModal";
 import {
   checkCanAddTeam,
   countDepartmentsAtLevel,
-  getOrgPlanLimits,
+  mergeOrgPlanLimits,
 } from "@/lib/org/orgPackageLimits";
+import { countEmployeesInOrg } from "@/lib/org/orgUnits";
 import {
   ORG_CANVAS,
   ORG_CANVAS_GLOW,
@@ -87,9 +90,12 @@ interface InnerProps {
 function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
   const toast = useToast();
   const { fitView } = useReactFlow();
-  const { planSlug, isInternal } = useTenantWorkspace();
+  const { planSlug, planLimits: dbPlanLimits } = useTenantWorkspace();
   const plan = planSlug as PlanSlug;
-  const planLimits = useMemo(() => getOrgPlanLimits(plan), [plan]);
+  const planLimits = useMemo(
+    () => mergeOrgPlanLimits(plan, dbPlanLimits),
+    [plan, dbPlanLimits],
+  );
 
   const {
     data,
@@ -103,7 +109,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
     deleteTeam,
     createPosition,
     deletePosition,
-    upsertEmployeeRelation,
+    assignEmployeeToOrgUnit,
   } = useOrgStructure(true);
   const { data: employees } = useEmployees();
 
@@ -115,6 +121,13 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
   const [teamModal, setTeamModal] = useState<{ team?: Team | null; deptId?: string } | null>(null);
   const [assignModal, setAssignModal] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<"canvas" | "tree" | "roles">("canvas");
+
+  const ORG_MOBILE_TABS = [
+    { id: "canvas" as const, label: "المخطط" },
+    { id: "tree" as const, label: "الشجرة" },
+    { id: "roles" as const, label: "الأدوار" },
+  ];
 
   const employeeNames = useMemo(() => {
     const m = new Map<string, string>();
@@ -175,9 +188,19 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
         }
       }
       if (nearest && minDist < PARENT_SNAP_DISTANCE_PX) {
+        const draggedDept = data?.departments.find((d) => d.id === dragged);
+        if (!draggedDept) return;
+        const newParentId = nearest.data.entityId;
+        const level = getLevelFromDepartment(draggedDept);
+        const parentErr = validateParentForLevel(level, newParentId, data?.departments ?? []);
+        if (parentErr) {
+          toast.error(parentErr);
+          await refresh();
+          return;
+        }
         try {
           await updateDepartment(dragged, {
-            parent_id: nearest.data.entityId,
+            parent_id: newParentId,
           });
           toast.success("تم تحديث التسلسل الهرمي");
           await refresh();
@@ -186,14 +209,14 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
         }
       }
     },
-    [canManage, nodes, updateDepartment, toast, refresh],
+    [canManage, nodes, data?.departments, updateDepartment, toast, refresh],
   );
 
   const selectedDept = data?.departments.find((d) => `dept-${d.id}` === selectedId);
   const selectedTeam = data?.teams.find((t) => `team-${t.id}` === selectedId);
 
   const openAddLevel = (level: StructureLevel) => {
-    const check = canCreateStructureLevel(plan, level, data?.departments ?? []);
+    const check = canCreateStructureLevel(plan, level, data?.departments ?? [], planLimits);
     if (!check.allowed) {
       toast.error(check.reason ?? "غير متاح في باقتك");
       return;
@@ -236,6 +259,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
     });
   }, []);
 
+  const linkedEmployeeCount = data ? countEmployeesInOrg(data) : 0;
   const isEmpty =
     !loading && !error && data && data.departments.length === 0 && data.teams.length === 0;
 
@@ -313,6 +337,11 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
           <div className="flex items-center gap-2 text-[#6b87ab] text-xs">
             <Network size={16} className="text-[#22d3ee]" />
             {orgLabel}
+            {data && (
+              <span className="text-[#8ba3c7]">
+                · {linkedEmployeeCount} موظف{linkedEmployeeCount === 1 ? "" : "ون"} مرتبط
+              </span>
+            )}
           </div>
         </div>
       </section>
@@ -339,14 +368,46 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
           )}
         </div>
       ) : (
+        <>
+        {/* Mobile org tabs — desktop keeps 3-column grid */}
+        <div
+          className="xl:hidden flex gap-1 p-1 rounded-2xl border border-white/[0.08] bg-[#070d20]/60 backdrop-blur-sm"
+          role="tablist"
+          aria-label="عرض الهيكل الإداري"
+        >
+          {ORG_MOBILE_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === tab.id}
+              onClick={() => setMobileTab(tab.id)}
+              className={cn(
+                "flex-1 min-h-10 rounded-xl text-xs font-medium transition-all touch-manipulation",
+                mobileTab === tab.id
+                  ? "bg-cyan-500/15 text-cyan-200 border border-cyan-400/25"
+                  : "text-[#8ba3c7] hover:text-white",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <div
           className="grid grid-cols-1 xl:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_minmax(260px,300px)] gap-4"
           dir="rtl"
         >
           {data && (
-            <div className="order-2 xl:order-none min-h-[280px] xl:min-h-[min(68vh,580px)]">
+            <div
+              className={cn(
+                "order-2 xl:order-none min-h-[280px] xl:min-h-[min(68vh,580px)]",
+                mobileTab !== "tree" && "hidden xl:block",
+              )}
+            >
               <OrgHierarchySidebar
                 snapshot={data}
+                boardLabel={BOARD_LABEL_AR}
                 selectedId={selectedId}
                 collapsed={collapsed}
                 onSelect={handleSidebarSelect}
@@ -355,7 +416,12 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
               />
             </div>
           )}
-          <div className="space-y-3 min-w-0 order-1 xl:order-none">
+          <div
+            className={cn(
+              "space-y-3 min-w-0 order-1 xl:order-none",
+              mobileTab !== "canvas" && "hidden xl:block",
+            )}
+          >
             {canManage && (
               <>
               <p className="text-[#6b87ab] text-xs w-full">
@@ -466,8 +532,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
             )}
 
             <div
-              className={cn(ORG_CANVAS, "relative")}
-              style={{ height: "min(68vh, 580px)" }}
+              className={cn(ORG_CANVAS, "relative h-[min(52vh,420px)] xl:h-[min(68vh,580px)]")}
             >
               <div className={ORG_CANVAS_GLOW} aria-hidden />
               <div className="relative z-[1] h-full">
@@ -495,12 +560,17 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
               </ReactFlow>
               </div>
             </div>
-            <p className="text-[#6b87ab] text-xs text-center">
+            <p className="text-[#6b87ab] text-xs text-center hidden sm:block">
               انقر للتوسيع · اسحب العقدة تحت الأب لتغيير التبعية · لا صور — بطاقات زجاجية فقط
             </p>
           </div>
 
-          <aside className="space-y-4 order-3 xl:order-none">
+          <aside
+            className={cn(
+              "space-y-4 order-3 xl:order-none",
+              mobileTab !== "roles" && "hidden xl:block",
+            )}
+          >
             {data && (
               <PositionsPanel
                 positions={data.positions}
@@ -528,7 +598,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
               style={{ background: "rgba(10,22,40,0.75)" }}
             >
               <h3 className="text-white text-sm font-bold">الأدوار في الهيكل</h3>
-              {getOrgRoleDefinitions(isInternal).map((r) => (
+              {getOrgRoleDefinitions(false).map((r) => (
                 <div
                   key={r.title}
                   className="rounded-xl border border-[#1e3a5f]/80 p-3"
@@ -541,6 +611,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
             </div>
           </aside>
         </div>
+        </>
       )}
 
       {levelModal && data && (
@@ -572,13 +643,14 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
           employees={employees}
           departments={data.departments}
           teams={data.teams}
+          positions={data.positions}
           defaultDepartmentId={selectedDept?.id}
           onAssign={async (input) => {
-            await upsertEmployeeRelation({
+            await assignEmployeeToOrgUnit({
               employee_id: input.employee_id,
               department_id: input.department_id,
               team_id: input.team_id,
-              position_id: null,
+              position_id: input.position_id,
               manager_id: null,
             });
             toast.success("تم ربط الموظف بالهيكل");

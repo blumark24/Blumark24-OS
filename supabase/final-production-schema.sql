@@ -1,6 +1,7 @@
 -- ============================================================
 -- Blumark24 OS – Final Production Schema v3
 -- Safe to re-run. Run in Supabase SQL Editor.
+-- For SaaS isolation (plan_features, departments): apply migration 020_saas_package_departments.sql
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

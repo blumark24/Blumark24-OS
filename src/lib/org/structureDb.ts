@@ -11,10 +11,11 @@ import type {
   Team,
   TeamInput,
 } from "./types";
+import { isBoardReservedName } from "./orgUnits";
 
 async function resolveOrgId(): Promise<string> {
   const { data, error } = await supabase.rpc("current_org_id");
-  if (error || !data) throw new Error("تعذر تحديد المنشأة (organization_id)");
+  if (error || !data) throw new Error("تعذر تحديد المنشأة أو صلاحيات الوصول.");
   return data as string;
 }
 
@@ -49,6 +50,9 @@ export async function fetchOrgStructure(): Promise<OrgStructureSnapshot> {
 }
 
 export async function createDepartment(input: DepartmentInput): Promise<Department> {
+  if (isBoardReservedName(input.name)) {
+    throw new Error(`«${input.name}» محجوز لمجلس الإدارة ولا يمكن إنشاؤه كوحدة فرعية.`);
+  }
   const organization_id = await resolveOrgId();
   const { data, error } = await supabase
     .from("departments")
@@ -67,6 +71,9 @@ export async function updateDepartment(
   id: string,
   input: Partial<DepartmentInput>,
 ): Promise<Department> {
+  if (input.name !== undefined && isBoardReservedName(input.name)) {
+    throw new Error(`«${input.name}» محجوز لمجلس الإدارة ولا يمكن استخدامه كاسم وحدة.`);
+  }
   const { data, error } = await supabase
     .from("departments")
     .update(input)
@@ -74,6 +81,9 @@ export async function updateDepartment(
     .select("*")
     .single();
   if (error) throw new Error(error.message);
+  if (input.name !== undefined) {
+    await propagateDepartmentLabels(id, input.name);
+  }
   return data as Department;
 }
 
@@ -132,6 +142,23 @@ export async function deletePosition(id: string): Promise<void> {
 }
 
 
+async function propagateDepartmentLabels(
+  departmentId: string,
+  name: string,
+): Promise<void> {
+  const label = String(name).slice(0, 100);
+  const { data: rels, error } = await supabase
+    .from("employee_relations")
+    .select("employee_id")
+    .eq("department_id", departmentId);
+  if (error || !rels?.length) return;
+  const ids = rels.map((r) => r.employee_id as string);
+  await Promise.all([
+    supabase.from("employees").update({ department: label }).in("id", ids),
+    supabase.from("profiles").update({ department: label }).in("id", ids),
+  ]);
+}
+
 async function syncEmployeeDepartmentLabel(
   employeeId: string,
   departmentId: string | null,
@@ -162,6 +189,16 @@ export async function upsertEmployeeRelation(
   if (error) throw new Error(error.message);
   await syncEmployeeDepartmentLabel(input.employee_id, input.department_id);
   return data as EmployeeRelation;
+}
+
+/** Assign employee to org unit and sync HR labels (employees + profiles). */
+export async function assignEmployeeToOrgUnit(
+  input: EmployeeRelationInput,
+): Promise<EmployeeRelation> {
+  if (!input.department_id) {
+    throw new Error("يجب اختيار وحدة تنظيمية من الهيكل الإداري.");
+  }
+  return upsertEmployeeRelation(input);
 }
 
 export async function deleteEmployeeRelation(id: string): Promise<void> {

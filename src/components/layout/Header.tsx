@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import OfficialBlumarkLogo from "@/components/brand/OfficialBlumarkLogo";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePermissions, ROLE_LABELS } from "@/contexts/PermissionsContext";
+import { usePermissions } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useNotifications } from "@/contexts/NotificationsContext";
 import { useMessages } from "@/contexts/MessagesContext";
@@ -19,8 +19,10 @@ import { supabase } from "@/lib/supabase";
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { GlassPopover } from "@/components/ui/GlassPopover";
-import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
-import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
+import { CommandFloatingOverlay, CommandPopover } from "@/components/ui/CommandOverlay";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { QuickActionsList } from "@/components/layout/QuickActionsMenu";
+import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 import { withTimeout } from "@/lib/asyncHelpers";
 
@@ -81,15 +83,203 @@ const NOTIF_ICONS = {
   invoice_due:    { icon: DollarSign,    color: "text-orange-400",bg: "bg-orange-500/10"},
 };
 
-// ─── Quick-create items ──────────────────────────────────────────────────────
+// ─── Quick-create (desktop uses shared permission-aware menu) ────────────────
 
-const QUICK_CREATE = [
-  { label: "عميل جديد",   icon: UserCircle,  href: "/clients",   color: "#10b981" },
-  { label: "مهمة جديدة",  icon: CheckSquare, href: "/tasks",     color: "#22d3ee" },
-  { label: "فاتورة جديدة",icon: DollarSign,  href: "/finance",   color: "#ff7a3d" },
-  { label: "مصروف جديد",  icon: DollarSign,  href: "/finance",   color: "#ef4444" },
-  { label: "موظف جديد",   icon: Users,       href: "/employees", color: "#a855f7" },
-];
+// ─── Profile panel content (shared desktop popover + mobile sheet) ───────────
+
+function ProfilePanelContent({
+  user,
+  userRole,
+  loggingOut,
+  onLogout,
+  onNavigate,
+  onClose,
+}: {
+  user: NonNullable<ProfileDropdownProps["user"]>;
+  userRole: string | null;
+  loggingOut: boolean;
+  onLogout: () => void;
+  onNavigate: (href: string) => void;
+  onClose: () => void;
+}) {
+  const { display: departmentInfo } = useProfileOrgDepartment();
+  const isActive = user.is_active !== false;
+  const initials = user.name?.slice(0, 2) ?? "م";
+  const roleLabel = userRole
+    ? getTenantRoleLabel(userRole)
+    : getTenantRoleLabel(user.role);
+
+  return (
+    <div className="flex flex-col">
+      {/* Identity header */}
+      <div className="px-3.5 pt-3.5 pb-3 border-b border-white/[0.06]">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-11 h-11 rounded-2xl flex items-center justify-center text-base font-bold text-white flex-shrink-0 ring-1 ring-white/10"
+            style={{ background: "linear-gradient(135deg,#ff7a3d,#ff5722)" }}
+          >
+            {initials}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-white font-semibold text-sm truncate">{user.name}</div>
+            <div className="text-[#8ba3c7] text-[11px] truncate mt-0.5">{user.email}</div>
+          </div>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0",
+              isActive
+                ? "bg-emerald-500/12 text-emerald-400 border border-emerald-400/20"
+                : "bg-red-500/12 text-red-400 border border-red-400/20",
+            )}
+          >
+            <span className={cn("w-1.5 h-1.5 rounded-full", isActive ? "bg-emerald-400" : "bg-red-400")} />
+            {isActive ? "نشط" : "غير نشط"}
+          </span>
+        </div>
+      </div>
+
+      {/* Info chips */}
+      <div className="px-3.5 py-2.5 flex flex-wrap gap-2 border-b border-white/[0.06]">
+        <div className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-2.5 py-1.5 text-[11px]">
+          <ShieldCheck size={12} className="text-cyan-300 shrink-0" />
+          <span className="text-[#8ba3c7]">الدور</span>
+          <span className="text-white font-medium">{roleLabel || "عضو الفريق"}</span>
+        </div>
+        <div className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-2.5 py-1.5 text-[11px] min-w-0">
+          <Building2 size={12} className="text-cyan-300 shrink-0" />
+          <span className="text-[#8ba3c7] shrink-0">القسم</span>
+          <span className={cn("font-medium truncate", departmentInfo.isEmpty ? "text-white/40 italic" : "text-white")}>
+            {departmentInfo.text}
+          </span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="p-2 space-y-0.5">
+        <button
+          onClick={() => { onNavigate("/employees"); onClose(); }}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-[#8ba3c7] hover:text-white hover:bg-white/[0.05] transition-all text-right"
+        >
+          <span className="grid h-8 w-8 place-items-center rounded-lg border border-white/[0.08] bg-cyan-500/10">
+            <User size={14} className="text-cyan-300" />
+          </span>
+          الملف الشخصي
+        </button>
+        <button
+          onClick={() => { onNavigate("/settings"); onClose(); }}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-[#8ba3c7] hover:text-white hover:bg-white/[0.05] transition-all text-right"
+        >
+          <span className="grid h-8 w-8 place-items-center rounded-lg border border-white/[0.08] bg-cyan-500/10">
+            <Settings size={14} className="text-cyan-300" />
+          </span>
+          إعدادات الحساب
+        </button>
+        <button
+          onClick={() => { if (loggingOut) return; onLogout(); onClose(); }}
+          disabled={loggingOut}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-red-400/90 hover:text-red-300 hover:bg-red-500/10 transition-all text-right disabled:opacity-50"
+        >
+          <span className="grid h-8 w-8 place-items-center rounded-lg border border-red-400/15 bg-red-500/10">
+            <LogOut size={14} className="text-red-400" />
+          </span>
+          {loggingOut ? "جارٍ تسجيل الخروج..." : "تسجيل الخروج"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Notifications panel content ─────────────────────────────────────────────
+
+function NotificationsPanelContent({
+  notifications,
+  onMarkRead,
+  onMarkAllRead,
+  onNavigate,
+  unreadCount = 0,
+  compact = false,
+}: {
+  notifications: ReturnType<typeof useNotifications>["notifications"];
+  onMarkRead: (id: string) => void;
+  onMarkAllRead: () => void;
+  onNavigate: (href: string) => void;
+  unreadCount?: number;
+  compact?: boolean;
+}) {
+  return (
+    <div className="flex flex-col min-h-0">
+      {!compact && (
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] px-3.5 py-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-white">الإشعارات</span>
+            {unreadCount > 0 && (
+              <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[#ff7a3d]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#ff7a3d] border border-[#ff7a3d]/30">
+                {unreadCount}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={onMarkAllRead}
+            className="text-[11px] text-cyan-300/90 hover:text-cyan-200 transition-colors"
+          >
+            تحديد الكل كمقروء
+          </button>
+        </div>
+      )}
+
+      <div className={cn("overflow-y-auto overscroll-contain", compact ? "max-h-[50vh] p-2" : "max-h-[min(52vh,320px)] p-2")}>
+        {notifications.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+            <span className="grid h-12 w-12 place-items-center rounded-2xl border border-cyan-400/20 bg-cyan-500/10 mb-3">
+              <Bell size={22} className="text-cyan-300/70" />
+            </span>
+            <p className="text-sm text-white/80 font-medium">لا توجد إشعارات</p>
+            <p className="text-[11px] text-[#8ba3c7] mt-1">ستظهر التنبيهات هنا عند وصولها</p>
+          </div>
+        )}
+        <div className="space-y-1.5">
+          {notifications.map((n) => {
+            const cfg = NOTIF_ICONS[n.type];
+            return (
+              <button
+                key={n.id}
+                onClick={() => { onMarkRead(n.id); onNavigate(n.href); }}
+                className={cn(
+                  "w-full flex items-start gap-2.5 rounded-xl px-2.5 py-2.5 text-right transition-all",
+                  "border border-transparent hover:border-white/[0.06] hover:bg-white/[0.04]",
+                  !n.read && "bg-cyan-500/[0.06] border-cyan-400/10",
+                )}
+              >
+                <div className={cn("grid h-9 w-9 place-items-center rounded-xl shrink-0 border border-white/[0.06]", cfg.bg)}>
+                  <cfg.icon size={15} className={cfg.color} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-[12px] font-medium text-white leading-snug line-clamp-2">{n.title}</div>
+                    {!n.read && <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 mt-1 shadow-[0_0_6px_#22d3ee]" />}
+                  </div>
+                  {n.body && (
+                    <div className="text-[11px] text-[#8ba3c7] mt-0.5 line-clamp-1">{n.body}</div>
+                  )}
+                  <div className="text-[10px] text-[#6b87ab] mt-1">{timeAgo(n.at)}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="shrink-0 border-t border-white/[0.06] px-3.5 py-2">
+        <button
+          onClick={() => onNavigate("/tasks")}
+          className="text-[11px] text-cyan-300/90 hover:text-cyan-200 w-full text-center transition-colors"
+        >
+          عرض جميع التنبيهات
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ─── Profile Dropdown ───────────────────────────────────────────────────────
 
@@ -112,19 +302,13 @@ interface ProfileDropdownProps {
 }
 
 function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, open, onToggle }: ProfileDropdownProps) {
-  const { isInternal } = useTenantWorkspace();
-  const { display: departmentInfo } = useProfileOrgDepartment();
+  const isMobile = useIsMobile();
   if (!user) return null;
 
-  // Department and active status come from the authenticated user's own
-  // profile row — never look these up via managedUsers (which is for the
-  // admin panel and may not be loaded yet, causing a "—" / "موظف" flash).
-
-  const isActive   = user.is_active !== false;
-  const initials   = user.name?.slice(0, 2) ?? "م";
-  const roleLabel  = userRole
-    ? getTenantRoleLabel(userRole, isInternal)
-    : getTenantRoleLabel(user.role, isInternal);
+  const initials = user.name?.slice(0, 2) ?? "م";
+  const roleLabel = userRole
+    ? getTenantRoleLabel(userRole)
+    : getTenantRoleLabel(user.role);
 
   return (
     <div className="relative">
@@ -132,9 +316,11 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
         onClick={onToggle}
         className={cn(
           "flex items-center gap-2 px-2 py-1.5 rounded-xl transition-all",
-          open ? "bg-[#1a3356]" : "hover:bg-[#1a3356]/50"
+          open ? "bg-[#1a3356]" : "hover:bg-[#1a3356]/50",
         )}
         title="الملف الشخصي"
+        aria-label="الملف الشخصي"
+        aria-expanded={open}
       >
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
@@ -144,86 +330,42 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
         </div>
         <div className="hidden sm:block text-right leading-none">
           <div className="text-xs font-medium text-white">{user.name}</div>
-          {/* Hide role line until we know the resolved role to prevent an
-              "employee" fallback flash for super_admin users on hard refresh. */}
           {roleLabel ? <div className="text-[10px] text-[#8ba3c7] mt-0.5">{roleLabel}</div> : null}
         </div>
         <ChevronLeft size={12} className={cn("text-[#8ba3c7] hidden sm:block transition-transform", open && "rotate-90")} />
       </button>
 
-      {open && (
+      {open && !isMobile && (
         <GlassPopover className="absolute left-0 top-full mt-2 w-72 z-50">
-          {/* User card */}
-          <div className="p-4 border-b border-[#1e3a5f]">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold text-white flex-shrink-0"
-                style={{ background: "linear-gradient(135deg,#ff7a3d,#ff5722)" }}
-              >
-                {initials}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-white font-semibold text-sm truncate">{user.name}</div>
-                <div className="text-[#8ba3c7] text-xs truncate mt-0.5">{user.email}</div>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium",
-                      isActive
-                        ? "bg-emerald-500/15 text-emerald-400"
-                        : "bg-red-500/15 text-red-400"
-                    )}
-                  >
-                    <span className={cn("w-1.5 h-1.5 rounded-full", isActive ? "bg-emerald-400" : "bg-red-400")} />
-                    {isActive ? "نشط" : "غير نشط"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Info rows */}
-          <div className="px-4 py-3 space-y-2 border-b border-[#1e3a5f]">
-            <div className="flex items-center gap-3 text-xs">
-              <ShieldCheck size={14} className="text-[#22d3ee] flex-shrink-0" />
-              <span className="text-[#8ba3c7]">الدور:</span>
-              <span className="text-white font-medium mr-auto">{roleLabel || "عضو الفريق"}</span>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <Building2 size={14} className="text-[#22d3ee] flex-shrink-0" />
-              <span className="text-[#8ba3c7]">القسم:</span>
-              <span className={cn("mr-auto font-medium", departmentInfo.isEmpty ? "text-[11px] italic text-white/45" : "text-white")}>{departmentInfo.text}</span>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="p-2">
-            <button
-              onClick={() => { onNavigate("/employees"); onToggle(); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[#8ba3c7] hover:text-white hover:bg-[#1a3356]/60 transition-all text-right"
-            >
-              <User size={15} className="text-[#22d3ee] flex-shrink-0" />
-              الملف الشخصي
-            </button>
-            <button
-              onClick={() => { onNavigate("/settings"); onToggle(); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[#8ba3c7] hover:text-white hover:bg-[#1a3356]/60 transition-all text-right"
-            >
-              <Settings size={15} className="text-[#22d3ee] flex-shrink-0" />
-              إعدادات الحساب
-            </button>
-            <div className="my-1 border-t border-[#1e3a5f]" />
-            <button
-              onClick={() => { if (loggingOut) return; onLogout(); onToggle(); }}
-              disabled={loggingOut}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all text-right disabled:opacity-50 disabled:hover:text-red-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-            >
-              <LogOut size={15} className="flex-shrink-0" />
-              {loggingOut ? "جارٍ تسجيل الخروج..." : "تسجيل الخروج"}
-            </button>
-          </div>
+          <ProfilePanelContent
+            user={user}
+            userRole={userRole}
+            loggingOut={loggingOut}
+            onLogout={onLogout}
+            onNavigate={onNavigate}
+            onClose={onToggle}
+          />
         </GlassPopover>
       )}
+
+      <CommandFloatingOverlay
+        open={open && isMobile}
+        onClose={onToggle}
+        width="92vw"
+        maxWidth={420}
+        maxHeight="72vh"
+        placement="bottom-float"
+        showClose
+      >
+        <ProfilePanelContent
+          user={user}
+          userRole={userRole}
+          loggingOut={loggingOut}
+          onLogout={onLogout}
+          onNavigate={onNavigate}
+          onClose={onToggle}
+        />
+      </CommandFloatingOverlay>
     </div>
   );
 }
@@ -234,6 +376,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
   const router = useRouter();
   const { user, logout, loggingOut } = useAuth();
   const { userRole } = usePermissions();
+  const isMobile = useIsMobile();
 
   if (process.env.NODE_ENV === "development") {
     console.log("Header userRole:", userRole);
@@ -276,6 +419,20 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
     }
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
+  }, []);
+
+  // Escape closes desktop dropdowns (mobile overlays also listen independently)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      setOpenNotif(false);
+      setOpenMsg(false);
+      setOpenNew(false);
+      setOpenSearch(false);
+      setOpenProfile(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -385,20 +542,16 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
             <Plus size={18} />
           </button>
           {openNew && (
-            <GlassPopover className="absolute left-0 top-full mt-2 w-48 z-50">
-              {QUICK_CREATE.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={() => { goTo(item.href); toast.info(`انتقلت إلى صفحة ${item.label.replace(" جديد", "")}`); }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#1a3356] transition-colors text-right"
-                >
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${item.color}20` }}>
-                    <item.icon size={13} style={{ color: item.color }} />
-                  </div>
-                  <span className="text-sm text-white">{item.label}</span>
-                </button>
-              ))}
-            </GlassPopover>
+            <div className="absolute left-0 top-full mt-2 z-50">
+              <CommandPopover width="320px">
+                <div className="border-b border-white/[0.07] px-3 py-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-200/70">
+                    إجراء سريع
+                  </p>
+                </div>
+                <QuickActionsList onNavigate={() => setOpenNew(false)} compact />
+              </CommandPopover>
+            </div>
           )}
         </div>
 
@@ -414,45 +567,53 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
               <span className="notif-badge" style={{ background: "#ff7a3d" }}>{unreadNotif}</span>
             )}
           </button>
-          {openNotif && (
-            <GlassPopover className="absolute left-0 top-full mt-2 w-80 z-50 max-h-[min(70vh,420px)] flex flex-col">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e3a5f]">
-                <span className="text-white font-medium text-sm">الإشعارات</span>
-                <button onClick={markAllRead} className="text-xs text-[#22d3ee] hover:underline">تحديد الكل كمقروء</button>
-              </div>
-              <div className="max-h-72 overflow-y-auto">
-                {notifications.length === 0 && (
-                  <div className="px-4 py-6 text-center text-sm text-[#8ba3c7]">لا توجد إشعارات</div>
-                )}
-                {notifications.map((n) => {
-                  const cfg = NOTIF_ICONS[n.type];
-                  return (
-                    <button
-                      key={n.id}
-                      onClick={() => { markRead(n.id); goTo(n.href); }}
-                      className={cn("w-full flex items-start gap-3 px-4 py-3 hover:bg-[#1a3356]/60 transition-colors text-right border-b border-[#1e3a5f]/40 last:border-0", !n.read && "bg-[#1a3356]/60")}
-                    >
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>
-                        <cfg.icon size={14} className={cfg.color} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium text-white">{n.title}</div>
-                        <div className="text-xs text-[#8ba3c7] mt-0.5 truncate">{n.body}</div>
-                        <div className="text-[10px] text-[#6b87ab] mt-1">{timeAgo(n.at)}</div>
-                      </div>
-                      {!n.read && <div className="w-2 h-2 rounded-full bg-[#22d3ee] flex-shrink-0 mt-1" />}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="px-4 py-2.5 border-t border-[#1e3a5f]">
-                <button onClick={() => goTo("/tasks")} className="text-xs text-[#22d3ee] hover:underline w-full text-center">
-                  عرض جميع التنبيهات
-                </button>
-              </div>
+          {openNotif && !isMobile && (
+            <GlassPopover className="absolute left-0 top-full mt-2 w-[min(340px,92vw)] z-50 flex flex-col">
+              <NotificationsPanelContent
+                notifications={notifications}
+                onMarkRead={markRead}
+                onMarkAllRead={markAllRead}
+                onNavigate={goTo}
+                unreadCount={unreadNotif}
+              />
             </GlassPopover>
           )}
         </div>
+
+        <CommandFloatingOverlay
+          open={openNotif && isMobile}
+          onClose={() => setOpenNotif(false)}
+          title="الإشعارات"
+          width="94vw"
+          maxWidth={460}
+          maxHeight="70vh"
+          placement="bottom-float"
+          headerAction={
+            <div className="flex items-center gap-2">
+              {unreadNotif > 0 && (
+                <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[#ff7a3d]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#ff7a3d] border border-[#ff7a3d]/30">
+                  {unreadNotif}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={markAllRead}
+                className="text-[11px] text-cyan-300/90 hover:text-cyan-200 whitespace-nowrap"
+              >
+                تحديد الكل كمقروء
+              </button>
+            </div>
+          }
+        >
+          <NotificationsPanelContent
+            notifications={notifications}
+            onMarkRead={markRead}
+            onMarkAllRead={markAllRead}
+            onNavigate={(href) => { goTo(href); setOpenNotif(false); }}
+            unreadCount={unreadNotif}
+            compact
+          />
+        </CommandFloatingOverlay>
 
         {/* Messages (desktop) */}
         <div className="relative hidden lg:block">

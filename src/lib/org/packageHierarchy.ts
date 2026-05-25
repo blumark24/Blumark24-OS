@@ -1,5 +1,5 @@
 import type { PlanSlug } from "@/lib/features/packageFeatures";
-import { checkCanAddStructureLevel } from "./orgPackageLimits";
+import { checkCanAddStructureLevel, getOrgPlanLimits, type OrgPlanLimits } from "./orgPackageLimits";
 import type { Department, StructureLevel } from "./types";
 
 export const BOARD_LABEL_AR = "مجلس الإدارة";
@@ -99,6 +99,7 @@ export function canCreateStructureLevel(
   plan: PlanSlug,
   level: StructureLevel,
   departments: Department[],
+  limits?: OrgPlanLimits,
 ): { allowed: boolean; reason?: string } {
   if (isStructureLevelLocked(plan, level)) {
     return {
@@ -107,7 +108,11 @@ export function canCreateStructureLevel(
     };
   }
 
-  const capCheck = checkCanAddStructureLevel(plan, level, departments);
+  const capCheck = checkCanAddStructureLevel(
+    limits ?? getOrgPlanLimits(plan),
+    level,
+    departments,
+  );
   if (!capCheck.allowed) {
     return { allowed: false, reason: capCheck.message };
   }
