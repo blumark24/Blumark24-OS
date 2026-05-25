@@ -37,6 +37,33 @@ export interface AiUsageTruthState {
   totalRequests: number | null;
 }
 
+export interface OwnerKpiAggregates {
+  activeOrgCount: number;
+  monthlyRecurringRevenueSar: number | null;
+  totalCustomerStaff: number | null;
+  aiTrackingEnabled: boolean;
+  aiUsageRequestCount: number | null;
+}
+
+interface PlanPricingRow {
+  id: string;
+  price_monthly: number | null;
+  price_annual: number | null;
+}
+
+interface SubscriptionPricingRow {
+  plan_id: string;
+  status: string;
+  billing_cycle: string;
+}
+
+interface OrganizationRow {
+  id: string;
+  status: string;
+  is_internal: boolean;
+  deleted_at: string | null;
+}
+
 const ACTION_META: Record<string, { title: string; accent: Accent; icon: LucideIcon }> = {
   create_organization: { title: "تم إنشاء منشأة", accent: "cyan", icon: Building2 },
   activate_subscription: { title: "تم تفعيل اشتراك", accent: "blue", icon: ArrowUpCircle },
@@ -98,6 +125,88 @@ export async function fetchAiUsageTruthState(): Promise<AiUsageTruthState> {
   return { trackingEnabled: true, totalRequests: count ?? 0 };
 }
 
+/** Sum MRR from active/trialing subs when plan prices exist; null when pricing unavailable. */
+export function computeMonthlyRecurringRevenueSar(
+  subscriptions: SubscriptionPricingRow[],
+  plans: PlanPricingRow[],
+): number | null {
+  const planById = new Map(plans.map((p) => [p.id, p]));
+  const billable = subscriptions.filter(
+    (s) => (s.status === "active" || s.status === "trialing") && s.billing_cycle !== "internal",
+  );
+
+  let total = 0;
+  let pricedSubCount = 0;
+
+  for (const sub of billable) {
+    const plan = planById.get(sub.plan_id);
+    if (!plan) continue;
+
+    if (sub.billing_cycle === "annual") {
+      if (plan.price_annual == null) continue;
+      total += Number(plan.price_annual) / 12;
+      pricedSubCount += 1;
+      continue;
+    }
+
+    if (plan.price_monthly == null) continue;
+    total += Number(plan.price_monthly);
+    pricedSubCount += 1;
+  }
+
+  if (pricedSubCount === 0) return null;
+  return Math.round(total * 100) / 100;
+}
+
+export function countActiveOrganizations(organizations: OrganizationRow[]): number {
+  return organizations.filter(
+    (o) => !o.deleted_at && o.status === "active" && o.is_internal !== true,
+  ).length;
+}
+
+export async function fetchTotalCustomerStaffCount(customerOrgIds: string[]): Promise<number | null> {
+  if (customerOrgIds.length === 0) return 0;
+
+  const { count, error } = await supabase
+    .from("employees")
+    .select("*", { count: "exact", head: true })
+    .in("organization_id", customerOrgIds);
+
+  if (error) {
+    if (isMissingTableError(error)) return null;
+    console.warn("[owner] employees KPI count failed:", error.message);
+    return null;
+  }
+
+  return count ?? 0;
+}
+
+export async function buildOwnerKpiAggregates(input: {
+  organizations: OrganizationRow[];
+  subscriptions: SubscriptionPricingRow[];
+  planPricing: PlanPricingRow[];
+}): Promise<OwnerKpiAggregates> {
+  const customerOrgIds = input.organizations
+    .filter((o) => !o.deleted_at && !o.is_internal)
+    .map((o) => o.id);
+
+  const [totalCustomerStaff, aiState] = await Promise.all([
+    fetchTotalCustomerStaffCount(customerOrgIds),
+    fetchAiUsageTruthState(),
+  ]);
+
+  return {
+    activeOrgCount: countActiveOrganizations(input.organizations),
+    monthlyRecurringRevenueSar: computeMonthlyRecurringRevenueSar(
+      input.subscriptions,
+      input.planPricing,
+    ),
+    totalCustomerStaff,
+    aiTrackingEnabled: aiState.trackingEnabled,
+    aiUsageRequestCount: aiState.totalRequests,
+  };
+}
+
 export async function fetchOwnerAuditTimeline(limit = 8): Promise<OwnerAuditEntry[]> {
   const { data, error } = await supabase
     .from("owner_audit_logs")
@@ -106,7 +215,9 @@ export async function fetchOwnerAuditTimeline(limit = 8): Promise<OwnerAuditEntr
     .limit(limit);
 
   if (error) {
-    console.warn("[owner] audit timeline fetch failed:", error.message);
+    if (!isMissingTableError(error)) {
+      console.warn("[owner] audit timeline fetch failed:", error.message);
+    }
     return [];
   }
 

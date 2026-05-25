@@ -3,6 +3,7 @@
 
 import { supabase } from "@/lib/supabaseClient";
 import type { Accent } from "../_data";
+import { buildOwnerKpiAggregates, type OwnerKpiAggregates } from "./ownerTruthQueries";
 
 // ─── Raw DB row types ────────────────────────────────────────────────────────
 
@@ -150,6 +151,7 @@ export interface OwnerDashboardData {
   organizations: DisplayOrg[];
   plans: DisplayPlan[];
   activeOrgCount: number;
+  kpis: OwnerKpiAggregates;
   internalOrg: DisplayOrg | null;
   internalPlanLimits: Record<string, number>;
   internalSubscription: DisplaySubscription | null;
@@ -292,7 +294,7 @@ function normalizeSubscription(sub: DbSubscription, plans: DbPlan[]): DisplaySub
 // ─── Main fetch ──────────────────────────────────────────────────────────────
 
 export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
-  const [orgsRes, plansRes, limitsRes, subsRes] = await Promise.all([
+  const [orgsRes, plansRes, limitsRes, subsRes, planPricingRes] = await Promise.all([
     supabase
       .from("organizations")
       .select("id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at")
@@ -306,12 +308,14 @@ export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
     supabase
       .from("subscriptions")
       .select("id, organization_id, plan_id, status, billing_cycle, started_at, ends_at"),
+    supabase.from("plans").select("id, price_monthly, price_annual"),
   ]);
 
   if (orgsRes.error)  console.error("[owner] organizations fetch error:", orgsRes.error.message);
   if (plansRes.error) console.error("[owner] plans fetch error:", plansRes.error.message);
   if (limitsRes.error) console.error("[owner] plan_limits fetch error:", limitsRes.error.message);
   if (subsRes.error)  console.error("[owner] subscriptions fetch error:", subsRes.error.message);
+  if (planPricingRes.error) console.warn("[owner] plan pricing fetch failed:", planPricingRes.error.message);
 
   // Exclude soft-deleted tenants from the active management surface.
   const rawOrgs  = ((orgsRes.data ?? []) as DbOrganization[]).filter((o) => !o.deleted_at);
@@ -341,12 +345,21 @@ export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
     ? normalizeSubscription(internalSubRaw, rawPlans)
     : null;
 
-  const activeOrgCount = rawOrgs.filter((o) => o.status === "active").length;
+  const kpis = await buildOwnerKpiAggregates({
+    organizations: rawOrgs,
+    subscriptions: rawSubs.map((s) => ({
+      plan_id: s.plan_id,
+      status: s.status,
+      billing_cycle: s.billing_cycle,
+    })),
+    planPricing: (planPricingRes.data ?? []) as { id: string; price_monthly: number | null; price_annual: number | null }[],
+  });
 
   return {
     organizations,
     plans,
-    activeOrgCount,
+    activeOrgCount: kpis.activeOrgCount,
+    kpis,
     internalOrg,
     internalPlanLimits,
     internalSubscription,
