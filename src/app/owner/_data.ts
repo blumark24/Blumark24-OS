@@ -12,6 +12,7 @@ import {
 export type Accent = "cyan" | "blue" | "purple" | "orange" | "green";
 
 export const OWNER_UNAVAILABLE_HINT = "غير متاح بعد";
+export const OWNER_READ_ONLY_ACTION = "عرض فقط — غير متاح";
 export const OWNER_AI_TRACKING_DISABLED = "لم يتم تفعيل تتبع الاستخدام بعد";
 export const OWNER_ACTIVITY_EMPTY = "لا توجد نشاطات مسجّلة بعد";
 export const OWNER_WHATSAPP_DISABLED = "لم يتم تفعيل تكامل واتساب بعد";

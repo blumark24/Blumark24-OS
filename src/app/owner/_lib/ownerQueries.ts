@@ -135,6 +135,7 @@ export interface DisplayOrgFull {
 
 export interface DisplaySubscriptionFull {
   id: string;
+  organizationId: string;
   orgName: string;
   orgSlug: string | null;
   isInternal: boolean;
@@ -372,11 +373,9 @@ export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
   };
 }
 
-// ─── Plans page fetch ────────────────────────────────────────────────────────
-// Reads every plan (active and inactive) plus its key-value limits, both gated
-// by the is_owner() RLS policy — a non-owner session receives zero rows.
-// Throws on a plans query error so the page can surface its error state instead
-// of rendering an empty list for what is actually a failed/blocked read.
+// ─── Plans page fetch (read model) ───────────────────────────────────────────
+// Reads every plan (active and inactive) plus plan_limits key-value rows.
+// Gated by is_owner() RLS — throws on plans error; limits degrade to null values.
 
 export async function fetchPlansPage(): Promise<DisplayPlanFull[]> {
   const [plansRes, limitsRes] = await Promise.all([
@@ -493,11 +492,9 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
   });
 }
 
-// ─── Subscriptions page fetch ─────────────────────────────────────────────────
-// Joins each subscription to its organization and plan. All three tables are
-// gated by the is_owner() RLS policy — a non-owner session receives zero rows.
-// Throws on a subscriptions query error so the page can show its error state
-// instead of an empty list for what is actually a failed/blocked read.
+// ─── Subscriptions page fetch (read model) ───────────────────────────────────
+// Joins subscriptions → organizations → plans for display names.
+// Gated by is_owner() RLS — throws on subscriptions query error.
 
 type DbSubscriptionRow = DbSubscription & { created_at: string };
 
@@ -528,6 +525,7 @@ export async function fetchSubscriptionsPage(): Promise<DisplaySubscriptionFull[
     const planSlug = plan?.slug ?? "";
     return {
       id: sub.id,
+      organizationId: sub.organization_id,
       orgName: org?.name ?? "—",
       orgSlug: org?.slug ?? null,
       isInternal: org?.is_internal === true,
