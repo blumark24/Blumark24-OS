@@ -32,10 +32,10 @@ function emptyForm(): FormState {
 
 function FinanceContent() {
   const { data: transactions, loading, insert, update, remove } = useTransactions();
-  const { userRole } = usePermissions();
+  const { hasPermission } = usePermissions();
   const { planLimits } = useTenantWorkspace();
   const toast = useToast();
-  const isAdmin = userRole === "super_admin";
+  const canManageFinance = hasPermission("manage_finance");
   const showCompanyFund = (planLimits.company_fund_enabled ?? 0) > 0;
 
   const [showModal, setShowModal] = useState(false);
@@ -177,7 +177,7 @@ function FinanceContent() {
                 : "إدارة إيرادات ومصروفات منشأتك"}
             </p>
           </div>
-          {isAdmin && (
+          {canManageFinance && (
             <button onClick={openAdd} className="btn-primary flex items-center gap-2">
               <Plus size={16} />
               معاملة جديدة
@@ -309,7 +309,7 @@ function FinanceContent() {
                       {tx.funds ? formatCurrency(tx.funds.savings) : "—"}
                     </td>
                     <td className="px-4 py-3">
-                      {isAdmin && (
+                      {canManageFinance && (
                         <div className="flex items-center gap-2">
                           <button onClick={() => openEdit(tx)} aria-label="تعديل المعاملة" className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
                             <Edit2 size={13} />
