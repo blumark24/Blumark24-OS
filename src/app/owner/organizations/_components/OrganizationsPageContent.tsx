@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Building2,
   Plus,
@@ -16,6 +17,7 @@ import {
   ShieldCheck,
   Hash,
   Search,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
@@ -133,15 +135,23 @@ function RowActions({
   onToggleStatus,
   onDelete,
 }: RowActionsProps) {
-  // Internal org: protected, no customer-management actions.
+  // Internal org: protected from customer-management actions; detail view is read-only.
   if (org.isInternal) {
     return (
-      <span
-        title="منشأة داخلية محمية — غير قابلة للتعديل أو الحذف كعميل"
-        className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/25 bg-[#22d3ee]/[0.06] px-2.5 py-1 text-[11px] text-[#22d3ee]/70 cursor-default"
-      >
-        <ShieldCheck size={11} /> محمية
-      </span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Link
+          href={`/owner/organizations/${org.id}`}
+          className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/30 bg-[#22d3ee]/[0.10] px-2.5 py-1 text-[11px] text-[#22d3ee] hover:bg-[#22d3ee]/20 hover:border-[#22d3ee]/50 transition-colors"
+        >
+          <Eye size={11} /> عرض
+        </Link>
+        <span
+          title="منشأة داخلية محمية — غير قابلة للتعديل أو الحذف كعميل"
+          className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/25 bg-[#22d3ee]/[0.06] px-2.5 py-1 text-[11px] text-[#22d3ee]/70 cursor-default"
+        >
+          <ShieldCheck size={11} /> محمية
+        </span>
+      </div>
     );
   }
 
@@ -149,6 +159,12 @@ function RowActions({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
+      <Link
+        href={`/owner/organizations/${org.id}`}
+        className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/30 bg-[#22d3ee]/[0.10] px-2.5 py-1 text-[11px] text-[#22d3ee] hover:bg-[#22d3ee]/20 hover:border-[#22d3ee]/50 transition-colors"
+      >
+        <Eye size={11} /> عرض
+      </Link>
       {!org.hasSubscription && (
         <button
           type="button"

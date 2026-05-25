@@ -135,6 +135,50 @@ export async function fetchCustomerStaffCount(
   return { display: String(count ?? 0), available: true, numericValue: count ?? 0 };
 }
 
+export async function fetchOwnerAuditTimelineForOrg(
+  orgId: string,
+  limit = 12,
+): Promise<OwnerAuditEntry[]> {
+  const { data, error } = await supabase
+    .from("owner_audit_logs")
+    .select("id, action, metadata, created_at, target_id")
+    .or(`target_id.eq.${orgId},metadata->>organization_id.eq.${orgId}`)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    console.warn("[owner] org audit timeline fetch failed:", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((row) => mapAuditRow(row));
+}
+
+function mapAuditRow(row: {
+  id: unknown;
+  action: unknown;
+  metadata: unknown;
+  created_at: unknown;
+}): OwnerAuditEntry {
+  const action = String(row.action ?? "");
+  const meta = ACTION_META[action] ?? {
+    title: action || "نشاط مالك المنصة",
+    accent: "cyan" as Accent,
+    icon: Sparkles,
+  };
+  const metadata = (row.metadata ?? {}) as Record<string, unknown>;
+
+  return {
+    id: row.id as string,
+    title: meta.title,
+    detail: formatAuditDetail(action, metadata),
+    time: timeAgo(String(row.created_at ?? "")),
+    accent: meta.accent,
+    icon: meta.icon,
+  };
+}
+
 export async function fetchOwnerAuditTimeline(limit = 8): Promise<OwnerAuditEntry[]> {
   const { data, error } = await supabase
     .from("owner_audit_logs")
@@ -148,24 +192,7 @@ export async function fetchOwnerAuditTimeline(limit = 8): Promise<OwnerAuditEntr
     return [];
   }
 
-  return (data ?? []).map((row) => {
-    const action = String(row.action ?? "");
-    const meta = ACTION_META[action] ?? {
-      title: action || "نشاط مالك المنصة",
-      accent: "cyan" as Accent,
-      icon: Sparkles,
-    };
-    const metadata = (row.metadata ?? {}) as Record<string, unknown>;
-
-    return {
-      id: row.id as string,
-      title: meta.title,
-      detail: formatAuditDetail(action, metadata),
-      time: timeAgo(String(row.created_at ?? "")),
-      accent: meta.accent,
-      icon: meta.icon,
-    };
-  });
+  return (data ?? []).map((row) => mapAuditRow(row));
 }
 
 export async function fetchOwnerAuditLogCount(): Promise<number | null> {
