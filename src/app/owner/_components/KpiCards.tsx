@@ -2,39 +2,65 @@
 
 import { KPI_DEFINITIONS, OWNER_AI_TRACKING_DISABLED, OWNER_UNAVAILABLE_HINT } from "../_data";
 import { ACCENT } from "../_accent";
+import type { OwnerKpiValue } from "../_lib/ownerTruthQueries";
 import { cn } from "@/lib/utils";
 
 interface Props {
   activeOrgCount?: number;
+  mrr?: OwnerKpiValue;
+  staffCount?: OwnerKpiValue;
   loading?: boolean;
 }
 
-function resolveKpi(id: string, activeOrgCount: number | undefined, loading: boolean) {
+function resolveKpi(
+  id: string,
+  activeOrgCount: number | undefined,
+  mrr: OwnerKpiValue | undefined,
+  staffCount: OwnerKpiValue | undefined,
+  loading: boolean,
+) {
   if (loading) {
     return { display: "—", available: false, hint: null as string | null };
   }
 
-  if (id === "orgs") {
-    if (activeOrgCount === undefined) {
+  switch (id) {
+    case "orgs":
+      if (activeOrgCount === undefined) {
+        return { display: "—", available: false, hint: OWNER_UNAVAILABLE_HINT };
+      }
+      return { display: String(activeOrgCount), available: true, hint: null };
+    case "mrr":
+      if (!mrr) {
+        return { display: "—", available: false, hint: OWNER_UNAVAILABLE_HINT };
+      }
+      return {
+        display: mrr.display,
+        available: mrr.available,
+        hint: mrr.available ? null : OWNER_UNAVAILABLE_HINT,
+      };
+    case "staff":
+      if (!staffCount) {
+        return { display: "—", available: false, hint: OWNER_UNAVAILABLE_HINT };
+      }
+      return {
+        display: staffCount.display,
+        available: staffCount.available,
+        hint: staffCount.available ? null : OWNER_UNAVAILABLE_HINT,
+      };
+    case "ai":
+      return { display: "—", available: false, hint: OWNER_AI_TRACKING_DISABLED };
+    default:
       return { display: "—", available: false, hint: OWNER_UNAVAILABLE_HINT };
-    }
-    return { display: String(activeOrgCount), available: true, hint: null };
   }
-
-  if (id === "ai") {
-    return { display: "—", available: false, hint: OWNER_AI_TRACKING_DISABLED };
-  }
-
-  return { display: "—", available: false, hint: OWNER_UNAVAILABLE_HINT };
 }
 
-export default function KpiCards({ activeOrgCount, loading }: Props) {
+export default function KpiCards({ activeOrgCount, mrr, staffCount, loading }: Props) {
   return (
     <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       {KPI_DEFINITIONS.map((kpi) => {
         const a = ACCENT[kpi.accent];
         const Icon = kpi.icon;
-        const resolved = resolveKpi(kpi.id, activeOrgCount, loading ?? false);
+        const resolved = resolveKpi(kpi.id, activeOrgCount, mrr, staffCount, loading ?? false);
 
         return (
           <div
