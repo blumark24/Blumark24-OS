@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { Building2, ChevronDown, ChevronLeft, Layers, Users } from "lucide-react";
+import { Building2, ChevronDown, ChevronLeft, Crown, Layers, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Department, OrgStructureSnapshot, Team } from "@/lib/org/types";
 
 interface Props {
   snapshot: OrgStructureSnapshot;
+  boardLabel: string;
   selectedId: string | null;
   collapsed: Set<string>;
   onSelect: (nodeId: string) => void;
@@ -133,6 +134,7 @@ function DeptBranch({
 
 export default function OrgHierarchySidebar({
   snapshot,
+  boardLabel,
   selectedId,
   collapsed,
   onSelect,
@@ -143,6 +145,7 @@ export default function OrgHierarchySidebar({
     () => childrenOf(snapshot.departments, null),
     [snapshot.departments],
   );
+  const boardCollapsed = collapsed.has("__board__");
 
   return (
     <aside
@@ -158,25 +161,84 @@ export default function OrgHierarchySidebar({
       </div>
       <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
         {roots.length === 0 ? (
-          <p className="text-[#6b87ab] text-xs text-center py-6 px-2">
-            لا توجد إدارات بعد — أنشئ أول إدارة من شريط الأدوات
-          </p>
+          <ul className="space-y-0.5">
+            <li className="list-none">
+              <button
+                type="button"
+                onClick={() => onSelect("org-root")}
+                className={cn(
+                  "w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-right text-sm transition-colors",
+                  selectedId === "org-root"
+                    ? "bg-white/10 text-white"
+                    : "text-[#b8cce8] hover:bg-white/[0.05] hover:text-white",
+                )}
+              >
+                <Crown size={14} className="shrink-0 text-[#22d3ee]" />
+                <span className="truncate flex-1">{boardLabel}</span>
+              </button>
+            </li>
+            <p className="text-[#6b87ab] text-xs text-center py-4 px-2">
+              لا توجد وحدات بعد — أنشئ أول وحدة من شريط الأدوات
+            </p>
+          </ul>
         ) : (
           <ul className="space-y-0.5">
-            {roots.map((dept) => (
-              <DeptBranch
-                key={dept.id}
-                dept={dept}
-                depts={snapshot.departments}
-                teams={snapshot.teams}
-                depth={0}
-                selectedId={selectedId}
-                collapsed={collapsed}
-                onSelect={onSelect}
-                onToggleCollapse={onToggleCollapse}
-                accent={accent}
-              />
-            ))}
+            <li className="list-none">
+              <button
+                type="button"
+                onClick={() => onSelect("org-root")}
+                className={cn(
+                  "w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-right text-sm transition-colors",
+                  selectedId === "org-root"
+                    ? "bg-white/10 text-white"
+                    : "text-[#b8cce8] hover:bg-white/[0.05] hover:text-white",
+                )}
+              >
+                {roots.length > 0 && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleCollapse("__board__");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.stopPropagation();
+                        onToggleCollapse("__board__");
+                      }
+                    }}
+                    className="shrink-0 p-0.5"
+                  >
+                    {boardCollapsed ? (
+                      <ChevronLeft size={14} className="text-[#6b87ab]" />
+                    ) : (
+                      <ChevronDown size={14} style={{ color: accent }} />
+                    )}
+                  </span>
+                )}
+                <Crown size={14} className="shrink-0 text-[#22d3ee]" />
+                <span className="truncate flex-1">{boardLabel}</span>
+              </button>
+              {!boardCollapsed && (
+                <ul className="mt-0.5 space-y-0.5">
+                  {roots.map((dept) => (
+                    <DeptBranch
+                      key={dept.id}
+                      dept={dept}
+                      depts={snapshot.departments}
+                      teams={snapshot.teams}
+                      depth={1}
+                      selectedId={selectedId}
+                      collapsed={collapsed}
+                      onSelect={onSelect}
+                      onToggleCollapse={onToggleCollapse}
+                      accent={accent}
+                    />
+                  ))}
+                </ul>
+              )}
+            </li>
           </ul>
         )}
       </div>

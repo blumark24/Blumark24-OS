@@ -8,6 +8,7 @@ import {
   STRUCTURE_LEVEL_LABELS,
   validateParentForLevel,
 } from "@/lib/org/packageHierarchy";
+import { isBoardReservedName } from "@/lib/org/orgUnits";
 import type { Department, DepartmentInput, StructureLevel } from "@/lib/org/types";
 
 const COLORS = ["#22d3ee", "#1e6fd9", "#10b981", "#f59e0b", "#a855f7", "#ff7a3d"];
@@ -52,6 +53,10 @@ export default function StructureLevelFormModal({
 
   const handleSubmit = async () => {
     if (locked || !name.trim()) return;
+    if (isBoardReservedName(name.trim())) {
+      setError(`«${name.trim()}» محجوز لمجلس الإدارة ولا يمكن استخدامه كاسم وحدة.`);
+      return;
+    }
     const parent = parentId || null;
     const parentErr = validateParentForLevel(level, parent, departments);
     if (parentErr) {
@@ -112,6 +117,9 @@ export default function StructureLevelFormModal({
             onChange={(e) => setName(e.target.value)}
             disabled={locked}
           />
+          <p className="text-[#6b87ab] text-[10px] mt-1">
+            «مجلس الإدارة» محجوز كجذر الهيكل ولا يُنشأ كوحدة فرعية.
+          </p>
         </div>
         <div>
           <label className="text-xs text-[#8ba3c7] block mb-1">الوصف</label>

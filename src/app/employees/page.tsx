@@ -3,7 +3,14 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { departmentColor } from "@/lib/services/departments";
-import { useDepartments } from "@/hooks/useDepartments";
+import { useOrgStructure } from "@/hooks/useOrgStructure";
+import {
+  findOrgUnitById,
+  formatOrgUnitOption,
+  getAssignableOrgUnits,
+  resolveOrgUnitIdForEmployee,
+} from "@/lib/org/orgUnits";
+import { assignEmployeeToOrgUnit } from "@/lib/org/structureDb";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
@@ -33,7 +40,7 @@ type FormState = {
   email:      string;
   password:   string;
   phone:      string;
-  department: string;
+  departmentId: string;
   role:       UserRole;
   status:     "نشط" | "غير_نشط";
   salary:     string;
@@ -41,15 +48,29 @@ type FormState = {
 
 function EmployeesContent() {
   const { data: employees, loading, error, update, remove, refetch, setData } = useEmployees();
-  const { data: departments } = useDepartments();
+  const { data: orgSnapshot } = useOrgStructure(true);
+  const orgUnits = getAssignableOrgUnits(orgSnapshot?.departments ?? []);
   const { userRole, hasPermission } = usePermissions();
   const assignableRoles: UserRole[] =
     userRole === "super_admin" ? [...TENANT_ASSIGNABLE_ROLES, "super_admin"] : [...TENANT_ASSIGNABLE_ROLES];
-  const deptNames = departments.map((d) => d.name);
-  const defaultDept = deptNames[0] ?? "";
+  const defaultDeptId = orgUnits[0]?.id ?? "";
   const toast = useToast();
   const canManageEmployees =
     userRole === "super_admin" || hasPermission("manage_users");
+
+  const deptColorFor = (deptName: string) => {
+    const unit = orgSnapshot?.departments.find((d) => d.name === deptName);
+    return unit?.color ?? departmentColor(deptName);
+  };
+
+  const resolveDeptId = (emp: typeof employees[0]) => {
+    const relation = orgSnapshot?.relations.find((r) => r.employee_id === emp.id);
+    return resolveOrgUnitIdForEmployee(
+      orgSnapshot?.departments ?? [],
+      emp.department,
+      relation?.department_id,
+    );
+  };
 
   const [search,     setSearch]     = useState("");
   const [deptFilter, setDeptFilter] = useState("الكل");
@@ -58,7 +79,7 @@ function EmployeesContent() {
   const [saving,     setSaving]     = useState(false);
   const [showPass,   setShowPass]   = useState(false);
   const [form, setForm] = useState<FormState>({
-    name: "", email: "", password: "", phone: "", department: defaultDept,
+    name: "", email: "", password: "", phone: "", departmentId: defaultDeptId,
     role: "employee", status: "نشط", salary: "",
   });
 
@@ -81,7 +102,7 @@ function EmployeesContent() {
 
   const openAdd = () => {
     setEditId(null);
-    setForm({ name: "", email: "", password: "", phone: "", department: defaultDept, role: "employee", status: "نشط", salary: "" });
+    setForm({ name: "", email: "", password: "", phone: "", departmentId: defaultDeptId, role: "employee", status: "نشط", salary: "" });
     setShowPass(false);
     setShowModal(true);
   };
@@ -93,7 +114,7 @@ function EmployeesContent() {
       email:      emp.email,
       password:   "",
       phone:      emp.phone || "",
-      department: emp.department,
+      departmentId: resolveDeptId(emp) || defaultDeptId,
       role:       emp.role as UserRole,
       status:     emp.status,
       salary:     String(emp.salary ?? ""),
@@ -115,12 +136,12 @@ function EmployeesContent() {
       toast.error("الدور المحدد غير مسموح به في واجهة المنشأة");
       return;
     }
-    if (deptNames.length > 0 && !form.department.trim()) {
-      toast.error("القسم مطلوب — اختر قسمًا من القائمة");
+    if (orgUnits.length > 0 && !form.departmentId) {
+      toast.error("القسم مطلوب — اختر وحدة من الهيكل الإداري");
       return;
     }
-    if (deptNames.length === 0 && !editId) {
-      toast.error("أضف قسمًا أولاً من الإعدادات أو الهيكل الإداري");
+    if (orgUnits.length === 0 && !editId) {
+      toast.error("أنشئ وحدة تنظيمية أولاً من الهيكل الإداري");
       return;
     }
     if (!cleanEmail) { toast.error("البريد الإلكتروني مطلوب"); return; }
@@ -137,6 +158,9 @@ function EmployeesContent() {
       if (!/[^A-Za-z0-9]/.test(form.password)) { toast.error("كلمة المرور يجب أن تحتوي على رمز (!@#$%^&*)"); return; }
     }
 
+    const selectedUnit = findOrgUnitById(orgSnapshot?.departments ?? [], form.departmentId);
+    const departmentLabel = selectedUnit?.name ?? "";
+
     setSaving(true);
     try {
       if (editId) {
@@ -144,11 +168,20 @@ function EmployeesContent() {
           name:       form.name.trim(),
           email:      cleanEmail,
           phone:      form.phone,
-          department: form.department,
+          department: departmentLabel,
           role:       form.role as never,
           status:     form.status,
           salary:     form.salary ? Number(form.salary) : undefined,
         });
+        if (form.departmentId) {
+          await assignEmployeeToOrgUnit({
+            employee_id: editId,
+            department_id: form.departmentId,
+            team_id: null,
+            position_id: null,
+            manager_id: null,
+          });
+        }
         toast.success("تم تحديث بيانات الموظف بنجاح");
       } else {
         // Hard 15-second client timeout — button NEVER hangs beyond this.
@@ -159,7 +192,7 @@ function EmployeesContent() {
             password:   form.password,
             name:       form.name.trim(),
             role:       form.role,
-            department: form.department,
+            department: departmentLabel,
             phone:      form.phone || null,
             salary:     form.salary ? Number(form.salary) : null,
             status:     form.status,
@@ -167,6 +200,15 @@ function EmployeesContent() {
           15_000,
           "انتهت مهلة الحفظ (15 ثانية) — تحقق من اتصالك بالإنترنت وحاول مرة أخرى",
         );
+        if (form.departmentId) {
+          await assignEmployeeToOrgUnit({
+            employee_id: created.id,
+            department_id: form.departmentId,
+            team_id: null,
+            position_id: null,
+            manager_id: null,
+          });
+        }
         // Optimistically prepend to the list so the new employee appears immediately
         // even if the background refetch times out or is delayed.
         setData((prev) => [{
@@ -174,7 +216,7 @@ function EmployeesContent() {
           name:           form.name.trim(),
           email:          cleanEmail,
           role:           form.role,
-          department:     form.department,
+          department:     departmentLabel,
           status:         form.status,
           joinDate:       new Date().toISOString().split("T")[0],
           performance:    3,
@@ -232,10 +274,10 @@ function EmployeesContent() {
   const stats = {
     total:  employees.length,
     active: employees.filter((e) => e.status === "نشط").length,
-    depts:  new Set(employees.map((e) => e.department)).size,
+    depts:  orgUnits.length || new Set(employees.map((e) => e.department)).size,
   };
 
-  const filterDepts = ["الكل", ...deptNames];
+  const filterDepts = ["الكل", ...orgUnits.map((d) => d.name)];
 
   return (
     <DashboardLayout>
@@ -349,7 +391,7 @@ function EmployeesContent() {
                       <div className="flex items-center gap-3">
                         <div
                           className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                          style={{ background: `linear-gradient(135deg,${departmentColor(emp.department)},#0a1628)` }}
+                          style={{ background: `linear-gradient(135deg,${deptColorFor(emp.department)},#0a1628)` }}
                         >
                           {emp.name.slice(0, 2)}
                         </div>
@@ -360,7 +402,7 @@ function EmployeesContent() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="badge text-xs" style={{ background: `${departmentColor(emp.department)}20`, color: departmentColor(emp.department) }}>
+                      <span className="badge text-xs" style={{ background: `${deptColorFor(emp.department)}20`, color: deptColorFor(emp.department) }}>
                         {emp.department}
                       </span>
                     </td>
@@ -487,27 +529,23 @@ function EmployeesContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-[#8ba3c7] mb-1.5">القسم *</label>
-                  {deptNames.length === 0 ? (
+                  {orgUnits.length === 0 ? (
                     <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2.5 text-[11px] text-amber-100/90 leading-relaxed">
-                      أضف قسمًا أولاً من{" "}
+                      أنشئ وحدة تنظيمية أولاً من{" "}
                       <Link href="/org" className="text-[#22d3ee] underline underline-offset-2">
                         الهيكل الإداري
-                      </Link>
-                      {" "}أو{" "}
-                      <Link href="/settings" className="text-[#22d3ee] underline underline-offset-2">
-                        الإعدادات
                       </Link>
                     </div>
                   ) : (
                     <select
                       className="input-dark text-sm"
-                      value={form.department}
+                      value={form.departmentId}
                       required
-                      onChange={(e) => setForm({ ...form, department: e.target.value })}
+                      onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
                     >
-                      <option value="">— اختر القسم —</option>
-                      {deptNames.map((d) => (
-                        <option key={d} value={d}>{d}</option>
+                      <option value="">— اختر الوحدة —</option>
+                      {orgUnits.map((d) => (
+                        <option key={d.id} value={d.id}>{formatOrgUnitOption(d)}</option>
                       ))}
                     </select>
                   )}

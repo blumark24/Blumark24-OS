@@ -45,6 +45,8 @@ import {
   isStructureLevelLocked,
   rulesForPlan,
   STRUCTURE_LEVEL_LABELS,
+  validateParentForLevel,
+  getLevelFromDepartment,
 } from "@/lib/org/packageHierarchy";
 import { PLAN_LABELS_AR, type PlanSlug } from "@/lib/features/packageFeatures";
 import {
@@ -61,8 +63,9 @@ import TeamFormModal from "./TeamFormModal";
 import {
   checkCanAddTeam,
   countDepartmentsAtLevel,
-  getOrgPlanLimits,
+  mergeOrgPlanLimits,
 } from "@/lib/org/orgPackageLimits";
+import { countEmployeesInOrg } from "@/lib/org/orgUnits";
 import {
   ORG_CANVAS,
   ORG_CANVAS_GLOW,
@@ -87,9 +90,12 @@ interface InnerProps {
 function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
   const toast = useToast();
   const { fitView } = useReactFlow();
-  const { planSlug } = useTenantWorkspace();
+  const { planSlug, planLimits: dbPlanLimits } = useTenantWorkspace();
   const plan = planSlug as PlanSlug;
-  const planLimits = useMemo(() => getOrgPlanLimits(plan), [plan]);
+  const planLimits = useMemo(
+    () => mergeOrgPlanLimits(plan, dbPlanLimits),
+    [plan, dbPlanLimits],
+  );
 
   const {
     data,
@@ -103,7 +109,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
     deleteTeam,
     createPosition,
     deletePosition,
-    upsertEmployeeRelation,
+    assignEmployeeToOrgUnit,
   } = useOrgStructure(true);
   const { data: employees } = useEmployees();
 
@@ -182,9 +188,19 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
         }
       }
       if (nearest && minDist < PARENT_SNAP_DISTANCE_PX) {
+        const draggedDept = data?.departments.find((d) => d.id === dragged);
+        if (!draggedDept) return;
+        const newParentId = nearest.data.entityId;
+        const level = getLevelFromDepartment(draggedDept);
+        const parentErr = validateParentForLevel(level, newParentId, data?.departments ?? []);
+        if (parentErr) {
+          toast.error(parentErr);
+          await refresh();
+          return;
+        }
         try {
           await updateDepartment(dragged, {
-            parent_id: nearest.data.entityId,
+            parent_id: newParentId,
           });
           toast.success("تم تحديث التسلسل الهرمي");
           await refresh();
@@ -193,14 +209,14 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
         }
       }
     },
-    [canManage, nodes, updateDepartment, toast, refresh],
+    [canManage, nodes, data?.departments, updateDepartment, toast, refresh],
   );
 
   const selectedDept = data?.departments.find((d) => `dept-${d.id}` === selectedId);
   const selectedTeam = data?.teams.find((t) => `team-${t.id}` === selectedId);
 
   const openAddLevel = (level: StructureLevel) => {
-    const check = canCreateStructureLevel(plan, level, data?.departments ?? []);
+    const check = canCreateStructureLevel(plan, level, data?.departments ?? [], planLimits);
     if (!check.allowed) {
       toast.error(check.reason ?? "غير متاح في باقتك");
       return;
@@ -243,6 +259,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
     });
   }, []);
 
+  const linkedEmployeeCount = data ? countEmployeesInOrg(data) : 0;
   const isEmpty =
     !loading && !error && data && data.departments.length === 0 && data.teams.length === 0;
 
@@ -320,6 +337,11 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
           <div className="flex items-center gap-2 text-[#6b87ab] text-xs">
             <Network size={16} className="text-[#22d3ee]" />
             {orgLabel}
+            {data && (
+              <span className="text-[#8ba3c7]">
+                · {linkedEmployeeCount} موظف{linkedEmployeeCount === 1 ? "" : "ون"} مرتبط
+              </span>
+            )}
           </div>
         </div>
       </section>
@@ -385,6 +407,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
             >
               <OrgHierarchySidebar
                 snapshot={data}
+                boardLabel={BOARD_LABEL_AR}
                 selectedId={selectedId}
                 collapsed={collapsed}
                 onSelect={handleSidebarSelect}
@@ -620,13 +643,14 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
           employees={employees}
           departments={data.departments}
           teams={data.teams}
+          positions={data.positions}
           defaultDepartmentId={selectedDept?.id}
           onAssign={async (input) => {
-            await upsertEmployeeRelation({
+            await assignEmployeeToOrgUnit({
               employee_id: input.employee_id,
               department_id: input.department_id,
               team_id: input.team_id,
-              position_id: null,
+              position_id: input.position_id,
               manager_id: null,
             });
             toast.success("تم ربط الموظف بالهيكل");
