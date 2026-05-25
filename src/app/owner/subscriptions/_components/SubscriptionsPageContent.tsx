@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import {
   CreditCard,
   Building2,
@@ -11,10 +12,16 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/contexts/ToastContext";
 import { ACCENT } from "../../_accent";
-import { fetchSubscriptionsPage, type DisplaySubscriptionFull } from "../../_lib/ownerQueries";
-
-// ─── Badge helpers ────────────────────────────────────────────────────────────
+import {
+  cancelSubscription,
+  fetchSubscriptionsPage,
+  setOrganizationStatus,
+  type DisplayOrgFull,
+  type DisplaySubscriptionFull,
+} from "../../_lib/ownerQueries";
+import ChangePlanModal from "../../organizations/_components/ChangePlanModal";
 
 const SUB_STATUS_BADGE: Record<string, string> = {
   "نشطة":    "bg-[#10b981]/15 text-[#34d399]",
@@ -29,8 +36,6 @@ const BILLING_BADGE: Record<string, string> = {
   "سنوي":  "bg-[#1e6fd9]/14 text-[#5b9bf0] border border-[#1e6fd9]/30",
   "داخلي": "bg-[#a855f7]/14 text-[#c084fc] border border-[#a855f7]/30",
 };
-
-// ─── Loading skeletons ─────────────────────────────────────────────────────────
 
 function TableSkeleton() {
   return (
@@ -76,29 +81,67 @@ function CardSkeleton() {
   );
 }
 
-// ─── Row actions (all disabled — read-only phase) ─────────────────────────────
+function subToOrgFull(sub: DisplaySubscriptionFull): DisplayOrgFull {
+  return {
+    id: sub.organizationId,
+    name: sub.orgName,
+    slug: sub.orgSlug,
+    customerCode: null,
+    ownerEmail: null,
+    isInternal: sub.isInternal,
+    statusRaw: sub.statusRaw === "suspended" ? "suspended" : sub.statusRaw === "cancelled" ? "cancelled" : "active",
+    statusAr: sub.statusAr,
+    planId: sub.planId,
+    planName: sub.planName,
+    planSlug: sub.planSlug,
+    hasSubscription: true,
+    subStatusAr: sub.statusAr,
+    subIsActive: sub.isActive,
+    subBillingCycleAr: sub.billingCycleAr,
+    hasClientLogin: false,
+    createdAt: sub.createdAt,
+  };
+}
 
-function RowActions() {
+interface RowActionsProps {
+  sub: DisplaySubscriptionFull;
+  busy: boolean;
+  onChangePlan: (sub: DisplaySubscriptionFull) => void;
+  onSuspend: (sub: DisplaySubscriptionFull) => void;
+  onCancel: (sub: DisplaySubscriptionFull) => void;
+}
+
+function RowActions({ sub, busy, onChangePlan, onSuspend, onCancel }: RowActionsProps) {
+  if (sub.isInternal) {
+    return <span className="text-[11px] text-[#8ba3c7]/60">داخلي — محمي</span>;
+  }
+
+  const suspended = sub.statusRaw === "suspended";
+  const cancelled = sub.statusRaw === "cancelled";
+
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <button
-        disabled
-        title="قريباً"
-        className="inline-flex items-center gap-1 rounded-lg border border-[#a855f7]/20 bg-[#a855f7]/[0.06] px-2.5 py-1 text-[11px] text-[#c084fc]/40 cursor-not-allowed"
+        type="button"
+        disabled={busy || cancelled}
+        onClick={() => onChangePlan(sub)}
+        className="inline-flex items-center gap-1 rounded-lg border border-[#a855f7]/30 bg-[#a855f7]/[0.10] px-2.5 py-1 text-[11px] text-[#c084fc] hover:bg-[#a855f7]/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Layers size={11} /> تغيير الباقة
       </button>
       <button
-        disabled
-        title="قريباً"
-        className="inline-flex items-center gap-1 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/[0.06] px-2.5 py-1 text-[11px] text-[#fbbf24]/40 cursor-not-allowed"
+        type="button"
+        disabled={busy || cancelled}
+        onClick={() => onSuspend(sub)}
+        className="inline-flex items-center gap-1 rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/[0.10] px-2.5 py-1 text-[11px] text-[#fbbf24] hover:bg-[#f59e0b]/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        <PauseCircle size={11} /> تعليق الاشتراك
+        <PauseCircle size={11} /> {suspended ? "إعادة تفعيل" : "تعليق الاشتراك"}
       </button>
       <button
-        disabled
-        title="قريباً"
-        className="inline-flex items-center gap-1 rounded-lg border border-[#ef4444]/20 bg-[#ef4444]/[0.06] px-2.5 py-1 text-[11px] text-[#f87171]/40 cursor-not-allowed"
+        type="button"
+        disabled={busy || cancelled}
+        onClick={() => onCancel(sub)}
+        className="inline-flex items-center gap-1 rounded-lg border border-[#ef4444]/30 bg-[#ef4444]/[0.10] px-2.5 py-1 text-[11px] text-[#f87171] hover:bg-[#ef4444]/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <XCircle size={11} /> إلغاء الاشتراك
       </button>
@@ -106,9 +149,8 @@ function RowActions() {
   );
 }
 
-// ─── Mobile card ──────────────────────────────────────────────────────────────
-
-function SubCard({ sub }: { sub: DisplaySubscriptionFull }) {
+function SubCard(props: RowActionsProps) {
+  const { sub } = props;
   const a = ACCENT[sub.accent];
   return (
     <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
@@ -155,30 +197,84 @@ function SubCard({ sub }: { sub: DisplaySubscriptionFull }) {
           <span className="text-[#8ba3c7]">الانتهاء:</span>
           <span className="text-white tabular-nums">{sub.endsAt ?? "—"}</span>
         </div>
-        <div className="col-span-2 flex items-center gap-1.5">
-          <span className="text-[#8ba3c7]">تاريخ الإنشاء:</span>
-          <span className="text-white tabular-nums">{sub.createdAt}</span>
-        </div>
       </div>
 
-      <RowActions />
+      <RowActions {...props} />
     </div>
   );
 }
 
-// ─── Main page ──────────────────────────────────────────────────────────────────
-
 export default function SubscriptionsPageContent() {
+  const toast = useToast();
   const [subs, setSubs] = useState<DisplaySubscriptionFull[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [changePlanOrg, setChangePlanOrg] = useState<DisplayOrgFull | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchSubscriptionsPage();
+      setSubs(data);
+    } catch {
+      setError("فشل تحميل بيانات الاشتراكات");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchSubscriptionsPage()
-      .then(setSubs)
-      .catch(() => setError("فشل تحميل بيانات الاشتراكات"))
-      .finally(() => setLoading(false));
-  }, []);
+    load();
+  }, [load]);
+
+  const handleSuspend = async (sub: DisplaySubscriptionFull) => {
+    if (sub.isInternal) return;
+    const suspended = sub.statusRaw === "suspended";
+    const msg = suspended
+      ? `إعادة تفعيل اشتراك «${sub.orgName}»؟`
+      : `تعليق اشتراك «${sub.orgName}»؟`;
+    if (!window.confirm(msg)) return;
+
+    setBusyId(sub.id);
+    const result = await setOrganizationStatus({
+      id: sub.organizationId,
+      status: suspended ? "active" : "suspended",
+    });
+    setBusyId(null);
+
+    if (result.ok) {
+      toast.success(suspended ? "تم إعادة تفعيل الاشتراك" : "تم تعليق الاشتراك");
+      await load();
+    } else {
+      toast.error(result.error ?? "تعذّر تحديث الاشتراك");
+    }
+  };
+
+  const handleCancel = async (sub: DisplaySubscriptionFull) => {
+    if (sub.isInternal) return;
+    if (!window.confirm(`إلغاء اشتراك «${sub.orgName}»؟ ستُعلّم المنشأة كملغاة.`)) return;
+
+    setBusyId(sub.id);
+    const result = await cancelSubscription({ organizationId: sub.organizationId });
+    setBusyId(null);
+
+    if (result.ok) {
+      toast.success("تم إلغاء الاشتراك");
+      await load();
+    } else {
+      toast.error(result.error ?? "تعذّر إلغاء الاشتراك");
+    }
+  };
+
+  const rowProps = (sub: DisplaySubscriptionFull) => ({
+    sub,
+    busy: busyId === sub.id,
+    onChangePlan: (s: DisplaySubscriptionFull) => setChangePlanOrg(subToOrgFull(s)),
+    onSuspend: handleSuspend,
+    onCancel: handleCancel,
+  });
 
   const total = subs?.length ?? 0;
   const activeCount = subs?.filter((s) => s.isActive).length ?? 0;
@@ -186,7 +282,6 @@ export default function SubscriptionsPageContent() {
 
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-5 lg:space-y-6">
-      {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="font-heading text-2xl sm:text-3xl font-bold text-white flex items-center gap-2.5">
@@ -194,20 +289,18 @@ export default function SubscriptionsPageContent() {
             الاشتراكات
           </h1>
           <p className="text-[13px] text-[#8ba3c7] leading-relaxed max-w-2xl">
-            اشتراكات منشآت منصة Blumark24 وحالتها ودورات فوترتها — للعرض فقط في هذه المرحلة.
+            إدارة اشتراكات منشآت منصة Blumark24 — تغيير الباقة، التعليق، والإلغاء.
           </p>
         </div>
-        <button
-          disabled
-          title="قريباً"
-          className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/[0.08] px-4 py-2.5 text-[13px] font-medium text-[#22d3ee]/40 cursor-not-allowed flex-shrink-0"
+        <Link
+          href="/owner/organizations"
+          className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/[0.12] px-4 py-2.5 text-[13px] font-medium text-[#22d3ee] hover:bg-[#22d3ee]/20 transition-colors flex-shrink-0"
         >
           <Plus size={15} />
           إنشاء اشتراك
-        </button>
+        </Link>
       </div>
 
-      {/* KPI strip */}
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: "إجمالي الاشتراكات", value: loading ? "…" : String(total),         color: "text-[#22d3ee]", border: "border-[#22d3ee]/20" },
@@ -223,19 +316,28 @@ export default function SubscriptionsPageContent() {
         ))}
       </div>
 
-      {/* Table card */}
       <div className="glass-card p-5 sm:p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-heading text-base font-bold text-white flex items-center gap-2">
             <CreditCard size={16} className="text-[#22d3ee]" />
             قائمة الاشتراكات
           </h2>
-          {!loading && subs && (
-            <span className="text-[11px] text-[#8ba3c7]">{total} اشتراك</span>
-          )}
+          <div className="flex items-center gap-2">
+            {!loading && subs && (
+              <span className="text-[11px] text-[#8ba3c7]">{total} اشتراك</span>
+            )}
+            <button
+              type="button"
+              onClick={() => load()}
+              disabled={loading}
+              className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-[11px] text-[#8ba3c7] hover:text-white transition-colors disabled:opacity-40"
+            >
+              <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+              تحديث
+            </button>
+          </div>
         </div>
 
-        {/* Error */}
         {error && (
           <div className="flex items-center gap-2.5 rounded-xl border border-[#ff7a3d]/25 bg-[#ff7a3d]/[0.06] px-4 py-3 text-[13px] text-[#ff9a68]">
             <RefreshCw size={14} className="flex-shrink-0" />
@@ -245,7 +347,6 @@ export default function SubscriptionsPageContent() {
 
         {!error && (
           <>
-            {/* Desktop table */}
             <div className="hidden lg:block overflow-x-auto">
               <table className="w-full text-right border-collapse min-w-[960px]">
                 <thead>
@@ -273,7 +374,6 @@ export default function SubscriptionsPageContent() {
                       const a = ACCENT[sub.accent];
                       return (
                         <tr key={sub.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
-                          {/* Org */}
                           <td className="py-3.5 pr-1">
                             <div className="flex items-center gap-2.5">
                               <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#1e6fd9]/15 text-[#5b9bf0]">
@@ -289,35 +389,27 @@ export default function SubscriptionsPageContent() {
                               </div>
                             </div>
                           </td>
-                          {/* Slug */}
                           <td className="py-3.5">
                             <span className="text-[12px] text-[#8ba3c7] font-mono">{sub.orgSlug ?? "—"}</span>
                           </td>
-                          {/* Plan */}
                           <td className="py-3.5">
                             <span className={cn("badge text-[11px]", a.chip)}>{sub.planName}</span>
                           </td>
-                          {/* Status */}
                           <td className="py-3.5">
                             <span className={cn("badge text-[11px]", SUB_STATUS_BADGE[sub.statusAr] ?? "text-[#8ba3c7]")}>
                               {sub.statusAr}
                             </span>
                           </td>
-                          {/* Billing */}
                           <td className="py-3.5">
                             <span className={cn("badge text-[11px]", BILLING_BADGE[sub.billingCycleAr] ?? "text-[#8ba3c7]")}>
                               {sub.billingCycleAr}
                             </span>
                           </td>
-                          {/* Started */}
                           <td className="py-3.5 text-[12px] text-[#8ba3c7] tabular-nums">{sub.startedAt}</td>
-                          {/* Ends */}
                           <td className="py-3.5 text-[12px] text-[#8ba3c7] tabular-nums">{sub.endsAt ?? "—"}</td>
-                          {/* Created */}
                           <td className="py-3.5 text-[12px] text-[#8ba3c7] tabular-nums">{sub.createdAt}</td>
-                          {/* Actions */}
                           <td className="py-3.5">
-                            <RowActions />
+                            <RowActions {...rowProps(sub)} />
                           </td>
                         </tr>
                       );
@@ -333,12 +425,11 @@ export default function SubscriptionsPageContent() {
               </table>
             </div>
 
-            {/* Mobile cards */}
             <div className="lg:hidden space-y-3">
               {loading ? (
                 <CardSkeleton />
               ) : subs && subs.length > 0 ? (
-                subs.map((sub) => <SubCard key={sub.id} sub={sub} />)
+                subs.map((sub) => <SubCard key={sub.id} {...rowProps(sub)} />)
               ) : (
                 <p className="py-8 text-center text-[13px] text-[#8ba3c7]">لا توجد اشتراكات بعد</p>
               )}
@@ -346,6 +437,16 @@ export default function SubscriptionsPageContent() {
           </>
         )}
       </div>
+
+      <ChangePlanModal
+        org={changePlanOrg}
+        onClose={() => setChangePlanOrg(null)}
+        onChanged={() => {
+          setChangePlanOrg(null);
+          load();
+          toast.success("تم تغيير الباقة");
+        }}
+      />
     </div>
   );
 }

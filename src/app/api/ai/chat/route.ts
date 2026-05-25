@@ -1,14 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  getAiRequestCap,
+  loadPlanLimitContext,
+  logAiUsage,
+} from "@/lib/planLimits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TAG = "[ai/chat]";
 
-// Allowlist of valid Anthropic model IDs. If ANTHROPIC_MODEL env var is set
-// to an unrecognised value we fall back to the default rather than crashing.
 const VALID_MODELS = new Set([
   "claude-opus-4-7",
   "claude-sonnet-4-6",
@@ -71,7 +74,7 @@ function getAccessTokenFromSupabaseCookies(req: NextRequest): string | null {
         return (session as { access_token: string }).access_token;
       }
     } catch {
-      // Ignore malformed or non-JSON cookies.
+      /* ignore */
     }
 
     return null;
@@ -82,7 +85,7 @@ function getAccessTokenFromSupabaseCookies(req: NextRequest): string | null {
 
 async function requireAuthenticatedUser(
   req: NextRequest,
-): Promise<{ ok: true } | { ok: false; response: NextResponse }> {
+): Promise<{ ok: true; userId: string; accessToken: string } | { ok: false; response: NextResponse }> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
@@ -127,12 +130,28 @@ async function requireAuthenticatedUser(
     };
   }
 
-  return { ok: true };
+  return { ok: true, userId: user.id, accessToken };
 }
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUser(req);
   if (!auth.ok) return auth.response;
+
+  const limitCtx = await loadPlanLimitContext(auth.accessToken);
+  if (!limitCtx.ok) {
+    return NextResponse.json({ error: "LIMIT_CHECK_FAILED", message: limitCtx.message }, { status: 503 });
+  }
+
+  const cap = getAiRequestCap(limitCtx.ctx.aiLevel);
+  if (cap != null && limitCtx.ctx.monthlyAiRequests >= cap) {
+    return NextResponse.json(
+      {
+        error: "AI_LIMIT_EXCEEDED",
+        message: "تم تجاوز حد استخدام الذكاء الاصطناعي لهذه الباقة هذا الشهر",
+      },
+      { status: 429 },
+    );
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
   if (!apiKey) {
@@ -162,12 +181,11 @@ export async function POST(req: NextRequest) {
 
   const model = resolveModel();
   const client = new Anthropic({ apiKey });
+  const inputTokenEstimate = Math.ceil((userMessage.length + SYSTEM_PROMPT.length) / 4);
 
   try {
     console.log(`${TAG} streaming | model=${model} msg_len=${userMessage.length}`);
 
-    // Use the Node.js request abort signal so the Anthropic stream is cancelled
-    // when the client disconnects (e.g. user navigates away mid-stream).
     const stream = await client.messages.stream(
       {
         model,
@@ -179,6 +197,8 @@ export async function POST(req: NextRequest) {
     );
 
     const encoder = new TextEncoder();
+    let outputChars = 0;
+
     const readable = new ReadableStream({
       async start(controller) {
         try {
@@ -187,16 +207,24 @@ export async function POST(req: NextRequest) {
               chunk.type === "content_block_delta" &&
               chunk.delta.type === "text_delta"
             ) {
+              outputChars += chunk.delta.text.length;
               controller.enqueue(encoder.encode(chunk.delta.text));
             }
           }
         } catch (streamErr) {
-          // AbortError means the client disconnected — not a bug
           if (!(streamErr instanceof Error && streamErr.name === "AbortError")) {
             console.error(`${TAG} stream error:`, streamErr);
           }
         } finally {
           controller.close();
+          const outputTokenEstimate = Math.ceil(outputChars / 4);
+          void logAiUsage({
+            organizationId: limitCtx.ctx.organizationId,
+            userId: auth.userId,
+            model,
+            inputTokens: inputTokenEstimate,
+            outputTokens: outputTokenEstimate,
+          });
         }
       },
     });

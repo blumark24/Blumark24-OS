@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import { useDashboardKPI, useProjects, useActivities, useTransactions, useEmployees, useClients, useTasks } from "@/hooks/useData";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_LABELS, usePermissions, mapAuthRoleToUserRole } from "@/contexts/PermissionsContext";
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
@@ -104,6 +104,10 @@ export default function DashboardPage() {
   const { data: employees }                    = useEmployees();
   const { data: clients }                      = useClients();
   const { data: tasks }                        = useTasks();
+
+  const [showAllProjects, setShowAllProjects] = useState(false);
+  const projectsSectionRef = useRef<HTMLDivElement>(null);
+  const visibleProjects = showAllProjects ? projects : projects.slice(0, 5);
 
   const isSuperAdmin = user
     ? mapAuthRoleToUserRole(user.role) === "super_admin"
@@ -664,10 +668,21 @@ export default function DashboardPage() {
 
         {/* ─── Projects + recent activity ────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={`${WS_CARD} lg:col-span-2 p-5`}>
+          <div className={`${WS_CARD} lg:col-span-2 p-5`} id="projects-section" ref={projectsSectionRef}>
             <div className="mb-4 flex items-center justify-between">
               <h3 className={`${WS_SECTION_TITLE}`}>المشاريع النشطة</h3>
-              <button className="text-xs text-[#22d3ee] hover:underline">عرض الكل</button>
+              {projects.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAllProjects((v) => !v);
+                    projectsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className="text-xs text-[#22d3ee] hover:underline"
+                >
+                  {showAllProjects ? "عرض أقل" : "عرض الكل"}
+                </button>
+              )}
             </div>
             {projLoad ? (
               <ChartSkeleton height={180} />
@@ -684,7 +699,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {projects.map((project) => (
+                    {visibleProjects.map((project) => (
                       <tr key={project.id} className="table-row border-b border-white/[0.05] last:border-0">
                         <td className="py-3"><span className="font-medium text-white">{project.name}</span></td>
                         <td className="py-3 text-[#8ba3c7]">{project.clientName}</td>
