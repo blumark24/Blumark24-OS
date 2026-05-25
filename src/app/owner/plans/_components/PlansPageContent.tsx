@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ACCENT } from "../../_accent";
+import { OWNER_READ_ONLY_ACTION, OWNER_UNAVAILABLE_HINT } from "../../_data";
+import OwnerReadOnlyBadge from "../../_components/OwnerReadOnlyBadge";
 import { fetchPlansPage, type DisplayPlanFull } from "../../_lib/ownerQueries";
 
 // ─── Value formatters (Arabic) ────────────────────────────────────────────────
@@ -26,7 +28,7 @@ function numOrDash(n: number | null): string {
 }
 
 function priceLabel(n: number | null): string {
-  return n === null ? "غير محدّد" : `${n.toLocaleString("en-US")} ر.س`;
+  return n === null ? OWNER_UNAVAILABLE_HINT : `${n.toLocaleString("en-US")} ر.س`;
 }
 
 function aiLevelLabel(level: number | null): string {
@@ -41,32 +43,35 @@ function whatsappLabel(value: number | null): string {
   return value === 1 ? "مفعّل" : "معطّل";
 }
 
-// ─── Disabled action buttons (read-only phase — visual only) ───────────────────
+// ─── Disabled action buttons (read-only — no mutations) ─────────────────────
 
 function PlanActions() {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="space-y-2">
+      <p className="text-[10px] text-[#5f7798]">{OWNER_READ_ONLY_ACTION}</p>
+      <div className="flex flex-wrap items-center gap-1.5">
       <button
         disabled
-        title="قريباً"
+        title={OWNER_READ_ONLY_ACTION}
         className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/20 bg-[#22d3ee]/[0.06] px-2.5 py-1 text-[11px] text-[#22d3ee]/40 cursor-not-allowed"
       >
         <Edit2 size={11} /> تعديل
       </button>
       <button
         disabled
-        title="قريباً"
+        title={OWNER_READ_ONLY_ACTION}
         className="inline-flex items-center gap-1 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/[0.06] px-2.5 py-1 text-[11px] text-[#fbbf24]/40 cursor-not-allowed"
       >
         <PauseCircle size={11} /> تعطيل
       </button>
       <button
         disabled
-        title="قريباً"
+        title={OWNER_READ_ONLY_ACTION}
         className="inline-flex items-center gap-1 rounded-lg border border-[#a855f7]/20 bg-[#a855f7]/[0.06] px-2.5 py-1 text-[11px] text-[#c084fc]/40 cursor-not-allowed"
       >
         <SlidersHorizontal size={11} /> تعديل الحدود
       </button>
+      </div>
     </div>
   );
 }
@@ -207,24 +212,27 @@ export default function PlansPageContent() {
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-5 lg:space-y-6">
       {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="space-y-1">
           <h1 className="font-heading text-2xl sm:text-3xl font-bold text-white flex items-center gap-2.5">
             <Layers size={26} className="text-[#22d3ee]" />
             الباقات
           </h1>
           <p className="text-[13px] text-[#8ba3c7] leading-relaxed max-w-2xl">
-            باقات منصة Blumark24 وحدودها — للعرض فقط في هذه المرحلة.
+            باقات منصة Blumark24 وحدودها من جداول plans و plan_limits — عرض قراءة فقط.
           </p>
         </div>
-        <button
-          disabled
-          title="قريباً"
-          className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/[0.08] px-4 py-2.5 text-[13px] font-medium text-[#22d3ee]/40 cursor-not-allowed flex-shrink-0"
-        >
-          <Plus size={15} />
-          إنشاء باقة
-        </button>
+        <div className="flex flex-col sm:items-end gap-2 flex-shrink-0">
+          <OwnerReadOnlyBadge />
+          <button
+            disabled
+            title={OWNER_READ_ONLY_ACTION}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/[0.08] px-4 py-2.5 text-[13px] font-medium text-[#22d3ee]/40 cursor-not-allowed"
+          >
+            <Plus size={15} />
+            إنشاء باقة
+          </button>
+        </div>
       </div>
 
       {/* KPI strip */}
@@ -259,8 +267,12 @@ export default function PlansPageContent() {
           ) : plans && plans.length > 0 ? (
             plans.map((plan) => <PlanCard key={plan.id} plan={plan} />)
           ) : (
-            <div className="md:col-span-2 xl:col-span-3 glass-card p-10 text-center text-[13px] text-[#8ba3c7]">
-              لا توجد باقات بعد
+            <div className="md:col-span-2 xl:col-span-3 flex flex-col items-center justify-center glass-card p-10 text-center rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02]">
+              <Layers size={32} className="text-[#22d3ee]/30 mb-3" strokeWidth={1.4} />
+              <p className="text-[14px] font-medium text-white">لا توجد باقات مسجّلة بعد</p>
+              <p className="text-[12px] text-[#8ba3c7] mt-2 max-w-sm leading-relaxed">
+                تُعرض هنا الباقات من جدول plans مع حدود plan_limits عند توفرها.
+              </p>
             </div>
           )}
         </div>

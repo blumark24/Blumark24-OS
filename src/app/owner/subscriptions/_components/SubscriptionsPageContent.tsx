@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   CreditCard,
   Building2,
@@ -9,9 +10,12 @@ import {
   PauseCircle,
   XCircle,
   RefreshCw,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ACCENT } from "../../_accent";
+import { OWNER_READ_ONLY_ACTION } from "../../_data";
+import OwnerReadOnlyBadge from "../../_components/OwnerReadOnlyBadge";
 import { fetchSubscriptionsPage, type DisplaySubscriptionFull } from "../../_lib/ownerQueries";
 
 // ─── Badge helpers ────────────────────────────────────────────────────────────
@@ -76,37 +80,66 @@ function CardSkeleton() {
   );
 }
 
-// ─── Row actions (all disabled — read-only phase) ─────────────────────────────
+// ─── Row actions (disabled — read-only, no mutations) ───────────────────────
 
 function RowActions() {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="space-y-1.5">
+      <p className="text-[10px] text-[#5f7798] lg:hidden">{OWNER_READ_ONLY_ACTION}</p>
+      <div className="flex flex-wrap items-center gap-1.5">
       <button
         disabled
-        title="قريباً"
+        title={OWNER_READ_ONLY_ACTION}
         className="inline-flex items-center gap-1 rounded-lg border border-[#a855f7]/20 bg-[#a855f7]/[0.06] px-2.5 py-1 text-[11px] text-[#c084fc]/40 cursor-not-allowed"
       >
         <Layers size={11} /> تغيير الباقة
       </button>
       <button
         disabled
-        title="قريباً"
+        title={OWNER_READ_ONLY_ACTION}
         className="inline-flex items-center gap-1 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/[0.06] px-2.5 py-1 text-[11px] text-[#fbbf24]/40 cursor-not-allowed"
       >
         <PauseCircle size={11} /> تعليق الاشتراك
       </button>
       <button
         disabled
-        title="قريباً"
+        title={OWNER_READ_ONLY_ACTION}
         className="inline-flex items-center gap-1 rounded-lg border border-[#ef4444]/20 bg-[#ef4444]/[0.06] px-2.5 py-1 text-[11px] text-[#f87171]/40 cursor-not-allowed"
       >
         <XCircle size={11} /> إلغاء الاشتراك
       </button>
+      </div>
     </div>
   );
 }
 
 // ─── Mobile card ──────────────────────────────────────────────────────────────
+function OrgNameLink({ sub }: { sub: DisplaySubscriptionFull }) {
+  const label = (
+    <>
+      <span className="text-[13px] font-medium text-white">{sub.orgName}</span>
+      {sub.isInternal && (
+        <span className="rounded-full bg-[#22d3ee]/12 border border-[#22d3ee]/25 px-1.5 py-0.5 text-[10px] text-[#22d3ee]">
+          داخلي
+        </span>
+      )}
+    </>
+  );
+
+  if (sub.organizationId && sub.orgName !== "—") {
+    return (
+      <Link
+        href={`/owner/organizations/${sub.organizationId}`}
+        className="inline-flex items-center gap-1.5 flex-wrap hover:text-[#22d3ee] transition-colors"
+      >
+        {label}
+        <Eye size={11} className="text-[#22d3ee]/60" />
+      </Link>
+    );
+  }
+
+  return <div className="flex items-center gap-1.5 flex-wrap">{label}</div>;
+}
 
 function SubCard({ sub }: { sub: DisplaySubscriptionFull }) {
   const a = ACCENT[sub.accent];
@@ -118,14 +151,7 @@ function SubCard({ sub }: { sub: DisplaySubscriptionFull }) {
             <Building2 size={16} />
           </span>
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[13px] font-medium text-white truncate">{sub.orgName}</span>
-              {sub.isInternal && (
-                <span className="rounded-full bg-[#22d3ee]/12 border border-[#22d3ee]/25 px-1.5 py-0.5 text-[10px] text-[#22d3ee]">
-                  داخلي
-                </span>
-              )}
-            </div>
+            <OrgNameLink sub={sub} />
             {sub.orgSlug && (
               <div className="text-[11px] text-[#8ba3c7] font-mono mt-0.5 truncate">{sub.orgSlug}</div>
             )}
@@ -187,24 +213,27 @@ export default function SubscriptionsPageContent() {
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-5 lg:space-y-6">
       {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="space-y-1">
           <h1 className="font-heading text-2xl sm:text-3xl font-bold text-white flex items-center gap-2.5">
             <CreditCard size={26} className="text-[#22d3ee]" />
             الاشتراكات
           </h1>
           <p className="text-[13px] text-[#8ba3c7] leading-relaxed max-w-2xl">
-            اشتراكات منشآت منصة Blumark24 وحالتها ودورات فوترتها — للعرض فقط في هذه المرحلة.
+            اشتراكات المنشآت من جداول subscriptions و organizations و plans — عرض قراءة فقط.
           </p>
         </div>
-        <button
-          disabled
-          title="قريباً"
-          className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/[0.08] px-4 py-2.5 text-[13px] font-medium text-[#22d3ee]/40 cursor-not-allowed flex-shrink-0"
-        >
-          <Plus size={15} />
-          إنشاء اشتراك
-        </button>
+        <div className="flex flex-col sm:items-end gap-2 flex-shrink-0">
+          <OwnerReadOnlyBadge />
+          <button
+            disabled
+            title={OWNER_READ_ONLY_ACTION}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/[0.08] px-4 py-2.5 text-[13px] font-medium text-[#22d3ee]/40 cursor-not-allowed"
+          >
+            <Plus size={15} />
+            إنشاء اشتراك
+          </button>
+        </div>
       </div>
 
       {/* KPI strip */}
@@ -279,13 +308,8 @@ export default function SubscriptionsPageContent() {
                               <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#1e6fd9]/15 text-[#5b9bf0]">
                                 <Building2 size={16} />
                               </span>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[13px] font-medium text-white">{sub.orgName}</span>
-                                {sub.isInternal && (
-                                  <span className="rounded-full bg-[#22d3ee]/12 border border-[#22d3ee]/25 px-1.5 py-0.5 text-[10px] text-[#22d3ee]">
-                                    داخلي
-                                  </span>
-                                )}
+                              <div className="min-w-0">
+                                <OrgNameLink sub={sub} />
                               </div>
                             </div>
                           </td>
@@ -324,8 +348,14 @@ export default function SubscriptionsPageContent() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-[13px] text-[#8ba3c7]">
-                        لا توجد اشتراكات بعد
+                      <td colSpan={9} className="py-12">
+                        <div className="flex flex-col items-center justify-center text-center px-4 rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] py-8">
+                          <CreditCard size={32} className="text-[#22d3ee]/30 mb-3" strokeWidth={1.4} />
+                          <p className="text-[14px] font-medium text-white">لا توجد اشتراكات مسجّلة بعد</p>
+                          <p className="text-[12px] text-[#8ba3c7] mt-2 max-w-sm leading-relaxed">
+                            تُفعَّل الاشتراكات من صفحة المنشآت — تظهر هنا تلقائياً عند إنشائها.
+                          </p>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -340,7 +370,13 @@ export default function SubscriptionsPageContent() {
               ) : subs && subs.length > 0 ? (
                 subs.map((sub) => <SubCard key={sub.id} sub={sub} />)
               ) : (
-                <p className="py-8 text-center text-[13px] text-[#8ba3c7]">لا توجد اشتراكات بعد</p>
+                <div className="flex flex-col items-center justify-center py-8 text-center px-4 rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02]">
+                  <CreditCard size={28} className="text-[#22d3ee]/30 mb-3" strokeWidth={1.4} />
+                  <p className="text-[14px] font-medium text-white">لا توجد اشتراكات مسجّلة بعد</p>
+                  <p className="text-[12px] text-[#8ba3c7] mt-2 max-w-sm leading-relaxed">
+                    تُفعَّل الاشتراكات من صفحة المنشآت — تظهر هنا تلقائياً عند إنشائها.
+                  </p>
+                </div>
               )}
             </div>
           </>
