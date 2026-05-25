@@ -1,5 +1,6 @@
 -- ============================================================
--- 028 — SaaS RLS hardening (production safety for PR #164)
+-- 030 — SaaS RLS hardening (production safety for PR #164)
+-- Applies AFTER production migration 20260524125151_028_org_units_production.
 -- Idempotent. Uses format() for all dynamic DDL.
 -- Drops legacy permissive policies; reasserts org-scoped tenant isolation.
 -- ============================================================
@@ -7,10 +8,10 @@
 DO $$
 BEGIN
   IF to_regprocedure('public.current_org_id()') IS NULL THEN
-    RAISE EXCEPTION '028 requires public.current_org_id() — apply migration 011 first';
+    RAISE EXCEPTION '030 requires public.current_org_id() — apply migration 011 first';
   END IF;
   IF to_regprocedure('public.is_owner()') IS NULL THEN
-    RAISE EXCEPTION '028 requires public.is_owner() — apply migration 009 first';
+    RAISE EXCEPTION '030 requires public.is_owner() — apply migration 009 first';
   END IF;
 END $$;
 
@@ -49,7 +50,6 @@ DECLARE
     'messages: authenticated read', 'messages: authenticated write',
     'departments: org write'
   ];
-  t text;
   n text;
 BEGIN
   FOREACH n IN ARRAY legacy_names LOOP
@@ -90,6 +90,7 @@ DECLARE
   v_tables text[] := ARRAY[
     'profiles', 'employees', 'tasks', 'clients', 'projects', 'transactions',
     'departments', 'teams', 'positions', 'employee_relations',
+    'org_units', 'org_unit_members',
     'notifications', 'messages', 'automations', 'automation_logs',
     'board_members', 'strategy_phases', 'tenant_workspace_settings',
     'activities', 'invoices', 'expenses'
