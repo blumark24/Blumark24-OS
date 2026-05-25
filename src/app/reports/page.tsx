@@ -22,7 +22,8 @@ const REPORT_TYPES = [
 
 import { useDepartments } from "@/hooks/useDepartments";
 import { WS_PAGE, WS_CARD, WS_SURFACE } from "@/components/ui/workspaceVisual";
-import { PageHero, KpiStatCard } from "@/components/ui/workspaceUi";
+import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
+import { getTenantRoleLabel, formatTenantDepartment } from "@/lib/tenant/tenantDisplay";
 import { cn } from "@/lib/utils";
 
 const TOOLTIP_STYLE = {
@@ -257,8 +258,8 @@ function ReportsContent() {
                 {employees.map((emp) => (
                   <tr key={emp.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
                     <td className="px-4 py-3 text-white font-medium">{emp.name}</td>
-                    <td className="px-4 py-3 text-[#8ba3c7]">{emp.department}</td>
-                    <td className="px-4 py-3 text-[#8ba3c7]">{emp.role.replace("_", " ")}</td>
+                    <td className="px-4 py-3 text-[#8ba3c7]">{formatTenantDepartment(emp.department).text}</td>
+                    <td className="px-4 py-3 text-[#8ba3c7]">{getTenantRoleLabel(emp.role)}</td>
                     <td className="px-4 py-3">
                       <span className="text-white">{emp.completedTasks ?? 0}</span>
                       <span className="text-[#8ba3c7]">/{emp.tasks ?? 0}</span>
@@ -278,7 +279,16 @@ function ReportsContent() {
                   </tr>
                 ))}
                 {employees.length === 0 && (
-                  <tr><td colSpan={6} className="text-center py-8 text-[#8ba3c7]">لا توجد بيانات</td></tr>
+                  <tr>
+                    <td colSpan={6} className="p-0">
+                      <WorkspaceEmpty
+                        icon={Users}
+                        title="لا يوجد موظفون للتقرير"
+                        subtitle="أضف موظفين من صفحة الفريق لعرض تقاريرهم هنا"
+                        accent="cyan"
+                      />
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -311,7 +321,16 @@ function ReportsContent() {
                   </tr>
                 ))}
                 {tasks.length === 0 && (
-                  <tr><td colSpan={6} className="text-center py-8 text-[#8ba3c7]">لا توجد بيانات</td></tr>
+                  <tr>
+                    <td colSpan={6} className="p-0">
+                      <WorkspaceEmpty
+                        icon={CheckSquare}
+                        title="لا توجد مهام للتقرير"
+                        subtitle="أنشئ مهامًا من صفحة المهام لعرض تقاريرها"
+                        accent="amber"
+                      />
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>

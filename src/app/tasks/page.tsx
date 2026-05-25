@@ -7,7 +7,7 @@ import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X } from "lucid
 import type { TaskStatus, TaskPriority } from "@/types";
 import { cn } from "@/lib/utils";
 import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
-import { PageHero, KpiStatCard } from "@/components/ui/workspaceUi";
+import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
 import { useTasks, useClients, useEmployees } from "@/hooks/useData";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -164,7 +164,24 @@ function TasksContent() {
 
         {loading && <div className={cn(WS_CARD, "py-10 text-center text-sm text-[#8ba3c7]")}>جارٍ تحميل المهام...</div>}
 
-        {!loading && view === "kanban" && (
+        {!loading && tasks.length === 0 && (
+          <WorkspaceEmpty
+            icon={CheckSquare}
+            title="لا توجد مهام بعد"
+            subtitle="أنشئ أول مهمة لتتبع عمل فريقك"
+            accent="cyan"
+            action={
+              isAdmin ? (
+                <button onClick={openAdd} className="btn-primary min-h-11 px-4 flex items-center gap-2 touch-manipulation">
+                  <Plus size={16} />
+                  مهمة جديدة
+                </button>
+              ) : undefined
+            }
+          />
+        )}
+
+        {!loading && tasks.length > 0 && view === "kanban" && (
           <section className="overflow-x-auto pb-2">
             <div className="flex min-w-max gap-3 sm:gap-4 lg:gap-5 px-0.5">
               {STATUS_COLUMNS.map((col) => {
@@ -221,7 +238,7 @@ function TasksContent() {
           </section>
         )}
 
-        {!loading && view === "list" && (
+        {!loading && tasks.length > 0 && view === "list" && (
           <section className={cn(WS_CARD, "overflow-hidden p-0")}>
             <div className="block md:hidden space-y-2 p-3">
               {tasks.map((task) => (

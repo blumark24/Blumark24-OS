@@ -13,6 +13,7 @@ import {
   updatePosition,
   updateTeam,
   upsertEmployeeRelation,
+  assignEmployeeToOrgUnit,
 } from "@/lib/org/structureDb";
 import type {
   DepartmentInput,
@@ -92,6 +93,10 @@ export function useOrgStructure(enabled: boolean) {
     },
     upsertEmployeeRelation: async (input: EmployeeRelationInput) => {
       await upsertEmployeeRelation(input);
+      await refresh();
+    },
+    assignEmployeeToOrgUnit: async (input: EmployeeRelationInput) => {
+      await assignEmployeeToOrgUnit(input);
       await refresh();
     },
   };

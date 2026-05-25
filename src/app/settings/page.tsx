@@ -13,11 +13,11 @@ import {
 import { useRouter } from "next/navigation";
 import {
   usePermissions,
-  ROLE_LABELS,
   PERMISSION_LABELS,
-  ALL_ROLES,
   ALL_PERMISSIONS,
   DEFAULT_ROLE_PERMISSIONS,
+  TENANT_ROLES,
+  ALL_ROLES,
   mapAuthRoleToUserRole,
   UserRole,
   Permission,
@@ -34,6 +34,7 @@ import {
 } from "@/lib/db";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
+import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
 import { useAutomations } from "@/hooks/useData";
 import { withTimeout } from "@/lib/asyncHelpers";
 
@@ -99,9 +100,12 @@ function AddUserBanner({ onClose }: { onClose: () => void }) {
 
 function PermissionsTab() {
   const { managedUsers, rolePermissions, updateUserRole, toggleUserStatus, savePermissions } = usePermissions();
+  const { isPlatformAdmin } = useTenantWorkspace();
   const roleLabel = (role: UserRole) => getTenantRoleLabel(role);
+  const visibleRoles: UserRole[] = isPlatformAdmin ? ALL_ROLES : TENANT_ROLES;
+  const assignableRoles: UserRole[] = isPlatformAdmin ? ALL_ROLES : TENANT_ROLES;
   const toast  = useToast();
-  const [selectedRole,   setSelectedRole]   = useState<UserRole>("super_admin");
+  const [selectedRole,   setSelectedRole]   = useState<UserRole>(visibleRoles[0] ?? "employee");
   const [localPerms,     setLocalPerms]     = useState<Record<UserRole, Permission[]>>({ ...rolePermissions });
   const [showAddUser,    setShowAddUser]    = useState(false);
   const [editingUserId,  setEditingUserId]  = useState<string | null>(null);
@@ -181,13 +185,17 @@ function PermissionsTab() {
                   </td>
                   <td className="px-4 py-3">
                     {editingUserId === u.userId ? (
-                      <select
-                        className="input-dark text-xs py-1 px-2"
-                        defaultValue={u.role}
-                        onChange={(e) => handleRoleChange(u.userId, e.target.value as UserRole)}
-                      >
-                        {ALL_ROLES.map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
-                      </select>
+                      <div className="min-w-[180px]">
+                        <PremiumRolePicker
+                          hideLabel
+                          value={u.role}
+                          options={assignableRoles.map((r) => ({
+                            value: r,
+                            label: roleLabel(r),
+                          }))}
+                          onChange={(v) => handleRoleChange(u.userId, v as UserRole)}
+                        />
+                      </div>
                     ) : (
                       <span className="badge bg-[#22d3ee]/20 text-[#22d3ee] text-xs">{roleLabel(u.role)}</span>
                     )}
@@ -246,7 +254,7 @@ function PermissionsTab() {
 
         {/* Role tabs */}
         <div className="flex gap-2 flex-wrap p-4 border-b border-[#1e3a5f]">
-          {ALL_ROLES.map((role) => (
+          {visibleRoles.map((role) => (
             <button
               key={role}
               onClick={() => setSelectedRole(role)}
