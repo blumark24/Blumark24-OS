@@ -37,7 +37,12 @@ export default function OwnerPageContent() {
 
       <HeroCard />
 
-      <KpiCards activeOrgCount={data?.activeOrgCount} loading={loading} />
+      <KpiCards
+        activeOrgCount={data?.activeOrgCount}
+        mrr={data?.mrr}
+        staffCount={data?.staffCount}
+        loading={loading}
+      />
 
       <OrganizationsSection
         organizations={data?.organizations}

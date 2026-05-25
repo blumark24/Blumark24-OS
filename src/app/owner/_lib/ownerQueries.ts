@@ -3,6 +3,11 @@
 
 import { supabase } from "@/lib/supabaseClient";
 import type { Accent } from "../_data";
+import {
+  computeMrr,
+  fetchCustomerStaffCount,
+  type OwnerKpiValue,
+} from "./ownerTruthQueries";
 
 // ─── Raw DB row types ────────────────────────────────────────────────────────
 
@@ -150,6 +155,8 @@ export interface OwnerDashboardData {
   organizations: DisplayOrg[];
   plans: DisplayPlan[];
   activeOrgCount: number;
+  mrr: OwnerKpiValue;
+  staffCount: OwnerKpiValue;
   internalOrg: DisplayOrg | null;
   internalPlanLimits: Record<string, number>;
   internalSubscription: DisplaySubscription | null;
@@ -292,7 +299,7 @@ function normalizeSubscription(sub: DbSubscription, plans: DbPlan[]): DisplaySub
 // ─── Main fetch ──────────────────────────────────────────────────────────────
 
 export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
-  const [orgsRes, plansRes, limitsRes, subsRes] = await Promise.all([
+  const [orgsRes, plansRes, limitsRes, subsRes, pricingPlansRes] = await Promise.all([
     supabase
       .from("organizations")
       .select("id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at")
@@ -306,18 +313,23 @@ export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
     supabase
       .from("subscriptions")
       .select("id, organization_id, plan_id, status, billing_cycle, started_at, ends_at"),
+    supabase
+      .from("plans")
+      .select("id, name, slug, price_monthly, price_annual, is_active, sort_order, created_at"),
   ]);
 
   if (orgsRes.error)  console.error("[owner] organizations fetch error:", orgsRes.error.message);
   if (plansRes.error) console.error("[owner] plans fetch error:", plansRes.error.message);
   if (limitsRes.error) console.error("[owner] plan_limits fetch error:", limitsRes.error.message);
   if (subsRes.error)  console.error("[owner] subscriptions fetch error:", subsRes.error.message);
+  if (pricingPlansRes.error) console.error("[owner] plan pricing fetch error:", pricingPlansRes.error.message);
 
   // Exclude soft-deleted tenants from the active management surface.
   const rawOrgs  = ((orgsRes.data ?? []) as DbOrganization[]).filter((o) => !o.deleted_at);
   const rawPlans = (plansRes.data ?? []) as DbPlan[];
   const rawLimits = (limitsRes.data ?? []) as DbPlanLimit[];
   const rawSubs  = (subsRes.data  ?? []) as DbSubscription[];
+  const pricingPlans = (pricingPlansRes.data ?? []) as DbPlanFull[];
 
   const organizations = rawOrgs.map((o) => normalizeOrg(o, rawPlans));
   const plans = rawPlans.map((p) => normalizePlan(p, rawLimits));
@@ -344,11 +356,16 @@ export async function fetchOwnerDashboardData(): Promise<OwnerDashboardData> {
   const activeOrgCount = rawOrgs.filter(
     (o) => !o.is_internal && (o.status === "active" || o.status === "trial"),
   ).length;
+  const customerOrgIds = rawOrgs.filter((o) => !o.is_internal).map((o) => o.id);
+  const mrr = computeMrr(rawSubs, rawOrgs, pricingPlans);
+  const staffCount = await fetchCustomerStaffCount(customerOrgIds);
 
   return {
     organizations,
     plans,
     activeOrgCount,
+    mrr,
+    staffCount,
     internalOrg,
     internalPlanLimits,
     internalSubscription,
