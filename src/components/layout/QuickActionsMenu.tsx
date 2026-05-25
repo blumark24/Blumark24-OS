@@ -15,6 +15,7 @@ import { usePermissions } from "@/contexts/PermissionsContext";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { featureEnabled } from "@/lib/features/packageFeatures";
 import { useToast } from "@/contexts/ToastContext";
+import { UI_NO_SELECT_CLASS } from "@/lib/ui/interactionStyles";
 
 export interface QuickActionDef {
   id: string;
@@ -42,7 +43,7 @@ export function useQuickActions(): QuickActionDef[] {
         id: "task",
         label: "مهمة جديدة",
         icon: CheckSquare,
-        href: "/tasks",
+        href: "/tasks?action=create",
         color: "#22d3ee",
         enabled: canTasks,
         disabledReason: canTasks ? undefined : "لا تملك صلاحية",
@@ -51,7 +52,7 @@ export function useQuickActions(): QuickActionDef[] {
         id: "employee",
         label: "موظف جديد",
         icon: Users,
-        href: "/employees",
+        href: "/employees?action=create",
         color: "#a855f7",
         enabled: canEmployees,
         disabledReason: canEmployees ? undefined : "لا تملك صلاحية",
@@ -60,7 +61,7 @@ export function useQuickActions(): QuickActionDef[] {
         id: "client",
         label: "عميل جديد",
         icon: UserCircle,
-        href: "/clients",
+        href: "/clients?action=create",
         color: "#10b981",
         enabled: canClients,
         disabledReason: canClients ? undefined : "لا تملك صلاحية",
@@ -69,7 +70,7 @@ export function useQuickActions(): QuickActionDef[] {
         id: "invoice",
         label: "فاتورة جديدة",
         icon: DollarSign,
-        href: "/finance",
+        href: "/finance?action=invoice",
         color: "#ff7a3d",
         enabled: canFinance,
         disabledReason: !financeOn ? "غير متاح في باقتك" : "لا تملك صلاحية",
@@ -78,7 +79,7 @@ export function useQuickActions(): QuickActionDef[] {
         id: "expense",
         label: "مصروف جديد",
         icon: Receipt,
-        href: "/finance",
+        href: "/finance?action=expense",
         color: "#ef4444",
         enabled: canFinance,
         disabledReason: !financeOn ? "غير متاح في باقتك" : "لا تملك صلاحية",
@@ -106,7 +107,7 @@ export function QuickActionsList({
   };
 
   return (
-    <div className={cn(compact ? "p-1.5" : "p-2")}>
+    <div className={cn(compact ? "p-1.5" : "p-2", UI_NO_SELECT_CLASS)}>
       {actions.map((item) => (
         <button
           key={item.id}
@@ -115,7 +116,7 @@ export function QuickActionsList({
           title={item.disabledReason}
           onClick={() => go(item)}
           className={cn(
-            "w-full flex items-center gap-2.5 rounded-xl text-right transition-all",
+            "w-full flex items-center gap-2.5 rounded-xl text-right transition-all select-none touch-manipulation",
             compact ? "px-2.5 py-2" : "px-3 py-2.5",
             item.enabled
               ? "hover:bg-white/[0.06] text-white active:scale-[0.99]"

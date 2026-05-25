@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import { FUND_DISTRIBUTION, formatCurrency } from "@/lib/utils";
@@ -15,6 +15,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell,
 } from "recharts";
+import { useQueryAction } from "@/hooks/useQueryAction";
 
 const ARABIC_MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
@@ -112,6 +113,15 @@ function FinanceContent() {
     setForm(emptyForm());
     setShowModal(true);
   };
+
+  const openAddWithType = useCallback((type: "دخل" | "مصروف") => {
+    setEditId(null);
+    setForm({ ...emptyForm(), type });
+    setShowModal(true);
+  }, []);
+
+  useQueryAction("action", "invoice", () => openAddWithType("دخل"), isAdmin);
+  useQueryAction("action", "expense", () => openAddWithType("مصروف"), isAdmin);
 
   const openEdit = (tx: Transaction) => {
     setEditId(tx.id);
@@ -408,7 +418,9 @@ function FinanceContent() {
 export default function FinancePage() {
   return (
     <PageGuard permission="manage_finance">
-      <FinanceContent />
+      <Suspense fallback={null}>
+        <FinanceContent />
+      </Suspense>
     </PageGuard>
   );
 }

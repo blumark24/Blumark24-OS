@@ -229,7 +229,8 @@ export function QuickActionTile({
   return (
     <Link
       href={href}
-      className="group flex min-w-0 flex-col items-center justify-center gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3 text-center transition-colors hover:border-white/15 hover:bg-white/[0.06] min-h-[72px]"
+      aria-label={label}
+      className="group flex min-w-0 flex-col items-center justify-center gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3 text-center transition-colors hover:border-white/15 hover:bg-white/[0.06] active:scale-[0.98] min-h-[72px] select-none touch-manipulation ui-no-select"
     >
       <span className={cn(WS_ICON_ORB, "w-11 h-11 shrink-0", t.orb)}>
         <Icon size={19} className={t.icon} />

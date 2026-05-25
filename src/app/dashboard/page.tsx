@@ -20,25 +20,36 @@ import { useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions, mapAuthRoleToUserRole } from "@/contexts/PermissionsContext";
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
-import type { UserRole } from "@/contexts/PermissionsContext";
 import {
-  WS_CARD, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE, WS_AI_PILL,
+  WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE, WS_AI_PILL,
   BOARD_THEME, WS_TINTS, type BoardKey, type KpiAccent,
 } from "@/components/ui/workspaceVisual";
 import { StatPill, QuickActionTile, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
 import { PremiumMetricCard } from "@/components/ui/PremiumMetricCard";
+import { DashboardPanelCard, DashboardPanelIconBadge } from "@/components/ui/DashboardPanelCard";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
+import { UI_NO_SELECT_CLASS } from "@/lib/ui/interactionStyles";
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
 const TOOLTIP_STYLE = { background: "#0d1f3c", border: "1px solid #1e3a5f", borderRadius: "10px", color: "#e2e8f0" };
-const DISABLE_TEXT_SELECT_STYLE = {
-  WebkitUserSelect: "none",
-  userSelect: "none",
-  WebkitTouchCallout: "none",
-  WebkitTapHighlightColor: "transparent",
-} as const;
+
+const KPI_ROUTES: Record<BoardKey, string> = {
+  activeClients: "/clients",
+  completedTasks: "/tasks?status=done",
+  incompleteTasks: "/tasks?filter=remaining",
+  overdueTasks: "/tasks?filter=overdue",
+};
+
+const QUICK_ACTIONS: { href: string; label: string; icon: React.ElementType; tint: KpiAccent }[] = [
+  { href: "/tasks?action=create",     label: "مهمة جديدة",   icon: CheckSquare, tint: "cyan"    },
+  { href: "/clients?action=create",   label: "عميل جديد",    icon: UserPlus,    tint: "emerald" },
+  { href: "/finance?action=invoice",  label: "فاتورة جديدة", icon: FileText,    tint: "sky"     },
+  { href: "/finance?action=expense",  label: "مصروف جديد",   icon: Wallet,      tint: "rose"    },
+  { href: "/employees?action=create", label: "موظف جديد",    icon: Users,       tint: "violet"  },
+  { href: "/reports",                 label: "إنشاء تقرير",  icon: BarChart3,   tint: "amber"   },
+];
 
 const CustomTooltip = ({
   active, payload, label,
@@ -56,15 +67,6 @@ const CustomTooltip = ({
     </div>
   );
 };
-
-const QUICK_ACTIONS: { href: string; label: string; icon: React.ElementType; tint: KpiAccent }[] = [
-  { href: "/tasks",     label: "مهمة جديدة",   icon: CheckSquare, tint: "cyan"    },
-  { href: "/clients",   label: "عميل جديد",    icon: UserPlus,    tint: "emerald" },
-  { href: "/finance",   label: "فاتورة جديدة", icon: FileText,    tint: "sky"     },
-  { href: "/finance",   label: "مصروف جديد",   icon: Wallet,      tint: "rose"    },
-  { href: "/employees", label: "موظف جديد",    icon: Users,       tint: "violet"  },
-  { href: "/reports",   label: "إنشاء تقرير",  icon: BarChart3,   tint: "amber"   },
-];
 
 // ─── Status colours ───────────────────────────────────────────────────────────
 
@@ -466,6 +468,8 @@ export default function DashboardPage() {
                     theme={theme}
                     progress={progress}
                     footer={footer}
+                    href={KPI_ROUTES[card.key]}
+                    hrefAriaLabel={`الانتقال إلى ${card.label}`}
                     onLiveClick={() => setActiveBoard(card.key)}
                     className="h-full"
                   />
@@ -474,7 +478,11 @@ export default function DashboardPage() {
         </div>
 
         {/* ─── Smart Insights (rule-based, free — no external AI) ────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
+        <Link
+          href="/ai"
+          aria-label="عرض جميع الرؤى الذكية"
+          className={cn(`${WS_SURFACE} block p-4 sm:p-5 transition-opacity hover:opacity-[0.98] active:scale-[0.998]`, UI_NO_SELECT_CLASS)}
+        >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_92%_-20%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(110%_120%_at_5%_120%,rgba(34,211,238,0.12),transparent_55%)]" />
           <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start">
             {/* Glowing AI avatar — on the left in RTL via order */}
@@ -495,9 +503,9 @@ export default function DashboardPage() {
                     <p className="truncate text-[11px] text-[#6b87ab]">تحليل فوري مبني على بياناتك الحالية</p>
                   </div>
                 </div>
-                <Link href="/ai" className={`shrink-0 ${WS_AI_PILL}`}>
+                <span className={`shrink-0 ${WS_AI_PILL} pointer-events-none`}>
                   عرض جميع الرؤى <ArrowLeft size={14} />
-                </Link>
+                </span>
               </div>
 
               <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -524,15 +532,18 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
-        </section>
+        </Link>
 
         {/* ─── Analytics: performance + task distribution ────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={`${WS_CARD} lg:col-span-2 p-5`}>
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE}`}>تحليلات الأداء — الإيرادات</h3>
-              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">آخر 12 شهر</span>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 min-w-0">
+          <DashboardPanelCard
+            href="/finance"
+            ariaLabel="عرض تحليلات الإيرادات والمالية"
+            accent="cyan"
+            className="lg:col-span-2"
+            header="تحليلات الأداء — الإيرادات"
+            badge={<span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7] shrink-0">آخر 12 شهر</span>}
+          >
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={salesData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.4)" />
@@ -544,15 +555,15 @@ export default function DashboardPage() {
                 <Line type="monotone" dataKey="previous" stroke="#1e3a5f" strokeWidth={1.5} dot={false} name="previous" strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
-          </div>
+          </DashboardPanelCard>
 
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>توزيع المهام</h3>
-              <span className={`${WS_ICON_ORB} w-8 h-8 bg-cyan-400/10 ring-1 ring-cyan-300/25`}>
-                <ListChecks size={15} className="text-cyan-300" />
-              </span>
-            </div>
+          <DashboardPanelCard
+            href="/tasks"
+            ariaLabel="عرض توزيع المهام"
+            accent="cyan"
+            header="توزيع المهام"
+            badge={<DashboardPanelIconBadge icon={ListChecks} accent="cyan" />}
+          >
             <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-white/5">
               <div className="bg-emerald-400/80" style={{ width: taskDistribution.pct(taskDistribution.completed) }} />
               <div className="bg-amber-400/80"   style={{ width: taskDistribution.pct(taskDistribution.pending) }} />
@@ -577,16 +588,18 @@ export default function DashboardPage() {
                 <span className="font-bold text-[#22d3ee]">{taskDistribution.total}</span>
               </div>
             </div>
-          </div>
+          </DashboardPanelCard>
         </div>
 
         {/* ─── Employees by dept + satisfaction + quick summary ──────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>الموظفون بالقسم</h3>
-              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">{activeEmployees} نشط</span>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 min-w-0">
+          <DashboardPanelCard
+            href="/employees"
+            ariaLabel="عرض الموظفين حسب القسم"
+            accent="sky"
+            header="الموظفون بالقسم"
+            badge={<span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7] shrink-0">{activeEmployees} نشط</span>}
+          >
             {activeUsersData.length === 0 ? (
               <WorkspaceEmptyInline icon={Users} title="لا توجد بيانات" accent="cyan" className="h-[220px]" />
             ) : (
@@ -600,17 +613,22 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             )}
-          </div>
+          </DashboardPanelCard>
 
-          <div className={`${WS_CARD} p-5 flex flex-col items-center justify-center`}>
-            <h3 className="mb-4 text-sm text-[#8ba3c7]">معدل رضا العملاء</h3>
+          <DashboardPanelCard
+            href="/clients"
+            ariaLabel="عرض معدل رضا العملاء"
+            accent="emerald"
+            header="معدل رضا العملاء"
+            className="flex flex-col"
+          >
             {kpiLoading ? (
-              <div className="flex h-32 w-32 items-center justify-center rounded-full border-8 border-[#1e3a5f]">
+              <div className="flex h-32 w-32 mx-auto items-center justify-center rounded-full border-8 border-[#1e3a5f]">
                 <span className="text-xs text-[#8ba3c7]">جارٍ التحميل...</span>
               </div>
             ) : (
               <>
-                <div className="relative h-32 w-32">
+                <div className="relative h-32 w-32 mx-auto">
                   <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
                     <circle cx="60" cy="60" r="50" fill="none" stroke="#1e3a5f" strokeWidth="10" />
                     <circle cx="60" cy="60" r="50" fill="none" stroke="url(#satGrad)" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 50 * (satisfactionPct / 100)} ${2 * Math.PI * 50 * (1 - satisfactionPct / 100)}`} />
@@ -633,13 +651,15 @@ export default function DashboardPage() {
                 </p>
               </>
             )}
-          </div>
+          </DashboardPanelCard>
 
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>ملخص سريع</h3>
-              <span className="badge status-active">مباشر</span>
-            </div>
+          <DashboardPanelCard
+            href="/finance"
+            ariaLabel="عرض الملخص المالي"
+            accent="violet"
+            header="ملخص سريع"
+            badge={<span className="badge status-active shrink-0">مباشر</span>}
+          >
             <div className="space-y-3">
               <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
                 <span className="text-xs text-[#8ba3c7]">إجمالي الموظفين</span>
@@ -658,16 +678,23 @@ export default function DashboardPage() {
                 <span className="text-sm font-bold" style={{ color: kpi.netProfit >= 0 ? "#10b981" : "#ef4444" }}>{formatCurrency(kpi.netProfit)} SAR</span>
               </div>
             </div>
-          </div>
+          </DashboardPanelCard>
         </div>
 
         {/* ─── Projects + recent activity ────────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={`${WS_CARD} lg:col-span-2 p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE}`}>المشاريع النشطة</h3>
-              <button className="text-xs text-[#22d3ee] hover:underline">عرض الكل</button>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 min-w-0">
+          <DashboardPanelCard
+            href="/clients"
+            ariaLabel="عرض المشاريع النشطة"
+            accent="violet"
+            className="lg:col-span-2"
+            header="المشاريع النشطة"
+            badge={
+              projects.length > 0 ? (
+                <span className="text-xs text-[#22d3ee] shrink-0">عرض الكل</span>
+              ) : undefined
+            }
+          >
             {projLoad ? (
               <ChartSkeleton height={180} />
             ) : projects.length === 0 ? (
@@ -702,12 +729,14 @@ export default function DashboardPage() {
                 </table>
               </div>
             )}
-          </div>
+          </DashboardPanelCard>
 
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>النشاطات الأخيرة</h3>
-            </div>
+          <DashboardPanelCard
+            href="/reports"
+            ariaLabel="عرض النشاطات الأخيرة"
+            accent="cyan"
+            header="النشاطات الأخيرة"
+          >
             {actLoad ? (
               <CardSkeleton rows={5} />
             ) : activities.length === 0 ? (
@@ -727,11 +756,11 @@ export default function DashboardPage() {
                 ))}
               </div>
             )}
-          </div>
+          </DashboardPanelCard>
         </div>
 
         {/* ─── Quick actions ─────────────────────────────────────────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
+        <section className={cn(`${WS_SURFACE} p-4 sm:p-5`, UI_NO_SELECT_CLASS)}>
           <div className="mb-4 flex items-center justify-between">
             <h2 className={`${WS_SECTION_TITLE} text-sm`}>اختصارات سريعة</h2>
             <span className="text-[11px] text-[#6b87ab]">اختصارات لأهم العمليات</span>
@@ -739,9 +768,9 @@ export default function DashboardPage() {
           <div className="flex items-stretch gap-3">
             {/* Central quick-create orb (links to the existing task create flow) */}
             <Link
-              href="/tasks"
-              aria-label="إنشاء سريع"
-              className="grid h-auto w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_14px_34px_-12px_rgba(124,58,237,0.75)] transition-opacity hover:opacity-90"
+              href="/tasks?action=create"
+              aria-label="إنشاء مهمة جديدة"
+              className="grid h-auto w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_14px_34px_-12px_rgba(124,58,237,0.75)] transition-opacity hover:opacity-90 active:scale-[0.98] touch-manipulation"
             >
               <Plus size={26} strokeWidth={2.2} />
             </Link>
@@ -755,7 +784,7 @@ export default function DashboardPage() {
 
         {/* ─── Drilldown modal (unchanged behavior) ──────────────────────── */}
         {activeBoard && (
-          <div className="fixed inset-0 z-50 bg-[#030913]/65 backdrop-blur-md flex items-start sm:items-center justify-center px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5" dir="rtl">
+          <div className={cn("fixed inset-0 z-50 bg-[#030913]/65 backdrop-blur-md flex items-start sm:items-center justify-center px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5", UI_NO_SELECT_CLASS)} dir="rtl">
             <div className={`w-[calc(100vw-24px)] sm:w-full sm:max-w-4xl rounded-[28px] border bg-[linear-gradient(145deg,rgba(16,29,50,.88),rgba(6,16,30,.9))] backdrop-blur-2xl p-4 sm:p-6 max-h-[82dvh] overflow-y-auto ${BOARD_THEME[activeBoard].panelBorder}`}>
               <div className="flex items-start justify-between mb-5 gap-3">
                 <div className="flex items-start gap-3 min-w-0">
@@ -773,7 +802,6 @@ export default function DashboardPage() {
                   onClick={() => setActiveBoard(null)}
                   aria-label="إغلاق"
                   className="w-9 h-9 rounded-xl border border-white/15 text-[#8ba3c7] hover:text-white hover:border-white/30 inline-flex items-center justify-center touch-manipulation"
-                  style={DISABLE_TEXT_SELECT_STYLE}
                 >
                   <X size={18} />
                 </button>

@@ -11,7 +11,8 @@ export default function OfficialBlumarkLogo({ className = "" }: OfficialBlumarkL
       width={240}
       height={96}
       alt="Blumark24 Marketing Agency"
-      className={`object-contain h-auto ${className}`}
+      className={`object-contain object-center h-auto max-h-full w-auto ${className}`}
+      sizes="(max-width: 768px) 128px, 160px"
       priority
       unoptimized
     />

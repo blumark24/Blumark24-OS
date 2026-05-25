@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useCallback, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import { CITIES, formatCurrency, cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { usePermissions } from "@/contexts/PermissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClients } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
+import { useQueryAction } from "@/hooks/useQueryAction";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { WS_PAGE, WS_CARD } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty, GlassPanel } from "@/components/ui/workspaceUi";
@@ -69,11 +70,13 @@ function ClientsContent() {
 
   const totalRevenue = clients.filter((c) => c.status === "نشط").reduce((s, c) => s + c.contractValue, 0);
 
-  const openAdd = () => {
+  const openAdd = useCallback(() => {
     setEditId(null);
     setForm({ name: "", phone: "", businessType: "", city: "جدة", packageType: "صغيرة", contractValue: "", status: "محتمل", accountManagerName: "", notes: "" });
     setShowModal(true);
-  };
+  }, []);
+
+  useQueryAction("action", "create", openAdd, isAdmin);
 
   const openEdit = (c: typeof clients[0]) => {
     setEditId(c.id);
@@ -418,7 +421,9 @@ function ClientsContent() {
 export default function ClientsPage() {
   return (
     <PageGuard permission="manage_clients">
-      <ClientsContent />
+      <Suspense fallback={null}>
+        <ClientsContent />
+      </Suspense>
     </PageGuard>
   );
 }

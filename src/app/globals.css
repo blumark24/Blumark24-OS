@@ -339,6 +339,15 @@ html, body {
   }
 }
 
+/* Prevent blue text-selection highlights on mobile overlay / tap targets */
+.ui-no-select,
+.ui-no-select * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Notification badge */
 .notif-badge {
   position: absolute;

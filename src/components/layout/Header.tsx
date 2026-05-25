@@ -25,6 +25,7 @@ import { QuickActionsList } from "@/components/layout/QuickActionsMenu";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 import { withTimeout } from "@/lib/asyncHelpers";
+import { UI_NO_SELECT_CLASS } from "@/lib/ui/interactionStyles";
 
 // Header global-search timeout — a slow Supabase must never hang the dropdown.
 const SEARCH_TIMEOUT = 8_000;
@@ -110,7 +111,7 @@ function ProfilePanelContent({
     : getTenantRoleLabel(user.role);
 
   return (
-    <div className="flex flex-col">
+    <div className={cn("flex flex-col", UI_NO_SELECT_CLASS)}>
       {/* Identity header */}
       <div className="px-3.5 pt-3.5 pb-3 border-b border-white/[0.06]">
         <div className="flex items-center gap-3">
@@ -207,7 +208,7 @@ function NotificationsPanelContent({
   compact?: boolean;
 }) {
   return (
-    <div className="flex flex-col min-h-0">
+    <div className={cn("flex flex-col min-h-0", UI_NO_SELECT_CLASS)}>
       {!compact && (
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] px-3.5 py-2.5">
           <div className="flex items-center gap-2">
@@ -449,7 +450,10 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-30 flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-[#1e3a5f]"
+      className={cn(
+        "sticky top-0 z-30 flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-[#1e3a5f] min-h-[3.25rem] sm:min-h-[3.5rem]",
+        UI_NO_SELECT_CLASS,
+      )}
       style={{ background: "rgba(10,22,40,0.9)", backdropFilter: "blur(16px)" }}
     >
       {/* Mobile menu toggle */}
@@ -463,8 +467,12 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
 
       {/* Mobile brand (centered) — hidden when the mobile search is expanded */}
       {!mobileSearchOpen && (
-        <Link href="/dashboard" className="lg:hidden flex min-w-0 flex-1 items-center justify-center" aria-label="Blumark24 OS">
-          <OfficialBlumarkLogo className="w-[118px]" />
+        <Link
+          href="/dashboard"
+          className="lg:hidden flex min-w-0 flex-1 items-center justify-center h-9"
+          aria-label="Blumark24 OS"
+        >
+          <OfficialBlumarkLogo className="h-8 w-auto max-w-[128px] object-contain" />
         </Link>
       )}
 
