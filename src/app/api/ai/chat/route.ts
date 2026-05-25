@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAiRequestCap, loadPlanLimitContext } from "@/lib/planLimits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -127,12 +127,24 @@ async function requireAuthenticatedUser(
     };
   }
 
-  return { ok: true };
+  return { ok: true, accessToken };
 }
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUser(req);
   if (!auth.ok) return auth.response;
+
+  const limitCtx = await loadPlanLimitContext(auth.accessToken);
+  if (!limitCtx.ok) {
+    return NextResponse.json({ error: "LIMIT_CHECK_FAILED", message: limitCtx.message }, { status: 503 });
+  }
+  const cap = getAiRequestCap(limitCtx.ctx.aiLevel);
+  if (cap != null && limitCtx.ctx.monthlyAiRequests >= cap) {
+    return NextResponse.json(
+      { error: "AI_LIMIT_EXCEEDED", message: "تم تجاوز حد استخدام الذكاء الاصطناعي لهذه الباقة هذا الشهر" },
+      { status: 429 },
+    );
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
   if (!apiKey) {
