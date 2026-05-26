@@ -67,6 +67,7 @@ import PositionsPanel from "./PositionsPanel";
 import StructureLevelFormModal from "./StructureLevelFormModal";
 import AssignEmployeeModal from "./AssignEmployeeModal";
 import TeamFormModal from "./TeamFormModal";
+import OrgRolesInsightsPanel from "./OrgRolesInsightsPanel";
 import {
   checkCanAddPosition,
   checkCanAddTeam,
@@ -610,6 +611,8 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
                 onDelete={deletePosition}
               />
             )}
+            <OrgRolesInsightsPanel employees={employees} orgSnapshot={data} />
+
             <div
               className="rounded-2xl border border-[#1e3a5f] p-4 space-y-3"
               style={{ background: "rgba(10,22,40,0.75)" }}
