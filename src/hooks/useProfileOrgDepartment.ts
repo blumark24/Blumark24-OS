@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { formatTenantDepartment } from "@/lib/tenant/tenantDisplay";
+import { resolveTenantOrgId } from "@/lib/tenant/tenantScope";
 
 /**
  * Resolves the department label shown in header/dashboard:
@@ -22,10 +23,18 @@ export function useProfileOrgDepartment() {
     }
     setLoading(true);
     try {
+      // TENANT-LOCKDOWN-1: scope both reads to caller's organization.
+      const orgId = await resolveTenantOrgId();
+      if (!orgId) {
+        setOrgDeptName(null);
+        return;
+      }
+
       const { data: rel } = await supabase
         .from("employee_relations")
         .select("department_id")
         .eq("employee_id", user.id)
+        .eq("organization_id", orgId)
         .maybeSingle();
 
       if (!rel?.department_id) {
@@ -37,6 +46,7 @@ export function useProfileOrgDepartment() {
         .from("departments")
         .select("name")
         .eq("id", rel.department_id)
+        .eq("organization_id", orgId)
         .maybeSingle();
 
       setOrgDeptName(dept?.name ?? null);

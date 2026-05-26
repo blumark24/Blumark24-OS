@@ -8,6 +8,7 @@ import {
   updateDepartment,
   type Department,
 } from "@/lib/services/departments";
+import { supabase } from "@/lib/supabase";
 
 export function useDepartments() {
   const [data, setData] = useState<Department[]>([]);
@@ -30,6 +31,20 @@ export function useDepartments() {
 
   useEffect(() => {
     void refetch();
+  }, [refetch]);
+
+  // TENANT-LOCKDOWN-1: clear cached department list on sign-out.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        setData([]);
+        setError(null);
+        setLoading(false);
+      } else if (event === "SIGNED_IN" && session) {
+        void refetch();
+      }
+    });
+    return () => subscription.unsubscribe();
   }, [refetch]);
 
   const insert = useCallback(

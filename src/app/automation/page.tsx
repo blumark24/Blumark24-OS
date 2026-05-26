@@ -6,6 +6,7 @@ import PageGuard from "@/components/ui/PageGuard";
 import { useToast } from "@/contexts/ToastContext";
 import { useTasks, useClients, useTransactions, useAutomations, useAutomationLogs } from "@/hooks/useData";
 import { supabase } from "@/lib/supabase";
+import { requireTenantOrgId } from "@/lib/tenant/tenantScope";
 import { FUND_DISTRIBUTION, formatCurrency } from "@/lib/utils";
 import type { Task, Client, Transaction } from "@/types";
 import {
@@ -140,9 +141,12 @@ async function effectLateTasks(tasks: Task[]): Promise<string | null> {
     .filter((t) => t.status !== "مكتملة" && t.status !== "متأخرة" && t.dueDate < now)
     .map((t) => t.id);
   if (!lateIds.length) return null;
+  // TENANT-LOCKDOWN-1: pin update to caller's organization.
+  const orgId = await requireTenantOrgId();
   const { error } = await supabase
     .from("tasks")
     .update({ status: "متأخرة" })
+    .eq("organization_id", orgId)
     .in("id", lateIds);
   if (error) {
     console.error("[automation late-tasks]", error.message);
@@ -160,9 +164,15 @@ async function effectWorkload(tasks: Task[]): Promise<string | null> {
   });
   const updates = Object.entries(counts);
   if (!updates.length) return null;
+  // TENANT-LOCKDOWN-1: pin every employee update to caller's organization.
+  const orgId = await requireTenantOrgId();
   const results = await Promise.all(
     updates.map(([id, cnt]) =>
-      supabase.from("employees").update({ tasks: cnt }).eq("id", id)
+      supabase
+        .from("employees")
+        .update({ tasks: cnt })
+        .eq("id", id)
+        .eq("organization_id", orgId),
     )
   );
   const failed = results.filter((r) => r.error).length;

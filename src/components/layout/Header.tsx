@@ -24,6 +24,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { QuickActionsList } from "@/components/layout/QuickActionsMenu";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
+import { resolveTenantOrgId } from "@/lib/tenant/tenantScope";
 import { withTimeout } from "@/lib/asyncHelpers";
 
 // Header global-search timeout — a slow Supabase must never hang the dropdown.
@@ -44,15 +45,34 @@ async function searchSupabase(q: string): Promise<SearchResult[]> {
   const lq = `%${q.trim()}%`;
   const out: SearchResult[] = [];
 
+  // TENANT-LOCKDOWN-1: global search must never return rows from another org.
+  const orgId = await resolveTenantOrgId();
+  if (!orgId) return [];
+
   let clientsRes: { data: { id: string; name: string; city: string }[] | null };
   let tasksRes:   { data: { id: string; title: string; assignee_name: string }[] | null };
   let employeesRes:{ data: { id: string; name: string; department: string }[] | null };
   try {
     [clientsRes, tasksRes, employeesRes] = await withTimeout(
       Promise.all([
-        supabase.from("clients").select("id, name, city").or(`name.ilike.${lq},phone.ilike.${lq}`).limit(3),
-        supabase.from("tasks").select("id, title, assignee_name").ilike("title", lq).limit(3),
-        supabase.from("employees").select("id, name, department").or(`name.ilike.${lq},email.ilike.${lq}`).limit(2),
+        supabase
+          .from("clients")
+          .select("id, name, city")
+          .eq("organization_id", orgId)
+          .or(`name.ilike.${lq},phone.ilike.${lq}`)
+          .limit(3),
+        supabase
+          .from("tasks")
+          .select("id, title, assignee_name")
+          .eq("organization_id", orgId)
+          .ilike("title", lq)
+          .limit(3),
+        supabase
+          .from("employees")
+          .select("id, name, department")
+          .eq("organization_id", orgId)
+          .or(`name.ilike.${lq},email.ilike.${lq}`)
+          .limit(2),
       ]),
       SEARCH_TIMEOUT,
     );

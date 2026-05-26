@@ -22,6 +22,7 @@ import type {
   TeamInput,
   EmployeeRelationInput,
 } from "@/lib/org/types";
+import { supabase } from "@/lib/supabase";
 
 export function useOrgStructure(enabled: boolean) {
   const [data, setData] = useState<OrgStructureSnapshot | null>(null);
@@ -48,6 +49,21 @@ export function useOrgStructure(enabled: boolean) {
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  // TENANT-LOCKDOWN-1: clear cached org structure on sign-out so the next
+  // tenant that signs in cannot see the previous tenant's chart/tree.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        setData(null);
+        setError(null);
+        setLoading(false);
+      } else if (event === "SIGNED_IN" && session) {
+        void refresh();
+      }
+    });
+    return () => subscription.unsubscribe();
   }, [refresh]);
 
   return {

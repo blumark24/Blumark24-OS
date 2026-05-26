@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { requireTenantOrgId, resolveTenantOrgId } from "@/lib/tenant/tenantScope";
 
 export interface Department {
   id: string;
@@ -25,9 +26,13 @@ function fromRow(row: Record<string, unknown>): Department {
 }
 
 export async function listDepartments(): Promise<Department[]> {
+  // TENANT-LOCKDOWN-1: scope to caller's organization (defence-in-depth on top of RLS).
+  const orgId = await resolveTenantOrgId();
+  if (!orgId) return [];
   const { data, error } = await supabase
     .from("departments")
     .select("*")
+    .eq("organization_id", orgId)
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
 
@@ -41,6 +46,7 @@ export async function createDepartment(input: {
   icon?: string;
   sortOrder?: number;
 }): Promise<Department> {
+  const organization_id = await requireTenantOrgId();
   const { data, error } = await supabase
     .from("departments")
     .insert([
@@ -49,6 +55,7 @@ export async function createDepartment(input: {
         description: input.description?.trim() ?? "",
         icon: input.icon?.trim() ?? "",
         sort_order: input.sortOrder ?? 0,
+        organization_id,
       },
     ])
     .select("*")
@@ -62,6 +69,7 @@ export async function updateDepartment(
   id: string,
   changes: Partial<Pick<Department, "name" | "description" | "icon" | "sortOrder" | "isActive">>,
 ): Promise<void> {
+  const organization_id = await requireTenantOrgId();
   const payload: Record<string, unknown> = {};
   if (changes.name !== undefined) payload.name = changes.name.trim();
   if (changes.description !== undefined) payload.description = changes.description;
@@ -69,12 +77,21 @@ export async function updateDepartment(
   if (changes.sortOrder !== undefined) payload.sort_order = changes.sortOrder;
   if (changes.isActive !== undefined) payload.is_active = changes.isActive;
 
-  const { error } = await supabase.from("departments").update(payload).eq("id", id);
+  const { error } = await supabase
+    .from("departments")
+    .update(payload)
+    .eq("id", id)
+    .eq("organization_id", organization_id);
   if (error) throw new Error(error.message);
 }
 
 export async function deleteDepartment(id: string): Promise<void> {
-  const { error } = await supabase.from("departments").delete().eq("id", id);
+  const organization_id = await requireTenantOrgId();
+  const { error } = await supabase
+    .from("departments")
+    .delete()
+    .eq("id", id)
+    .eq("organization_id", organization_id);
   if (error) throw new Error(error.message);
 }
 

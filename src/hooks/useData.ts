@@ -9,8 +9,11 @@ import {
   deleteBoardMember,
   logActivity,
   createNotification,
-  resolveCurrentOrgId,
 } from "@/lib/db";
+import {
+  resolveTenantOrgId,
+  requireTenantOrgId,
+} from "@/lib/tenant/tenantScope";
 import { withTimeout, withSoftTimeout } from "@/lib/asyncHelpers";
 import type { Client, Task, Transaction, Employee, Project, Activity, StrategyPhase } from "@/types";
 import type { BoardMember } from "@/lib/db";
@@ -34,14 +37,6 @@ function formatDbWriteError(entityLabel: string, message: string): string {
     return `فشل حفظ ${entityLabel} — حقل مطلوب ناقص في قاعدة البيانات.`;
   }
   return msg || `فشل حفظ ${entityLabel}`;
-}
-
-async function requireTenantOrgId(): Promise<string> {
-  const orgId = await resolveCurrentOrgId();
-  if (!orgId) {
-    throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول أو تواصل مع الدعم");
-  }
-  return orgId;
 }
 
 async function runDbWrite(
@@ -268,12 +263,22 @@ function useAsyncData<T>(fetcher: () => Promise<T>, fallback: T) {
   // Firing on every onAuthStateChange event (including TOKEN_REFRESHED,
   // which Supabase emits ~hourly) would cause every active hook to re-query
   // Supabase simultaneously — the root cause of the excessive parallel fetches.
+  //
+  // TENANT-LOCKDOWN-1: on SIGNED_OUT, clear the cached data and reset the
+  // "hasLoaded" flag so the next tenant that signs in starts from an empty
+  // state instead of briefly seeing the previous tenant's rows.
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) load();
+      else if (event === "SIGNED_OUT") {
+        hasLoaded.current = false;
+        setData(fallback);
+        setError(null);
+        setLoading(false);
+      }
     });
     return () => subscription.unsubscribe();
-  }, [load]);
+  }, [load, fallback]);
 
   return { data, setData, loading, error, refetch: load };
 }
@@ -281,9 +286,12 @@ function useAsyncData<T>(fetcher: () => Promise<T>, fallback: T) {
 // ─── Clients ──────────────────────────────────────────────────────────────────
 
 async function fetchClients(): Promise<Client[]> {
+  const orgId = await resolveTenantOrgId();
+  if (!orgId) return [];
   const { data, error } = await supabase
     .from("clients")
     .select("*")
+    .eq("organization_id", orgId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(clientFromDB);
@@ -319,9 +327,14 @@ export function useClients() {
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Client>) => {
+    const orgId = await requireTenantOrgId();
     await runDbWrite(
       "العميل",
-      supabase.from("clients").update(clientUpdateToDB(changes)).eq("id", id),
+      supabase
+        .from("clients")
+        .update(clientUpdateToDB(changes))
+        .eq("id", id)
+        .eq("organization_id", orgId),
       "انتهت مهلة تحديث العميل",
     );
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
@@ -329,9 +342,14 @@ export function useClients() {
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
+    const orgId = await requireTenantOrgId();
     await runDbWrite(
       "العميل",
-      supabase.from("clients").delete().eq("id", id),
+      supabase
+        .from("clients")
+        .delete()
+        .eq("id", id)
+        .eq("organization_id", orgId),
       "انتهت مهلة حذف العميل",
     );
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
@@ -344,9 +362,12 @@ export function useClients() {
 // ─── Tasks ────────────────────────────────────────────────────────────────────
 
 async function fetchTasks(): Promise<Task[]> {
+  const orgId = await resolveTenantOrgId();
+  if (!orgId) return [];
   const { data, error } = await supabase
     .from("tasks")
     .select("*")
+    .eq("organization_id", orgId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(taskFromDB);
@@ -382,13 +403,18 @@ export function useTasks() {
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Task>) => {
+    const orgId = await requireTenantOrgId();
     const patch = { ...taskUpdateToDB(changes) };
     if (changes.dueDate !== undefined && !String(changes.dueDate).trim()) {
       patch.due_date = todayIsoDate();
     }
     await runDbWrite(
       "المهمة",
-      supabase.from("tasks").update(patch).eq("id", id),
+      supabase
+        .from("tasks")
+        .update(patch)
+        .eq("id", id)
+        .eq("organization_id", orgId),
       "انتهت مهلة تحديث المهمة",
     );
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
@@ -396,9 +422,14 @@ export function useTasks() {
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
+    const orgId = await requireTenantOrgId();
     await runDbWrite(
       "المهمة",
-      supabase.from("tasks").delete().eq("id", id),
+      supabase
+        .from("tasks")
+        .delete()
+        .eq("id", id)
+        .eq("organization_id", orgId),
       "انتهت مهلة حذف المهمة",
     );
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
@@ -411,9 +442,12 @@ export function useTasks() {
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
 async function fetchTransactions(): Promise<Transaction[]> {
+  const orgId = await resolveTenantOrgId();
+  if (!orgId) return [];
   const { data, error } = await supabase
     .from("transactions")
     .select("*")
+    .eq("organization_id", orgId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []) as Transaction[];
@@ -458,9 +492,14 @@ export function useTransactions() {
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Omit<Transaction, "id">>) => {
+    const orgId = await requireTenantOrgId();
     await runDbWrite(
       "المعاملة",
-      supabase.from("transactions").update(changes).eq("id", id),
+      supabase
+        .from("transactions")
+        .update(changes)
+        .eq("id", id)
+        .eq("organization_id", orgId),
       "انتهت مهلة تحديث المعاملة",
     );
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
@@ -468,9 +507,14 @@ export function useTransactions() {
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
+    const orgId = await requireTenantOrgId();
     await runDbWrite(
       "المعاملة",
-      supabase.from("transactions").delete().eq("id", id),
+      supabase
+        .from("transactions")
+        .delete()
+        .eq("id", id)
+        .eq("organization_id", orgId),
       "انتهت مهلة حذف المعاملة",
     );
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
@@ -483,9 +527,12 @@ export function useTransactions() {
 // ─── Employees ────────────────────────────────────────────────────────────────
 
 async function fetchEmployees(): Promise<Employee[]> {
+  const orgId = await resolveTenantOrgId();
+  if (!orgId) return [];
   const { data, error } = await supabase
     .from("employees")
     .select("*")
+    .eq("organization_id", orgId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(employeeFromDB);
@@ -504,8 +551,9 @@ export function useEmployees() {
   }, [refetch]);
 
   const insert = useCallback(async (item: Omit<Employee, "id">) => {
+    const organization_id = await requireTenantOrgId();
     const { error } = await withTimeout(
-      Promise.resolve(supabase.from("employees").insert([employeeToDB(item)])),
+      Promise.resolve(supabase.from("employees").insert([{ ...employeeToDB(item), organization_id }])),
       DB_WRITE_TIMEOUT, "انتهت مهلة إضافة الموظف"
     );
     if (error) throw new Error(error.message);
@@ -514,8 +562,15 @@ export function useEmployees() {
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Employee>) => {
+    const organization_id = await requireTenantOrgId();
     const { error } = await withTimeout(
-      Promise.resolve(supabase.from("employees").update(employeeUpdateToDB(changes)).eq("id", id)),
+      Promise.resolve(
+        supabase
+          .from("employees")
+          .update(employeeUpdateToDB(changes))
+          .eq("id", id)
+          .eq("organization_id", organization_id),
+      ),
       DB_WRITE_TIMEOUT, "انتهت مهلة تحديث الموظف"
     );
     if (error) throw new Error(error.message);
@@ -524,8 +579,15 @@ export function useEmployees() {
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
+    const organization_id = await requireTenantOrgId();
     const { error } = await withTimeout(
-      Promise.resolve(supabase.from("employees").delete().eq("id", id)),
+      Promise.resolve(
+        supabase
+          .from("employees")
+          .delete()
+          .eq("id", id)
+          .eq("organization_id", organization_id),
+      ),
       DB_WRITE_TIMEOUT, "انتهت مهلة حذف الموظف"
     );
     if (error) throw new Error(error.message);
@@ -539,9 +601,12 @@ export function useEmployees() {
 // ─── Projects ─────────────────────────────────────────────────────────────────
 
 async function fetchProjects(): Promise<Project[]> {
+  const orgId = await resolveTenantOrgId();
+  if (!orgId) return [];
   const { data, error } = await supabase
     .from("projects")
     .select("*")
+    .eq("organization_id", orgId)
     .order("deadline", { ascending: true });
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(projectFromDB);
@@ -554,9 +619,12 @@ export function useProjects() {
 // ─── Activities ───────────────────────────────────────────────────────────────
 
 async function fetchActivities(): Promise<Activity[]> {
+  const orgId = await resolveTenantOrgId();
+  if (!orgId) return [];
   const { data, error } = await supabase
     .from("activities")
     .select("*")
+    .eq("organization_id", orgId)
     .order("timestamp", { ascending: false })
     .limit(10);
   if (error) throw new Error(error.message);
@@ -602,6 +670,13 @@ export function useBoardMembers(enabled = true) {
     if (!enabled) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) load();
+      else if (event === "SIGNED_OUT") {
+        // TENANT-LOCKDOWN-1: drop the cached board members on sign-out.
+        hasLoaded.current = false;
+        setData([]);
+        setError(null);
+        setLoading(false);
+      }
     });
     return () => subscription.unsubscribe();
   }, [enabled, load]);
@@ -672,10 +747,13 @@ function strategyPhaseUpdateToDB(changes: Partial<StrategyPhase>): Record<string
 }
 
 async function fetchStrategyPhases(): Promise<StrategyPhase[]> {
+  const orgId = await resolveTenantOrgId();
+  if (!orgId) return [];
   // Try ordering by sort_order; fall back to id if column doesn't exist yet
   const { data, error } = await supabase
     .from("strategy_phases")
     .select("*")
+    .eq("organization_id", orgId)
     .order("sort_order", { ascending: true });
 
   if (error) {
@@ -683,6 +761,7 @@ async function fetchStrategyPhases(): Promise<StrategyPhase[]> {
       const { data: fallback, error: fallbackError } = await supabase
         .from("strategy_phases")
         .select("*")
+        .eq("organization_id", orgId)
         .order("id", { ascending: true });
       if (fallbackError) throw new Error(fallbackError.message);
       return ((fallback ?? []) as Record<string, unknown>[]).map(strategyPhaseFromDB);
@@ -705,8 +784,15 @@ export function useStrategyPhases() {
   }, [refetch]);
 
   const update = useCallback(async (id: number, changes: Partial<StrategyPhase>) => {
+    const orgId = await requireTenantOrgId();
     const { error } = await withTimeout(
-      Promise.resolve(supabase.from("strategy_phases").update(strategyPhaseUpdateToDB(changes)).eq("id", id)),
+      Promise.resolve(
+        supabase
+          .from("strategy_phases")
+          .update(strategyPhaseUpdateToDB(changes))
+          .eq("id", id)
+          .eq("organization_id", orgId),
+      ),
       DB_WRITE_TIMEOUT, "انتهت مهلة تحديث المرحلة"
     );
     if (error) throw new Error(error.message);
@@ -794,9 +880,12 @@ function automationFromDB(row: Record<string, unknown>): AutomationRecord {
 }
 
 async function fetchAutomations(): Promise<AutomationRecord[]> {
+  const orgId = await resolveTenantOrgId();
+  if (!orgId) return [];
   const { data, error } = await supabase
     .from("automations")
     .select("*")
+    .eq("organization_id", orgId)
     .order("id");
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(automationFromDB);
@@ -815,8 +904,15 @@ export function useAutomations() {
   }, [refetch]);
 
   const toggle = useCallback(async (id: string, enabled: boolean) => {
+    const orgId = await requireTenantOrgId();
     const { error } = await withTimeout(
-      Promise.resolve(supabase.from("automations").update({ enabled, updated_at: new Date().toISOString() }).eq("id", id)),
+      Promise.resolve(
+        supabase
+          .from("automations")
+          .update({ enabled, updated_at: new Date().toISOString() })
+          .eq("id", id)
+          .eq("organization_id", orgId),
+      ),
       DB_WRITE_TIMEOUT, "انتهت مهلة تحديث الأتمتة"
     );
     if (error) throw new Error(error.message);
@@ -824,12 +920,17 @@ export function useAutomations() {
   }, [refetch]);
 
   const updateRunStats = useCallback(async (id: string, currentCount: number, logEntry: { rule_title: string; result: string; status: "success" | "warning" | "error" }) => {
+    const orgId = await requireTenantOrgId();
     const { error } = await withTimeout(
-      Promise.resolve(supabase.from("automations").update({
-        last_run: new Date().toISOString(),
-        run_count: currentCount + 1,
-        updated_at: new Date().toISOString(),
-      }).eq("id", id)),
+      Promise.resolve(
+        supabase.from("automations").update({
+          last_run: new Date().toISOString(),
+          run_count: currentCount + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .eq("organization_id", orgId),
+      ),
       DB_WRITE_TIMEOUT, "انتهت مهلة تسجيل الأتمتة"
     );
     if (error) throw new Error(error.message);
@@ -839,6 +940,7 @@ export function useAutomations() {
       rule_title: logEntry.rule_title,
       result:     logEntry.result,
       status:     logEntry.status,
+      organization_id: orgId,
     }]);
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
   }, [refetch]);
@@ -858,9 +960,12 @@ export interface AutomationLog {
 }
 
 async function fetchAutomationLogs(): Promise<AutomationLog[]> {
+  const orgId = await resolveTenantOrgId();
+  if (!orgId) return [];
   const { data, error } = await supabase
     .from("automation_logs")
     .select("*")
+    .eq("organization_id", orgId)
     .order("created_at", { ascending: false })
     .limit(30);
   if (error) throw new Error(error.message);

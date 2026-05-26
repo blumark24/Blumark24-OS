@@ -279,9 +279,19 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   // Load managed users from Supabase profiles — re-run when user signs in.
   // Wrapped in withSoftTimeout so a slow Supabase never stalls the
   // Sidebar/Header consumers of PermissionsContext.
+  //
+  // TENANT-LOCKDOWN-1: getAllProfiles() is now organization-scoped, so this
+  // never returns rows from another tenant — even for super_admin / owner
+  // accounts. Also clear managedUsers on user change / sign-out so the
+  // previous tenant's roster cannot persist into a new session.
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setManagedUsers([]);
+      return;
+    }
     let cancelled = false;
+    // Drop any roster from a previous session before loading the new one.
+    setManagedUsers([]);
     withSoftTimeout(getAllProfiles(), PERMS_QUERY_TIMEOUT)
       .then((profiles) => {
         if (cancelled || !profiles?.length) return;

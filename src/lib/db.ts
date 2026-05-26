@@ -269,9 +269,12 @@ export interface DBMessage {
 }
 
 export async function getMessages(): Promise<DBMessage[]> {
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) return [];
   const { data, error } = await supabase
     .from("messages")
     .select("*")
+    .eq("organization_id", orgId)
     .order("created_at", { ascending: false })
     .limit(20);
   if (error) throw new Error(error.message);
@@ -279,12 +282,24 @@ export async function getMessages(): Promise<DBMessage[]> {
 }
 
 export async function markMessageRead(id: string): Promise<void> {
-  const { error } = await supabase.from("messages").update({ read: true }).eq("id", id);
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) return;
+  const { error } = await supabase
+    .from("messages")
+    .update({ read: true })
+    .eq("id", id)
+    .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
 }
 
 export async function markAllMessagesReadInDB(): Promise<void> {
-  const { error } = await supabase.from("messages").update({ read: true }).eq("read", false);
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) return;
+  const { error } = await supabase
+    .from("messages")
+    .update({ read: true })
+    .eq("read", false)
+    .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
 }
 
@@ -411,20 +426,38 @@ export async function getUserProfile(userId: string): Promise<DBProfile | null> 
 }
 
 export async function getAllProfiles(): Promise<DBProfile[]> {
+  // TENANT-LOCKDOWN-1: scope to caller's organization. Without this filter,
+  // a super_admin / owner caller (e.g. Blumark) would see every profile
+  // across every tenant via the RLS bypass branch.
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) return [];
   const { data } = await supabase
     .from("profiles")
     .select("id, email, name, role, is_active, department, avatar")
+    .eq("organization_id", orgId)
     .order("name");
   return (data ?? []) as DBProfile[];
 }
 
 export async function updateProfileRole(userId: string, role: string): Promise<void> {
-  const { error } = await supabase.from("profiles").update({ role }).eq("id", userId);
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول.");
+  const { error } = await supabase
+    .from("profiles")
+    .update({ role })
+    .eq("id", userId)
+    .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
 }
 
 export async function toggleProfileStatus(userId: string, isActive: boolean): Promise<void> {
-  const { error } = await supabase.from("profiles").update({ is_active: isActive }).eq("id", userId);
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول.");
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_active: isActive })
+    .eq("id", userId)
+    .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
 }
 
@@ -454,11 +487,14 @@ export async function logActivity(
   icon?: string,
 ): Promise<void> {
   const orgId = await resolveCurrentOrgId();
+  // TENANT-LOCKDOWN-1: skip the insert entirely if we cannot tag the activity
+  // with an organization — never write a global/NULL-org activity row.
+  if (!orgId) return;
   await supabase.from("activities").insert([{
     type,
     description,
     icon,
-    ...(orgId ? { organization_id: orgId } : {}),
+    organization_id: orgId,
   }]);
 }
 

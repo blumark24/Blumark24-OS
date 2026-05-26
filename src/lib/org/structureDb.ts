@@ -19,12 +19,42 @@ async function resolveOrgId(): Promise<string> {
   return data as string;
 }
 
+// Non-throwing variant for reads — returns empty snapshot if no org context.
+async function resolveOrgIdForRead(): Promise<string | null> {
+  const { data, error } = await supabase.rpc("current_org_id");
+  if (error || !data) return null;
+  return data as string;
+}
+
 export async function fetchOrgStructure(): Promise<OrgStructureSnapshot> {
+  // TENANT-LOCKDOWN-1: explicit organization_id filter so a super_admin / owner
+  // viewing the customer workspace can never see another tenant's structure
+  // via the RLS bypass branch.
+  const orgId = await resolveOrgIdForRead();
+  if (!orgId) {
+    return { departments: [], teams: [], positions: [], relations: [] };
+  }
+
   const [deptRes, teamRes, posRes, relRes] = await Promise.all([
-    supabase.from("departments").select("*").order("sort_order"),
-    supabase.from("teams").select("*").order("sort_order"),
-    supabase.from("positions").select("*").order("sort_order"),
-    supabase.from("employee_relations").select("*"),
+    supabase
+      .from("departments")
+      .select("*")
+      .eq("organization_id", orgId)
+      .order("sort_order"),
+    supabase
+      .from("teams")
+      .select("*")
+      .eq("organization_id", orgId)
+      .order("sort_order"),
+    supabase
+      .from("positions")
+      .select("*")
+      .eq("organization_id", orgId)
+      .order("sort_order"),
+    supabase
+      .from("employee_relations")
+      .select("*")
+      .eq("organization_id", orgId),
   ]);
 
   if (deptRes.error) throw new Error(deptRes.error.message);
@@ -74,10 +104,12 @@ export async function updateDepartment(
   if (input.name !== undefined && isBoardReservedName(input.name)) {
     throw new Error(`«${input.name}» محجوز لمجلس الإدارة ولا يمكن استخدامه كاسم وحدة.`);
   }
+  const organization_id = await resolveOrgId();
   const { data, error } = await supabase
     .from("departments")
     .update(input)
     .eq("id", id)
+    .eq("organization_id", organization_id)
     .select("*")
     .single();
   if (error) throw new Error(error.message);
@@ -88,7 +120,12 @@ export async function updateDepartment(
 }
 
 export async function deleteDepartment(id: string): Promise<void> {
-  const { error } = await supabase.from("departments").delete().eq("id", id);
+  const organization_id = await resolveOrgId();
+  const { error } = await supabase
+    .from("departments")
+    .delete()
+    .eq("id", id)
+    .eq("organization_id", organization_id);
   if (error) throw new Error(error.message);
 }
 
@@ -100,10 +137,12 @@ export async function createTeam(input: TeamInput): Promise<Team> {
 }
 
 export async function updateTeam(id: string, input: Partial<TeamInput>): Promise<Team> {
+  const organization_id = await resolveOrgId();
   const { data, error } = await supabase
     .from("teams")
     .update(input)
     .eq("id", id)
+    .eq("organization_id", organization_id)
     .select("*")
     .single();
   if (error) throw new Error(error.message);
@@ -111,7 +150,12 @@ export async function updateTeam(id: string, input: Partial<TeamInput>): Promise
 }
 
 export async function deleteTeam(id: string): Promise<void> {
-  const { error } = await supabase.from("teams").delete().eq("id", id);
+  const organization_id = await resolveOrgId();
+  const { error } = await supabase
+    .from("teams")
+    .delete()
+    .eq("id", id)
+    .eq("organization_id", organization_id);
   if (error) throw new Error(error.message);
 }
 
@@ -126,10 +170,12 @@ export async function updatePosition(
   id: string,
   input: Partial<PositionInput>,
 ): Promise<Position> {
+  const organization_id = await resolveOrgId();
   const { data, error } = await supabase
     .from("positions")
     .update(input)
     .eq("id", id)
+    .eq("organization_id", organization_id)
     .select("*")
     .single();
   if (error) throw new Error(error.message);
@@ -137,7 +183,12 @@ export async function updatePosition(
 }
 
 export async function deletePosition(id: string): Promise<void> {
-  const { error } = await supabase.from("positions").delete().eq("id", id);
+  const organization_id = await resolveOrgId();
+  const { error } = await supabase
+    .from("positions")
+    .delete()
+    .eq("id", id)
+    .eq("organization_id", organization_id);
   if (error) throw new Error(error.message);
 }
 
@@ -146,16 +197,27 @@ async function propagateDepartmentLabels(
   departmentId: string,
   name: string,
 ): Promise<void> {
+  const orgId = await resolveOrgIdForRead();
+  if (!orgId) return;
   const label = String(name).slice(0, 100);
   const { data: rels, error } = await supabase
     .from("employee_relations")
     .select("employee_id")
+    .eq("organization_id", orgId)
     .eq("department_id", departmentId);
   if (error || !rels?.length) return;
   const ids = rels.map((r) => r.employee_id as string);
   await Promise.all([
-    supabase.from("employees").update({ department: label }).in("id", ids),
-    supabase.from("profiles").update({ department: label }).in("id", ids),
+    supabase
+      .from("employees")
+      .update({ department: label })
+      .eq("organization_id", orgId)
+      .in("id", ids),
+    supabase
+      .from("profiles")
+      .update({ department: label })
+      .eq("organization_id", orgId)
+      .in("id", ids),
   ]);
 }
 
@@ -164,16 +226,27 @@ async function syncEmployeeDepartmentLabel(
   departmentId: string | null,
 ): Promise<void> {
   if (!departmentId) return;
+  const orgId = await resolveOrgIdForRead();
+  if (!orgId) return;
   const { data: dept, error: deptErr } = await supabase
     .from("departments")
     .select("name")
     .eq("id", departmentId)
+    .eq("organization_id", orgId)
     .maybeSingle();
   if (deptErr || !dept?.name) return;
   const label = String(dept.name).slice(0, 100);
   await Promise.all([
-    supabase.from("employees").update({ department: label }).eq("id", employeeId),
-    supabase.from("profiles").update({ department: label }).eq("id", employeeId),
+    supabase
+      .from("employees")
+      .update({ department: label })
+      .eq("id", employeeId)
+      .eq("organization_id", orgId),
+    supabase
+      .from("profiles")
+      .update({ department: label })
+      .eq("id", employeeId)
+      .eq("organization_id", orgId),
   ]);
 }
 
@@ -202,6 +275,11 @@ export async function assignEmployeeToOrgUnit(
 }
 
 export async function deleteEmployeeRelation(id: string): Promise<void> {
-  const { error } = await supabase.from("employee_relations").delete().eq("id", id);
+  const organization_id = await resolveOrgId();
+  const { error } = await supabase
+    .from("employee_relations")
+    .delete()
+    .eq("id", id)
+    .eq("organization_id", organization_id);
   if (error) throw new Error(error.message);
 }
