@@ -34,11 +34,6 @@ import { withSoftTimeout, withTimeout } from "@/lib/asyncHelpers";
 const statusBadge = (status: string) =>
   status === "نشط" ? "status-active" : "status-inactive";
 
-function isMissingLoginProfile(message: string): boolean {
-  return /المستخدم غير موجود|not found|404/i.test(message);
-}
-
-
 type FormState = {
   name:       string;
   email:      string;
@@ -51,7 +46,7 @@ type FormState = {
 };
 
 function EmployeesContent() {
-  const { data: employees, loading, error, update, remove, refetch, setData } = useEmployees();
+  const { data: employees, loading, error, remove, refetch, setData } = useEmployees();
   const { data: orgSnapshot, loading: orgLoading } = useOrgStructure(true);
   const orgUnits = getAssignableOrgUnits(orgSnapshot?.departments ?? []);
   const { userRole, hasPermission } = usePermissions();
@@ -172,47 +167,26 @@ function EmployeesContent() {
     setSaving(true);
     try {
       if (editId) {
-        await update(editId, {
-          name:       form.name.trim(),
-          email:      cleanEmail,
-          phone:      form.phone,
-          department: departmentLabel,
-          role:       form.role as never,
-          status:     form.status,
-          salary:     form.salary ? Number(form.salary) : undefined,
-        });
-        if (form.departmentId) {
-          await assignEmployeeToOrgUnit({
-            employee_id: editId,
-            department_id: form.departmentId,
-            team_id: null,
-            position_id: null,
-            manager_id: null,
-          });
-        }
-        try {
-          await withTimeout(
-            updateAuthUser(editId, {
-              role: form.role,
-              department: departmentLabel,
-              isActive: form.status === "نشط",
-              name: form.name.trim(),
-            }),
-            12_000,
-            "انتهت مهلة مزامنة حساب الدخول — تحقق من اتصالك بالإنترنت",
+        const syncResult = await withTimeout(
+          updateAuthUser(editId, {
+            name: form.name.trim(),
+            role: form.role,
+            department: departmentLabel,
+            departmentId: form.departmentId || null,
+            isActive: form.status === "نشط",
+            phone: form.phone || null,
+            salary: form.salary ? Number(form.salary) : null,
+          }),
+          12_000,
+          "انتهت مهلة حفظ بيانات الموظف — تحقق من اتصالك بالإنترنت",
+        );
+        await withSoftTimeout(refetch(), 6_000);
+        if (syncResult.profileMissing) {
+          toast.warning(
+            "تم حفظ بيانات الموظف — لا يوجد حساب دخول مرتبط بهذا السجل، لم تُحدَّث صلاحيات تسجيل الدخول",
           );
+        } else {
           toast.success("تم تحديث بيانات الموظف ومزامنة صلاحيات الدخول بنجاح");
-        } catch (syncErr) {
-          const syncMsg = syncErr instanceof Error ? syncErr.message : String(syncErr);
-          if (isMissingLoginProfile(syncMsg)) {
-            toast.warning(
-              "تم حفظ بيانات الموظف — لا يوجد حساب دخول مرتبط بهذا السجل، لم تُحدَّث صلاحيات تسجيل الدخول",
-            );
-          } else {
-            toast.warning(
-              `تم حفظ بيانات الموظف، لكن فشلت مزامنة حساب الدخول: ${syncMsg.split("\n")[0]}`,
-            );
-          }
         }
       } else {
         // Hard 15-second client timeout — button NEVER hangs beyond this.

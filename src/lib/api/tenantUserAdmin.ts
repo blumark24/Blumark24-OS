@@ -125,41 +125,51 @@ export function sanitizeRoleForProvisioner(
   return role;
 }
 
+export type TargetUserOrgCheck = {
+  ok: true;
+  targetOrgId: string | null;
+  targetRole: string;
+  /** True when a profiles row exists for this user id. */
+  hasProfile: boolean;
+};
+
 export async function assertTargetUserInCallerOrg(
   admin: SupabaseClient,
   targetUserId: string,
   auth: UserProvisionerAuth,
-): Promise<{ ok: true; targetOrgId: string | null; targetRole: string } | AuthFail> {
-  if (auth.isPlatformAdmin) {
-    const { data } = await admin
+): Promise<TargetUserOrgCheck | AuthFail> {
+  const [{ data: profile }, { data: employee }] = await Promise.all([
+    admin
       .from("profiles")
       .select("organization_id, role")
       .eq("id", targetUserId)
-      .maybeSingle();
-    return {
-      ok: true,
-      targetOrgId: (data?.organization_id as string | null) ?? null,
-      targetRole: String(data?.role ?? ""),
-    };
-  }
+      .maybeSingle(),
+    admin
+      .from("employees")
+      .select("organization_id, role")
+      .eq("id", targetUserId)
+      .maybeSingle(),
+  ]);
 
-  const { data, error } = await admin
-    .from("profiles")
-    .select("organization_id, role")
-    .eq("id", targetUserId)
-    .maybeSingle();
-
-  if (error || !data) {
+  if (!profile && !employee) {
     return {
       ok: false,
       status: 404,
       error: "المستخدم غير موجود",
-      debug: error?.message,
+      debug: "no profiles or employees row",
     };
   }
 
-  const targetOrgId = (data.organization_id as string | null) ?? null;
-  const targetRole = String(data.role ?? "");
+  const targetOrgId =
+    (profile?.organization_id as string | null | undefined) ??
+    (employee?.organization_id as string | null | undefined) ??
+    null;
+  const targetRole = String(profile?.role ?? employee?.role ?? "");
+  const hasProfile = !!profile;
+
+  if (auth.isPlatformAdmin) {
+    return { ok: true, targetOrgId, targetRole, hasProfile };
+  }
 
   if (BLOCKED_TARGET_ROLES.has(targetRole)) {
     return {
@@ -178,5 +188,47 @@ export async function assertTargetUserInCallerOrg(
     };
   }
 
-  return { ok: true, targetOrgId, targetRole };
+  return { ok: true, targetOrgId, targetRole, hasProfile };
+}
+
+/** Ensures a department belongs to the given organization (tenant isolation). */
+export async function assertDepartmentInOrg(
+  admin: SupabaseClient,
+  departmentId: string,
+  organizationId: string | null,
+): Promise<{ ok: true; name: string } | AuthFail> {
+  if (!organizationId) {
+    return {
+      ok: false,
+      status: 403,
+      error: "تعذر التحقق من منشأة الوحدة التنظيمية",
+      debug: "missing organizationId for department check",
+    };
+  }
+
+  const { data, error } = await admin
+    .from("departments")
+    .select("name, organization_id")
+    .eq("id", departmentId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return {
+      ok: false,
+      status: 404,
+      error: "الوحدة التنظيمية غير موجودة",
+      debug: error?.message,
+    };
+  }
+
+  if ((data.organization_id as string) !== organizationId) {
+    return {
+      ok: false,
+      status: 403,
+      error: "غير مصرح — الوحدة التنظيمية تنتمي لمنشأة أخرى",
+      debug: `deptOrg=${data.organization_id} expected=${organizationId}`,
+    };
+  }
+
+  return { ok: true, name: String(data.name ?? "").slice(0, 100) };
 }
