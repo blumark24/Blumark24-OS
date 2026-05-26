@@ -51,11 +51,21 @@ function TasksContent() {
     assigneeName: "",
     clientId: "",
     clientName: "",
-    dueDate: "",
+    dueDate: new Date().toISOString().split("T")[0],
   });
 
   const resetForm = () => {
-    setForm({ title: "", description: "", status: "جديدة", priority: "متوسطة", assigneeId: "", assigneeName: "", clientId: "", clientName: "", dueDate: "" });
+    setForm({
+      title: "",
+      description: "",
+      status: "جديدة",
+      priority: "متوسطة",
+      assigneeId: "",
+      assigneeName: "",
+      clientId: "",
+      clientName: "",
+      dueDate: new Date().toISOString().split("T")[0],
+    });
     setEditTask(null);
   };
 
