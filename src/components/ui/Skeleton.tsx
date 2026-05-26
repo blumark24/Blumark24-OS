@@ -1,5 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
+import { WS_CARD } from "@/components/ui/workspaceVisual";
 
 // ─── Base Skeleton ─────────────────────────────────────────────────────────────
 
@@ -13,15 +14,19 @@ function Skeleton({ className, style }: { className?: string; style?: React.CSSP
 
 export function KPICardSkeleton() {
   return (
-    <div className="glass-card p-5 relative overflow-hidden">
+    <div className={cn(WS_CARD, "p-4 sm:p-5 relative overflow-hidden min-h-[168px] sm:min-h-[188px]")}>
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       <div className="flex items-start justify-between mb-3">
-        <Skeleton className="w-9 h-9 rounded-xl" />
-        <Skeleton className="w-12 h-4" />
+        <Skeleton className="w-[42px] h-[42px] rounded-[15px]" />
+        <Skeleton className="w-14 h-[26px] rounded-full" />
       </div>
-      <Skeleton className="w-24 h-8 mb-2" />
+      <Skeleton className="w-24 h-9 mb-2" />
       <Skeleton className="w-32 h-4 mb-1" />
       <Skeleton className="w-24 h-3" />
-      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1e3a5f]" />
+      <div className="absolute bottom-4 left-4 right-4 flex items-end gap-2">
+        <Skeleton className="h-1 flex-1 rounded-full" />
+        <Skeleton className="w-14 h-5 rounded" />
+      </div>
     </div>
   );
 }
@@ -63,11 +68,11 @@ export function ChartSkeleton({ height = 220 }: { height?: number }) {
 
 export function CardSkeleton({ rows = 3 }: { rows?: number }) {
   return (
-    <div className="glass-card p-5 space-y-3">
+    <div className={cn(WS_CARD, "p-5 space-y-3")}>
       <Skeleton className="w-32 h-5" />
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex items-center gap-3">
-          <Skeleton className="w-8 h-8 rounded-xl flex-shrink-0" />
+          <Skeleton className="w-8 h-8 rounded-[15px] flex-shrink-0" />
           <div className="flex-1 space-y-1.5">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-1/2" />
@@ -82,7 +87,7 @@ export function CardSkeleton({ rows = 3 }: { rows?: number }) {
 
 export function StatSkeleton() {
   return (
-    <div className="glass-card p-4 text-center space-y-2">
+    <div className={cn(WS_CARD, "p-4 text-center space-y-2")}>
       <Skeleton className="w-16 h-7 mx-auto" />
       <Skeleton className="w-24 h-3 mx-auto" />
     </div>

@@ -318,6 +318,11 @@ html, body {
     box-shadow: 0 4px 14px rgba(34, 211, 238, 0.06);
     transform: none;
   }
+  /* Workspace dashboard cards — disable hover lift on mobile for perf */
+  .ws-card-hover:hover {
+    transform: none;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
 }
 
 /* ─── Respect prefers-reduced-motion ───────────────────────────────────────

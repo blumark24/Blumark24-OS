@@ -22,8 +22,8 @@ import { usePermissions, mapAuthRoleToUserRole } from "@/contexts/PermissionsCon
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import type { UserRole } from "@/contexts/PermissionsContext";
 import {
-  WS_CARD, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE, WS_AI_PILL,
-  BOARD_THEME, WS_TINTS, type BoardKey, type KpiAccent,
+  WS_CARD, WS_CARD_HOVER, WS_INNER_CARD, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE, WS_AI_PILL,
+  WS_STATUS_CHIP, BOARD_THEME, WS_TINTS, type BoardKey, type KpiAccent,
 } from "@/components/ui/workspaceVisual";
 import { StatPill, QuickActionTile, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
 import { PremiumMetricCard } from "@/components/ui/PremiumMetricCard";
@@ -391,7 +391,7 @@ export default function DashboardPage() {
 
             {/* AI insight panel (left side on desktop; the mobile equivalent lives lower as a full card) */}
             <div className="hidden lg:flex lg:w-[300px] lg:shrink-0">
-              <div className="w-full rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 backdrop-blur-sm">
+              <div className={cn(WS_INNER_CARD, "w-full p-4 backdrop-blur-sm")}>
                 <div className="mb-2 flex items-center gap-2">
                   <span className={`${WS_ICON_ORB} w-8 h-8 shrink-0 bg-violet-400/10 ring-1 ring-violet-300/25`}>
                     <Sparkles size={15} className="text-violet-300" />
@@ -502,7 +502,7 @@ export default function DashboardPage() {
 
               <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {smartInsights.map((ins, i) => (
-                  <li key={i} className="flex min-w-0 items-start gap-2.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3">
+                  <li key={i} className={cn(WS_INNER_CARD, "flex min-w-0 items-start gap-2.5 p-3")}>
                     <span className={`${WS_ICON_ORB} w-8 h-8 shrink-0 ${WS_TINTS[ins.tint].orb}`}>
                       <ins.icon size={15} className={WS_TINTS[ins.tint].icon} />
                     </span>
@@ -515,7 +515,7 @@ export default function DashboardPage() {
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="text-[11px] text-[#8ba3c7]">موظفون نشطون:</span>
                   {activeEmployeeNames.map((name) => (
-                    <span key={name} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/80">
+                    <span key={name} className={cn(WS_STATUS_CHIP, "text-[11px] text-white/80")}>
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                       {name}
                     </span>
@@ -528,9 +528,10 @@ export default function DashboardPage() {
 
         {/* ─── Analytics: performance + task distribution ────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={`${WS_CARD} lg:col-span-2 p-5`}>
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE}`}>تحليلات الأداء — الإيرادات</h3>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "lg:col-span-2 p-5 sm:p-6")}>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+            <div className="relative z-10 mb-5 flex items-center justify-between">
+              <h3 className={WS_SECTION_TITLE}>تحليلات الأداء — الإيرادات</h3>
               <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">آخر 12 شهر</span>
             </div>
             <ResponsiveContainer width="100%" height={220}>
@@ -546,9 +547,10 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
 
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>توزيع المهام</h3>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+            <div className="relative z-10 mb-4 flex items-center justify-between">
+              <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>توزيع المهام</h3>
               <span className={`${WS_ICON_ORB} w-8 h-8 bg-cyan-400/10 ring-1 ring-cyan-300/25`}>
                 <ListChecks size={15} className="text-cyan-300" />
               </span>
@@ -582,9 +584,10 @@ export default function DashboardPage() {
 
         {/* ─── Employees by dept + satisfaction + quick summary ──────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>الموظفون بالقسم</h3>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+            <div className="relative z-10 mb-5 flex items-center justify-between">
+              <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>الموظفون بالقسم</h3>
               <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">{activeEmployees} نشط</span>
             </div>
             {activeUsersData.length === 0 ? (
@@ -602,8 +605,9 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className={`${WS_CARD} p-5 flex flex-col items-center justify-center`}>
-            <h3 className="mb-4 text-sm text-[#8ba3c7]">معدل رضا العملاء</h3>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6 flex flex-col items-center justify-center")}>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+            <h3 className="relative z-10 mb-4 text-sm text-[rgba(203,213,225,0.72)]">معدل رضا العملاء</h3>
             {kpiLoading ? (
               <div className="flex h-32 w-32 items-center justify-center rounded-full border-8 border-[#1e3a5f]">
                 <span className="text-xs text-[#8ba3c7]">جارٍ التحميل...</span>
@@ -635,9 +639,10 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>ملخص سريع</h3>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+            <div className="relative z-10 mb-4 flex items-center justify-between">
+              <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>ملخص سريع</h3>
               <span className="badge status-active">مباشر</span>
             </div>
             <div className="space-y-3">
@@ -663,9 +668,10 @@ export default function DashboardPage() {
 
         {/* ─── Projects + recent activity ────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={`${WS_CARD} lg:col-span-2 p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE}`}>المشاريع النشطة</h3>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "lg:col-span-2 p-5 sm:p-6")}>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+            <div className="relative z-10 mb-4 flex items-center justify-between">
+              <h3 className={WS_SECTION_TITLE}>المشاريع النشطة</h3>
               <button className="text-xs text-[#22d3ee] hover:underline">عرض الكل</button>
             </div>
             {projLoad ? (
@@ -704,9 +710,10 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className={`${WS_CARD} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className={`${WS_SECTION_TITLE} text-sm`}>النشاطات الأخيرة</h3>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+            <div className="relative z-10 mb-4 flex items-center justify-between">
+              <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>النشاطات الأخيرة</h3>
             </div>
             {actLoad ? (
               <CardSkeleton rows={5} />
@@ -780,13 +787,13 @@ export default function DashboardPage() {
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-5">
                 {dashboardBoards[activeBoard].detailRows.map(([label, value]) => (
-                  <div key={label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div key={label} className={cn(WS_INNER_CARD, "p-3")}>
                     <span className="text-[#8ba3c7] text-xs">{label}</span>
                     <p className="text-white text-sm font-semibold mt-1 truncate">{value}</p>
                   </div>
                 ))}
               </div>
-              <div className="rounded-2xl border border-white/10 bg-[#071426]/55 p-3 sm:p-4">
+              <div className={cn(WS_INNER_CARD, "p-3 sm:p-4")}>
                 <h4 className="text-white text-sm mb-2">تفاصيل اللوحة</h4>
                 <div className="text-xs text-[#8ba3c7] mb-3 space-y-1">
                   {dashboardBoards[activeBoard].summary.map((line) => <p key={line} className="truncate">{line}</p>)}
