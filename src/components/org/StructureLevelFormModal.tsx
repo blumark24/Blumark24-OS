@@ -8,6 +8,7 @@ import {
   STRUCTURE_LEVEL_LABELS,
   validateParentForLevel,
 } from "@/lib/org/packageHierarchy";
+import { useToast } from "@/contexts/ToastContext";
 import { isBoardReservedName } from "@/lib/org/orgUnits";
 import type { Department, DepartmentInput, StructureLevel } from "@/lib/org/types";
 
@@ -32,6 +33,7 @@ export default function StructureLevelFormModal({
   onSave,
   onClose,
 }: Props) {
+  const toast = useToast();
   const [name, setName] = useState(department?.name ?? "");
   const [description, setDescription] = useState(department?.description ?? "");
   const [parentId, setParentId] = useState(
@@ -76,9 +78,17 @@ export default function StructureLevelFormModal({
         icon: department?.icon ?? "Building2",
         sort_order: department?.sort_order ?? departments.length,
       });
+      const levelLabel = STRUCTURE_LEVEL_LABELS[level];
+      toast.success(
+        department
+          ? `تم تحديث ${levelLabel} بنجاح`
+          : `تم إضافة ${levelLabel} بنجاح`,
+      );
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "تعذر الحفظ");
+      const msg = e instanceof Error ? e.message : "تعذر حفظ الوحدة التنظيمية";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }

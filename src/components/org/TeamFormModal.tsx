@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, Save } from "lucide-react";
+import { useToast } from "@/contexts/ToastContext";
 import type { Department, Team, TeamInput } from "@/lib/org/types";
 
 interface Props {
@@ -19,6 +20,7 @@ export default function TeamFormModal({
   onSave,
   onClose,
 }: Props) {
+  const toast = useToast();
   const [name, setName] = useState(team?.name ?? "");
   const [departmentId, setDepartmentId] = useState(
     team?.department_id ?? defaultDepartmentId ?? departments[0]?.id ?? "",
@@ -26,10 +28,12 @@ export default function TeamFormModal({
   const [description, setDescription] = useState(team?.description ?? "");
   const [color, setColor] = useState(team?.color ?? "#1e6fd9");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async () => {
     if (!name.trim() || !departmentId) return;
     setSaving(true);
+    setError("");
     try {
       await onSave({
         name: name.trim(),
@@ -40,7 +44,12 @@ export default function TeamFormModal({
         icon: team?.icon ?? "Users",
         sort_order: team?.sort_order ?? 0,
       });
+      toast.success(team ? "تم تحديث الفريق بنجاح" : "تم إضافة الفريق بنجاح");
       onClose();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "تعذر حفظ الفريق";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -77,6 +86,7 @@ export default function TeamFormModal({
           <label className="text-xs text-[#8ba3c7] block mb-1">الوصف</label>
           <input className="input-dark w-full text-sm" value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
+        {error && <p className="text-red-400 text-xs">{error}</p>}
         <button
           type="button"
           onClick={() => void handleSubmit()}
