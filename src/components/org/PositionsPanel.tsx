@@ -19,18 +19,28 @@ export default function PositionsPanel({
   onDelete,
 }: Props) {
   const [title, setTitle] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const handleAdd = async () => {
-    if (!title.trim()) return;
-    await onCreate({
-      title: title.trim(),
-      title_ar: title.trim(),
-      parent_id: null,
-      level: 0,
-      permissions: [],
-      sort_order: positions.length,
-    });
-    setTitle("");
+    if (!title.trim() || saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      await onCreate({
+        title: title.trim(),
+        title_ar: title.trim(),
+        parent_id: null,
+        level: 0,
+        permissions: [],
+        sort_order: positions.length,
+      });
+      setTitle("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "تعذر حفظ المسمى الوظيفي");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -65,16 +75,25 @@ export default function PositionsPanel({
         </ul>
       )}
       {canManage && (
-        <div className="flex gap-2">
-          <input
-            className="input-dark flex-1 text-sm"
-            placeholder="مسمى جديد"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <button type="button" onClick={() => void handleAdd()} className="btn-primary px-3">
-            <Plus size={14} />
-          </button>
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input
+              className="input-dark flex-1 text-sm"
+              placeholder="مسمى جديد"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={saving}
+            />
+            <button
+              type="button"
+              onClick={() => void handleAdd()}
+              disabled={saving || !title.trim()}
+              className="btn-primary px-3 min-h-11 touch-manipulation disabled:opacity-50"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+          {error && <p className="text-red-400 text-xs">{error}</p>}
         </div>
       )}
     </div>

@@ -61,6 +61,7 @@ import StructureLevelFormModal from "./StructureLevelFormModal";
 import AssignEmployeeModal from "./AssignEmployeeModal";
 import TeamFormModal from "./TeamFormModal";
 import {
+  checkCanAddPosition,
   checkCanAddTeam,
   countDepartmentsAtLevel,
   mergeOrgPlanLimits,
@@ -72,7 +73,7 @@ import {
   ORG_TOOLBAR,
   orgPlanBadgeClass,
 } from "@/lib/org/orgVisual";
-import type { Department, StructureLevel, Team } from "@/lib/org/types";
+import type { Department, PositionInput, StructureLevel, Team } from "@/lib/org/types";
 
 const nodeTypes = { orgCard: OrgCardNode };
 
@@ -248,6 +249,29 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
       }
     },
     [nodes, fitView],
+  );
+
+  const handleCreatePosition = useCallback(
+    async (input: PositionInput) => {
+      if (!data) {
+        throw new Error("تعذر تحميل الهيكل — أعد المحاولة");
+      }
+      const cap = checkCanAddPosition(data, planLimits);
+      if (!cap.allowed) {
+        const msg = cap.message ?? "وصلت للحد الأعلى في باقتك الحالية.";
+        toast.error(msg);
+        throw new Error(msg);
+      }
+      try {
+        await createPosition(input);
+        toast.success("تم إضافة المسمى الوظيفي بنجاح");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "تعذر حفظ المسمى الوظيفي";
+        toast.error(msg);
+        throw e;
+      }
+    },
+    [data, planLimits, createPosition, toast],
   );
 
   const handleToggleCollapse = useCallback((deptId: string) => {
@@ -575,7 +599,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
               <PositionsPanel
                 positions={data.positions}
                 canManage={canManage}
-                onCreate={createPosition}
+                onCreate={handleCreatePosition}
                 onDelete={deletePosition}
               />
             )}
@@ -646,15 +670,20 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
           positions={data.positions}
           defaultDepartmentId={selectedDept?.id}
           onAssign={async (input) => {
-            await assignEmployeeToOrgUnit({
-              employee_id: input.employee_id,
-              department_id: input.department_id,
-              team_id: input.team_id,
-              position_id: input.position_id,
-              manager_id: null,
-            });
-            toast.success("تم ربط الموظف بالهيكل");
-            await refresh();
+            try {
+              await assignEmployeeToOrgUnit({
+                employee_id: input.employee_id,
+                department_id: input.department_id,
+                team_id: input.team_id,
+                position_id: input.position_id,
+                manager_id: null,
+              });
+              toast.success("تم ربط الموظف بالهيكل");
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : "تعذر ربط الموظف";
+              toast.error(msg);
+              throw e;
+            }
           }}
           onClose={() => setAssignModal(false)}
         />
