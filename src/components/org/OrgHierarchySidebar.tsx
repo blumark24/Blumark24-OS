@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Building2, ChevronDown, ChevronLeft, Crown, Layers, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { departmentChildren, warnOrphanDepartmentsInDev } from "@/lib/org/departmentTree";
 import type { Department, OrgStructureSnapshot, Team } from "@/lib/org/types";
 
 interface Props {
@@ -13,12 +14,6 @@ interface Props {
   onSelect: (nodeId: string) => void;
   onToggleCollapse: (deptId: string) => void;
   accent: string;
-}
-
-function childrenOf(depts: Department[], parentId: string | null) {
-  return depts
-    .filter((d) => d.parent_id === parentId)
-    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "ar"));
 }
 
 function DeptBranch({
@@ -44,7 +39,7 @@ function DeptBranch({
 }) {
   const nodeId = `dept-${dept.id}`;
   const isCollapsed = collapsed.has(dept.id);
-  const childDepts = childrenOf(depts, dept.id);
+  const childDepts = departmentChildren(depts, dept.id);
   const deptTeams = teams
     .filter((t) => t.department_id === dept.id)
     .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "ar"));
@@ -141,10 +136,10 @@ export default function OrgHierarchySidebar({
   onToggleCollapse,
   accent,
 }: Props) {
-  const roots = useMemo(
-    () => childrenOf(snapshot.departments, null),
-    [snapshot.departments],
-  );
+  const roots = useMemo(() => {
+    warnOrphanDepartmentsInDev(snapshot.departments);
+    return departmentChildren(snapshot.departments, null);
+  }, [snapshot.departments]);
   const boardCollapsed = collapsed.has("__board__");
 
   return (
