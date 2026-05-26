@@ -9,6 +9,7 @@ import {
   deleteBoardMember,
   logActivity,
   createNotification,
+  resolveCurrentOrgId,
 } from "@/lib/db";
 import { withTimeout, withSoftTimeout } from "@/lib/asyncHelpers";
 import type { Client, Task, Transaction, Employee, Project, Activity, StrategyPhase } from "@/types";
@@ -18,6 +19,43 @@ import type { BoardMember } from "@/lib/db";
 const DB_WRITE_TIMEOUT  = 12_000; // INSERT/UPDATE/DELETE operations
 const DB_READ_TIMEOUT   = 15_000; // SELECT / initial fetch
 const REFETCH_TIMEOUT   = 6_000;  // post-write refetch (soft — resolves on expiry)
+
+type SupabaseWriteResult = { data: unknown; error: { message: string } | null };
+
+function formatDbWriteError(entityLabel: string, message: string): string {
+  const msg = String(message ?? "").trim();
+  if (/row-level security|rls policy|42501/i.test(msg)) {
+    return `فشل حفظ ${entityLabel} — صلاحيات قاعدة البيانات تمنع هذه العملية. تحقق من صلاحيات حسابك أو تواصل مع الدعم.`;
+  }
+  if (/invalid input syntax for type date/i.test(msg)) {
+    return `فشل حفظ ${entityLabel} — تاريخ غير صالح. اختر تاريخاً صحيحاً.`;
+  }
+  if (/violates not-null|null value in column/i.test(msg)) {
+    return `فشل حفظ ${entityLabel} — حقل مطلوب ناقص في قاعدة البيانات.`;
+  }
+  return msg || `فشل حفظ ${entityLabel}`;
+}
+
+async function requireTenantOrgId(): Promise<string> {
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) {
+    throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول أو تواصل مع الدعم");
+  }
+  return orgId;
+}
+
+async function runDbWrite(
+  entityLabel: string,
+  query: PromiseLike<SupabaseWriteResult>,
+  timeoutMessage: string,
+): Promise<void> {
+  const { error } = await withTimeout(query, DB_WRITE_TIMEOUT, timeoutMessage);
+  if (error) throw new Error(formatDbWriteError(entityLabel, error.message));
+}
+
+function todayIsoDate(): string {
+  return new Date().toISOString().split("T")[0];
+}
 
 // ─── camelCase ↔ snake_case mappers ──────────────────────────────────────────
 
@@ -97,7 +135,7 @@ function taskToDB(item: Omit<Task, "id" | "createdAt">): Record<string, unknown>
     assignee_avatar: item.assigneeAvatar,
     client_id:       item.clientId,
     client_name:     item.clientName,
-    due_date:        item.dueDate,
+    due_date:        item.dueDate?.trim() ? item.dueDate : todayIsoDate(),
     tags:            item.tags,
   };
 }
@@ -264,35 +302,40 @@ export function useClients() {
   }, [refetch]);
 
   const insert = useCallback(async (item: Omit<Client, "id" | "createdAt">) => {
-    const { error } = await withTimeout(
-      Promise.resolve(supabase.from("clients").insert([clientToDB(item)])),
-      DB_WRITE_TIMEOUT, "انتهت مهلة إضافة العميل"
+    const organization_id = await requireTenantOrgId();
+    const { data, error } = await withTimeout(
+      supabase
+        .from("clients")
+        .insert([{ ...clientToDB(item), organization_id }])
+        .select("id"),
+      DB_WRITE_TIMEOUT,
+      "انتهت مهلة إضافة العميل",
     );
-    if (error) throw new Error(error.message);
-    // Soft-timeout refetch so a slow DB doesn't block the save response
+    if (error) throw new Error(formatDbWriteError("العميل", error.message));
+    if (!data?.length) throw new Error("فشل حفظ العميل — لم يُنشأ أي سجل");
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
-    logActivity("client", `تمت إضافة عميل جديد: ${item.name}`, "👤");
-    createNotification("client_followup", "عميل جديد", `تمت إضافة العميل ${item.name}`, "/clients");
+    void logActivity("client", `تمت إضافة عميل جديد: ${item.name}`, "👤").catch(console.error);
+    void createNotification("client_followup", "عميل جديد", `تمت إضافة العميل ${item.name}`, "/clients").catch(console.error);
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Client>) => {
-    const { error } = await withTimeout(
-      Promise.resolve(supabase.from("clients").update(clientUpdateToDB(changes)).eq("id", id)),
-      DB_WRITE_TIMEOUT, "انتهت مهلة تحديث العميل"
+    await runDbWrite(
+      "العميل",
+      supabase.from("clients").update(clientUpdateToDB(changes)).eq("id", id),
+      "انتهت مهلة تحديث العميل",
     );
-    if (error) throw new Error(error.message);
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
-    logActivity("client", `تم تحديث بيانات العميل`, "✏️");
+    void logActivity("client", "تم تحديث بيانات العميل", "✏️").catch(console.error);
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
-    const { error } = await withTimeout(
-      Promise.resolve(supabase.from("clients").delete().eq("id", id)),
-      DB_WRITE_TIMEOUT, "انتهت مهلة حذف العميل"
+    await runDbWrite(
+      "العميل",
+      supabase.from("clients").delete().eq("id", id),
+      "انتهت مهلة حذف العميل",
     );
-    if (error) throw new Error(error.message);
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
-    logActivity("client", `تم حذف عميل`, "🗑️");
+    void logActivity("client", "تم حذف عميل", "🗑️").catch(console.error);
   }, [refetch]);
 
   return { ...result, insert, update, remove };
@@ -322,34 +365,44 @@ export function useTasks() {
   }, [refetch]);
 
   const insert = useCallback(async (item: Omit<Task, "id" | "createdAt">) => {
-    const { error } = await withTimeout(
-      Promise.resolve(supabase.from("tasks").insert([taskToDB(item)])),
-      DB_WRITE_TIMEOUT, "انتهت مهلة إضافة المهمة"
+    const organization_id = await requireTenantOrgId();
+    const { data, error } = await withTimeout(
+      supabase
+        .from("tasks")
+        .insert([{ ...taskToDB(item), organization_id }])
+        .select("id"),
+      DB_WRITE_TIMEOUT,
+      "انتهت مهلة إضافة المهمة",
     );
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(formatDbWriteError("المهمة", error.message));
+    if (!data?.length) throw new Error("فشل حفظ المهمة — لم يُنشأ أي سجل");
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
-    logActivity("task", `تمت إضافة مهمة جديدة: ${item.title}`, "✅");
-    createNotification("task_due", "مهمة جديدة", `تمت إضافة المهمة: ${item.title}`, "/tasks");
+    void logActivity("task", `تمت إضافة مهمة جديدة: ${item.title}`, "✅").catch(console.error);
+    void createNotification("task_due", "مهمة جديدة", `تمت إضافة المهمة: ${item.title}`, "/tasks").catch(console.error);
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Task>) => {
-    const { error } = await withTimeout(
-      Promise.resolve(supabase.from("tasks").update(taskUpdateToDB(changes)).eq("id", id)),
-      DB_WRITE_TIMEOUT, "انتهت مهلة تحديث المهمة"
+    const patch = { ...taskUpdateToDB(changes) };
+    if (changes.dueDate !== undefined && !String(changes.dueDate).trim()) {
+      patch.due_date = todayIsoDate();
+    }
+    await runDbWrite(
+      "المهمة",
+      supabase.from("tasks").update(patch).eq("id", id),
+      "انتهت مهلة تحديث المهمة",
     );
-    if (error) throw new Error(error.message);
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
-    logActivity("task", `تم تحديث حالة المهمة${changes.status ? `: ${changes.status}` : ""}`, "🔄");
+    void logActivity("task", `تم تحديث حالة المهمة${changes.status ? `: ${changes.status}` : ""}`, "🔄").catch(console.error);
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
-    const { error } = await withTimeout(
-      Promise.resolve(supabase.from("tasks").delete().eq("id", id)),
-      DB_WRITE_TIMEOUT, "انتهت مهلة حذف المهمة"
+    await runDbWrite(
+      "المهمة",
+      supabase.from("tasks").delete().eq("id", id),
+      "انتهت مهلة حذف المهمة",
     );
-    if (error) throw new Error(error.message);
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
-    logActivity("task", `تم حذف مهمة`, "🗑️");
+    void logActivity("task", "تم حذف مهمة", "🗑️").catch(console.error);
   }, [refetch]);
 
   return { ...result, insert, update, remove };
@@ -379,34 +432,49 @@ export function useTransactions() {
   }, [refetch]);
 
   const insert = useCallback(async (item: Omit<Transaction, "id">) => {
-    const { error } = await withTimeout(
-      Promise.resolve(supabase.from("transactions").insert([item])),
-      DB_WRITE_TIMEOUT, "انتهت مهلة إضافة المعاملة"
+    const organization_id = await requireTenantOrgId();
+    const { data, error } = await withTimeout(
+      supabase
+        .from("transactions")
+        .insert([{ ...item, organization_id }])
+        .select("id"),
+      DB_WRITE_TIMEOUT,
+      "انتهت مهلة إضافة المعاملة",
     );
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(formatDbWriteError("المعاملة", error.message));
+    if (!data?.length) throw new Error("فشل حفظ المعاملة — لم يُنشأ أي سجل");
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
-    logActivity("finance", `${item.type === "دخل" ? "دخل" : "مصروف"} جديد: ${item.description} (${item.amount} SAR)`, item.type === "دخل" ? "💰" : "💸");
-    createNotification("invoice_due", "معاملة مالية جديدة", `${item.type}: ${item.description} — ${item.amount} SAR`, "/finance");
+    void logActivity(
+      "finance",
+      `${item.type === "دخل" ? "دخل" : "مصروف"} جديد: ${item.description} (${item.amount} SAR)`,
+      item.type === "دخل" ? "💰" : "💸",
+    ).catch(console.error);
+    void createNotification(
+      "invoice_due",
+      "معاملة مالية جديدة",
+      `${item.type}: ${item.description} — ${item.amount} SAR`,
+      "/finance",
+    ).catch(console.error);
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Omit<Transaction, "id">>) => {
-    const { error } = await withTimeout(
-      Promise.resolve(supabase.from("transactions").update(changes).eq("id", id)),
-      DB_WRITE_TIMEOUT, "انتهت مهلة تحديث المعاملة"
+    await runDbWrite(
+      "المعاملة",
+      supabase.from("transactions").update(changes).eq("id", id),
+      "انتهت مهلة تحديث المعاملة",
     );
-    if (error) throw new Error(error.message);
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
-    logActivity("finance", "تم تحديث معاملة مالية", "✏️");
+    void logActivity("finance", "تم تحديث معاملة مالية", "✏️").catch(console.error);
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
-    const { error } = await withTimeout(
-      Promise.resolve(supabase.from("transactions").delete().eq("id", id)),
-      DB_WRITE_TIMEOUT, "انتهت مهلة حذف المعاملة"
+    await runDbWrite(
+      "المعاملة",
+      supabase.from("transactions").delete().eq("id", id),
+      "انتهت مهلة حذف المعاملة",
     );
-    if (error) throw new Error(error.message);
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
-    logActivity("finance", "تم حذف معاملة مالية", "🗑️");
+    void logActivity("finance", "تم حذف معاملة مالية", "🗑️").catch(console.error);
   }, [refetch]);
 
   return { ...result, insert, update, remove };
