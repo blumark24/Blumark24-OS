@@ -1,4 +1,10 @@
 import type { Node, Edge } from "@xyflow/react";
+import {
+  buildDepartmentTreeContext,
+  departmentChildren,
+  type DepartmentTreeContext,
+  warnDepartmentTreeIssuesInDev,
+} from "./departmentTree";
 import { BOARD_LABEL_AR, getLevelFromDepartment, STRUCTURE_LEVEL_LABELS } from "./packageHierarchy";
 import type { Department, EmployeeRelation, OrgStructureSnapshot, Team } from "./types";
 
@@ -20,15 +26,9 @@ const NODE_H = 72;
 const GAP_X = 48;
 const GAP_Y = 100;
 
-function deptChildren(depts: Department[], parentId: string | null): Department[] {
-  return depts
-    .filter((d) => d.parent_id === parentId)
-    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "ar"));
-}
-
 function teamsForDept(teams: Team[], departmentId: string): Team[] {
   return teams
-    .filter((t) => t.department_id === departmentId)
+    .filter((t) => t?.department_id === departmentId)
     .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "ar"));
 }
 
@@ -41,8 +41,9 @@ function layoutSubtree(
   depth: number,
   xStart: number,
   collapsedDepts: Set<string>,
+  treeCtx: DepartmentTreeContext,
 ): { nodes: Node<OrgNodeData>[]; edges: Edge[]; width: number } {
-  const children = deptChildren(depts, parentId);
+  const children = departmentChildren(depts, parentId, treeCtx);
   if (children.length === 0) return { nodes: [], edges: [], width: 0 };
 
   const nodes: Node<OrgNodeData>[] = [];
@@ -54,7 +55,17 @@ function layoutSubtree(
     const collapsed = collapsedDepts.has(dept.id);
     const subtree = collapsed
       ? { nodes: [] as Node<OrgNodeData>[], edges: [] as Edge[], width: 0 }
-      : layoutSubtree(depts, teams, relations, employeeNames, dept.id, depth + 1, cursor, collapsedDepts);
+      : layoutSubtree(
+          depts,
+          teams,
+          relations,
+          employeeNames,
+          dept.id,
+          depth + 1,
+          cursor,
+          collapsedDepts,
+          treeCtx,
+        );
 
     const teamList = collapsed ? [] : teamsForDept(teams, dept.id);
     let localWidth = Math.max(subtree.width, NODE_W);
@@ -78,7 +89,7 @@ function layoutSubtree(
         entityId: dept.id,
         structureLevel: level,
         collapsed,
-        childCount: deptChildren(depts, dept.id).length + teamList.length,
+        childCount: departmentChildren(depts, dept.id, treeCtx).length + teamList.length,
       },
     });
 
@@ -187,6 +198,8 @@ export function buildOrgFlowGraph(
   collapsedDepts: Set<string>,
   boardLabel: string = BOARD_LABEL_AR,
 ): { nodes: Node<OrgNodeData>[]; edges: Edge[] } {
+  warnDepartmentTreeIssuesInDev(snapshot.departments);
+  const treeCtx = buildDepartmentTreeContext(snapshot.departments);
   const rootLayout = layoutSubtree(
     snapshot.departments,
     snapshot.teams,
@@ -196,6 +209,7 @@ export function buildOrgFlowGraph(
     1,
     0,
     collapsedDepts,
+    treeCtx,
   );
 
   const rootWidth = Math.max(rootLayout.width, NODE_W);
@@ -213,7 +227,7 @@ export function buildOrgFlowGraph(
   };
 
   const edges: Edge[] = [...rootLayout.edges];
-  deptChildren(snapshot.departments, null).forEach((d) => {
+  departmentChildren(snapshot.departments, null, treeCtx).forEach((d) => {
     edges.push({
       id: `e-root-${d.id}`,
       source: "org-root",

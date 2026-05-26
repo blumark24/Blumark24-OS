@@ -3,6 +3,11 @@
 import { useMemo } from "react";
 import { Building2, ChevronDown, ChevronLeft, Crown, Layers, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  buildDepartmentTreeContext,
+  departmentChildren,
+  warnDepartmentTreeIssuesInDev,
+} from "@/lib/org/departmentTree";
 import type { Department, OrgStructureSnapshot, Team } from "@/lib/org/types";
 
 interface Props {
@@ -15,12 +20,6 @@ interface Props {
   accent: string;
 }
 
-function childrenOf(depts: Department[], parentId: string | null) {
-  return depts
-    .filter((d) => d.parent_id === parentId)
-    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "ar"));
-}
-
 function DeptBranch({
   dept,
   depts,
@@ -31,6 +30,7 @@ function DeptBranch({
   onSelect,
   onToggleCollapse,
   accent,
+  treeCtx,
 }: {
   dept: Department;
   depts: Department[];
@@ -41,10 +41,11 @@ function DeptBranch({
   onSelect: (id: string) => void;
   onToggleCollapse: (deptId: string) => void;
   accent: string;
+  treeCtx: ReturnType<typeof buildDepartmentTreeContext>;
 }) {
   const nodeId = `dept-${dept.id}`;
   const isCollapsed = collapsed.has(dept.id);
-  const childDepts = childrenOf(depts, dept.id);
+  const childDepts = departmentChildren(depts, dept.id, treeCtx);
   const deptTeams = teams
     .filter((t) => t.department_id === dept.id)
     .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "ar"));
@@ -124,6 +125,7 @@ function DeptBranch({
               onSelect={onSelect}
               onToggleCollapse={onToggleCollapse}
               accent={accent}
+              treeCtx={treeCtx}
             />
           ))}
         </ul>
@@ -141,10 +143,15 @@ export default function OrgHierarchySidebar({
   onToggleCollapse,
   accent,
 }: Props) {
-  const roots = useMemo(
-    () => childrenOf(snapshot.departments, null),
+  const treeCtx = useMemo(
+    () => buildDepartmentTreeContext(snapshot.departments),
     [snapshot.departments],
   );
+
+  const roots = useMemo(() => {
+    warnDepartmentTreeIssuesInDev(snapshot.departments);
+    return departmentChildren(snapshot.departments, null, treeCtx);
+  }, [snapshot.departments, treeCtx]);
   const boardCollapsed = collapsed.has("__board__");
 
   return (
@@ -234,6 +241,7 @@ export default function OrgHierarchySidebar({
                       onSelect={onSelect}
                       onToggleCollapse={onToggleCollapse}
                       accent={accent}
+                      treeCtx={treeCtx}
                     />
                   ))}
                 </ul>
