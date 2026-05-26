@@ -237,6 +237,11 @@ function useAsyncData<T>(fetcher: () => Promise<T>, fallback: T) {
   // shows correctly.  On subsequent refetches (e.g. after a write) we keep the
   // existing data so optimistic entries are never wiped by a transient timeout.
   const hasLoaded = useRef(false);
+  // Stable ref to `fallback` so the auth-state effect below does not have to
+  // depend on the literal (every render passes a new `[]`), which would tear
+  // down and resubscribe the Supabase auth listener on every parent re-render.
+  const fallbackRef = useRef(fallback);
+  fallbackRef.current = fallback;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -250,7 +255,7 @@ function useAsyncData<T>(fetcher: () => Promise<T>, fallback: T) {
       // Only reset to empty fallback on the very first load.
       // On refetch failures, keep existing data so optimistic UI is preserved.
       if (!hasLoaded.current) {
-        setData(fallback);
+        setData(fallbackRef.current);
       }
     } finally {
       setLoading(false);
@@ -272,13 +277,13 @@ function useAsyncData<T>(fetcher: () => Promise<T>, fallback: T) {
       if (event === "SIGNED_IN" && session) load();
       else if (event === "SIGNED_OUT") {
         hasLoaded.current = false;
-        setData(fallback);
+        setData(fallbackRef.current);
         setError(null);
         setLoading(false);
       }
     });
     return () => subscription.unsubscribe();
-  }, [load, fallback]);
+  }, [load]);
 
   return { data, setData, loading, error, refetch: load };
 }
