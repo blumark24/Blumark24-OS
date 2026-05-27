@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import "./codex-animated-bg.css";
 
+const WHATSAPP_URL = "https://wa.me/966501910097";
+
 type ParticleState = {
   x: number;
   y: number;
@@ -111,17 +113,27 @@ export default function CodexAnimatedBackground() {
       orb.style.top = `${event.clientY}px`;
     };
 
+    const onContactClick = (event: MouseEvent) => {
+      const contactLink = (event.target as Element | null)?.closest<HTMLAnchorElement>('a[href="#contact"]');
+      if (!contactLink || contactLink.textContent?.trim() !== "تواصل") return;
+
+      event.preventDefault();
+      window.open(WHATSAPP_URL, "_blank", "noopener,noreferrer");
+    };
+
     resizeCanvas();
     initParticles();
     animate();
 
     window.addEventListener("resize", onResize);
     document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("click", onContactClick);
 
     return () => {
       cancelAnimationFrame(frameId);
       window.removeEventListener("resize", onResize);
       document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("click", onContactClick);
     };
   }, []);
 
