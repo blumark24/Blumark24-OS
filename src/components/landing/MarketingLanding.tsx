@@ -15,7 +15,6 @@ import {
   Layers,
   LogIn,
   Menu,
-  Play,
   Plug,
   Rocket,
   Send,
@@ -28,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 import OfficialBlumarkLogo from "@/components/brand/OfficialBlumarkLogo";
+import CodexAnimatedBackground from "@/components/landing/CodexAnimatedBackground";
 import Jellyfish from "@/components/demo/Jellyfish";
 
 const NAV = [
@@ -99,8 +99,8 @@ const AUDIENCE = [
 
 function PrimaryCta({
   className = "",
-  href = "/auth",
-  label = "اطلب عرض تجريبي",
+  href = "/demo",
+  label = "اطلب العرض التجريبي",
 }: {
   className?: string;
   href?: string;
@@ -123,21 +123,18 @@ function PrimaryCta({
 
 function SecondaryCta({
   className = "",
-  href = "/demo",
-  label = "شاهد الديمو",
-  icon: Icon = Play,
+  href = "/auth",
+  label = "تسجيل دخول المنشآت",
 }: {
   className?: string;
   href?: string;
   label?: string;
-  icon?: typeof Play;
 }) {
   return (
     <Link
       href={href}
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-14 px-7 sm:px-8 text-base bg-white/[0.04] text-white border border-white/[0.10] backdrop-blur-md hover:bg-white/[0.08] hover:border-white/[0.18] transition-all duration-300 ${className}`}
+      className={`inline-flex items-center justify-center rounded-2xl font-medium h-14 px-7 sm:px-8 text-base bg-white/[0.04] text-white border border-white/[0.10] backdrop-blur-md hover:bg-white/[0.08] hover:border-white/[0.18] transition-all duration-300 ${className}`}
     >
-      <Icon className="h-4 w-4" strokeWidth={1.8} />
       {label}
     </Link>
   );
@@ -208,12 +205,18 @@ export default function MarketingLanding() {
   };
 
   return (
-    <div
-      className="min-h-screen bg-[#050816] text-white antialiased overflow-x-hidden"
-      style={{ fontFamily: "'IBM Plex Sans Arabic', 'Tajawal', 'Cairo', system-ui, sans-serif" }}
-    >
-      {/* Ambient global lighting — matches /demo */}
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
+    <>
+      <CodexAnimatedBackground />
+      <div
+        className="marketing-landing-root min-h-screen bg-[#050816] text-white antialiased overflow-x-hidden"
+        dir="rtl"
+        style={{ fontFamily: "'IBM Plex Sans Arabic', 'Tajawal', 'Cairo', system-ui, sans-serif" }}
+      >
+      {/* Legacy ambient layer hidden — codex animated bg is active */}
+      <div
+        aria-hidden="true"
+        className="marketing-landing-ambient pointer-events-none fixed inset-0 -z-10"
+      >
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#0F172A,#0A1628_45%,#050816)]" />
         <div
           className="absolute inset-0 opacity-[0.5]"
@@ -259,20 +262,13 @@ export default function MarketingLanding() {
                 href="/auth"
                 className="inline-flex items-center justify-center rounded-2xl font-medium h-10 px-4 text-sm text-white/70 hover:text-white hover:bg-white/[0.04] transition"
               >
-                تسجيل الدخول
+                تسجيل دخول المنشآت
               </Link>
               <Link
                 href="/demo"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-10 px-4 text-sm bg-white/[0.04] text-white border border-white/[0.10] hover:bg-white/[0.08] transition"
-              >
-                <Play className="h-3.5 w-3.5" strokeWidth={1.8} />
-                شاهد الديمو
-              </Link>
-              <Link
-                href="/auth"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-10 px-4 text-sm bg-gradient-to-l from-[#1E6FD9] via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_8px_32px_-8px_rgba(34,211,238,0.5)] hover:brightness-110 transition"
               >
-                طلب عرض تجريبي
+                طلب العرض التجريبي
               </Link>
             </div>
 
@@ -324,28 +320,20 @@ export default function MarketingLanding() {
           </nav>
           <div className="p-4 pt-2 grid gap-2.5">
             <Link
-              href="/demo"
-              onClick={closeMenu}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-12 px-6 text-[15px] bg-white/[0.04] text-white border border-white/[0.10] backdrop-blur-md w-full"
-            >
-              <Play className="h-4 w-4" strokeWidth={1.8} />
-              شاهد الديمو
-            </Link>
-            <Link
               href="/auth"
               onClick={closeMenu}
               className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-12 px-6 text-[15px] bg-white/[0.04] text-white border border-white/[0.10] backdrop-blur-md w-full"
             >
               <LogIn className="h-4 w-4" strokeWidth={1.8} />
-              تسجيل الدخول
+              تسجيل دخول المنشآت
             </Link>
             <Link
-              href="/auth"
+              href="/demo"
               onClick={closeMenu}
               className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-12 px-6 text-[15px] bg-gradient-to-l from-[#1E6FD9] via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_8px_32px_-8px_rgba(34,211,238,0.55)] w-full"
             >
               <Send className="h-4 w-4" strokeWidth={1.8} />
-              طلب عرض تجريبي
+              طلب العرض التجريبي
             </Link>
           </div>
         </div>
@@ -661,7 +649,6 @@ export default function MarketingLanding() {
                 </p>
                 <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
                   <PrimaryCta className="w-full sm:w-auto" />
-                  <SecondaryCta className="w-full sm:w-auto" />
                 </div>
                 <div
                   className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12.5px]"
@@ -699,9 +686,6 @@ export default function MarketingLanding() {
             <a href="#features" className="hover:text-white transition">
               المزايا
             </a>
-            <Link href="/demo" className="hover:text-white transition">
-              شاهد الديمو
-            </Link>
             <a href="#contact" className="hover:text-white transition">
               تواصل
             </a>
@@ -711,6 +695,7 @@ export default function MarketingLanding() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }
