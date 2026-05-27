@@ -6,6 +6,7 @@ import PageGuard from "@/components/ui/PageGuard";
 import { useToast } from "@/contexts/ToastContext";
 import { useTasks, useClients, useTransactions, useAutomations, useAutomationLogs } from "@/hooks/useData";
 import { supabase } from "@/lib/supabase";
+import { logActivity, createNotification } from "@/lib/db";
 import { FUND_DISTRIBUTION, formatCurrency } from "@/lib/utils";
 import type { Task, Client, Transaction } from "@/types";
 import {
@@ -134,12 +135,13 @@ const LOG_COLORS = {
 // Each function executes the actual side-effect in Supabase and returns a
 // summary string that overrides the template result when successful.
 
-async function effectLateTasks(tasks: Task[]): Promise<string | null> {
+async function effectLateTasks(tasks: Task[], dryRun: boolean): Promise<string | null> {
   const now = new Date().toISOString();
   const lateIds = tasks
     .filter((t) => t.status !== "مكتملة" && t.status !== "متأخرة" && t.dueDate < now)
     .map((t) => t.id);
   if (!lateIds.length) return null;
+  if (dryRun) return `[معاينة] سيتم تحديث ${lateIds.length} مهمة كـ "متأخرة"`;
   const { error } = await supabase
     .from("tasks")
     .update({ status: "متأخرة" })
@@ -151,7 +153,7 @@ async function effectLateTasks(tasks: Task[]): Promise<string | null> {
   return `تم تحديث ${lateIds.length} مهمة كـ "متأخرة" في قاعدة البيانات`;
 }
 
-async function effectWorkload(tasks: Task[]): Promise<string | null> {
+async function effectWorkload(tasks: Task[], dryRun: boolean): Promise<string | null> {
   const counts: Record<string, number> = {};
   tasks.forEach((t) => {
     if (t.assigneeId && t.status !== "مكتملة") {
@@ -160,6 +162,7 @@ async function effectWorkload(tasks: Task[]): Promise<string | null> {
   });
   const updates = Object.entries(counts);
   if (!updates.length) return null;
+  if (dryRun) return `[معاينة] سيتم تحديث عبء العمل لـ ${updates.length} موظف`;
   const results = await Promise.all(
     updates.map(([id, cnt]) =>
       supabase.from("employees").update({ tasks: cnt }).eq("id", id)
@@ -170,9 +173,55 @@ async function effectWorkload(tasks: Task[]): Promise<string | null> {
   return `تم تحديث عبء العمل لـ ${results.length - failed} موظف في قاعدة البيانات`;
 }
 
-async function applyRuleEffect(ruleId: string, tasks: Task[]): Promise<string | null> {
-  if (ruleId === "late-tasks") return effectLateTasks(tasks);
-  if (ruleId === "workload")   return effectWorkload(tasks);
+async function effectClientFollowup(clients: Client[], dryRun: boolean): Promise<string | null> {
+  const pending = clients.filter((c) => c.status === "محتمل");
+  if (!pending.length) return null;
+  if (dryRun) return `[معاينة] سيتم إنشاء ${pending.length} تذكير متابعة`;
+  await Promise.all(
+    pending.slice(0, 10).map((c) =>
+      createNotification("client_followup", "متابعة عميل محتمل", `تابع العميل ${c.name}`, "/clients"),
+    ),
+  );
+  return `تم إنشاء ${Math.min(pending.length, 10)} إشعار متابعة في قاعدة البيانات`;
+}
+
+async function effectTaskReminder(tasks: Task[], dryRun: boolean): Promise<string | null> {
+  const in24h = Date.now() + 24 * 60 * 60 * 1000;
+  const dueSoon = tasks.filter((t) => {
+    if (t.status === "مكتملة") return false;
+    const due = new Date(t.dueDate).getTime();
+    return !Number.isNaN(due) && due <= in24h && due >= Date.now();
+  });
+  if (!dueSoon.length) return null;
+  if (dryRun) return `[معاينة] سيتم إرسال ${dueSoon.length} تنبيه مهمة`;
+  await Promise.all(
+    dueSoon.slice(0, 10).map((t) =>
+      createNotification("task_due", "موعد مهمة قريب", `المهمة «${t.title}» مستحقة خلال 24 ساعة`, "/tasks"),
+    ),
+  );
+  return `تم إنشاء ${Math.min(dueSoon.length, 10)} تنبيه مهمة في قاعدة البيانات`;
+}
+
+async function effectKpiUpdate(clients: Client[], tasks: Task[], txs: Transaction[], dryRun: boolean): Promise<string | null> {
+  const income = txs.filter((t) => t.type === "دخل").reduce((s, t) => s + t.amount, 0);
+  const msg = `KPI: ${clients.length} عميل، ${tasks.filter((t) => t.status === "مكتملة").length} مهمة مكتملة، إيراد ${formatCurrency(income)} SAR`;
+  if (dryRun) return `[معاينة] ${msg}`;
+  await logActivity("project", msg, "📊");
+  return `تم تسجيل تحديث KPI في سجل النشاطات`;
+}
+
+async function applyRuleEffect(
+  ruleId: string,
+  tasks: Task[],
+  clients: Client[],
+  txs: Transaction[],
+  dryRun: boolean,
+): Promise<string | null> {
+  if (ruleId === "late-tasks") return effectLateTasks(tasks, dryRun);
+  if (ruleId === "workload") return effectWorkload(tasks, dryRun);
+  if (ruleId === "client-followup") return effectClientFollowup(clients, dryRun);
+  if (ruleId === "task-reminder") return effectTaskReminder(tasks, dryRun);
+  if (ruleId === "kpi-update") return effectKpiUpdate(clients, tasks, txs, dryRun);
   return null;
 }
 
@@ -189,6 +238,7 @@ function AutomationContent() {
   const { data: dbLogs, refetch: refetchLogs } = useAutomationLogs();
 
   const [runningId, setRunningId] = useState<string | null>(null);
+  const [dryRun, setDryRun] = useState(false);
 
   // Merge DB state with static metadata
   const rules = useMemo(() =>
@@ -230,19 +280,22 @@ function AutomationContent() {
       // Run real DB effect first; override log result if it returns text
       const [{ result: templateResult, status }, dbResult] = await Promise.all([
         Promise.resolve(runnerFor(id, tasks, clients, txs)),
-        applyRuleEffect(id, tasks),
+        applyRuleEffect(id, tasks, clients, txs, dryRun),
       ]);
-      const result = dbResult ?? templateResult;
+      const result = dbResult ?? (dryRun ? `[معاينة] ${templateResult}` : templateResult);
 
-      await updateRunStats(id, currentCount, { rule_title: title, result, status });
-      await refetchLogs();
+      if (!dryRun) {
+        await updateRunStats(id, currentCount, { rule_title: title, result, status });
+        await refetchLogs();
+      } else {
+        toast.info(result);
+      }
 
-      // Refresh tasks data if this rule may have mutated task rows
-      if (id === "late-tasks" || id === "workload") {
+      if (!dryRun && (id === "late-tasks" || id === "workload")) {
         refetchTasks();
       }
 
-      toast.success(`${title}: تم التنفيذ بنجاح`);
+      if (!dryRun) toast.success(`${title}: تم التنفيذ بنجاح`);
     } catch (err) {
       toast.error("حدث خطأ أثناء التنفيذ");
       console.error("[Automation Run Error]", err);
@@ -277,13 +330,24 @@ function AutomationContent() {
             <p className="text-[#8ba3c7] text-sm mt-1">تشغيل القواعد الآلية وإدارة سير العمل</p>
             <p className="text-xs text-[#6b87ab] mt-0.5 flex items-center gap-1">
               <Clock size={10} />
-              التشغيل المجدول غير مفعل في الخطة الحالية — يمكن التشغيل اليدوي فقط
+              التشغيل المجدول متاح عبر /api/automation/run-scheduled — عيّن CRON_SECRET في البيئة
             </p>
           </div>
-          <button onClick={runAll} disabled={!!runningId} className="btn-primary flex items-center gap-2 disabled:opacity-50">
-            <Play size={15} />
-            تشغيل الكل
-          </button>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-xs text-[#8ba3c7] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={dryRun}
+                onChange={(e) => setDryRun(e.target.checked)}
+                className="rounded border-white/20"
+              />
+              وضع المعاينة (بدون تعديل)
+            </label>
+            <button onClick={runAll} disabled={!!runningId || dryRun} className="btn-primary flex items-center gap-2 disabled:opacity-50">
+              <Play size={15} />
+              تشغيل الكل
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
