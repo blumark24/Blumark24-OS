@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
       planLimits: {} as Record<string, number>,
       isPlatformAdmin,
       organizationId: orgId ?? null,
+      organizationName: null as string | null,
       organizationStatus: null as string | null,
     };
 
@@ -77,7 +78,7 @@ export async function GET(req: NextRequest) {
 
     const { data: org, error: orgErr } = await admin
       .from("organizations")
-      .select("id, plan_id, status, deleted_at")
+      .select("id, name, plan_id, status, deleted_at")
       .eq("id", orgId)
       .maybeSingle();
 
@@ -148,6 +149,7 @@ export async function GET(req: NextRequest) {
       featuresConfigured,
       isPlatformAdmin,
       organizationId: org.id,
+      organizationName: (org.name as string | null) ?? null,
       organizationStatus: org.status ?? null,
     });
   } catch (err) {

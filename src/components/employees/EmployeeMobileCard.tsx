@@ -4,6 +4,7 @@ import { Star, Edit2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { departmentColor } from "@/lib/services/departments";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
+import { CompanyNameLine } from "@/components/ui/CompanyNameLine";
 import { WS_CARD } from "@/components/ui/workspaceVisual";
 import type { UserRole } from "@/contexts/PermissionsContext";
 
@@ -22,12 +23,14 @@ export interface EmployeeRow {
 
 export function EmployeeMobileCard({
   emp,
+  companyName,
   canManage,
   onEdit,
   onDelete,
   departmentColorFn = departmentColor,
 }: {
   emp: EmployeeRow;
+  companyName: string;
   canManage: boolean;
   onEdit: () => void;
   onDelete: () => void;
@@ -48,6 +51,7 @@ export function EmployeeMobileCard({
         <div className="min-w-0 flex-1">
           <div className="text-white font-semibold text-sm truncate">{emp.name}</div>
           <div className="text-[11px] text-[#8ba3c7] truncate mt-0.5">{emp.email}</div>
+          <CompanyNameLine companyName={companyName} />
           <div className="mt-2 flex flex-wrap gap-1.5">
             <span
               className="badge text-[10px] max-w-full truncate"

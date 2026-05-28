@@ -34,6 +34,9 @@ import {
 } from "@/lib/db";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
+import { resolveCompanyDisplayName } from "@/lib/tenant/companyDisplay";
+import { useOrganizationNames } from "@/hooks/useOrganizationNames";
+import { CompanyNameLine } from "@/components/ui/CompanyNameLine";
 import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
 import { useAutomations } from "@/hooks/useData";
 import { withTimeout } from "@/lib/asyncHelpers";
@@ -100,7 +103,10 @@ function AddUserBanner({ onClose }: { onClose: () => void }) {
 
 function PermissionsTab() {
   const { managedUsers, rolePermissions, updateUserRole, toggleUserStatus, savePermissions } = usePermissions();
-  const { isPlatformAdmin } = useTenantWorkspace();
+  const { isPlatformAdmin, organizationId: workspaceOrgId, organizationName: workspaceOrgName } =
+    useTenantWorkspace();
+  const profileOrgIds = managedUsers.map((u) => u.organizationId);
+  const { namesById: orgNamesById } = useOrganizationNames(profileOrgIds);
   const roleLabel = (role: UserRole) => getTenantRoleLabel(role);
   const visibleRoles: UserRole[] = isPlatformAdmin ? ALL_ROLES : TENANT_ROLES;
   const assignableRoles: UserRole[] = isPlatformAdmin ? ALL_ROLES : TENANT_ROLES;
@@ -171,7 +177,7 @@ function PermissionsTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#1e3a5f]">
-                {["المستخدم", "الدور", "القسم", "الحالة", "إجراءات"].map((h) => (
+                {["المستخدم", "الدور", "الشركة", "القسم", "الحالة", "إجراءات"].map((h) => (
                   <th key={h} className="text-right text-[#8ba3c7] font-medium px-4 py-3 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -199,6 +205,17 @@ function PermissionsTab() {
                     ) : (
                       <span className="badge bg-[#22d3ee]/20 text-[#22d3ee] text-xs">{roleLabel(u.role)}</span>
                     )}
+                  </td>
+                  <td className="px-4 py-3 text-[#8ba3c7] text-xs max-w-[160px]">
+                    <CompanyNameLine
+                      companyName={resolveCompanyDisplayName({
+                        organizationId: u.organizationId,
+                        namesById: orgNamesById,
+                        workspaceOrganizationId: workspaceOrgId,
+                        workspaceOrganizationName: workspaceOrgName,
+                      })}
+                      className="text-[11px] truncate mt-0"
+                    />
                   </td>
                   <td className="px-4 py-3 text-[#8ba3c7] text-xs">
                     {formatTenantDepartment(u.department).text}

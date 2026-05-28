@@ -40,6 +40,8 @@ export interface Employee extends User {
   salary?: number;
   tasks?: number;
   completedTasks?: number;
+  /** From employees.organization_id — read-only for display */
+  organizationId?: string | null;
 }
 
 export type TaskStatus = "جديدة" | "قيد_التنفيذ" | "بانتظار_المراجعة" | "مكتملة" | "متأخرة";

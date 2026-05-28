@@ -399,12 +399,13 @@ export interface DBProfile {
   is_active: boolean;
   department: string;
   avatar?: string;
+  organization_id?: string | null;
 }
 
 export async function getUserProfile(userId: string): Promise<DBProfile | null> {
   const { data } = await supabase
     .from("profiles")
-    .select("id, email, name, role, is_active, department, avatar")
+    .select("id, email, name, role, is_active, department, avatar, organization_id")
     .eq("id", userId)
     .single();
   return (data as DBProfile) ?? null;
@@ -413,7 +414,7 @@ export async function getUserProfile(userId: string): Promise<DBProfile | null> 
 export async function getAllProfiles(): Promise<DBProfile[]> {
   const { data } = await supabase
     .from("profiles")
-    .select("id, email, name, role, is_active, department, avatar")
+    .select("id, email, name, role, is_active, department, avatar, organization_id")
     .order("name");
   return (data ?? []) as DBProfile[];
 }
