@@ -64,17 +64,32 @@ export function OrgLeadershipActionModals({ activeAction, onClose, ctx }: Props)
     <OrgLeadershipActionSheet
       open={Boolean(activeAction)}
       title={MODAL_TITLES[activeAction]}
+      accentId={activeAction}
       onClose={onClose}
     >
-      {activeAction === "transfer_employee" && <TransferEmployeeModal ctx={ctx} />}
-      {activeAction === "assign_responsible" && <AssignResponsibleModal ctx={ctx} />}
-      {activeAction === "distribute_tasks" && <DistributeTasksModal ctx={ctx} />}
-      {activeAction === "performance_review" && <PerformanceReviewModal ctx={ctx} />}
+      {activeAction === "transfer_employee" && (
+        <TransferEmployeeModal ctx={ctx} accentId="transfer_employee" />
+      )}
+      {activeAction === "assign_responsible" && (
+        <AssignResponsibleModal ctx={ctx} accentId="assign_responsible" />
+      )}
+      {activeAction === "distribute_tasks" && (
+        <DistributeTasksModal ctx={ctx} accentId="distribute_tasks" />
+      )}
+      {activeAction === "performance_review" && (
+        <PerformanceReviewModal ctx={ctx} accentId="performance_review" />
+      )}
     </OrgLeadershipActionSheet>
   );
 }
 
-function TransferEmployeeModal({ ctx }: { ctx: LeadershipActionContext }) {
+function TransferEmployeeModal({
+  ctx,
+  accentId,
+}: {
+  ctx: LeadershipActionContext;
+  accentId: LeadershipActionId;
+}) {
   const [employeeId, setEmployeeId] = useState("");
   const [targetScopeId, setTargetScopeId] = useState("");
   const [mode, setMode] = useState<EmployeeTransferMode>("employee_only");
@@ -166,7 +181,7 @@ function TransferEmployeeModal({ ctx }: { ctx: LeadershipActionContext }) {
         onChange={(e) => setEffectiveDate(e.target.value)}
       />
 
-      <LeadershipImpactBox title="معاينة الأثر">
+      <LeadershipImpactBox title="معاينة الأثر" accentId={accentId}>
         <p>الوضع الحالي: {employeeId ? preview.currentPlacement : "—"}</p>
         <p>الهدف: {targetScopeId ? preview.targetLabel : "—"}</p>
         <p>مهام مفتوحة: {ctx.tasksAvailable ? preview.openTasks : "—"}</p>
@@ -175,12 +190,18 @@ function TransferEmployeeModal({ ctx }: { ctx: LeadershipActionContext }) {
         <p className="text-[#8ba3c7] pt-1">{employeeId ? preview.summary : "اختر موظفاً لعرض المعاينة."}</p>
       </LeadershipImpactBox>
 
-      <LeadershipPreviewFooter label={ORG_SAVE_NEXT_PHASE_AR} />
+      <LeadershipPreviewFooter label={ORG_SAVE_NEXT_PHASE_AR} accentId={accentId} />
     </>
   );
 }
 
-function AssignResponsibleModal({ ctx }: { ctx: LeadershipActionContext }) {
+function AssignResponsibleModal({
+  ctx,
+  accentId,
+}: {
+  ctx: LeadershipActionContext;
+  accentId: LeadershipActionId;
+}) {
   const respOptions = responsibilitiesForPlan(ctx.plan);
   const [employeeId, setEmployeeId] = useState("");
   const [responsibility, setResponsibility] = useState<AssignmentResponsibility>(
@@ -275,16 +296,22 @@ function AssignResponsibleModal({ ctx }: { ctx: LeadershipActionContext }) {
         ))}
       </select>
 
-      <LeadershipImpactBox title="معاينة الجملة">
+      <LeadershipImpactBox title="معاينة الجملة" accentId={accentId}>
         <p>{employeeId && scopeId ? sentence : "أكمل الحقول لعرض جملة المعاينة."}</p>
       </LeadershipImpactBox>
 
-      <LeadershipPreviewFooter label={ORG_SAVE_NEXT_PHASE_AR} />
+      <LeadershipPreviewFooter label={ORG_SAVE_NEXT_PHASE_AR} accentId={accentId} />
     </>
   );
 }
 
-function DistributeTasksModal({ ctx }: { ctx: LeadershipActionContext }) {
+function DistributeTasksModal({
+  ctx,
+  accentId,
+}: {
+  ctx: LeadershipActionContext;
+  accentId: LeadershipActionId;
+}) {
   const [fromId, setFromId] = useState("");
   const [toId, setToId] = useState("");
   const [filter, setFilter] = useState<TaskDistributionFilter>("open_tasks");
@@ -364,7 +391,7 @@ function DistributeTasksModal({ ctx }: { ctx: LeadershipActionContext }) {
         </p>
       )}
 
-      <LeadershipImpactBox title="معاينة الأثر">
+      <LeadershipImpactBox title="معاينة الأثر" accentId={accentId}>
         <p>مهام مفتوحة للمصدر: {ctx.tasksAvailable ? preview.fromOpen : "—"}</p>
         <p>مهام مفتوحة للهدف: {ctx.tasksAvailable ? preview.toOpen : "—"}</p>
         <p>{preview.balanceSuggestion}</p>
@@ -373,12 +400,18 @@ function DistributeTasksModal({ ctx }: { ctx: LeadershipActionContext }) {
         </p>
       </LeadershipImpactBox>
 
-      <p className="text-[10px] text-[#6b87ab]">معاينة فقط — لا يوجد زر حفظ نشط.</p>
+      <p className="text-[10px] text-[#6b87ab] px-0.5">معاينة فقط — لا يوجد زر حفظ نشط.</p>
     </>
   );
 }
 
-function PerformanceReviewModal({ ctx }: { ctx: LeadershipActionContext }) {
+function PerformanceReviewModal({
+  ctx,
+  accentId,
+}: {
+  ctx: LeadershipActionContext;
+  accentId: LeadershipActionId;
+}) {
   const [employeeId, setEmployeeId] = useState("");
   const [period, setPeriod] = useState<string>(PERFORMANCE_PERIODS[0]);
   const [focus, setFocus] = useState<string>(PERFORMANCE_FOCUS[0]);
@@ -445,7 +478,7 @@ function PerformanceReviewModal({ ctx }: { ctx: LeadershipActionContext }) {
         ))}
       </select>
 
-      <LeadershipImpactBox title="مؤشرات القراءة">
+      <LeadershipImpactBox title="مؤشرات القراءة" accentId={accentId}>
         <p>نسبة الإكمال: {completionPct}</p>
         <p>متأخرة: {ctx.tasksAvailable ? preview.overdueCount : "—"}</p>
         <p>مفتوحة: {ctx.tasksAvailable ? preview.openTasks : "—"}</p>
@@ -458,7 +491,7 @@ function PerformanceReviewModal({ ctx }: { ctx: LeadershipActionContext }) {
         </p>
       </LeadershipImpactBox>
 
-      <LeadershipPreviewFooter label={ORG_SAVE_NEXT_PHASE_AR} />
+      <LeadershipPreviewFooter label={ORG_SAVE_NEXT_PHASE_AR} accentId={accentId} />
     </>
   );
 }
