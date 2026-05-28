@@ -14,7 +14,10 @@ import type { OrgStructureSnapshot, StructureLevel } from "./types";
 export const ORG_LEADERSHIP_STUDIO_TITLE_AR = "استوديو القيادة الذكي";
 
 export const ORG_LEADERSHIP_STUDIO_HELPER_AR =
-  "مساحة تشغيلية تربط القيادة بالهيكل والموظفين والمهام، وتعرض قرارات وتقييمات مبدئية بدون تغيير صلاحيات الدخول.";
+  "قراءة تنفيذية تربط القيادة بالهيكل والموظفين والمهام، بدون تغيير صلاحيات الدخول.";
+
+export const ORG_ORGANIZATIONAL_LABELS_DISCLAIMER_AR =
+  "هذه مسميات تنظيمية للمتابعة وليست أدوار دخول.";
 
 export const ORG_ASSIGNMENT_ORG_ONLY_AR =
   "هذه مسؤوليات تنظيمية وليست صلاحيات دخول.";
