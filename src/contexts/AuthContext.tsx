@@ -12,6 +12,11 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { assertSupabaseEnv, isSupabaseConfigured } from "@/lib/supabaseClient";
+import {
+  isCustomerWorkspacePath,
+  isPlatformSuperAdminRole,
+  MISSING_ORGANIZATION_ERROR_MSG,
+} from "@/lib/tenant/customerWorkspaceRoutes";
 
 export interface AuthUser {
   id: string;
@@ -22,6 +27,7 @@ export interface AuthUser {
   avatar?: string;
   is_active: boolean;
   forcePasswordChange: boolean;
+  organizationId?: string | null;
 }
 
 interface AuthContextValue {
@@ -65,11 +71,6 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// ── buildUser ─────────────────────────────────────────────────────────────────
-// Returns AuthUser on a successful profile read, or `null` when the row could
-// not be located.  Never falls back to a default `employee` role — callers must
-// surface a profile-load error and not grant any implicit access.
-
 type ProfileRow = {
   id?: string | null;
   name?: string | null;
@@ -78,6 +79,7 @@ type ProfileRow = {
   avatar?: string | null;
   department?: string | null;
   is_active?: boolean | null;
+  organization_id?: string | null;
 };
 
 type ExtRow = {
@@ -86,9 +88,9 @@ type ExtRow = {
 };
 
 async function fetchProfileRow(authUserId: string, email: string): Promise<ProfileRow | null> {
-  const SAFE_COLS = "id, name, role, email, avatar, department, is_active";
+  const SAFE_COLS =
+    "id, name, role, email, avatar, department, is_active, organization_id";
 
-  // Prefer id-based lookup (matches Supabase auth.uid()), fall back to email.
   const { data: byId, error: idErr } = await supabase
     .from("profiles")
     .select(SAFE_COLS)
@@ -137,13 +139,9 @@ async function buildUserFromProfile(
     avatar:              ext?.avatar_url ?? profile.avatar ?? undefined,
     is_active:           profile.is_active !== false,
     forcePasswordChange: ext?.force_password_change === true,
+    organizationId:      profile.organization_id ?? null,
   };
 }
-
-// ── resolveCurrentUserProfile ─────────────────────────────────────────────────
-// Single source of truth for the current authenticated user + profile.
-// Retries on missing profile (covers post-signup race where the row arrives a
-// few hundred ms after the session).  Never returns a fallback employee user.
 
 type ResolveResult =
   | { kind: "no-session"; user: null }
@@ -193,9 +191,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfileLoadError(null);
       setSessionCookie("");
     } else {
-      // profile-error: auth session is valid but the profile row could not be
-      // read.  Surface a recoverable error and clear the user — the redirect
-      // effect deliberately keeps them on-page so the retry banner is visible.
       setUser(null);
       setProfileLoadError(PROFILE_LOAD_ERROR_MSG);
     }
@@ -209,8 +204,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     mountedRef.current = true;
 
-    // Hard timeout: if auth bootstrap exceeds 5s, unblock the UI so the page
-    // never hangs on a spinner.  The user can retry from /auth.
     const fallbackTimer = setTimeout(() => {
       if (mountedRef.current) {
         console.warn("[AuthContext] bootstrap timed out after 5s — unblocking UI");
@@ -247,8 +240,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         case "TOKEN_REFRESHED":
         case "USER_UPDATED":
           if (session?.user) {
-            // Defer to next tick so Supabase has propagated the session
-            // through its cookie/storage adapters before we read profile.
             setTimeout(() => {
               if (mountedRef.current) void refreshCurrentUser();
             }, 0);
@@ -269,24 +260,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading) return;
 
-    // The /owner area is a fully independent surface with its own auth pipeline
-    // (middleware.ts → OwnerGuard → /owner/login). The client AuthContext must
-    // never redirect anywhere inside it — otherwise an owner route could bounce
-    // to /auth or the client dashboard, which is exactly the bug this guards
-    // against. Owner authentication is handled exclusively by OwnerGuard.
     if (pathname === "/owner" || pathname.startsWith("/owner/")) return;
 
     const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
     const isAuthPg = pathname === "/auth" || pathname.startsWith("/auth/");
 
-    // When the auth session is valid but the profile failed to load, keep the
-    // user on the current page so the error banner + retry is visible instead
-    // of bouncing them to /auth (which would hide the recoverable error).
     if (!user && !isPublic && !profileLoadError) {
       router.replace(`/auth?redirect=${encodeURIComponent(pathname)}`);
-    } else if (user && pathname === "/auth") {
-      router.replace("/dashboard");
-    } else if (user?.forcePasswordChange && pathname !== "/settings" && !isAuthPg) {
+      return;
+    }
+
+    if (user && pathname === "/auth") {
+      router.replace(isPlatformSuperAdminRole(user.role) ? "/owner" : "/dashboard");
+      return;
+    }
+
+    if (user && isCustomerWorkspacePath(pathname)) {
+      if (isPlatformSuperAdminRole(user.role)) {
+        router.replace("/owner");
+        return;
+      }
+      if (!user.organizationId) {
+        setProfileLoadError(MISSING_ORGANIZATION_ERROR_MSG);
+        router.replace("/auth");
+        return;
+      }
+    }
+
+    if (user?.forcePasswordChange && pathname !== "/settings" && !isAuthPg) {
       router.replace("/settings?tab=account");
     }
   }, [user, loading, pathname, profileLoadError, router]);
@@ -298,7 +299,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const res = await resolveCurrentUserProfile();
       if (res.kind !== "ok") {
-        // Session is live but profile couldn't be loaded — back out cleanly.
         await supabase.auth.signOut().catch(() => {});
         if (mountedRef.current) {
           setUser(null);
@@ -332,10 +332,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ok: true };
       }
 
+      if (isPlatformSuperAdminRole(res.user.role)) {
+        router.replace("/owner");
+        return { ok: true };
+      }
+
       const redirect = typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("redirect")
         : null;
-      router.replace(redirect && redirect.startsWith("/") ? redirect : "/dashboard");
+      const target =
+        redirect && redirect.startsWith("/") ? redirect : "/dashboard";
+      if (isCustomerWorkspacePath(target) && !res.user.organizationId) {
+        await supabase.auth.signOut().catch(() => {});
+        if (mountedRef.current) {
+          setUser(null);
+          setProfileLoadError(MISSING_ORGANIZATION_ERROR_MSG);
+          setSessionCookie("");
+        }
+        router.replace("/auth");
+        return { ok: false, error: MISSING_ORGANIZATION_ERROR_MSG };
+      }
+      router.replace(target);
       return { ok: true };
     },
     [router],
