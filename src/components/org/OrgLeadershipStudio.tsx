@@ -137,7 +137,6 @@ export default function OrgLeadershipStudio({
 
       <p className="text-[#6b87ab] text-[10px] -mt-1">قراءة تنفيذية</p>
 
-      {/* قرار اليوم */}
       <article
         className={panelClass}
         style={{ ...panelBg, borderColor: "rgba(245,158,11,0.35)" }}
@@ -151,7 +150,6 @@ export default function OrgLeadershipStudio({
         </p>
       </article>
 
-      {/* خريطة القيادة */}
       <article className={panelClass} style={panelBg}>
         <div className="flex items-center gap-2">
           <Map size={14} className="text-sky-300 shrink-0" />
@@ -175,7 +173,6 @@ export default function OrgLeadershipStudio({
         )}
       </article>
 
-      {/* صحة القيادة */}
       <article className={panelClass} style={panelBg}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -221,7 +218,6 @@ export default function OrgLeadershipStudio({
         )}
       </article>
 
-      {/* فجوات الهيكل */}
       <article className={panelClass} style={panelBg}>
         <div className="flex items-center gap-2">
           <AlertTriangle size={14} className="text-amber-300 shrink-0" />
