@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   Brain,
   Compass,
-  Layers,
   Map,
 } from "lucide-react";
 import { MOBILE_BOTTOM_NAV_INSET } from "@/components/layout/MobileBottomNav";
@@ -18,17 +17,11 @@ import type { OrgStructureSnapshot } from "@/lib/org/types";
 import {
   ORG_LEADERSHIP_STUDIO_HELPER_AR,
   ORG_LEADERSHIP_STUDIO_TITLE_AR,
-  ORG_ORGANIZATIONAL_LABELS_DISCLAIMER_AR,
   RISK_LABEL_AR,
   buildLeadershipStudioPreview,
 } from "@/lib/org/buildLeadershipStudio";
 import type { LeadershipGap } from "@/lib/org/buildRolesIntelligence";
-
-const ORG_LABELS_BY_PLAN: Record<PlanSlug, string[]> = {
-  basic: ["مجلس الإدارة", "رئيس قسم"],
-  growth: ["مجلس الإدارة", "مدير إدارة", "رئيس قسم"],
-  advanced: ["مجلس الإدارة", "مدير وكالة", "مدير إدارة", "رئيس قسم"],
-};
+import { OrgLeadershipActionCards } from "./OrgLeadershipActionCards";
 
 function riskBadgeClass(level: "low" | "medium" | "high"): string {
   if (level === "high") return "border-red-400/35 text-red-200 bg-red-500/10";
@@ -49,6 +42,8 @@ export default function OrgLeadershipStudio({
 }: OrgLeadershipStudioProps) {
   const { managedUsers } = usePermissions();
   const { data: tasks, error: tasksError } = useTasks();
+  const tasksAvailable = !tasksError && tasks !== undefined;
+  const taskList = tasksError ? [] : (tasks ?? []);
 
   const studio = useMemo(() => {
     const employeeRows = (employees ?? []).map((e) => ({
@@ -74,10 +69,10 @@ export default function OrgLeadershipStudio({
       managedProfiles: profiles,
       orgSnapshot: orgSnapshot ?? null,
       tasks: tasksError ? null : (tasks ?? []),
-      tasksAvailable: !tasksError && tasks !== undefined,
+      tasksAvailable,
       plan,
     });
-  }, [employees, managedUsers, orgSnapshot, tasks, tasksError, plan]);
+  }, [employees, managedUsers, orgSnapshot, tasks, tasksError, plan, tasksAvailable]);
 
   const { intel } = studio;
 
@@ -102,11 +97,6 @@ export default function OrgLeadershipStudio({
     const sum = studio.healthByEmployee.reduce((a, r) => a + r.score, 0);
     return Math.round(sum / studio.healthByEmployee.length);
   }, [studio.healthByEmployee]);
-
-  const organizationalRows = useMemo(() => {
-    const allowed = new Set(ORG_LABELS_BY_PLAN[plan] ?? ORG_LABELS_BY_PLAN.basic);
-    return intel.organizationalInsights.filter((row) => allowed.has(row.title));
-  }, [intel.organizationalInsights, plan]);
 
   const panelClass =
     "rounded-xl border border-[#1e3a5f]/80 p-2.5 sm:p-3 space-y-2 min-w-0 max-w-full";
@@ -136,7 +126,18 @@ export default function OrgLeadershipStudio({
         </p>
       </header>
 
-      {/* A) قرار اليوم */}
+      <OrgLeadershipActionCards
+        studio={studio}
+        employees={employees}
+        orgSnapshot={orgSnapshot}
+        tasks={taskList}
+        tasksAvailable={tasksAvailable}
+        plan={plan}
+      />
+
+      <p className="text-[#6b87ab] text-[10px] -mt-1">قراءة تنفيذية</p>
+
+      {/* قرار اليوم */}
       <article
         className={panelClass}
         style={{ ...panelBg, borderColor: "rgba(245,158,11,0.35)" }}
@@ -150,7 +151,7 @@ export default function OrgLeadershipStudio({
         </p>
       </article>
 
-      {/* B) خريطة القيادة */}
+      {/* خريطة القيادة */}
       <article className={panelClass} style={panelBg}>
         <div className="flex items-center gap-2">
           <Map size={14} className="text-sky-300 shrink-0" />
@@ -159,7 +160,7 @@ export default function OrgLeadershipStudio({
         {studio.mapRows.length === 0 ? (
           <p className="text-[#6b87ab] text-[10px]">لا توجد قيادات مرتبطة بالهيكل بعد.</p>
         ) : (
-          <ul className="space-y-1.5 max-h-40 sm:max-h-44 overflow-y-auto overflow-x-hidden">
+          <ul className="space-y-1.5 max-h-36 sm:max-h-40 overflow-y-auto overflow-x-hidden">
             {studio.mapRows.map((row) => (
               <li
                 key={row.id}
@@ -174,7 +175,7 @@ export default function OrgLeadershipStudio({
         )}
       </article>
 
-      {/* C) صحة القيادة */}
+      {/* صحة القيادة */}
       <article className={panelClass} style={panelBg}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -220,7 +221,7 @@ export default function OrgLeadershipStudio({
         )}
       </article>
 
-      {/* D) فجوات الهيكل */}
+      {/* فجوات الهيكل */}
       <article className={panelClass} style={panelBg}>
         <div className="flex items-center gap-2">
           <AlertTriangle size={14} className="text-amber-300 shrink-0" />
@@ -241,31 +242,6 @@ export default function OrgLeadershipStudio({
             ))}
           </div>
         )}
-      </article>
-
-      {/* E) المسميات التنظيمية */}
-      <article className={panelClass} style={panelBg}>
-        <div className="flex items-center gap-2">
-          <Layers size={14} className="text-violet-300 shrink-0" />
-          <h4 className="text-white text-xs font-bold">المسميات التنظيمية</h4>
-        </div>
-        <p className="text-[#6b87ab] text-[10px] leading-relaxed break-words">
-          {ORG_ORGANIZATIONAL_LABELS_DISCLAIMER_AR}
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-          {organizationalRows.map((row) => (
-            <div
-              key={row.title}
-              className="rounded-lg border border-[#1e3a5f]/60 px-2 py-1.5 bg-white/[0.02] min-w-0"
-            >
-              <p className="text-white text-[11px] font-medium">{row.title}</p>
-              <p className="text-[#6b87ab] text-[10px] mt-0.5 tabular-nums">
-                {row.structureCount > 0 ? `${row.structureCount} وحدة · ` : ""}
-                {row.linkedEmployees} مرتبط
-              </p>
-            </div>
-          ))}
-        </div>
       </article>
     </div>
   );
