@@ -38,19 +38,10 @@ import {
   type OrgNodeData,
 } from "@/lib/org/buildFlowGraph";
 import {
-  ORG_ROLE_KIND_LABEL,
-  ORG_ROLES_TAB_HELPER_AR,
-  ORG_SMART_PERMISSIONS_FOOTNOTE_AR,
-  ORG_STRUCTURE_LABELS_ONLY,
-  getTenantOrgRoleCardKind,
-} from "@/lib/org/orgRoleClarity";
-import {
   BOARD_LABEL_AR,
-  getOrgRoleDefinitions,
   allowedStructureLevels,
   canCreateStructureLevel,
   isStructureLevelLocked,
-  rulesForPlan,
   STRUCTURE_LEVEL_LABELS,
   validateParentForLevel,
   getLevelFromDepartment,
@@ -67,7 +58,7 @@ import PositionsPanel from "./PositionsPanel";
 import StructureLevelFormModal from "./StructureLevelFormModal";
 import AssignEmployeeModal from "./AssignEmployeeModal";
 import TeamFormModal from "./TeamFormModal";
-import OrgRolesInsightsPanel from "./OrgRolesInsightsPanel";
+import OrgLeadershipStudio from "./OrgLeadershipStudio";
 import {
   checkCanAddPosition,
   checkCanAddTeam,
@@ -295,7 +286,6 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
   const isEmpty =
     !loading && !error && data && data.departments.length === 0 && data.teams.length === 0;
 
-  const rules = rulesForPlan(plan);
   const enabledLevels = allowedStructureLevels(plan);
 
   if (loading) {
@@ -611,67 +601,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
                 onDelete={deletePosition}
               />
             )}
-            <OrgRolesInsightsPanel employees={employees} orgSnapshot={data} />
-
-            <div
-              className="rounded-2xl border border-[#1e3a5f] p-4 space-y-3"
-              style={{ background: "rgba(10,22,40,0.75)" }}
-            >
-              <h3 className="text-white text-sm font-bold">قواعد الباقة</h3>
-              <ul className="space-y-2">
-                {rules.map((line) => (
-                  <li key={line} className="text-[#8ba3c7] text-xs leading-relaxed flex gap-2">
-                    <span className="text-[#22d3ee] shrink-0">•</span>
-                    {line}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div
-              className="rounded-2xl border border-[#1e3a5f] p-4 space-y-3 max-h-[320px] overflow-y-auto"
-              style={{ background: "rgba(10,22,40,0.75)" }}
-            >
-              <h3 className="text-white text-sm font-bold">الأدوار في الهيكل</h3>
-              <p className="text-[#6b87ab] text-[10px] leading-relaxed">{ORG_ROLES_TAB_HELPER_AR}</p>
-              {getOrgRoleDefinitions(false).map((r) => {
-                const kind = getTenantOrgRoleCardKind(r.title);
-                return (
-                  <div
-                    key={r.title}
-                    className="rounded-xl border border-[#1e3a5f]/80 p-3"
-                    style={{ borderRightWidth: 3, borderRightColor: r.color }}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="text-white text-xs font-semibold min-w-0">{r.title}</div>
-                      <span className="text-[#6b87ab] text-[10px] shrink-0">
-                        {ORG_ROLE_KIND_LABEL[kind]}
-                      </span>
-                    </div>
-                    <div className="text-[#6b87ab] text-[10px] mt-1">{r.desc}</div>
-                  </div>
-                );
-              })}
-              <div className="space-y-1.5 pt-2 border-t border-[#1e3a5f]/50">
-                <p className="text-[#6b87ab] text-[10px]">
-                  مسميات هيكلية في المخطط (ليست أدوار دخول حاليًا):
-                </p>
-                {ORG_STRUCTURE_LABELS_ONLY.map((item) => (
-                  <div
-                    key={item.title}
-                    className="flex items-center justify-between gap-2 text-[10px]"
-                  >
-                    <span className="text-[#8ba3c7]">{item.title}</span>
-                    <span className="text-[#6b87ab] shrink-0">
-                      {ORG_ROLE_KIND_LABEL[item.kind]}
-                    </span>
-                  </div>
-                ))}
-                <p className="text-[#6b87ab] text-[10px] pt-1">
-                  {ORG_SMART_PERMISSIONS_FOOTNOTE_AR}:{" "}
-                  <span className="text-[#8ba3c7]">{ORG_ROLE_KIND_LABEL.coming_soon}</span>
-                </p>
-              </div>
-            </div>
+            <OrgLeadershipStudio employees={employees} orgSnapshot={data} plan={plan} />
           </aside>
         </div>
         </>
