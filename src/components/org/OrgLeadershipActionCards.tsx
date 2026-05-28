@@ -24,6 +24,7 @@ import {
   OrgLeadershipActionModals,
   type LeadershipActionContext,
 } from "./OrgLeadershipActionModals";
+import { LEADERSHIP_ACTION_ACCENTS } from "./leadershipActionVisual";
 
 const CARD_ICONS: Record<LeadershipActionId, typeof UserCog> = {
   transfer_employee: ArrowLeftRight,
@@ -91,42 +92,86 @@ export function OrgLeadershipActionCards({
   );
 
   return (
-    <section className="space-y-2 min-w-0" aria-label={ORG_LEADERSHIP_ACTIONS_TITLE_AR}>
-      <h4 className="text-white text-xs font-bold">{ORG_LEADERSHIP_ACTIONS_TITLE_AR}</h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
+    <section className="space-y-3 min-w-0" aria-label={ORG_LEADERSHIP_ACTIONS_TITLE_AR}>
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <h4 className="text-white text-xs font-bold tracking-wide">{ORG_LEADERSHIP_ACTIONS_TITLE_AR}</h4>
+        <span className="text-[#6b87ab] text-[10px] shrink-0">معاينة تشغيلية</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
         {cards.map((card) => {
           const Icon = CARD_ICONS[card.id];
+          const accent = LEADERSHIP_ACTION_ACCENTS[card.id];
           return (
             <button
               key={card.id}
               type="button"
               onClick={() => setActiveAction(card.id)}
               className={cn(
-                "group text-right rounded-xl border border-[#1e3a5f]/80 p-3 min-w-0 w-full",
-                "bg-gradient-to-br from-white/[0.05] to-transparent",
-                "hover:border-[#22d3ee]/35 hover:bg-[#22d3ee]/5 transition-all touch-manipulation",
+                "group relative text-right overflow-hidden",
+                "rounded-2xl border-2 p-3.5 sm:p-4 min-w-0 w-full",
+                "backdrop-blur-sm transition-all duration-200 touch-manipulation min-h-[148px]",
+                "flex flex-col",
+                accent.cardBorder,
+                accent.cardBorderHover,
+                accent.cardGlow,
+                accent.cardGradient,
+                accent.activeRing,
+                "before:pointer-events-none before:absolute before:inset-0 before:rounded-2xl before:content-['']",
+                accent.cardHighlight,
               )}
-              style={{ background: "rgba(10,22,40,0.65)" }}
             >
-              <div className="flex items-start justify-between gap-2 min-w-0">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#22d3ee]/10 border border-[#22d3ee]/25">
-                  <Icon size={15} className="text-[#22d3ee]" />
+              <div className="relative flex items-start justify-between gap-2.5 min-w-0 mb-3">
+                <div
+                  className={cn(
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
+                    accent.iconWrap,
+                  )}
+                >
+                  <Icon size={18} className={accent.iconColor} strokeWidth={2} />
                 </div>
-                <span className="shrink-0 rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[9px] text-violet-200">
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full border px-2.5 py-1 text-[9px] font-semibold tracking-wide",
+                    accent.badge,
+                  )}
+                >
                   معاينة
                 </span>
               </div>
-              <p className="text-white text-xs font-semibold mt-2 break-words">{card.title}</p>
-              <p className="text-[#6b87ab] text-[10px] mt-1 leading-relaxed break-words line-clamp-2">
+
+              <p className="relative text-white text-[13px] sm:text-sm font-bold leading-snug break-words">
+                {card.title}
+              </p>
+              <p className="relative text-[#8ba3c7] text-[11px] mt-2 leading-relaxed break-words line-clamp-2 flex-1">
                 {card.value}
               </p>
+
               {card.metric ? (
-                <p className="text-[#22d3ee] text-[10px] mt-1.5 tabular-nums">{card.metric}</p>
-              ) : null}
-              <p className="text-[#8ba3c7] text-[10px] mt-2 flex items-center gap-1 justify-end group-hover:text-[#22d3ee]">
+                <p
+                  className={cn(
+                    "relative text-[11px] font-semibold mt-2.5 tabular-nums",
+                    accent.metric,
+                  )}
+                >
+                  {card.metric}
+                </p>
+              ) : (
+                <span className="mt-2.5 block h-0" aria-hidden />
+              )}
+
+              <span
+                className={cn(
+                  "relative mt-3 inline-flex items-center gap-1.5 justify-end w-full",
+                  "text-[11px] font-medium min-h-10 rounded-xl",
+                  "border border-white/[0.06] bg-white/[0.04] px-3 py-2",
+                  "group-hover:bg-white/[0.07] group-active:scale-[0.99]",
+                  accent.cta,
+                  accent.ctaHover,
+                )}
+              >
                 فتح المعاينة
-                <ChevronLeft size={12} className="rotate-180" />
-              </p>
+                <ChevronLeft size={14} className="rotate-180 shrink-0 opacity-80" />
+              </span>
             </button>
           );
         })}
