@@ -1,6 +1,6 @@
 /**
- * Customer Workspace route prefixes (platform super_admin must not use as tenant).
- * Matches DB-FOUNDATION-4 scope; /owner is handled separately by OwnerGuard.
+ * Customer Workspace route prefixes.
+ * /owner remains handled separately by OwnerGuard.
  */
 export const CUSTOMER_WORKSPACE_ROUTE_PREFIXES = [
   "/dashboard",
@@ -26,14 +26,15 @@ export function isCustomerWorkspacePath(pathname: string): boolean {
 export const MISSING_ORGANIZATION_ERROR_MSG =
   "حسابك غير مربوط بمنشأة — تواصل مع الدعم";
 
-/** Platform roles that must use /owner, not Customer Workspace (raw profile.role). */
-export function isPlatformSuperAdminRole(role: string): boolean {
-  const r = String(role ?? "").trim();
-  return (
-    r === "super_admin" ||
-    r === "admin" ||
-    r === "general_manager" ||
-    r === "board_chairman" ||
-    r === "مدير_عام"
-  );
+/**
+ * Temporary safety rollback:
+ * Do not auto-redirect platform-style roles away from Customer Workspace.
+ *
+ * Reason: some valid Blumark/customer accounts currently carry elevated
+ * profile roles while still needing access to the Customer Workspace. Until a
+ * proper workspace switcher exists, Owner Panel remains protected by
+ * /owner/OwnerGuard and Customer Workspace access must remain available.
+ */
+export function isPlatformSuperAdminRole(_role: string): boolean {
+  return false;
 }
