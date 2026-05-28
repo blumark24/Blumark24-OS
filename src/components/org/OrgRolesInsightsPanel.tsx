@@ -14,6 +14,7 @@ import {
   type RiskLevel,
 } from "@/lib/org/buildRolesIntelligence";
 import { TENANT_ORG_ROLE_DEFINITIONS } from "@/lib/org/packageHierarchy";
+import OrgRoleTrackingPreview from "./OrgRoleTrackingPreview";
 import type { Employee } from "@/types";
 import type { OrgStructureSnapshot } from "@/lib/org/types";
 
@@ -243,6 +244,8 @@ function CommandCenterBody({ intel }: { intel: OrgRolesIntelligence }) {
           );
         })}
       </div>
+
+      <OrgRoleTrackingPreview />
 
       {/* مسميات تنظيمية */}
       <div className="space-y-2 pt-1 border-t border-[#1e3a5f]/50">
