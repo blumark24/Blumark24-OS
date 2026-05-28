@@ -36,11 +36,31 @@ export type ActiveRoleInsight = {
   roleName: string;
   roleSlug: TenantRbacSlug;
   assignedCount: number;
+  operationalScope: string;
   taskLoad: number | null;
   overdueCount: number | null;
   completionRate: number | null;
   riskLevel: RiskLevel;
   recommendation: string;
+};
+
+export type LeadershipPulse = {
+  structureReadinessPct: number;
+  leadershipClarityPct: number;
+  taskPressureLabel: string;
+  orgRiskLevel: RiskLevel;
+  todayInsight: string;
+};
+
+export type PrimaryAction = {
+  title: string;
+  body: string;
+};
+
+export type LeadershipGap = {
+  id: string;
+  label: string;
+  count: number;
 };
 
 export type OrganizationalLabelInsight = {
@@ -58,13 +78,26 @@ export type OrgRolesIntelligence = {
     departmentsWithoutManager: number;
     teamsWithoutMembers: number;
     overdueTasksOrgWide: number | null;
+    openTasksOrgWide: number | null;
     tasksAvailable: boolean;
     profilesUsed: boolean;
+    totalActiveEmployees: number;
+    linkedEmployees: number;
   };
   activeRoleInsights: ActiveRoleInsight[];
   organizationalInsights: OrganizationalLabelInsight[];
   recommendations: string[];
+  leadershipPulse: LeadershipPulse;
+  primaryAction: PrimaryAction;
+  leadershipGaps: LeadershipGap[];
+  isLowData: boolean;
 };
+
+export const ORG_COMMAND_CENTER_HELPER_AR =
+  "قراءة ذكية لحالة القيادة والتوزيع التشغيلي داخل المنشأة، بدون تغيير صلاحيات الدخول.";
+
+export const ORG_COMMAND_CENTER_READONLY_AR =
+  "توصيات تشغيلية للقراءة فقط — لا تعدّل صلاحيات الدخول ولا تُنفّذ إجراءات تلقائية.";
 
 const COMPLETED_STATUS = "مكتملة";
 const OVERDUE_STATUS = "متأخرة";
@@ -188,36 +221,169 @@ function recommendationForRole(
   return "الوضع مستقر ضمن البيانات الحالية.";
 }
 
-function buildRecommendations(
+function clampPct(n: number): number {
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function operationalScopeForRole(
+  assigneeIds: Set<string>,
+  snapshot: OrgStructureSnapshot | null,
+): string {
+  if (!snapshot || assigneeIds.size === 0) return "غير مرتبط بالهيكل";
+  const deptNames = new Set<string>();
+  for (const rel of snapshot.relations) {
+    if (!assigneeIds.has(rel.employee_id) || !rel.department_id) continue;
+    const dept = snapshot.departments.find((d) => d.id === rel.department_id);
+    if (dept) deptNames.add(dept.name);
+  }
+  if (deptNames.size === 0) return "غير مرتبط بالهيكل";
+  const names = Array.from(deptNames);
+  if (names.length <= 2) return names.join(" · ");
+  return `${names.length} وحدات تنظيمية`;
+}
+
+function aggregateOrgRisk(insights: ActiveRoleInsight[]): RiskLevel {
+  if (insights.some((r) => r.riskLevel === "high")) return "high";
+  if (insights.some((r) => r.riskLevel === "medium")) return "medium";
+  return "low";
+}
+
+function computeLeadershipPulse(
+  summary: OrgRolesIntelligence["summary"],
+  orgRisk: RiskLevel,
+  primaryBody: string,
+): LeadershipPulse {
+  const total = Math.max(summary.totalActiveEmployees, 1);
+  const linkedRatio = summary.linkedEmployees / total;
+
+  const unlinkedPenalty = summary.totalActiveEmployees > 0
+    ? Math.min(45, (summary.unlinkedEmployees / total) * 100)
+    : 30;
+  const managerPenalty = Math.min(25, summary.departmentsWithoutManager * 6);
+  const teamPenalty = Math.min(20, summary.teamsWithoutMembers * 5);
+  const structureReadinessPct = clampPct(100 - unlinkedPenalty - managerPenalty - teamPenalty);
+
+  let clarity = 0;
+  if (summary.activeByRole.organization_manager > 0) clarity += 35;
+  if (summary.activeByRole.finance_manager > 0) clarity += 15;
+  if (summary.activeByRole.employee > 0) clarity += 25;
+  clarity += Math.min(25, linkedRatio * 25);
+  if (summary.withoutDepartmentLabel > 0) {
+    clarity -= Math.min(20, (summary.withoutDepartmentLabel / total) * 30);
+  }
+  const leadershipClarityPct = clampPct(clarity);
+
+  let taskPressureLabel = "غير متاح";
+  if (summary.tasksAvailable) {
+    const overdue = summary.overdueTasksOrgWide ?? 0;
+    const open = summary.openTasksOrgWide ?? 0;
+    if (overdue >= 5 || (open > 0 && overdue / Math.max(open, 1) > 0.35)) {
+      taskPressureLabel = "مرتفع";
+    } else if (overdue >= 1 || open >= 8) {
+      taskPressureLabel = "متوسط";
+    } else {
+      taskPressureLabel = "خفيف";
+    }
+  }
+
+  return {
+    structureReadinessPct,
+    leadershipClarityPct,
+    taskPressureLabel,
+    orgRiskLevel: orgRisk,
+    todayInsight: primaryBody,
+  };
+}
+
+function buildPrimaryAction(summary: OrgRolesIntelligence["summary"]): PrimaryAction {
+  if (summary.unlinkedEmployees > 0) {
+    return {
+      title: "الإجراء المقترح الآن",
+      body: `اربط ${summary.unlinkedEmployees} موظفاً غير مصنفين بالهيكل من تبويب المخطط (ربط موظف) قبل توزيع مهام جديدة.`,
+    };
+  }
+  if (summary.departmentsWithoutManager > 0) {
+    return {
+      title: "الإجراء المقترح الآن",
+      body: `عيّن مسؤولاً لـ ${summary.departmentsWithoutManager} وحدة مفتوحة في السجل لتقليل التعطل التشغيلي وتوضيح المساءلة.`,
+    };
+  }
+  if (summary.teamsWithoutMembers > 0) {
+    return {
+      title: "الإجراء المقترح الآن",
+      body: `أكمل تعيين أعضاء لـ ${summary.teamsWithoutMembers} فريقاً بلا أعضاء حتى يصبح التوزيع التشغيلي واضحاً.`,
+    };
+  }
+  if (
+    summary.tasksAvailable &&
+    summary.overdueTasksOrgWide !== null &&
+    summary.overdueTasksOrgWide > 0
+  ) {
+    return {
+      title: "الإجراء المقترح الآن",
+      body: `راجع ${summary.overdueTasksOrgWide} مهمة متأخرة وأعد توزيع الضغط على الفريق من صفحة المهام.`,
+    };
+  }
+  return {
+    title: "الإجراء المقترح الآن",
+    body: "حافظ على الهيكل الحالي وواصل ربط الموظفين الجدد بالوحدات عند الانضمام.",
+  };
+}
+
+function buildLeadershipGaps(summary: OrgRolesIntelligence["summary"]): LeadershipGap[] {
+  const gaps: LeadershipGap[] = [];
+  if (summary.unlinkedEmployees > 0) {
+    gaps.push({ id: "unlinked", label: "موظفون خارج الهيكل", count: summary.unlinkedEmployees });
+  }
+  if (summary.withoutDepartmentLabel > 0) {
+    gaps.push({ id: "no-dept", label: "موظفون بدون قسم", count: summary.withoutDepartmentLabel });
+  }
+  if (summary.departmentsWithoutManager > 0) {
+    gaps.push({
+      id: "no-mgr",
+      label: "وحدات بدون مسؤول",
+      count: summary.departmentsWithoutManager,
+    });
+  }
+  if (summary.teamsWithoutMembers > 0) {
+    gaps.push({ id: "empty-team", label: "فرق بدون أعضاء", count: summary.teamsWithoutMembers });
+  }
+  return gaps.slice(0, 4);
+}
+
+function buildExecutiveRecommendations(
   summary: OrgRolesIntelligence["summary"],
   activeInsights: ActiveRoleInsight[],
 ): string[] {
   const out: string[] = [];
 
   if (summary.unlinkedEmployees > 0) {
-    out.push(
-      `يوجد ${summary.unlinkedEmployees} موظفاً غير مربوط بوحدة في الهيكل — استخدم «ربط موظف» من المخطط.`,
-    );
+    out.push("اربط الموظفين غير المصنفين بالهيكل قبل توزيع مهام جديدة.");
   }
   if (summary.departmentsWithoutManager > 0) {
-    out.push(
-      `${summary.departmentsWithoutManager} وحدة تنظيمية بلا مدير معيّن في السجل — راجع الهيكل عند التحديث.`,
-    );
+    out.push("عيّن مسؤولًا للوحدات المفتوحة لتقليل التعطل التشغيلي.");
   }
   if (summary.teamsWithoutMembers > 0) {
-    out.push(`${summary.teamsWithoutMembers} فريقاً بلا أعضاء مرتبطين — راجع التعيينات.`);
+    out.push("أكمل تعيين الفرق الفارغة لتحسين وضوح المسؤوليات اليومية.");
   }
-  if (summary.tasksAvailable && summary.overdueTasksOrgWide !== null && summary.overdueTasksOrgWide > 0) {
-    out.push(
-      `${summary.overdueTasksOrgWide} مهمة متأخرة في المنشأة — تابعها من صفحة المهام.`,
-    );
+  if (
+    summary.tasksAvailable &&
+    summary.overdueTasksOrgWide !== null &&
+    summary.overdueTasksOrgWide > 0
+  ) {
+    out.push("راجع المهام المتأخرة وأعد توزيع الضغط على الفريق.");
   }
-  const emptyManager = activeInsights.find((r) => r.roleSlug === "organization_manager" && r.assignedCount === 0);
-  if (emptyManager && out.length < 3) {
-    out.push("يُفضّل وجود مدير منشأة واحد على الأقل لإدارة الصلاحيات والهيكل.");
+  const noOrgManager = activeInsights.find(
+    (r) => r.roleSlug === "organization_manager" && r.assignedCount === 0,
+  );
+  if (noOrgManager && out.length < 3) {
+    out.push("حدّد مدير منشأة واحداً على الأقل لضبط الصلاحيات والمتابعة.");
+  }
+  if (summary.withoutDepartmentLabel > 0 && out.length < 3) {
+    out.push("حدّث تسمية الأقسام للموظفين لتحسين وضوح التقارير الداخلية.");
   }
   if (out.length === 0) {
-    out.push("لا توجد تنبيهات عاجلة — استمر في ربط الموظفين بالوحدات التنظيمية.");
+    out.push("الوضع القيادي مستقر — استمر في المتابعة الدورية للهيكل والمهام.");
   }
 
   return out.slice(0, 3);
@@ -292,9 +458,14 @@ export function buildRolesIntelligence(input: {
     orgSnapshot?.teams.filter((t) => !teamIdsWithMembers.has(t.id)).length ?? 0;
 
   let overdueTasksOrgWide: number | null = null;
+  let openTasksOrgWide: number | null = null;
   if (tasksAvailable) {
     overdueTasksOrgWide = taskList.filter((t) => isTaskOverdue(t, today)).length;
+    openTasksOrgWide = taskList.filter((t) => !isTaskCompleted(t)).length;
   }
+
+  const totalActiveEmployees = activeEmployeeIds.length;
+  const linkedEmployees = totalActiveEmployees - unlinkedEmployees;
 
   const activeRoleInsights: ActiveRoleInsight[] = TENANT_ACTIVE_RBAC_ROLES.map((def) => {
     const assigneeIds = resolveAssigneeIdsForRole(def.slug, profiles, employees, profilesUsed);
@@ -327,6 +498,7 @@ export function buildRolesIntelligence(input: {
       roleName: def.title,
       roleSlug: def.slug,
       assignedCount,
+      operationalScope: operationalScopeForRole(assigneeIds, orgSnapshot),
       taskLoad,
       overdueCount,
       completionRate,
@@ -375,17 +547,32 @@ export function buildRolesIntelligence(input: {
     departmentsWithoutManager,
     teamsWithoutMembers,
     overdueTasksOrgWide,
+    openTasksOrgWide,
     tasksAvailable,
     profilesUsed,
+    totalActiveEmployees,
+    linkedEmployees,
   };
 
-  const recommendations = buildRecommendations(summary, activeRoleInsights);
+  const orgRisk = aggregateOrgRisk(activeRoleInsights);
+  const primaryAction = buildPrimaryAction(summary);
+  const leadershipPulse = computeLeadershipPulse(summary, orgRisk, primaryAction.body);
+  const leadershipGaps = buildLeadershipGaps(summary);
+  const recommendations = buildExecutiveRecommendations(summary, activeRoleInsights);
+
+  const hasStructure = (orgSnapshot?.departments.length ?? 0) > 0;
+  const isLowData =
+    totalActiveEmployees < 2 || !hasStructure || (hasStructure && linkedEmployees === 0);
 
   return {
     summary,
     activeRoleInsights,
     organizationalInsights,
     recommendations,
+    leadershipPulse,
+    primaryAction,
+    leadershipGaps,
+    isLowData,
   };
 }
 
