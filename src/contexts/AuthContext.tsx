@@ -11,7 +11,6 @@ import {
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { assertSupabaseEnv, isSupabaseConfigured } from "@/lib/supabaseClient";
 import {
   isCustomerWorkspacePath,
   isPlatformSuperAdminRole,
