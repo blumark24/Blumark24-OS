@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { departmentColor } from "@/lib/services/departments";
 import { useOrgStructure } from "@/hooks/useOrgStructure";
@@ -12,6 +12,10 @@ import {
 } from "@/lib/org/orgUnits";
 import { assignEmployeeToOrgUnit } from "@/lib/org/structureDb";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
+import { resolveCompanyDisplayName } from "@/lib/tenant/companyDisplay";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import { useOrganizationNames } from "@/hooks/useOrganizationNames";
+import { CompanyNameLine } from "@/components/ui/CompanyNameLine";
 import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
 import { EmployeeMobileCard } from "@/components/employees/EmployeeMobileCard";
@@ -52,6 +56,7 @@ type FormState = {
 
 function EmployeesContent() {
   const { data: employees, loading, error, update, remove, refetch, setData } = useEmployees();
+  const { organizationId: workspaceOrgId, organizationName: workspaceOrgName } = useTenantWorkspace();
   const { data: orgSnapshot, loading: orgLoading } = useOrgStructure(true);
   const orgUnits = getAssignableOrgUnits(orgSnapshot?.departments ?? []);
   const { userRole, hasPermission } = usePermissions();
@@ -75,6 +80,23 @@ function EmployeesContent() {
       relation?.department_id,
     );
   };
+
+  const employeeOrgIds = useMemo(
+    () => (employees ?? []).map((e) => e.organizationId),
+    [employees],
+  );
+  const { namesById: orgNamesById } = useOrganizationNames(employeeOrgIds);
+
+  const companyNameForEmployee = useCallback(
+    (emp: (typeof employees)[0]) =>
+      resolveCompanyDisplayName({
+        organizationId: emp.organizationId,
+        namesById: orgNamesById,
+        workspaceOrganizationId: workspaceOrgId,
+        workspaceOrganizationName: workspaceOrgName,
+      }),
+    [orgNamesById, workspaceOrgId, workspaceOrgName],
+  );
 
   const [search,     setSearch]     = useState("");
   const [deptFilter, setDeptFilter] = useState("الكل");
@@ -392,6 +414,7 @@ function EmployeesContent() {
                 <EmployeeMobileCard
                   key={emp.id}
                   emp={emp}
+                  companyName={companyNameForEmployee(emp)}
                   canManage={canManageEmployees}
                   departmentColorFn={deptColorFor}
                   onEdit={() => openEdit(emp)}
@@ -430,6 +453,10 @@ function EmployeesContent() {
                         <div>
                           <div className="text-white font-medium">{emp.name}</div>
                           <div className="text-xs text-[#8ba3c7]">{emp.email}</div>
+                          <CompanyNameLine
+                            companyName={companyNameForEmployee(emp)}
+                            className="text-[10px] truncate mt-0.5"
+                          />
                         </div>
                       </div>
                     </td>

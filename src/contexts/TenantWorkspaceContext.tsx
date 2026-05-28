@@ -33,6 +33,7 @@ export interface TenantWorkspaceState {
   planLimits: Record<string, number>;
   isPlatformAdmin: boolean;
   organizationId: string | null;
+  organizationName: string | null;
   organizationStatus: string | null;
   loading: boolean;
   error: string | null;
@@ -47,6 +48,7 @@ const defaultState: TenantWorkspaceState = {
   planLimits: {},
   isPlatformAdmin: false,
   organizationId: null,
+  organizationName: null,
   organizationStatus: null,
   loading: true,
   error: null,
@@ -68,6 +70,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
   const [planLimits, setPlanLimits] = useState<Record<string, number>>({});
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [organizationName, setOrganizationName] = useState<string | null>(null);
   const [organizationStatus, setOrganizationStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +115,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
         featuresConfigured?: boolean;
         isPlatformAdmin?: boolean;
         organizationId?: string | null;
+        organizationName?: string | null;
         organizationStatus?: string | null;
       };
 
@@ -124,6 +128,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       setPlanLimits(body.planLimits ?? {});
       setIsPlatformAdmin(body.isPlatformAdmin === true);
       setOrganizationId(body.organizationId ?? null);
+      setOrganizationName(body.organizationName ?? null);
       setOrganizationStatus(body.organizationStatus ?? null);
 
       if (body.featuresConfigured !== true && body.isPlatformAdmin !== true) {
@@ -148,6 +153,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       setPlanLimits({});
       setIsPlatformAdmin(false);
       setOrganizationId(null);
+      setOrganizationName(null);
       setOrganizationStatus(null);
       return;
     }
@@ -194,6 +200,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       planLimits,
       isPlatformAdmin: accessCtx.isPlatformAdmin,
       organizationId,
+      organizationName,
       organizationStatus,
       loading: authLoading || loading,
       error,
@@ -207,6 +214,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       planLimits,
       accessCtx.isPlatformAdmin,
       organizationId,
+      organizationName,
       organizationStatus,
       authLoading,
       loading,

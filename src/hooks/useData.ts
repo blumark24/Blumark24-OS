@@ -171,6 +171,7 @@ function employeeFromDB(row: Record<string, unknown>): Employee {
     completedTasks: row.completed_tasks as number | undefined,
     avatar:         row.avatar          as string | undefined,
     salary:         row.salary          as number | undefined,
+    organizationId: (row.organization_id as string | null | undefined) ?? null,
   };
 }
 

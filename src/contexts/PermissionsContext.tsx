@@ -228,6 +228,7 @@ export interface ManagedUser {
   role:       UserRole;
   isActive:   boolean;
   department: string;
+  organizationId?: string | null;
 }
 
 // ─── Context value ────────────────────────────────────────────────────────[...]
@@ -293,6 +294,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
             role:       mapAuthRoleToUserRole(p.role),
             isActive:   p.is_active,
             department: p.department,
+            organizationId: p.organization_id ?? null,
           }))
         );
       })

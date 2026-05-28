@@ -24,6 +24,9 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { QuickActionsList } from "@/components/layout/QuickActionsMenu";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import { resolveCompanyDisplayName } from "@/lib/tenant/companyDisplay";
+import { COMPANY_LABEL_AR } from "@/lib/tenant/companyDisplay";
 import { withTimeout } from "@/lib/asyncHelpers";
 
 // Header global-search timeout — a slow Supabase must never hang the dropdown.
@@ -103,6 +106,13 @@ function ProfilePanelContent({
   onClose: () => void;
 }) {
   const { display: departmentInfo } = useProfileOrgDepartment();
+  const { organizationId, organizationName } = useTenantWorkspace();
+  const companyLabel = resolveCompanyDisplayName({
+    organizationId,
+    namesById: organizationName && organizationId ? { [organizationId]: organizationName } : {},
+    workspaceOrganizationId: organizationId,
+    workspaceOrganizationName: organizationName,
+  });
   const isActive = user.is_active !== false;
   const initials = user.name?.slice(0, 2) ?? "م";
   const roleLabel = userRole
@@ -151,6 +161,11 @@ function ProfilePanelContent({
           <span className={cn("font-medium truncate", departmentInfo.isEmpty ? "text-white/40 italic" : "text-white")}>
             {departmentInfo.text}
           </span>
+        </div>
+        <div className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-2.5 py-1.5 text-[11px] min-w-0 max-w-full">
+          <Building2 size={12} className="text-cyan-300 shrink-0" />
+          <span className="text-[#8ba3c7] shrink-0">{COMPANY_LABEL_AR}</span>
+          <span className="text-white font-medium truncate">{companyLabel}</span>
         </div>
       </div>
 
