@@ -5,14 +5,19 @@ import { cn } from "@/lib/utils";
 import {
   WS_CARD,
   WS_CARD_HOVER,
+  WS_CARD_PADDING,
+  WS_CARD_SHEEN,
   WS_ICON_ORB,
+  WS_ICON_TILE_SM,
   WS_INNER_CARD,
   WS_METRIC_LABEL,
   WS_METRIC_VALUE,
   WS_MUTED,
   WS_SECTION_TITLE,
   WS_STATUS_CHIP,
+  WS_SUBTEXT,
   WS_SURFACE,
+  WS_SURFACE_GLOW,
   WS_TINTS,
   SPARK_POINTS,
   kpiTheme,
@@ -57,8 +62,8 @@ export function PageHero({
 }) {
   return (
     <section className={cn(WS_SURFACE, "p-4 sm:p-5 lg:p-6", className)}>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_88%_-25%,rgba(34,211,238,0.14),transparent_55%),radial-gradient(110%_120%_at_8%_125%,rgba(124,58,237,0.12),transparent_55%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+      <div className={WS_SURFACE_GLOW} />
+      <div className={WS_CARD_SHEEN} />
       <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h1 className={cn(WS_SECTION_TITLE, "text-xl sm:text-2xl")}>{title}</h1>
@@ -111,7 +116,7 @@ export function KpiStatCard({
       )}
     >
       <div className={cn("pointer-events-none absolute inset-0", theme.ambient)} />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+      <div className={WS_CARD_SHEEN} />
       <div className="relative z-10 flex h-full flex-col">
         <div className="flex items-start justify-between gap-2">
           <span className={cn(WS_ICON_ORB, "w-[42px] h-[42px] shrink-0", theme.iconTile, theme.orb)}>
@@ -161,10 +166,10 @@ export function WorkspaceEmptyInline({
     <div className={cn("flex flex-col items-center justify-center gap-3 text-center", className)}>
       <div className="relative">
         <span
-          className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.18),transparent_70%)] blur-md"
+          className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.22),transparent_70%)] blur-md"
           aria-hidden
         />
-        <span className={cn(WS_ICON_ORB, "relative w-11 h-11", theme.orb)}>
+        <span className={cn(WS_ICON_ORB, WS_ICON_TILE_SM, "relative w-11 h-11", theme.orb)}>
           <Icon size={20} className={theme.iconColor} />
         </span>
       </div>
@@ -220,13 +225,13 @@ export function StatPill({
 }) {
   const t = WS_TINTS[tint];
   return (
-    <div className={cn(WS_INNER_CARD, "inline-flex items-center gap-2 px-2.5 py-1.5")}>
-      <span className={cn(WS_ICON_ORB, "w-7 h-7 shrink-0", t.orb)}>
+    <div className={cn(WS_INNER_CARD, "inline-flex items-center gap-2.5 px-3 py-2")}>
+      <span className={cn(WS_ICON_ORB, WS_ICON_TILE_SM, "w-7 h-7", t.orb)}>
         <Icon size={13} className={t.icon} />
       </span>
-      <div className="leading-tight">
-        <div className="whitespace-nowrap text-[10px] text-[rgba(203,213,225,0.65)]">{label}</div>
-        <div className="whitespace-nowrap text-[13px] font-bold text-white">{value}</div>
+      <div className="leading-tight min-w-0">
+        <div className={cn("whitespace-nowrap text-[10px]", WS_SUBTEXT)}>{label}</div>
+        <div className="whitespace-nowrap text-[13px] font-bold text-white tabular-nums">{value}</div>
       </div>
     </div>
   );
@@ -273,8 +278,8 @@ export function GlassPanel({
   title?: string;
 }) {
   return (
-    <div className={cn(WS_CARD, "p-4 sm:p-5 lg:p-6", className)}>
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+    <div className={cn(WS_CARD, WS_CARD_PADDING, className)}>
+      <div className={WS_CARD_SHEEN} />
       {title ? (
         <h2 className={cn(WS_SECTION_TITLE, "relative z-10 text-base mb-4 pb-3 border-b border-[rgba(148,163,184,0.10)]")}>
           {title}
