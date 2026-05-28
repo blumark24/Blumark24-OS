@@ -1,11 +1,16 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { ShieldOff } from "lucide-react";
+import { AlertTriangle, ShieldOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { getRouteByPathname } from "@/lib/features/packageFeatures";
 import { CardSkeleton } from "@/components/ui/Skeleton";
+import {
+  isCustomerWorkspacePath,
+  isPlatformSuperAdminRole,
+  MISSING_ORGANIZATION_ERROR_MSG,
+} from "@/lib/tenant/customerWorkspaceRoutes";
 
 interface WorkspaceRouteGuardProps {
   children: React.ReactNode;
@@ -16,10 +21,34 @@ interface WorkspaceRouteGuardProps {
  */
 export default function WorkspaceRouteGuard({ children }: WorkspaceRouteGuardProps) {
   const pathname = usePathname();
-  const { loading: authLoading, user } = useAuth();
+  const { loading: authLoading, user, profileLoadError } = useAuth();
   const { loading: wsLoading, canAccessPath } = useTenantWorkspace();
 
   const route = getRouteByPathname(pathname ?? "");
+  const onCustomerWorkspace = isCustomerWorkspacePath(pathname ?? "");
+
+  if (onCustomerWorkspace && user && isPlatformSuperAdminRole(user.role)) {
+    return (
+      <div className="space-y-4">
+        <CardSkeleton rows={3} />
+      </div>
+    );
+  }
+
+  if (
+    onCustomerWorkspace &&
+    user &&
+    !isPlatformSuperAdminRole(user.role) &&
+    !user.organizationId
+  ) {
+    const msg = profileLoadError ?? MISSING_ORGANIZATION_ERROR_MSG;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] text-center space-y-3 px-4">
+        <AlertTriangle size={28} className="text-red-400" />
+        <p className="text-red-300 text-sm max-w-md">{msg}</p>
+      </div>
+    );
+  }
 
   if (authLoading || wsLoading || !user) {
     return (

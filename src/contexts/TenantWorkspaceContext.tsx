@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   mapAuthRoleToUserRole,
@@ -26,6 +27,10 @@ import {
   type WorkspaceFeature,
   type WorkspaceRouteDef,
 } from "@/lib/features/packageFeatures";
+import {
+  isCustomerWorkspacePath,
+  isPlatformSuperAdminRole,
+} from "@/lib/tenant/customerWorkspaceRoutes";
 
 export interface TenantWorkspaceState {
   planSlug: PlanSlug;
@@ -58,6 +63,7 @@ const defaultState: TenantWorkspaceState = {
 const TenantWorkspaceContext = createContext<TenantWorkspaceState>(defaultState);
 
 export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const { user, loading: authLoading } = useAuth();
   const { hasPermission, userRole } = usePermissions();
   const resolvedRole =
@@ -75,6 +81,26 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
   const load = useCallback(async () => {
     if (!user?.id) {
       setLoading(false);
+      return;
+    }
+
+    if (isPlatformSuperAdminRole(user.role)) {
+      setLoading(false);
+      setError(null);
+      setIsPlatformAdmin(true);
+      setOrganizationId(user.organizationId ?? null);
+      setEnabledFeatures([]);
+      setPlanSlug("basic");
+      return;
+    }
+
+    if (!user.organizationId) {
+      setLoading(false);
+      setError(null);
+      setIsPlatformAdmin(false);
+      setOrganizationId(null);
+      setEnabledFeatures([]);
+      setPlanSlug("basic");
       return;
     }
 
@@ -137,7 +163,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.role, user?.organizationId]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -151,8 +177,15 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
       setOrganizationStatus(null);
       return;
     }
+    if (
+      isPlatformSuperAdminRole(user.role) &&
+      isCustomerWorkspacePath(pathname ?? "")
+    ) {
+      setLoading(false);
+      return;
+    }
     void load();
-  }, [authLoading, user?.id, load]);
+  }, [authLoading, user?.id, user?.role, user?.organizationId, pathname, load]);
 
   const accessCtx = useMemo(
     () => ({
@@ -174,17 +207,19 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
 
   const navRoutes = useMemo(() => {
     if (authLoading || !user?.id || !resolvedRole) return [];
+    if (isPlatformSuperAdminRole(user.role)) return [];
     return filterNavRoutes(accessCtx, checkPermission);
-  }, [authLoading, user?.id, resolvedRole, accessCtx, checkPermission]);
+  }, [authLoading, user?.id, user?.role, resolvedRole, accessCtx, checkPermission]);
 
   const canAccessPath = useCallback(
     (pathname: string) => {
+      if (user && isPlatformSuperAdminRole(user.role)) return false;
       const route = getRouteByPathname(pathname);
       if (!route) return true;
       if (!resolvedRole && !accessCtx.isPlatformAdmin) return false;
       return canAccessWorkspaceRoute(route, accessCtx, checkPermission);
     },
-    [resolvedRole, accessCtx, checkPermission],
+    [user, resolvedRole, accessCtx, checkPermission],
   );
 
   const value = useMemo<TenantWorkspaceState>(
