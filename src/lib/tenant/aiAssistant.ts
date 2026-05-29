@@ -1,0 +1,140 @@
+import type { TenantAiContextPayload } from "@/lib/tenant/aiContext";
+
+export const AI_ASSISTANT_MAX_MESSAGE_CHARS = 2000;
+export const AI_ASSISTANT_MAX_HISTORY = 6;
+export const AI_ASSISTANT_MAX_OUTPUT_TOKENS = 600;
+
+const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
+const ALLOWED_OPENAI_MODELS = new Set([
+  "gpt-4o-mini",
+  "gpt-4.1-mini",
+  "gpt-4.1-nano",
+]);
+
+export type AssistantChatRole = "user" | "assistant";
+
+export interface AssistantHistoryMessage {
+  role: AssistantChatRole;
+  content: string;
+}
+
+export function resolveOpenAiModel(): string {
+  const env = (process.env.OPENAI_MODEL ?? "").trim();
+  if (env && ALLOWED_OPENAI_MODELS.has(env)) return env;
+  return DEFAULT_OPENAI_MODEL;
+}
+
+export function buildTenantAiSystemPrompt(
+  context: TenantAiContextPayload,
+): string {
+  const financeRule = context.finance.available
+    ? "يمكنك الإجابة عن المالية باستخدام المجاميع المتاحة فقط (دخل/مصروف/صافي) دون تفاصيل معاملات."
+    : "لا تُجب عن أسئلة مالية تفصيلية — بيانات المالية غير متاحة لهذا المستخدم (finance.available = false).";
+
+  return `أنت مساعد تنفيذي للعمليات داخل منشأة واحدة فقط (Blumark24 OS).
+اللغة: العربية الفصحى المبسطة، نبرة عملية ومختصرة.
+
+قواعد صارمة:
+- استخدم فقط سياق المنشأة المرفق أدناه (ملخصات وأعداد). لا تدّعِ الوصول لبيانات خارج هذا السياق.
+- لا تذكر معرفات UUID أو مفاتيح API أو أسراراً أو بيانات منشآت أخرى.
+- لا تقترح الوصول عبر منشآت أو حسابات أخرى.
+- إذا طُلب منك إنشاء/تعديل/حذف بيانات: اشرح أن هذا الإصدار يقدم توصيات وتحليلاً فقط دون تنفيذ تغييرات.
+- ${financeRule}
+- عند نقص المعلومات، قل ذلك بوضوح ولا تخمّن أرقاماً.
+
+سياق المنشأة (JSON):
+${JSON.stringify(context)}`;
+}
+
+export function parseAssistantRequestBody(body: unknown):
+  | { ok: true; message: string; conversationHistory: AssistantHistoryMessage[] }
+  | { ok: false; error: string } {
+  if (!body || typeof body !== "object") {
+    return { ok: false, error: "طلب غير صالح" };
+  }
+
+  const record = body as Record<string, unknown>;
+  const message = typeof record.message === "string" ? record.message.trim() : "";
+
+  if (!message) {
+    return { ok: false, error: "الرسالة فارغة" };
+  }
+  if (message.length > AI_ASSISTANT_MAX_MESSAGE_CHARS) {
+    return { ok: false, error: "الرسالة طويلة جداً" };
+  }
+
+  let conversationHistory: AssistantHistoryMessage[] = [];
+  if (record.conversationHistory !== undefined) {
+    if (!Array.isArray(record.conversationHistory)) {
+      return { ok: false, error: "سجل المحادثة غير صالح" };
+    }
+    const sliced = record.conversationHistory.slice(-AI_ASSISTANT_MAX_HISTORY);
+    for (const item of sliced) {
+      if (!item || typeof item !== "object") {
+        return { ok: false, error: "سجل المحادثة غير صالح" };
+      }
+      const row = item as Record<string, unknown>;
+      const role = row.role;
+      const content = typeof row.content === "string" ? row.content.trim() : "";
+      if (role !== "user" && role !== "assistant") {
+        return { ok: false, error: "سجل المحادثة غير صالح" };
+      }
+      if (!content || content.length > AI_ASSISTANT_MAX_MESSAGE_CHARS) {
+        return { ok: false, error: "سجل المحادثة غير صالح" };
+      }
+      conversationHistory.push({ role, content });
+    }
+  }
+
+  return { ok: true, message, conversationHistory };
+}
+
+export async function callOpenAiAssistant(input: {
+  apiKey: string;
+  systemPrompt: string;
+  message: string;
+  conversationHistory: AssistantHistoryMessage[];
+}): Promise<{ reply: string } | { error: string; status: number }> {
+  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+    { role: "system", content: input.systemPrompt },
+    ...input.conversationHistory.map((m) => ({
+      role: m.role,
+      content: m.content,
+    })),
+    { role: "user", content: input.message },
+  ];
+
+  const model = resolveOpenAiModel();
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: AI_ASSISTANT_MAX_OUTPUT_TOKENS,
+      temperature: 0.35,
+    }),
+  });
+
+  if (!res.ok) {
+    return {
+      error: "تعذر الحصول على رد من المساعد — حاول لاحقاً",
+      status: 502,
+    };
+  }
+
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string | null } }>;
+  };
+
+  const reply = data.choices?.[0]?.message?.content?.trim();
+  if (!reply) {
+    return { error: "رد فارغ من المساعد", status: 502 };
+  }
+
+  return { reply };
+}
