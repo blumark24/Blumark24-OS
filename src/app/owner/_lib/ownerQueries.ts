@@ -652,6 +652,111 @@ export async function createOrganization(input: NewOrganizationInput): Promise<C
   return { ok: true, id: newId };
 }
 
+// ─── Provision full tenant (owner-only, server route) ─────────────────────────
+// Calls POST /api/owner/provision-tenant with the owner's session token only.
+
+export interface ProvisionTenantInput {
+  name: string;
+  slug?: string;
+  ownerEmail: string;
+  password: string;
+  planId?: string;
+  status: DbOrganization["status"];
+  billingCycle: "monthly" | "annual";
+}
+
+export interface ProvisionTenantResult {
+  ok: boolean;
+  error?: string;
+  partial?: boolean;
+  failedStep?: string;
+  organizationId?: string;
+  organizationCode?: string | null;
+  email?: string;
+}
+
+export async function provisionTenant(
+  input: ProvisionTenantInput,
+): Promise<ProvisionTenantResult> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) {
+    return { ok: false, error: "انتهت الجلسة — سجّل الدخول مجدداً" };
+  }
+
+  let resp: Response;
+  try {
+    resp = await fetch("/api/owner/provision-tenant", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        name: input.name.trim(),
+        slug: input.slug?.trim() || undefined,
+        ownerEmail: input.ownerEmail.trim().toLowerCase(),
+        password: input.password,
+        planId: input.planId || undefined,
+        status: input.status,
+        billingCycle: input.billingCycle,
+      }),
+    });
+  } catch {
+    return { ok: false, error: "تعذّر الاتصال بالخادم — حاول مجدداً" };
+  }
+
+  type Payload = {
+    success?: boolean;
+    error?: string;
+    partial?: boolean;
+    failedStep?: string;
+    organizationId?: string;
+    organizationCode?: string | null;
+    organization_code?: string | null;
+    customerCode?: string | null;
+    email?: string;
+  };
+
+  let payload: Payload = {};
+  try {
+    payload = (await resp.json()) as Payload;
+  } catch {
+    /* non-JSON */
+  }
+
+  if (payload.partial) {
+    return {
+      ok: false,
+      partial: true,
+      failedStep: payload.failedStep,
+      error: payload.error,
+      organizationId: payload.organizationId,
+      organizationCode:
+        payload.organizationCode
+        ?? payload.organization_code
+        ?? payload.customerCode
+        ?? null,
+      email: input.ownerEmail.trim().toLowerCase(),
+    };
+  }
+
+  if (!resp.ok || payload.success !== true) {
+    return { ok: false, error: payload.error ?? "تعذّر إنشاء العميل الكامل" };
+  }
+
+  return {
+    ok: true,
+    organizationId: payload.organizationId,
+    organizationCode:
+      payload.organizationCode
+      ?? payload.organization_code
+      ?? payload.customerCode
+      ?? null,
+    email: payload.email ?? input.ownerEmail.trim().toLowerCase(),
+  };
+}
+
 // ─── Activate subscription (owner-only mutation) ──────────────────────────────
 // Creates the first subscription for an organization that has none. Requires
 // the organization to already have a plan_id. Because `subscriptions` has no
