@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Building2, ChevronDown, ChevronLeft, Crown, Layers, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import {
   buildDepartmentTreeContext,
   departmentChildren,
@@ -87,7 +88,8 @@ function DeptBranch({
           </span>
         )}
         <Building2 size={14} className="shrink-0" style={{ color: dept.color || accent }} />
-        <span className="truncate flex-1">{dept.name}</span>
+        <span className="truncate flex-1 min-w-0">{dept.name}</span>
+        <PublicCodeBadge code={dept.publicCode} className="shrink-0 max-w-[5.5rem]" />
       </button>
 
       {!isCollapsed && (

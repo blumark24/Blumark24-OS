@@ -9,6 +9,7 @@ export interface Department {
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
+  publicCode?: string;
 }
 
 function fromRow(row: Record<string, unknown>): Department {
@@ -21,6 +22,10 @@ function fromRow(row: Record<string, unknown>): Department {
     sortOrder: Number(row.sort_order ?? 0),
     isActive: row.is_active !== false,
     createdAt: (row.created_at as string) ?? "",
+    publicCode:
+      typeof row.department_code === "string" && row.department_code.trim()
+        ? row.department_code.trim()
+        : undefined,
   };
 }
 

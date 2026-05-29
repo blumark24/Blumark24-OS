@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { departmentColor } from "@/lib/services/departments";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { WS_CARD } from "@/components/ui/workspaceVisual";
+import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import type { UserRole } from "@/contexts/PermissionsContext";
 
 export interface EmployeeRow {
@@ -18,6 +19,7 @@ export interface EmployeeRow {
   tasks?: number;
   joinDate?: string;
   status: string;
+  publicCode?: string;
 }
 
 export function EmployeeMobileCard({
@@ -48,6 +50,9 @@ export function EmployeeMobileCard({
         <div className="min-w-0 flex-1">
           <div className="text-white font-semibold text-sm truncate">{emp.name}</div>
           <div className="text-[11px] text-[#8ba3c7] truncate mt-0.5">{emp.email}</div>
+          <div className="mt-1">
+            <PublicCodeBadge code={emp.publicCode} />
+          </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <span
               className="badge text-[10px] max-w-full truncate"

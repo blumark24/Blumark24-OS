@@ -41,6 +41,7 @@ export interface DbOrganization {
   name: string;
   slug: string | null;
   customer_code: string | null;
+  organization_code: string | null;
   owner_email: string | null;
   plan_id: string | null;
   status: "active" | "suspended" | "trial" | "cancelled";
@@ -190,6 +191,17 @@ const SLUG_AUDIENCE: Record<string, string> = {
 };
 
 // ─── Normalization helpers ───────────────────────────────────────────────────
+
+/** DB-FOUNDATION-5 organization_code; legacy customer_code (BMK-…) as fallback. */
+export function resolveOrganizationPublicCode(org: {
+  organization_code?: string | null;
+  customer_code?: string | null;
+}): string | null {
+  const orgCode = org.organization_code?.trim();
+  if (orgCode) return orgCode;
+  const legacy = org.customer_code?.trim();
+  return legacy || null;
+}
 
 function limitsToStrings(limits: Record<string, number>, slug: string): string[] {
   const e = limits["max_employees"] ?? 0;
@@ -432,8 +444,9 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
   const [orgsRes, plansRes, subsRes, linksRes] = await Promise.all([
     supabase
       .from("organizations")
-      // customer_code omitted — migration 014 may not be applied yet; selecting it fails the whole query.
-      .select("id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at")
+      .select(
+        "id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at, organization_code, customer_code",
+      )
       .order("created_at"),
     supabase
       .from("plans")
@@ -474,7 +487,7 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
       id: org.id,
       name: org.name,
       slug: org.slug,
-      customerCode: null,
+      customerCode: resolveOrganizationPublicCode(org),
       ownerEmail: org.owner_email,
       isInternal: org.is_internal === true,
       statusRaw: org.status,

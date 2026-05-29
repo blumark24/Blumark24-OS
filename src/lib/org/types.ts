@@ -11,6 +11,8 @@ export interface Department {
   color: string;
   icon: string;
   sort_order: number;
+  department_code?: string | null;
+  publicCode?: string;
 }
 
 export interface Team {

@@ -9,6 +9,7 @@ import type {
   DbSubscription,
   PlanLimitsValues,
 } from "./ownerQueries";
+import { resolveOrganizationPublicCode } from "./ownerQueries";
 import {
   fetchOwnerAuditTimelineForOrg,
   type OwnerAuditEntry,
@@ -166,8 +167,9 @@ export async function fetchOrganizationDetail(
 ): Promise<OrganizationDetailData | null> {
   const orgRes = await supabase
     .from("organizations")
-    // customer_code omitted — migration 014 may not be applied yet; selecting it fails the whole query.
-    .select("id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at")
+    .select(
+      "id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at, organization_code, customer_code",
+    )
     .eq("id", orgId)
     .maybeSingle();
 
@@ -336,7 +338,7 @@ export async function fetchOrganizationDetail(
       id: org.id,
       name: org.name,
       slug: org.slug,
-      customerCode: null,
+      customerCode: resolveOrganizationPublicCode(org),
       ownerEmail: org.owner_email,
       notes: org.notes,
       isInternal: org.is_internal === true,
