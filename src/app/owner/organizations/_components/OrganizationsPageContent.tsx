@@ -281,7 +281,7 @@ function OrgCard(props: RowActionsProps) {
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
         <div className="col-span-2 flex items-center gap-1.5">
-          <span className="text-[#8ba3c7]">رقم العميل:</span>
+          <span className="text-[#8ba3c7]">كود المنشأة:</span>
           <span className={cn("tabular-nums", org.customerCode ? "font-mono text-[#22d3ee]" : "text-[#8ba3c7]")}>
             {org.customerCode ?? OWNER_UNAVAILABLE_HINT}
           </span>
@@ -489,7 +489,7 @@ export default function OrganizationsPageContent() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="بحث: رقم العميل، الاسم، البريد..."
+                placeholder="بحث: كود المنشأة، الاسم، البريد..."
                 className="w-full rounded-xl bg-[rgba(13,31,60,0.7)] border border-white/[0.08] text-[12px] text-white placeholder:text-white/40 pr-9 pl-3 py-2 outline-none transition-colors focus:border-[#22d3ee]/50"
               />
             </div>
@@ -517,7 +517,7 @@ export default function OrganizationsPageContent() {
                 <thead>
                   <tr className="text-[11px] text-[#8ba3c7] border-b border-white/[0.07]">
                     <th className="font-medium pb-3 pr-1 text-right">المنشأة</th>
-                    <th className="font-medium pb-3 text-right">رقم العميل</th>
+                    <th className="font-medium pb-3 text-right">كود المنشأة</th>
                     <th className="font-medium pb-3 text-right">المعرف</th>
                     <th className="font-medium pb-3 text-right">المالك</th>
                     <th className="font-medium pb-3 text-right">الباقة</th>

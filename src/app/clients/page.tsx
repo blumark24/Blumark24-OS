@@ -13,6 +13,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { WS_PAGE, WS_CARD } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty, GlassPanel } from "@/components/ui/workspaceUi";
+import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; class: string; color: string }> = {
   "محتمل":  { label: "محتمل",  class: "status-pending",  color: "#f59e0b" },
@@ -232,7 +233,10 @@ function ClientsContent() {
               <div key={client.id} className={cn(WS_CARD, "p-4")}>
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="min-w-0 flex-1">
-                    <div className="text-white font-medium truncate">{client.name}</div>
+                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                      <div className="text-white font-medium truncate">{client.name}</div>
+                      <PublicCodeBadge code={client.publicCode} />
+                    </div>
                     <div className="flex items-center gap-1 text-xs text-[#8ba3c7] mt-1">
                       <Phone size={11} />
                       <span dir="ltr">{client.phone}</span>
@@ -295,6 +299,9 @@ function ClientsContent() {
                     <tr key={client.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
                       <td className="px-4 py-3">
                         <div className="text-white font-medium">{client.name}</div>
+                        <div className="mt-0.5">
+                          <PublicCodeBadge code={client.publicCode} />
+                        </div>
                         <div className="flex items-center gap-1 text-xs text-[#8ba3c7] mt-0.5">
                           <Phone size={10} />
                           <span>{client.phone}</span>

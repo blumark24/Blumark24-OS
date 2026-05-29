@@ -15,6 +15,7 @@ import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
 import { EmployeeMobileCard } from "@/components/employees/EmployeeMobileCard";
+import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -427,9 +428,12 @@ function EmployeesContent() {
                         >
                           {emp.name.slice(0, 2)}
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <div className="text-white font-medium">{emp.name}</div>
                           <div className="text-xs text-[#8ba3c7]">{emp.email}</div>
+                          <div className="mt-0.5">
+                            <PublicCodeBadge code={emp.publicCode} />
+                          </div>
                         </div>
                       </div>
                     </td>

@@ -33,6 +33,7 @@ export interface Department {
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
+  publicCode?: string;
 }
 
 export interface Employee extends User {
@@ -40,6 +41,7 @@ export interface Employee extends User {
   salary?: number;
   tasks?: number;
   completedTasks?: number;
+  publicCode?: string;
 }
 
 export type TaskStatus = "جديدة" | "قيد_التنفيذ" | "بانتظار_المراجعة" | "مكتملة" | "متأخرة";
@@ -59,6 +61,7 @@ export interface Task {
   dueDate: string;
   createdAt: string;
   tags?: string[];
+  publicCode?: string;
 }
 
 export type ClientStatus = "محتمل" | "متعاقد" | "نشط" | "متوقف";
@@ -77,6 +80,7 @@ export interface Client {
   accountManagerName: string;
   notes?: string;
   createdAt: string;
+  publicCode?: string;
 }
 
 export interface Transaction {

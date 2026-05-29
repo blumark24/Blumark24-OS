@@ -73,6 +73,7 @@ function clientFromDB(row: Record<string, unknown>): Client {
     accountManagerName: row.account_manager_name as string,
     notes:              row.notes           as string | undefined,
     createdAt:          (row.created_at     as string) ?? "",
+    publicCode:         (row.client_code    as string | undefined) || undefined,
   };
 }
 
@@ -121,6 +122,7 @@ function taskFromDB(row: Record<string, unknown>): Task {
     dueDate:         row.due_date       as string,
     createdAt:       (row.created_at    as string) ?? "",
     tags:            row.tags           as string[] | undefined,
+    publicCode:      (row.task_code      as string | undefined) || undefined,
   };
 }
 
@@ -171,6 +173,7 @@ function employeeFromDB(row: Record<string, unknown>): Employee {
     completedTasks: row.completed_tasks as number | undefined,
     avatar:         row.avatar          as string | undefined,
     salary:         row.salary          as number | undefined,
+    publicCode:     (row.employee_code  as string | undefined) || undefined,
   };
 }
 

@@ -211,7 +211,7 @@ export default function OrganizationDetailPageContent({ orgId }: Props) {
           </h2>
           <div className="space-y-3">
             <Field
-              label="رقم العميل"
+              label="كود المنشأة"
               value={
                 <span className="inline-flex items-center gap-1 font-mono tabular-nums text-[#22d3ee]">
                   <Hash size={11} className="text-[#22d3ee]/60" />

@@ -38,7 +38,15 @@ export async function fetchOrgStructure(): Promise<OrgStructureSnapshot> {
       level === "agency" || level === "management" || level === "department"
         ? level
         : "department";
-    return { ...(row as unknown as Department), structure_level };
+    const code =
+      typeof row.department_code === "string" && row.department_code.trim()
+        ? row.department_code.trim()
+        : undefined;
+    return {
+      ...(row as unknown as Department),
+      structure_level,
+      publicCode: code,
+    };
   }) as Department[];
 
   return {

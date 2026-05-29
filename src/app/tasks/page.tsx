@@ -8,6 +8,7 @@ import type { TaskStatus, TaskPriority } from "@/types";
 import { cn } from "@/lib/utils";
 import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
+import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import { useTasks, useClients, useEmployees } from "@/hooks/useData";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -207,8 +208,13 @@ function TasksContent() {
                       {colTasks.map((task) => (
                         <article key={task.id} className="glass-card glass-card-hover rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4">
                           <div className="mb-2 flex items-start justify-between gap-2">
-                            <h4 className="min-w-0 text-sm font-semibold leading-6 text-white line-clamp-2">{task.title}</h4>
-                            <span className={`badge shrink-0 text-xs ${PRIORITY_CONFIG[task.priority].class}`}>{PRIORITY_CONFIG[task.priority].label}</span>
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <PublicCodeBadge code={task.publicCode} />
+                                <span className={`badge shrink-0 text-xs ${PRIORITY_CONFIG[task.priority].class}`}>{PRIORITY_CONFIG[task.priority].label}</span>
+                              </div>
+                              <h4 className="text-sm font-semibold leading-6 text-white line-clamp-2">{task.title}</h4>
+                            </div>
                           </div>
                           {task.description && <p className="mb-2 text-xs leading-5 text-[#8ba3c7] line-clamp-2">{task.description}</p>}
                           {task.clientName && <div className="mb-2 truncate text-xs text-[#8ba3c7]">👤 {task.clientName}</div>}
@@ -254,7 +260,12 @@ function TasksContent() {
               {tasks.map((task) => (
                 <article key={task.id} className="rounded-xl border border-[#2a4c79] bg-[#0f2344]/80 p-3">
                   <div className="flex items-start justify-between gap-2">
-                    <h4 className="min-w-0 text-sm font-semibold text-white line-clamp-2">{task.title}</h4>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-sm font-semibold text-white line-clamp-2">{task.title}</h4>
+                      <div className="mt-1">
+                        <PublicCodeBadge code={task.publicCode} />
+                      </div>
+                    </div>
                     <span className={`badge shrink-0 text-xs ${PRIORITY_CONFIG[task.priority].class}`}>{PRIORITY_CONFIG[task.priority].label}</span>
                   </div>
                   {task.description && <p className="mt-1 text-xs text-[#8ba3c7] line-clamp-2">{task.description}</p>}
@@ -283,6 +294,9 @@ function TasksContent() {
                     <tr key={task.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
                       <td className="px-4 py-3">
                         <div className="font-medium text-white">{task.title}</div>
+                        <div className="mt-0.5">
+                          <PublicCodeBadge code={task.publicCode} />
+                        </div>
                         {task.description && <div className="mt-0.5 line-clamp-2 text-xs text-[#8ba3c7]">{task.description}</div>}
                       </td>
                       <td className="px-4 py-3 text-[#8ba3c7]">{task.assigneeName}</td>
