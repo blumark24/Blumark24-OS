@@ -89,12 +89,56 @@ export function parseAssistantRequestBody(body: unknown):
   return { ok: true, message, conversationHistory };
 }
 
+export const OPENAI_KEY_MISSING_MESSAGE =
+  "مفتاح الذكاء الاصطناعي غير مضبوط على الخادم";
+
+export const OPENAI_KEY_INVALID_MESSAGE =
+  "مفتاح الذكاء الاصطناعي غير صالح أو غير مفعّل";
+
+export const OPENAI_PROVIDER_UNAVAILABLE_MESSAGE =
+  "تعذر الاتصال بمزود الذكاء الاصطناعي حالياً";
+
+export function buildLocalContextFallback(
+  context: TenantAiContextPayload,
+): string {
+  const orgName = context.organization.name || "منشأتك";
+  const lines = [
+    "أستطيع قراءة ملخص منشأتك، لكن نموذج الذكاء غير متاح حالياً. إليك لمحة سريعة من البيانات الآمنة:",
+    "",
+    `**${orgName}**`,
+    `- الموظفون: ${context.employees.total} (نشط ${context.employees.active}، خارج الهيكل ${context.employees.outsideStructure})`,
+    `- المهام: ${context.tasks.total} (مفتوحة ${context.tasks.open}، متأخرة ${context.tasks.overdue}، مكتملة ${context.tasks.completed})`,
+    `- العملاء: ${context.clients.total} (نشط ${context.clients.active})`,
+    `- الهيكل: ${context.orgStructure.departments} أقسام، ${context.orgStructure.teams} فرق`,
+  ];
+
+  if (context.finance.available) {
+    lines.push(
+      `- المالية (مجاميع): دخل ${context.finance.totalIncome}، مصروف ${context.finance.totalExpense}، صافي ${context.finance.netProfit}`,
+    );
+  } else {
+    lines.push("- المالية: غير متاحة لدورك الحالي");
+  }
+
+  lines.push("", "جرّب لاحقاً بعد ضبط مزود الذكاء، أو تواصل مع الدعم.");
+  return lines.join("\n");
+}
+
+export type OpenAiCallResult =
+  | { ok: true; reply: string }
+  | {
+      ok: false;
+      status: number;
+      message: string;
+      useFallback: boolean;
+    };
+
 export async function callOpenAiAssistant(input: {
   apiKey: string;
   systemPrompt: string;
   message: string;
   conversationHistory: AssistantHistoryMessage[];
-}): Promise<{ reply: string } | { error: string; status: number }> {
+}): Promise<OpenAiCallResult> {
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: input.systemPrompt },
     ...input.conversationHistory.map((m) => ({
@@ -105,36 +149,66 @@ export async function callOpenAiAssistant(input: {
   ];
 
   const model = resolveOpenAiModel();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: AI_ASSISTANT_MAX_OUTPUT_TOKENS,
-      temperature: 0.35,
-    }),
-  });
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: AI_ASSISTANT_MAX_OUTPUT_TOKENS,
+        temperature: 0.35,
+      }),
+    });
 
-  if (!res.ok) {
-    return {
-      error: "تعذر الحصول على رد من المساعد — حاول لاحقاً",
-      status: 502,
+    if (res.status === 401 || res.status === 403) {
+      return {
+        ok: false,
+        status: 503,
+        message: OPENAI_KEY_INVALID_MESSAGE,
+        useFallback: false,
+      };
+    }
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: 503,
+        message: OPENAI_PROVIDER_UNAVAILABLE_MESSAGE,
+        useFallback: true,
+      };
+    }
+
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string | null } }>;
     };
+
+    const reply = data.choices?.[0]?.message?.content?.trim();
+    if (!reply) {
+      return {
+        ok: false,
+        status: 503,
+        message: OPENAI_PROVIDER_UNAVAILABLE_MESSAGE,
+        useFallback: true,
+      };
+    }
+
+    return { ok: true, reply };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: OPENAI_PROVIDER_UNAVAILABLE_MESSAGE,
+      useFallback: true,
+    };
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string | null } }>;
-  };
-
-  const reply = data.choices?.[0]?.message?.content?.trim();
-  if (!reply) {
-    return { error: "رد فارغ من المساعد", status: 502 };
-  }
-
-  return { reply };
 }

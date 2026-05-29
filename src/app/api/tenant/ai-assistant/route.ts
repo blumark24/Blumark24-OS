@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  buildLocalContextFallback,
   buildTenantAiSystemPrompt,
   callOpenAiAssistant,
+  OPENAI_KEY_MISSING_MESSAGE,
   parseAssistantRequestBody,
   resolveOpenAiModel,
 } from "@/lib/tenant/aiAssistant";
@@ -15,41 +17,64 @@ export const dynamic = "force-dynamic";
 
 const TAG = "[tenant/ai-assistant]";
 
+type AssistantJsonBody = {
+  reply?: string;
+  error?: string;
+  message?: string;
+  fallback?: boolean;
+  model?: string;
+};
+
+function jsonAssistantResponse(payload: AssistantJsonBody, status: number) {
+  return NextResponse.json(payload, { status });
+}
+
 /** Tenant-scoped AI assistant — OpenAI server-side, safe context only, no writes. */
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = (process.env.OPENAI_API_KEY ?? "").trim();
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          error: "ASSISTANT_UNAVAILABLE",
-          message:
-            "المساعد الذكي غير متاح حالياً — لم يتم إعداد مفتاح OpenAI على الخادم.",
-        },
-        { status: 503 },
-      );
-    }
-
     const session = await resolveTenantSession(req);
     if (!session.ok) {
-      return NextResponse.json({ error: session.error }, { status: session.status });
+      return jsonAssistantResponse(
+        { error: session.error, message: session.error },
+        session.status,
+      );
     }
 
     let body: unknown;
     try {
       body = await req.json();
     } catch {
-      return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 });
+      return jsonAssistantResponse(
+        { error: "طلب غير صالح", message: "طلب غير صالح" },
+        400,
+      );
     }
 
     const parsed = parseAssistantRequestBody(body);
     if (!parsed.ok) {
-      return NextResponse.json({ error: parsed.error }, { status: 400 });
+      return jsonAssistantResponse(
+        { error: parsed.error, message: parsed.error },
+        400,
+      );
     }
 
     const context = await loadTenantAiContextForSession(session);
-    const systemPrompt = buildTenantAiSystemPrompt(context);
+    const apiKey = (process.env.OPENAI_API_KEY ?? "").trim();
 
+    if (!apiKey) {
+      const fallbackReply = buildLocalContextFallback(context);
+      return jsonAssistantResponse(
+        {
+          error: "ASSISTANT_UNAVAILABLE",
+          message: OPENAI_KEY_MISSING_MESSAGE,
+          reply: fallbackReply,
+          fallback: true,
+        },
+        503,
+      );
+    }
+
+    const systemPrompt = buildTenantAiSystemPrompt(context);
     const result = await callOpenAiAssistant({
       apiKey,
       systemPrompt,
@@ -57,17 +82,34 @@ export async function POST(req: NextRequest) {
       conversationHistory: parsed.conversationHistory,
     });
 
-    if ("error" in result) {
-      console.error(`${TAG} upstream error`);
-      return NextResponse.json({ error: result.error }, { status: result.status });
+    if (result.ok) {
+      return jsonAssistantResponse(
+        { reply: result.reply, model: resolveOpenAiModel() },
+        200,
+      );
     }
 
-    return NextResponse.json({
-      reply: result.reply,
-      model: resolveOpenAiModel(),
-    });
-  } catch (err) {
+    const fallbackReply = result.useFallback
+      ? buildLocalContextFallback(context)
+      : undefined;
+
+    return jsonAssistantResponse(
+      {
+        error: "ASSISTANT_UNAVAILABLE",
+        message: result.message,
+        reply: fallbackReply,
+        fallback: Boolean(fallbackReply),
+      },
+      result.status,
+    );
+  } catch {
     console.error(`${TAG} unexpected`);
-    return NextResponse.json({ error: "خطأ داخلي" }, { status: 500 });
+    return jsonAssistantResponse(
+      {
+        error: "خطأ داخلي",
+        message: "حدث خطأ مؤقت — حاول مرة أخرى",
+      },
+      500,
+    );
   }
 }
