@@ -28,7 +28,9 @@ import {
   softDeleteOrganization,
   type DisplayOrgFull,
 } from "../../_lib/ownerQueries";
-import CreateOrganizationModal from "./CreateOrganizationModal";
+import CreateOrganizationModal, {
+  type CreateOrganizationSuccess,
+} from "./CreateOrganizationModal";
 import ActivateSubscriptionModal from "./ActivateSubscriptionModal";
 import CreateClientLoginModal from "./CreateClientLoginModal";
 import ResetClientPasswordModal from "./ResetClientPasswordModal";
@@ -351,9 +353,23 @@ export default function OrganizationsPageContent() {
     void loadOrgs();
   }, [loadOrgs]);
 
-  const handleCreated = useCallback(() => {
-    toast.success("تم إنشاء المنشأة بنجاح");
+  const handleCreated = useCallback((result: CreateOrganizationSuccess) => {
     void loadOrgs();
+
+    if (result.partial) {
+      toast.warning(
+        `تم إنشاء جزء من العميل «${result.organizationName}» — راجع المنشأة في القائمة وأكمل الإعداد يدوياً`,
+      );
+      return;
+    }
+
+    const codePart = result.organizationCode
+      ? ` — الكود: ${result.organizationCode}`
+      : "";
+    const planPart = result.planName ? ` — الباقة: ${result.planName}` : "";
+    toast.success(
+      `تم إنشاء العميل «${result.organizationName}»${codePart} — البريد: ${result.ownerEmail}${planPart}`,
+    );
   }, [toast, loadOrgs]);
 
   const handleActivated = useCallback(() => {
@@ -452,7 +468,7 @@ export default function OrganizationsPageContent() {
           className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/15 px-4 py-2.5 text-[13px] font-medium text-[#22d3ee] hover:bg-[#22d3ee]/25 hover:border-[#22d3ee]/60 transition-colors flex-shrink-0"
         >
           <Plus size={15} />
-          إنشاء منشأة
+          إنشاء عميل كامل
         </button>
       </div>
 
