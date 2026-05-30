@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+// PR5-D: owner login uses the isolated owner auth client — credentials
+// authenticate into "blumark_owner_auth" storage, never the customer
+// Workspace session.
+import { ownerSupabase as supabase } from "@/lib/supabase/ownerClient";
 import { isOwnerEmail } from "@/lib/owner";
 import { Eye, EyeOff, ShieldAlert, Crown } from "lucide-react";
 
@@ -52,13 +55,17 @@ export default function OwnerLoginPage() {
       }
 
       if (!isOwnerEmail(data.user.email)) {
-        await supabase.auth.signOut();
+        // Non-owner credentials must not leave an owner-client session
+        // behind. scope: "local" keeps any parallel customer session intact.
+        await supabase.auth.signOut({ scope: "local" });
         setAccessDenied(true);
         setLoading(false);
         return;
       }
 
-      document.cookie = `blumark_session=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+      // PR5-D: owner-scoped middleware marker — distinct from
+      // `blumark_customer_session` so customer logout cannot clear it.
+      document.cookie = `blumark_owner_session=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
       router.replace("/owner");
     } catch {
       setError("تعذّر إكمال تسجيل الدخول — حاول مجدداً");

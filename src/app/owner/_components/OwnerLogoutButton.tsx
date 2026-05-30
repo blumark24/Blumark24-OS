@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+// PR5-D: owner logout signs out the isolated owner auth client only.
+import { ownerSupabase as supabase } from "@/lib/supabase/ownerClient";
 
 // Real owner sign-out. Ends the Supabase session, clears the edge session
 // marker cookie set at /owner/login, then routes back to the owner login.
@@ -19,15 +20,18 @@ export default function OwnerLogoutButton() {
     setError(false);
     setLoading(true);
     try {
-      const { error: signOutError } = await supabase.auth.signOut();
+      // scope: "local" so we only drop the owner auth client's storage —
+      // a parallel customer session in the same browser stays intact.
+      const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
       if (signOutError) {
         setError(true);
         setLoading(false);
         return;
       }
-      // Clear the edge session marker the owner login set, so middleware no
-      // longer treats the visitor as authenticated.
-      document.cookie = "blumark_session=; path=/; max-age=0; SameSite=Lax";
+      // PR5-D: clear ONLY the owner edge marker. A parallel customer
+      // session in the same browser still satisfies middleware via its
+      // own `blumark_customer_session` cookie.
+      document.cookie = "blumark_owner_session=; path=/; max-age=0; SameSite=Lax";
       router.replace("/owner/login");
       router.refresh();
     } catch {

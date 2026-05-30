@@ -1,7 +1,9 @@
 // Owner dashboard data fetching — runs client-side with anon key + RLS.
 // RLS is_owner() guards all four tables; non-owners get empty results.
 
-import { supabase } from "@/lib/supabaseClient";
+// PR5-D: owner queries run against the isolated owner auth client so the
+// JWT they send is the owner session, never the customer session.
+import { ownerSupabase as supabase } from "@/lib/supabase/ownerClient";
 import type { Accent } from "../_data";
 import {
   computeMrr,

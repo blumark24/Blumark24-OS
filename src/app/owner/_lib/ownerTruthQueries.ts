@@ -13,7 +13,8 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
+// PR5-D: owner queries use the isolated owner auth client.
+import { ownerSupabase as supabase } from "@/lib/supabase/ownerClient";
 import { timeAgo } from "@/lib/utils";
 import { OWNER_UNAVAILABLE_HINT } from "../_data";
 import type { Accent } from "../_data";
