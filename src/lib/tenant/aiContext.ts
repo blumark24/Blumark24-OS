@@ -503,6 +503,44 @@ async function buildFinanceSummary(
   }
 }
 
+function buildSafeFallbackPayload(input: {
+  userId: string;
+  email: string;
+  role: string;
+  organizationId: string;
+}): TenantAiContextPayload {
+  return {
+    organization: {
+      id: input.organizationId,
+      organization_code: PACKAGE_CONTEXT_FALLBACK.organizationCode,
+      name: PACKAGE_CONTEXT_FALLBACK.orgName,
+      planSlug: PACKAGE_CONTEXT_FALLBACK.planSlug,
+      subscriptionStatus: PACKAGE_CONTEXT_FALLBACK.subscriptionStatus,
+    },
+    user: {
+      id: input.userId,
+      role: input.role,
+      email: input.email,
+    },
+    employees: EMPLOYEE_SUMMARY_FALLBACK,
+    tasks: TASK_SUMMARY_FALLBACK,
+    clients: CLIENT_SUMMARY_FALLBACK,
+    orgStructure: ORG_STRUCTURE_SUMMARY_FALLBACK,
+    finance: FINANCE_SUMMARY_FALLBACK,
+    package: {
+      planSlug: PACKAGE_CONTEXT_FALLBACK.planSlug,
+      enabledFeatures: PACKAGE_CONTEXT_FALLBACK.enabledFeatures,
+      planLimits: PACKAGE_CONTEXT_FALLBACK.planLimits,
+    },
+  };
+}
+
+/**
+ * Builds the tenant AI context from workspace summaries only (no organizations
+ * metadata read). Every internal read is fail-soft, and the whole build is
+ * additionally wrapped so it can never throw: if all workspace reads fail we
+ * still return a safe zeroed payload rather than crashing the assistant.
+ */
 export async function buildTenantAiContext(
   client: SupabaseClient,
   input: {
@@ -512,58 +550,68 @@ export async function buildTenantAiContext(
     organizationId: string;
   },
 ): Promise<TenantAiContextPayload> {
-  const pkg = await safeSummary("package", PACKAGE_CONTEXT_FALLBACK, () =>
-    loadPackageContext(),
-  );
-  const permissions = await safeSummary("permissions", [] as Permission[], () =>
-    resolvePermissions(client, input.role),
-  );
-  const financeAccess = roleHasFinanceAccess(permissions);
+  try {
+    const pkg = await safeSummary("package", PACKAGE_CONTEXT_FALLBACK, () =>
+      loadPackageContext(),
+    );
+    const permissions = await safeSummary("permissions", [] as Permission[], () =>
+      resolvePermissions(client, input.role),
+    );
+    const financeAccess = roleHasFinanceAccess(permissions);
 
-  const [employees, tasks, clients, orgStructure, finance] = await Promise.all([
-    safeSummary("employees", EMPLOYEE_SUMMARY_FALLBACK, () =>
-      buildEmployeeSummary(client, input.organizationId),
-    ),
-    safeSummary("tasks", TASK_SUMMARY_FALLBACK, () =>
-      buildTaskSummary(client, input.organizationId),
-    ),
-    safeSummary("clients", CLIENT_SUMMARY_FALLBACK, () =>
-      buildClientSummary(client, input.organizationId),
-    ),
-    safeSummary("orgStructure", ORG_STRUCTURE_SUMMARY_FALLBACK, () =>
-      buildOrgStructureSummary(client, input.organizationId),
-    ),
-    financeAccess
-      ? safeSummary("finance", FINANCE_SUMMARY_FALLBACK, () =>
-          buildFinanceSummary(client, input.organizationId),
-        )
-      : Promise.resolve(FINANCE_SUMMARY_FALLBACK),
-  ]);
+    const [employees, tasks, clients, orgStructure, finance] = await Promise.all([
+      safeSummary("employees", EMPLOYEE_SUMMARY_FALLBACK, () =>
+        buildEmployeeSummary(client, input.organizationId),
+      ),
+      safeSummary("tasks", TASK_SUMMARY_FALLBACK, () =>
+        buildTaskSummary(client, input.organizationId),
+      ),
+      safeSummary("clients", CLIENT_SUMMARY_FALLBACK, () =>
+        buildClientSummary(client, input.organizationId),
+      ),
+      safeSummary("orgStructure", ORG_STRUCTURE_SUMMARY_FALLBACK, () =>
+        buildOrgStructureSummary(client, input.organizationId),
+      ),
+      financeAccess
+        ? safeSummary("finance", FINANCE_SUMMARY_FALLBACK, () =>
+            buildFinanceSummary(client, input.organizationId),
+          )
+        : Promise.resolve(FINANCE_SUMMARY_FALLBACK),
+    ]);
 
-  return {
-    organization: {
-      id: input.organizationId,
-      organization_code: pkg.organizationCode,
-      name: pkg.orgName,
-      planSlug: pkg.planSlug,
-      subscriptionStatus: pkg.subscriptionStatus,
-    },
-    user: {
-      id: input.userId,
-      role: input.role,
-      email: input.email,
-    },
-    employees,
-    tasks,
-    clients,
-    orgStructure,
-    finance,
-    package: {
-      planSlug: pkg.planSlug,
-      enabledFeatures: pkg.enabledFeatures,
-      planLimits: pkg.planLimits,
-    },
-  };
+    return {
+      organization: {
+        id: input.organizationId,
+        organization_code: pkg.organizationCode,
+        name: pkg.orgName,
+        planSlug: pkg.planSlug,
+        subscriptionStatus: pkg.subscriptionStatus,
+      },
+      user: {
+        id: input.userId,
+        role: input.role,
+        email: input.email,
+      },
+      employees,
+      tasks,
+      clients,
+      orgStructure,
+      finance,
+      package: {
+        planSlug: pkg.planSlug,
+        enabledFeatures: pkg.enabledFeatures,
+        planLimits: pkg.planLimits,
+      },
+    };
+  } catch (err) {
+    logContextReadFailure({
+      summary: "context",
+      table: "tenant_ai_context",
+      operation: "build",
+      err,
+    });
+    return buildSafeFallbackPayload(input);
+  }
 }
 
 export function tenantAiAccessErrorMessage(
