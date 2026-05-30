@@ -168,7 +168,8 @@ export async function fetchOrganizationDetail(
   const orgRes = await supabase
     .from("organizations")
     .select(
-      "id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at, organization_code, customer_code",
+      // PR5-B: customer_code removed — production lacks the column (42703).
+      "id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at, organization_code",
     )
     .eq("id", orgId)
     .maybeSingle();
