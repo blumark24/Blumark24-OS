@@ -32,10 +32,25 @@ export default function OwnerGuard({ children }: { children: React.ReactNode }) 
     const evaluate = (email: string | null | undefined, hasSession: boolean) => {
       if (!active) return;
       if (!hasSession) {
+        if (process.env.NODE_ENV !== "production") {
+          // eslint-disable-next-line no-console
+          console.debug("[OwnerGuard/PR5-C] no-session → /owner/login", {
+            route: typeof window !== "undefined" ? window.location.pathname : null,
+          });
+        }
         router.replace("/owner/login");
         return;
       }
-      setState(isOwnerEmail(email) ? "authorized" : "denied");
+      const authorized = isOwnerEmail(email);
+      if (process.env.NODE_ENV !== "production") {
+        // eslint-disable-next-line no-console
+        console.debug("[OwnerGuard/PR5-C] evaluated session", {
+          route: typeof window !== "undefined" ? window.location.pathname : null,
+          isOwner: authorized,
+          target: authorized ? null : "AccessDenied",
+        });
+      }
+      setState(authorized ? "authorized" : "denied");
     };
 
     (async () => {
