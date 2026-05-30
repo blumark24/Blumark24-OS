@@ -440,6 +440,19 @@ export async function fetchPlansPage(): Promise<DisplayPlanFull[]> {
 
 // ─── Organizations page fetch ────────────────────────────────────────────────
 
+// PR5-A: surfaces the Supabase organizations query error instead of silently
+// returning an empty list. Carries only the safe PostgREST `code` + `message`
+// (no auth tokens, no row data) so the owner-only diagnostic banner can show
+// a real cause when the list looks empty in production.
+export class OrganizationsFetchError extends Error {
+  readonly code: string;
+  constructor(code: string | null | undefined, message: string) {
+    super(message);
+    this.name = "OrganizationsFetchError";
+    this.code = code && code.trim() ? code : "unknown";
+  }
+}
+
 export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
   const [orgsRes, plansRes, subsRes, linksRes] = await Promise.all([
     supabase
@@ -464,7 +477,15 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
       .not("organization_id", "is", null),
   ]);
 
-  if (orgsRes.error)  console.error("[owner] orgs page fetch error:", orgsRes.error.message);
+  // PR5-A: a failing organizations query was previously logged and then
+  // hidden behind an empty array, which is why /owner/organizations rendered
+  // "0" while the DB had rows. Raise it so the page can show why.
+  if (orgsRes.error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[owner] orgs page fetch error:", orgsRes.error);
+    }
+    throw new OrganizationsFetchError(orgsRes.error.code, orgsRes.error.message);
+  }
   if (plansRes.error) console.error("[owner] plans page fetch error:", plansRes.error.message);
   if (subsRes.error)  console.error("[owner] subs page fetch error:", subsRes.error.message);
   if (linksRes.error) console.warn("[owner] client-login links fetch skipped:", linksRes.error.message);

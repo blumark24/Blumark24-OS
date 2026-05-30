@@ -24,6 +24,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { OWNER_UNAVAILABLE_HINT } from "../../_data";
 import {
   fetchOrganizationsPage,
+  OrganizationsFetchError,
   setOrganizationStatus,
   softDeleteOrganization,
   type DisplayOrgFull,
@@ -327,7 +328,9 @@ export default function OrganizationsPageContent() {
   const toast = useToast();
   const [orgs, setOrgs] = useState<DisplayOrgFull[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // PR5-A: track structured error so the owner can see the real Supabase
+  // failure code/message when the list fails to load, instead of a blank "0".
+  const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [activateOrg, setActivateOrg] = useState<DisplayOrgFull | null>(null);
   const [clientLoginOrg, setClientLoginOrg] = useState<DisplayOrgFull | null>(null);
@@ -342,8 +345,14 @@ export default function OrganizationsPageContent() {
       const data = await fetchOrganizationsPage();
       setOrgs(data);
       setError(null);
-    } catch {
-      setError("فشل تحميل بيانات المنشآت");
+    } catch (e) {
+      if (e instanceof OrganizationsFetchError) {
+        setError({ code: e.code, message: e.message });
+      } else {
+        const message = e instanceof Error && e.message ? e.message : "خطأ غير معروف";
+        setError({ code: "unknown", message });
+      }
+      setOrgs(null);
     } finally {
       setLoading(false);
     }
@@ -517,11 +526,19 @@ export default function OrganizationsPageContent() {
           </div>
         </div>
 
-        {/* Error */}
+        {/* Error — owner-only diagnostic surface (PR5-A). Renders the safe
+            Supabase code + message so a failing fetch is no longer hidden
+            behind an empty list. No secrets are exposed: only the PostgREST
+            error code and message. */}
         {error && (
-          <div className="flex items-center gap-2.5 rounded-xl border border-[#ff7a3d]/25 bg-[#ff7a3d]/[0.06] px-4 py-3 text-[13px] text-[#ff9a68]">
-            <RefreshCw size={14} className="flex-shrink-0" />
-            {error}
+          <div className="flex items-start gap-2.5 rounded-xl border border-[#ff7a3d]/25 bg-[#ff7a3d]/[0.06] px-4 py-3 text-[13px] text-[#ff9a68]">
+            <RefreshCw size={14} className="flex-shrink-0 mt-0.5" />
+            <div className="space-y-1 min-w-0">
+              <div className="font-medium">تعذر تحميل المنشآت</div>
+              <div className="text-[12px] text-[#ff9a68]/85 break-words">
+                <span className="font-mono">[{error.code}]</span> {error.message}
+              </div>
+            </div>
           </div>
         )}
 
