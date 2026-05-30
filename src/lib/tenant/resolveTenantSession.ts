@@ -8,9 +8,20 @@ import {
   validateTenantAiAccess,
   type TenantAiContextPayload,
 } from "@/lib/tenant/aiContext";
+import {
+  classifyContextLoadError,
+  type AssistantDiagnosticCode,
+  type AssistantDiagnosticDetail,
+} from "@/lib/tenant/aiAssistantDiagnostics";
 
 export type ResolvedTenantSession =
-  | { ok: false; status: number; error: string }
+  | {
+      ok: false;
+      status: number;
+      error: string;
+      code: AssistantDiagnosticCode;
+      detail: AssistantDiagnosticDetail;
+    }
   | {
       ok: true;
       client: SupabaseClient;
@@ -21,6 +32,30 @@ export type ResolvedTenantSession =
       organizationId: string;
     };
 
+export type TenantContextLoadResult =
+  | { ok: true; context: TenantAiContextPayload }
+  | {
+      ok: false;
+      code: "RLS_ERROR" | "AI_CONTEXT_ERROR";
+      detail: AssistantDiagnosticDetail;
+      error: string;
+    };
+
+function mapAccessReasonToDetail(
+  reason: string,
+): AssistantDiagnosticDetail {
+  switch (reason) {
+    case "no_organization":
+      return "TENANT_NO_ORGANIZATION";
+    case "platform_role":
+      return "TENANT_PLATFORM_ROLE";
+    case "org_missing":
+      return "TENANT_ORG_UNAVAILABLE";
+    default:
+      return "TENANT_NO_ORGANIZATION";
+  }
+}
+
 export async function resolveTenantSession(
   req: NextRequest,
 ): Promise<ResolvedTenantSession> {
@@ -30,6 +65,8 @@ export async function resolveTenantSession(
       ok: false,
       status: 401,
       error: tenantAiAccessErrorMessage("no_session"),
+      code: "AUTH_ERROR",
+      detail: "AUTH_MISSING_TOKEN",
     };
   }
 
@@ -41,6 +78,8 @@ export async function resolveTenantSession(
       ok: false,
       status: 401,
       error: tenantAiAccessErrorMessage("no_session"),
+      code: "AUTH_ERROR",
+      detail: "AUTH_INVALID_SESSION",
     };
   }
 
@@ -54,7 +93,14 @@ export async function resolveTenantSession(
     .maybeSingle();
 
   if (profErr) {
-    return { ok: false, status: 500, error: "تعذر قراءة الملف الشخصي" };
+    const rls = classifyContextLoadError(profErr);
+    return {
+      ok: false,
+      status: rls.code === "RLS_ERROR" ? 403 : 503,
+      error: "تعذر قراءة الملف الشخصي",
+      code: rls.code === "RLS_ERROR" ? "RLS_ERROR" : "AI_CONTEXT_ERROR",
+      detail: rls.code === "RLS_ERROR" ? "RLS_PROFILE_DENIED" : "AI_CONTEXT_BUILD_FAILED",
+    };
   }
 
   const role = String(profile?.role ?? "");
@@ -62,21 +108,18 @@ export async function resolveTenantSession(
 
   const access = validateTenantAiAccess({ email, role, organizationId });
   if (!access.ok) {
+    const detail = mapAccessReasonToDetail(access.reason);
     return {
       ok: false,
       status: access.reason === "no_session" ? 401 : 403,
       error: tenantAiAccessErrorMessage(access.reason),
+      code: "TENANT_ERROR",
+      detail,
     };
   }
 
   const orgId = organizationId as string;
 
-  // Do not verify public.organizations through the user-scoped client here.
-  // In the current SaaS RLS model, organization metadata is intentionally not
-  // readable by normal tenant users in some environments. Blocking on that
-  // metadata caused valid tenant users to receive "المنشأة غير موجودة" even
-  // though their profile.organization_id and workspace RLS scope were correct.
-  // The assistant still reads tenant workspace data through the user JWT + RLS.
   return {
     ok: true,
     client,
@@ -97,4 +140,24 @@ export async function loadTenantAiContextForSession(
     role: session.role,
     organizationId: session.organizationId,
   });
+}
+
+export async function loadTenantAiContextSafe(
+  session: Extract<ResolvedTenantSession, { ok: true }>,
+): Promise<TenantContextLoadResult> {
+  try {
+    const context = await loadTenantAiContextForSession(session);
+    return { ok: true, context };
+  } catch (err) {
+    const classified = classifyContextLoadError(err);
+    return {
+      ok: false,
+      code: classified.code,
+      detail: classified.detail,
+      error:
+        classified.code === "RLS_ERROR"
+          ? "صلاحيات القراءة تمنع تحميل ملخص المنشأة"
+          : "تعذر تجميع ملخص المنشأة الآمن",
+    };
+  }
 }
