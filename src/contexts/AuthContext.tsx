@@ -13,9 +13,18 @@ import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
   isCustomerWorkspacePath,
-  isPlatformSuperAdminRole,
+  isPlatformOwnerEmail,
   MISSING_ORGANIZATION_ERROR_MSG,
 } from "@/lib/tenant/customerWorkspaceRoutes";
+
+// PR5-C: dev-only auth routing diagnostics. Never logs tokens or passwords;
+// only the route, role label, organizationId presence, and redirect target.
+const IS_DEV_AUTH = process.env.NODE_ENV !== "production";
+function authDebug(event: string, info: Record<string, unknown>): void {
+  if (!IS_DEV_AUTH) return;
+  // eslint-disable-next-line no-console
+  console.debug(`[Auth/PR5-C] ${event}`, info);
+}
 
 export interface AuthUser {
   id: string;
@@ -259,27 +268,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading) return;
 
+    // The /owner subtree (including /owner/login) is gated by OwnerGuard +
+    // middleware; AuthContext deliberately never touches routing while the
+    // user is inside it, so a logged-in non-owner can still reach
+    // /owner/login to switch accounts without being bounced.
     if (pathname === "/owner" || pathname.startsWith("/owner/")) return;
 
     const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
     const isAuthPg = pathname === "/auth" || pathname.startsWith("/auth/");
+    const isOwner  = isPlatformOwnerEmail(user?.email);
 
     if (!user && !isPublic && !profileLoadError) {
+      authDebug("no-session-on-protected-route", { route: pathname, target: "/auth" });
       router.replace(`/auth?redirect=${encodeURIComponent(pathname)}`);
       return;
     }
 
     if (user && pathname === "/auth") {
-      router.replace(isPlatformSuperAdminRole(user.role) ? "/owner" : "/dashboard");
+      const target = isOwner ? "/owner" : "/dashboard";
+      authDebug("authenticated-on-auth-page", {
+        route: pathname,
+        role: user.role,
+        isOwner,
+        hasOrg: !!user.organizationId,
+        target,
+      });
+      router.replace(target);
       return;
     }
 
     if (user && isCustomerWorkspacePath(pathname)) {
-      if (isPlatformSuperAdminRole(user.role)) {
-        router.replace("/owner");
-        return;
-      }
-      if (!user.organizationId) {
+      // PR5-C rule 1: platform owner may only enter the Customer Workspace
+      // when they also carry a real organization_id (e.g. an internal-org
+      // membership). Without one, send them home to /owner instead of
+      // dropping them into an empty tenant view.
+      if (isOwner) {
+        if (!user.organizationId) {
+          authDebug("owner-on-customer-workspace-no-org", {
+            route: pathname,
+            role: user.role,
+            hasOrg: false,
+            target: "/owner",
+          });
+          router.replace("/owner");
+          return;
+        }
+        // Owner WITH an organization context — allow access. Diagnostic only.
+        authDebug("owner-on-customer-workspace-with-org", {
+          route: pathname,
+          role: user.role,
+          hasOrg: true,
+        });
+      } else if (!user.organizationId) {
+        // PR5-C rule 6: missing tenant binding is a routing dead end, not a
+        // silent bounce loop — surface the Arabic error on /auth and stop.
+        authDebug("non-owner-missing-org", {
+          route: pathname,
+          role: user.role,
+          target: "/auth",
+        });
         setProfileLoadError(MISSING_ORGANIZATION_ERROR_MSG);
         router.replace("/auth");
         return;
@@ -287,6 +334,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (user?.forcePasswordChange && pathname !== "/settings" && !isAuthPg) {
+      authDebug("force-password-change", { route: pathname, target: "/settings?tab=account" });
       router.replace("/settings?tab=account");
     }
   }, [user, loading, pathname, profileLoadError, router]);
@@ -327,11 +375,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (res.user.forcePasswordChange) {
+        authDebug("login-force-password-change", {
+          route: "/auth",
+          role: res.user.role,
+          isOwner: isPlatformOwnerEmail(res.user.email),
+          target: "/settings?tab=account",
+        });
         router.replace("/settings?tab=account");
         return { ok: true };
       }
 
-      if (isPlatformSuperAdminRole(res.user.role)) {
+      // PR5-C rule 3: any platform-owner email logging in via the customer
+      // /auth page goes straight to /owner — never the customer dashboard,
+      // even when ?redirect=/dashboard… is present in the URL.
+      if (isPlatformOwnerEmail(res.user.email)) {
+        authDebug("login-owner-routed-to-owner", {
+          route: "/auth",
+          role: res.user.role,
+          isOwner: true,
+          target: "/owner",
+        });
         router.replace("/owner");
         return { ok: true };
       }
@@ -339,9 +402,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const redirect = typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("redirect")
         : null;
-      const target =
-        redirect && redirect.startsWith("/") ? redirect : "/dashboard";
+      // PR5-C rule 4: customers may only ever land in the Customer Workspace
+      // after /auth. An `/owner...` redirect param is ignored to prevent a
+      // customer from being deep-linked into the Owner Panel.
+      const safeRedirect =
+        redirect
+        && redirect.startsWith("/")
+        && redirect !== "/owner"
+        && !redirect.startsWith("/owner/")
+          ? redirect
+          : null;
+      const target = safeRedirect ?? "/dashboard";
       if (isCustomerWorkspacePath(target) && !res.user.organizationId) {
+        authDebug("login-customer-missing-org", {
+          route: "/auth",
+          role: res.user.role,
+          isOwner: false,
+          hasOrg: false,
+          target: "/auth",
+        });
         await supabase.auth.signOut().catch(() => {});
         if (mountedRef.current) {
           setUser(null);
@@ -351,6 +430,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         router.replace("/auth");
         return { ok: false, error: MISSING_ORGANIZATION_ERROR_MSG };
       }
+      authDebug("login-customer-routed", {
+        route: "/auth",
+        role: res.user.role,
+        isOwner: false,
+        hasOrg: !!res.user.organizationId,
+        target,
+      });
       router.replace(target);
       return { ok: true };
     },
@@ -359,6 +445,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     if (loggingOut) return;
+    // PR5-C rule 5: capture the owner-ness of the session BEFORE clearing
+    // it, then run exactly one signOut, then route to the matching login
+    // page. The /owner area has its own OwnerLogoutButton which already
+    // routes to /owner/login — this branch only fires when an owner
+    // happens to call logout() from the customer-facing surface.
+    const wasOwner = isPlatformOwnerEmail(user?.email);
+    const logoutTarget = wasOwner ? "/owner/login" : "/auth";
+    authDebug("logout", {
+      route: pathname,
+      role: user?.role ?? null,
+      isOwner: wasOwner,
+      hasOrg: !!user?.organizationId,
+      target: logoutTarget,
+    });
     setLoggingOut(true);
     try {
       await supabase.auth.signOut();
@@ -371,9 +471,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSessionCookie("");
         setLoggingOut(false);
       }
-      router.replace("/auth");
+      router.replace(logoutTarget);
     }
-  }, [loggingOut, router]);
+  }, [loggingOut, router, user, pathname]);
 
   const clearForcePasswordChange = useCallback(async () => {
     if (!user) return;
