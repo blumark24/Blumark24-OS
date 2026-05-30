@@ -40,7 +40,11 @@ export interface DbOrganization {
   id: string;
   name: string;
   slug: string | null;
-  customer_code: string | null;
+  // PR5-B: customer_code is the pre-migration-014 legacy column. Production
+  // has only organization_code, so we no longer SELECT customer_code anywhere
+  // in src/app/owner. Kept optional on the type so any consumer reading from
+  // a backup / older snapshot still type-checks, but no query references it.
+  customer_code?: string | null;
   organization_code: string | null;
   owner_email: string | null;
   plan_id: string | null;
@@ -192,15 +196,15 @@ const SLUG_AUDIENCE: Record<string, string> = {
 
 // ─── Normalization helpers ───────────────────────────────────────────────────
 
-/** DB-FOUNDATION-5 organization_code; legacy customer_code (BMK-…) as fallback. */
+/** DB-FOUNDATION-5 organization_code. PR5-B: the legacy customer_code
+ * fallback is removed because production hasn't applied migration 014 — the
+ * column doesn't exist and SELECTing it 42703s the whole orgs query. Once 014
+ * lands, the fallback can be restored here without touching call sites. */
 export function resolveOrganizationPublicCode(org: {
   organization_code?: string | null;
-  customer_code?: string | null;
 }): string | null {
   const orgCode = org.organization_code?.trim();
-  if (orgCode) return orgCode;
-  const legacy = org.customer_code?.trim();
-  return legacy || null;
+  return orgCode || null;
 }
 
 function limitsToStrings(limits: Record<string, number>, slug: string): string[] {
@@ -458,7 +462,8 @@ export async function fetchOrganizationsPage(): Promise<DisplayOrgFull[]> {
     supabase
       .from("organizations")
       .select(
-        "id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at, organization_code, customer_code",
+        // PR5-B: customer_code removed — production lacks the column (42703).
+        "id, name, slug, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at, organization_code",
       )
       .order("created_at"),
     supabase
