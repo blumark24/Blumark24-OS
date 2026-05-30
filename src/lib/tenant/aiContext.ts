@@ -5,7 +5,6 @@ import {
   type Permission,
 } from "@/contexts/PermissionsContext";
 import {
-  normalizePlanSlug,
   type PlanSlug,
   type WorkspaceFeature,
 } from "@/lib/features/packageFeatures";
@@ -140,10 +139,7 @@ function roleHasFinanceAccess(permissions: Permission[]): boolean {
   return permissions.includes("manage_finance");
 }
 
-async function loadPackageContext(
-  client: SupabaseClient,
-  orgId: string,
-): Promise<{
+async function loadPackageContext(): Promise<{
   planSlug: PlanSlug;
   enabledFeatures: WorkspaceFeature[];
   planLimits: Record<string, number>;
@@ -151,101 +147,13 @@ async function loadPackageContext(
   orgName: string;
   organizationCode: string | null;
 }> {
-  const fallback = {
-    planSlug: "basic" as PlanSlug,
-    enabledFeatures: [] as WorkspaceFeature[],
-    planLimits: {} as Record<string, number>,
-    subscriptionStatus: null as string | null,
-    orgName: "منشأتك",
-    organizationCode: null as string | null,
-  };
-
-  let planId: string | null = null;
-  let orgName = fallback.orgName;
-  let organizationCode: string | null = null;
-
-  try {
-    const { data: org, error } = await client
-      .from("organizations")
-      .select("id, name, plan_id, status, organization_code, customer_code, deleted_at")
-      .eq("id", orgId)
-      .maybeSingle();
-
-    // Organization metadata may be intentionally hidden from customer users by RLS.
-    // Keep the assistant available with safe workspace counts instead of throwing.
-    if (error || !org || org.deleted_at) return fallback;
-
-    orgName = String(org.name ?? "").trim() || fallback.orgName;
-    planId = (org.plan_id as string | null) ?? null;
-    organizationCode =
-      (typeof org.organization_code === "string" && org.organization_code.trim()
-        ? org.organization_code.trim()
-        : null)
-      ?? (typeof org.customer_code === "string" && org.customer_code.trim()
-        ? org.customer_code.trim()
-        : null);
-  } catch {
-    return fallback;
-  }
-
-  let planSlug: PlanSlug = "basic";
-  const enabledFeatures: WorkspaceFeature[] = [];
-  const planLimits: Record<string, number> = {};
-  let subscriptionStatus: string | null = null;
-
-  if (planId) {
-    try {
-      const { data: plan } = await client.from("plans").select("slug").eq("id", planId).maybeSingle();
-      planSlug = normalizePlanSlug(plan?.slug);
-    } catch {
-      planSlug = "basic";
-    }
-
-    try {
-      const { data: features } = await client
-        .from("plan_features")
-        .select("feature_key")
-        .eq("plan_id", planId);
-      enabledFeatures.push(
-        ...(features ?? []).map((feature) => feature.feature_key as WorkspaceFeature),
-      );
-    } catch {
-      // Keep empty features when package tables are hidden by RLS.
-    }
-
-    try {
-      const { data: limits } = await client
-        .from("plan_limits")
-        .select("limit_key, limit_value")
-        .eq("plan_id", planId);
-      for (const row of limits ?? []) {
-        planLimits[String(row.limit_key)] = Number(row.limit_value ?? 0);
-      }
-    } catch {
-      // Keep empty limits when package tables are hidden by RLS.
-    }
-  }
-
-  try {
-    const { data: sub } = await client
-      .from("subscriptions")
-      .select("status")
-      .eq("organization_id", orgId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (sub?.status) subscriptionStatus = String(sub.status);
-  } catch {
-    subscriptionStatus = null;
-  }
-
   return {
-    planSlug,
-    enabledFeatures,
-    planLimits,
-    subscriptionStatus,
-    orgName,
-    organizationCode,
+    planSlug: "basic" as PlanSlug,
+    enabledFeatures: [],
+    planLimits: {},
+    subscriptionStatus: null,
+    orgName: "منشأتك",
+    organizationCode: null,
   };
 }
 
@@ -397,7 +305,7 @@ export async function buildTenantAiContext(
     organizationId: string;
   },
 ): Promise<TenantAiContextPayload> {
-  const pkg = await loadPackageContext(client, input.organizationId);
+  const pkg = await loadPackageContext();
   const permissions = await resolvePermissions(client, input.role);
   const financeAccess = roleHasFinanceAccess(permissions);
 
