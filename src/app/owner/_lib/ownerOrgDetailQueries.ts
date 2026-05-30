@@ -1,6 +1,7 @@
 // Organization detail — read-only owner panel queries (no mutations).
 
-import { supabase } from "@/lib/supabaseClient";
+// PR5-D: owner queries use the isolated owner auth client.
+import { ownerSupabase as supabase } from "@/lib/supabase/ownerClient";
 import { OWNER_AI_TRACKING_DISABLED, OWNER_UNAVAILABLE_HINT } from "../_data";
 import type { Accent } from "../_data";
 import type {

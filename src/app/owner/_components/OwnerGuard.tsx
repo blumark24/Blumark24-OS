@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+// PR5-D: OwnerGuard reads the isolated owner auth client only — it must
+// never resolve from the customer Workspace session.
+import { ownerSupabase as supabase } from "@/lib/supabase/ownerClient";
 import { isOwnerEmail } from "@/lib/owner";
 import AccessDenied from "@/components/ui/AccessDenied";
 

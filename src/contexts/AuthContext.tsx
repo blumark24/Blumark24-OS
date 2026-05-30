@@ -66,11 +66,18 @@ const AuthContext = createContext<AuthContextValue>({
   clearForcePasswordChange: async () => {},
 });
 
+// PR5-D: customer-scoped middleware marker. Distinct from
+// `blumark_owner_session` set by /owner/login so a customer logout never
+// clears the owner edge marker, and vice versa.
 function setSessionCookie(value: string) {
   if (typeof document === "undefined") return;
   if (value) {
-    document.cookie = `blumark_session=${value}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+    document.cookie = `blumark_customer_session=${value}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
   } else {
+    document.cookie = "blumark_customer_session=; path=/; max-age=0; SameSite=Lax";
+    // Best-effort cleanup of the pre-PR5-D shared marker. Safe to clear
+    // because anyone hitting customer logout intends to drop their own
+    // customer-side authentication.
     document.cookie = "blumark_session=; path=/; max-age=0; SameSite=Lax";
   }
 }
@@ -346,7 +353,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const res = await resolveCurrentUserProfile();
       if (res.kind !== "ok") {
-        await supabase.auth.signOut().catch(() => {});
+        // PR5-D: scope="local" so signOut only drops the customer-client
+        // session; a parallel owner-client session in the same browser is
+        // untouched.
+        await supabase.auth.signOut({ scope: "local" }).catch(() => {});
         if (mountedRef.current) {
           setUser(null);
           setSessionCookie("");
@@ -359,7 +369,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (res.user.is_active === false) {
-        await supabase.auth.signOut().catch(() => {});
+        await supabase.auth.signOut({ scope: "local" }).catch(() => {});
         if (mountedRef.current) {
           setUser(null);
           setSessionCookie("");
@@ -385,17 +395,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ok: true };
       }
 
-      // PR5-C rule 3: any platform-owner email logging in via the customer
-      // /auth page goes straight to /owner — never the customer dashboard,
-      // even when ?redirect=/dashboard… is present in the URL.
+      // PR5-D rule: /auth signs in via the customer client only. If those
+      // credentials happen to be a platform-owner email, we must NOT leave
+      // a customer-client session behind for the owner — instead, drop
+      // the just-created customer session and bounce the user to the
+      // dedicated /owner/login, where they will authenticate into the
+      // separate owner client (storageKey "blumark_owner_auth").
       if (isPlatformOwnerEmail(res.user.email)) {
-        authDebug("login-owner-routed-to-owner", {
+        authDebug("login-owner-bounced-to-owner-login", {
           route: "/auth",
           role: res.user.role,
           isOwner: true,
-          target: "/owner",
+          target: "/owner/login",
         });
-        router.replace("/owner");
+        await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+        if (mountedRef.current) {
+          setUser(null);
+          setProfileLoadError(null);
+          setSessionCookie("");
+        }
+        router.replace("/owner/login");
         return { ok: true };
       }
 
@@ -421,7 +440,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           hasOrg: false,
           target: "/auth",
         });
-        await supabase.auth.signOut().catch(() => {});
+        await supabase.auth.signOut({ scope: "local" }).catch(() => {});
         if (mountedRef.current) {
           setUser(null);
           setProfileLoadError(MISSING_ORGANIZATION_ERROR_MSG);
@@ -461,7 +480,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     setLoggingOut(true);
     try {
-      await supabase.auth.signOut();
+      // PR5-D: scope="local" only clears the customer-client session
+      // storage; any parallel owner-client session in the same browser
+      // remains valid and unaffected.
+      await supabase.auth.signOut({ scope: "local" });
     } catch (err) {
       console.error("[Auth] signOut failed:", err);
     } finally {
