@@ -71,24 +71,12 @@ export async function resolveTenantSession(
 
   const orgId = organizationId as string;
 
-  const { data: org, error: orgErr } = await client
-    .from("organizations")
-    .select("id, deleted_at")
-    .eq("id", orgId)
-    .maybeSingle();
-
-  if (orgErr) {
-    return { ok: false, status: 500, error: "تعذر قراءة بيانات المنشأة" };
-  }
-
-  if (!org || org.deleted_at) {
-    return {
-      ok: false,
-      status: 403,
-      error: tenantAiAccessErrorMessage("org_missing"),
-    };
-  }
-
+  // Do not verify public.organizations through the user-scoped client here.
+  // In the current SaaS RLS model, organization metadata is intentionally not
+  // readable by normal tenant users in some environments. Blocking on that
+  // metadata caused valid tenant users to receive "المنشأة غير موجودة" even
+  // though their profile.organization_id and workspace RLS scope were correct.
+  // The assistant still reads tenant workspace data through the user JWT + RLS.
   return {
     ok: true,
     client,
