@@ -1,4 +1,5 @@
 import type { TenantAiContextPayload } from "@/lib/tenant/aiContext";
+import type { AssistantDiagnosticDetail } from "@/lib/tenant/aiAssistantDiagnostics";
 
 export const AI_ASSISTANT_MAX_MESSAGE_CHARS = 2000;
 export const AI_ASSISTANT_MAX_HISTORY = 6;
@@ -131,6 +132,7 @@ export type OpenAiCallResult =
       status: number;
       message: string;
       useFallback: boolean;
+      detail: AssistantDiagnosticDetail;
     };
 
 export async function callOpenAiAssistant(input: {
@@ -173,7 +175,8 @@ export async function callOpenAiAssistant(input: {
         ok: false,
         status: 503,
         message: OPENAI_KEY_INVALID_MESSAGE,
-        useFallback: false,
+        useFallback: true,
+        detail: "OPENAI_KEY_INVALID",
       };
     }
 
@@ -183,6 +186,7 @@ export async function callOpenAiAssistant(input: {
         status: 503,
         message: OPENAI_PROVIDER_UNAVAILABLE_MESSAGE,
         useFallback: true,
+        detail: "OPENAI_HTTP_ERROR",
       };
     }
 
@@ -197,16 +201,22 @@ export async function callOpenAiAssistant(input: {
         status: 503,
         message: OPENAI_PROVIDER_UNAVAILABLE_MESSAGE,
         useFallback: true,
+        detail: "OPENAI_EMPTY_REPLY",
       };
     }
 
     return { ok: true, reply };
-  } catch {
+  } catch (err) {
+    const detail =
+      err instanceof DOMException && err.name === "AbortError"
+        ? "OPENAI_TIMEOUT"
+        : "OPENAI_HTTP_ERROR";
     return {
       ok: false,
       status: 503,
       message: OPENAI_PROVIDER_UNAVAILABLE_MESSAGE,
       useFallback: true,
+      detail,
     };
   } finally {
     clearTimeout(timeout);

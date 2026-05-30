@@ -122,26 +122,21 @@ export default function AIPage() {
       const replyText = data.reply?.trim();
       const safeMessage =
         data.message?.trim() ||
-        data.error?.trim() ||
         (res.status === 403
           ? "المساعد متاح لمساحة عمل المنشأة فقط"
           : "تعذر الحصول على رد من المساعد");
 
-      if (!res.ok) {
-        setErrorBanner(safeMessage);
-        if (replyText) {
-          addAssistantMessage(replyText);
-        } else {
-          addAssistantMessage(`⚠️ ${safeMessage}`);
+      if (replyText) {
+        addAssistantMessage(replyText);
+        if (!res.ok || data.fallback) {
+          setErrorBanner(safeMessage);
         }
         return;
       }
 
-      if (replyText) {
-        addAssistantMessage(replyText);
-        if (data.fallback && data.message) {
-          setErrorBanner(data.message);
-        }
+      if (!res.ok) {
+        setErrorBanner(safeMessage);
+        addAssistantMessage(`⚠️ ${safeMessage}`);
         return;
       }
 
