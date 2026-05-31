@@ -22,8 +22,13 @@ import { usePermissions, mapAuthRoleToUserRole } from "@/contexts/PermissionsCon
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import type { UserRole } from "@/contexts/PermissionsContext";
 import {
-  WS_CARD, WS_CARD_HOVER, WS_INNER_CARD, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE, WS_AI_PILL,
-  WS_STATUS_CHIP, BOARD_THEME, WS_TINTS, type BoardKey, type KpiAccent,
+  WS_CARD, WS_CARD_HOVER, WS_CARD_PADDING, WS_CARD_SHEEN, WS_CARD_MODAL,
+  WS_DASHBOARD_CANVAS, WS_INNER_CARD, WS_SURFACE, WS_SURFACE_GLOW,
+  WS_SECTION_TITLE, WS_SECTION_HEADER_ROW, WS_SECTION_SUBTITLE,
+  WS_ICON_ORB, WS_ICON_TILE_SM, WS_ICON_TILE_MD, WS_PAGE, WS_AI_PILL,
+  WS_STATUS_CHIP, WS_ALERT_CHIP, WS_PERIOD_CHIP,
+  WS_MUTED, WS_SUBTEXT, WS_SUMMARY_ROW, WS_TABLE_HEAD, WS_TABLE_ROW, WS_LIST_ROW,
+  BOARD_THEME, WS_TINTS, type BoardKey, type KpiAccent,
 } from "@/components/ui/workspaceVisual";
 import { StatPill, QuickActionTile, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
 import { PremiumMetricCard } from "@/components/ui/PremiumMetricCard";
@@ -32,7 +37,34 @@ import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
-const TOOLTIP_STYLE = { background: "#0d1f3c", border: "1px solid #1e3a5f", borderRadius: "10px", color: "#e2e8f0" };
+const TOOLTIP_STYLE = {
+  background: "rgba(8, 24, 39, 0.96)",
+  border: "1px solid rgba(148, 163, 184, 0.16)",
+  borderRadius: "12px",
+  color: "#ffffff",
+};
+
+function DashboardCardHeader({
+  title,
+  subtitle,
+  action,
+  titleClassName,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  titleClassName?: string;
+}) {
+  return (
+    <div className={cn(WS_SECTION_HEADER_ROW, "relative z-10 mb-5")}>
+      <div className="min-w-0">
+        <h3 className={cn(WS_SECTION_TITLE, titleClassName ?? "text-sm sm:text-base")}>{title}</h3>
+        {subtitle ? <p className={WS_SECTION_SUBTITLE}>{subtitle}</p> : null}
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
 const DISABLE_TEXT_SELECT_STYLE = {
   WebkitUserSelect: "none",
   userSelect: "none",
@@ -46,10 +78,10 @@ const CustomTooltip = ({
   if (!active || !payload?.length) return null;
   const now = new Date().getFullYear();
   return (
-    <div className="rounded-xl border border-white/10 bg-[#0d1f3c]/95 p-3 text-sm backdrop-blur-md">
-      <p className="text-[#8ba3c7] mb-1">{label}</p>
+    <div className="rounded-xl border border-[rgba(148,163,184,0.16)] bg-[rgba(8,24,39,0.96)] p-3 text-sm backdrop-blur-md">
+      <p className={cn(WS_MUTED, "mb-1")}>{label}</p>
       {payload.map((entry, i) => (
-        <p key={i} className="font-medium" style={{ color: entry.name === "current" ? "#22d3ee" : "#8ba3c7" }}>
+        <p key={i} className="font-medium" style={{ color: entry.name === "current" ? "#22d3ee" : "rgba(203,213,225,0.74)" }}>
           {entry.name === "current" ? `${now}: ` : `${now - 1}: `}{formatCurrency(entry.value)} SAR
         </p>
       ))}
@@ -61,9 +93,9 @@ const QUICK_ACTIONS: { href: string; label: string; icon: React.ElementType; tin
   { href: "/tasks",     label: "مهمة جديدة",   icon: CheckSquare, tint: "cyan"    },
   { href: "/clients",   label: "عميل جديد",    icon: UserPlus,    tint: "emerald" },
   { href: "/finance",   label: "فاتورة جديدة", icon: FileText,    tint: "sky"     },
-  { href: "/finance",   label: "مصروف جديد",   icon: Wallet,      tint: "rose"    },
-  { href: "/employees", label: "موظف جديد",    icon: Users,       tint: "violet"  },
-  { href: "/reports",   label: "إنشاء تقرير",  icon: BarChart3,   tint: "amber"   },
+  { href: "/finance",   label: "مصروف جديد",   icon: Wallet,      tint: "cyan"    },
+  { href: "/employees", label: "موظف جديد",    icon: Users,       tint: "sky"     },
+  { href: "/reports",   label: "إنشاء تقرير",  icon: BarChart3,   tint: "cyan"    },
 ];
 
 // ─── Status colours ───────────────────────────────────────────────────────────
@@ -230,9 +262,9 @@ export default function DashboardPage() {
   // No external AI, no fabricated metrics; an insight is omitted when its data is absent.
   const smartInsights: { icon: React.ElementType; tint: KpiAccent; text: string }[] = [];
   if (kpi.overdueTasks > 0)
-    smartInsights.push({ icon: Siren,        tint: "rose",    text: `لديك ${kpi.overdueTasks} مهمة متأخرة تحتاج متابعة فورية.` });
+    smartInsights.push({ icon: Siren,        tint: "amber",   text: `لديك ${kpi.overdueTasks} مهمة متأخرة تحتاج متابعة فورية.` });
   if (kpi.incompleteTasks > 0)
-    smartInsights.push({ icon: Timer,        tint: "amber",   text: `يوجد ${kpi.incompleteTasks} مهمة قيد المتابعة هذا الأسبوع.` });
+    smartInsights.push({ icon: Timer,        tint: "sky",     text: `يوجد ${kpi.incompleteTasks} مهمة قيد المتابعة هذا الأسبوع.` });
   smartInsights.push({ icon: CheckCircle2,   tint: "emerald", text: `نسبة الإنجاز الحالية ${kpi.completedTasksPct}%.` });
   if (kpi.activeClients > 0)
     smartInsights.push({ icon: Users,        tint: "cyan",    text: `يوجد ${kpi.activeClients} عميل نشط حالياً.` });
@@ -339,7 +371,7 @@ export default function DashboardPage() {
       value:     kpi.incompleteTasks.toString(),
       subtitle:  `من أصل ${tasks.length} مهمة`,
       icon:      XCircle,
-      iconColor: "text-amber-300",
+      iconColor: "text-sky-300",
     },
     {
       key:       "overdueTasks" as const,
@@ -353,35 +385,34 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className={cn(WS_PAGE, "min-w-0 max-w-full overflow-x-hidden")}>
+      <div className={cn(WS_DASHBOARD_CANVAS, WS_PAGE, "min-w-0 max-w-full overflow-x-hidden")}>
         {/* ─── Hero: welcome banner ──────────────────────────────────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5 lg:p-6`}>
+        <section className={cn(WS_SURFACE, "p-4 sm:p-5 lg:p-6")}>
           <JellyfishBackground />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_88%_-25%,rgba(34,211,238,0.18),transparent_55%),radial-gradient(110%_120%_at_8%_125%,rgba(124,58,237,0.16),transparent_55%)]" />
+          <div className={WS_SURFACE_GLOW} />
+          <div className={WS_CARD_SHEEN} />
 
           <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            {/* Welcome + identity + live status metrics (right side on desktop) */}
             <div className="min-w-0 flex-1">
-              <p className="text-sm text-[#8ba3c7]">مرحباً بك 👋</p>
+              <p className={cn("text-sm", WS_MUTED)}>مرحباً بك 👋</p>
               <h1 className="mt-0.5 truncate text-xl sm:text-2xl font-heading font-bold text-white">
                 {user?.name ?? "..."}
               </h1>
 
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#8ba3c7]">
+              <div className={cn("mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs", WS_MUTED)}>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{todayArabic()}
                 </span>
                 <span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} className="text-cyan-300" />{roleLabel}</span>
                 <span className={cn(
                   "inline-flex items-center gap-1.5",
-                  departmentDisplay.isEmpty ? "text-white/40 italic" : "text-[#8ba3c7]",
+                  departmentDisplay.isEmpty ? "text-white/40 italic" : WS_MUTED,
                 )}>
                   <Building2 size={13} className={departmentDisplay.isEmpty ? "text-white/30" : "text-cyan-300"} />
                   {departmentDisplay.text}
                 </span>
               </div>
 
-              {/* Three compact live metrics (derived from existing data only; chips wrap, never clip) */}
               <div className="mt-3 flex flex-wrap gap-2">
                 <StatPill icon={Zap}        label="أداء الفريق"  value={teamPerformance}             tint="emerald"       />
                 <StatPill icon={TrendingUp} label="الإنجاز"      value={`${kpi.completedTasksPct}%`} tint="cyan"          />
@@ -389,20 +420,16 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* AI insight panel (left side on desktop; the mobile equivalent lives lower as a full card) */}
             <div className="hidden lg:flex lg:w-[300px] lg:shrink-0">
               <div className={cn(WS_INNER_CARD, "w-full p-4 backdrop-blur-sm")}>
                 <div className="mb-2 flex items-center gap-2">
-                  <span className={`${WS_ICON_ORB} w-8 h-8 shrink-0 bg-violet-400/10 ring-1 ring-violet-300/25`}>
-                    <Sparkles size={15} className="text-violet-300" />
+                  <span className={cn(WS_ICON_ORB, WS_ICON_TILE_SM, WS_TINTS.cyan.orb)}>
+                    <Sparkles size={15} className={WS_TINTS.cyan.icon} />
                   </span>
                   <div className="text-[11px] font-medium text-cyan-200/90">رؤية ذكية من النظام</div>
                 </div>
-                <p className="text-sm leading-snug text-[#dbe6f7]">{aiInsight}</p>
-                <Link
-                  href="/ai"
-                  className={`mt-3 ${WS_AI_PILL}`}
-                >
+                <p className="text-sm leading-snug text-white/90">{aiInsight}</p>
+                <Link href="/ai" className={cn("mt-3", WS_AI_PILL)}>
                   عرض التفاصيل <ArrowLeft size={14} />
                 </Link>
               </div>
@@ -474,48 +501,46 @@ export default function DashboardPage() {
         </div>
 
         {/* ─── Smart Insights (rule-based, free — no external AI) ────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_92%_-20%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(110%_120%_at_5%_120%,rgba(34,211,238,0.12),transparent_55%)]" />
+        <section className={cn(WS_SURFACE, "p-4 sm:p-5")}>
+          <div className={WS_SURFACE_GLOW} />
+          <div className={WS_CARD_SHEEN} />
           <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start">
-            {/* Glowing AI avatar — on the left in RTL via order */}
             <div className="order-first flex shrink-0 items-center justify-center sm:order-last sm:w-24">
-              <div className="relative grid h-16 w-16 place-items-center rounded-full bg-violet-500/10 ring-1 ring-violet-300/25">
-                <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(124,58,237,0.45),transparent_70%)] blur-md animate-pulse-glow" />
-                <Bot size={28} className="relative text-violet-200" />
+              <div className={cn(WS_ICON_ORB, "relative grid h-16 w-16 place-items-center rounded-full")}>
+                <Bot size={28} className="text-cyan-200" />
               </div>
             </div>
 
-            {/* Content */}
             <div className="min-w-0 flex-1">
-              <div className="mb-3 flex items-center justify-between gap-3">
+              <div className={cn(WS_SECTION_HEADER_ROW, "mb-4")}>
                 <div className="flex min-w-0 items-center gap-2">
-                  <Sparkles size={16} className="shrink-0 text-violet-300" />
+                  <Sparkles size={16} className="shrink-0 text-cyan-300" />
                   <div className="min-w-0">
-                    <h2 className={`${WS_SECTION_TITLE} text-sm`}>رؤى ذكية من النظام</h2>
-                    <p className="truncate text-[11px] text-[#6b87ab]">تحليل فوري مبني على بياناتك الحالية</p>
+                    <h2 className={cn(WS_SECTION_TITLE, "text-sm")}>رؤى ذكية من النظام</h2>
+                    <p className={WS_SECTION_SUBTITLE}>تحليل فوري مبني على بياناتك الحالية</p>
                   </div>
                 </div>
-                <Link href="/ai" className={`shrink-0 ${WS_AI_PILL}`}>
+                <Link href="/ai" className={cn("shrink-0", WS_AI_PILL)}>
                   عرض جميع الرؤى <ArrowLeft size={14} />
                 </Link>
               </div>
 
               <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {smartInsights.map((ins, i) => (
-                  <li key={i} className={cn(WS_INNER_CARD, "flex min-w-0 items-start gap-2.5 p-3")}>
-                    <span className={`${WS_ICON_ORB} w-8 h-8 shrink-0 ${WS_TINTS[ins.tint].orb}`}>
+                  <li key={i} className={cn(WS_INNER_CARD, "flex min-w-0 items-start gap-2.5 p-3.5")}>
+                    <span className={cn(WS_ICON_ORB, WS_ICON_TILE_SM, WS_TINTS[ins.tint].orb)}>
                       <ins.icon size={15} className={WS_TINTS[ins.tint].icon} />
                     </span>
-                    <p className="min-w-0 text-sm leading-snug text-[#dbe6f7]">{ins.text}</p>
+                    <p className="min-w-0 text-sm leading-snug text-white/90">{ins.text}</p>
                   </li>
                 ))}
               </ul>
 
               {isSuperAdmin && activeEmployeeNames.length > 0 && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] text-[#8ba3c7]">موظفون نشطون:</span>
+                  <span className={cn("text-[11px]", WS_MUTED)}>موظفون نشطون:</span>
                   {activeEmployeeNames.map((name) => (
-                    <span key={name} className={cn(WS_STATUS_CHIP, "text-[11px] text-white/80")}>
+                    <span key={name} className={cn(WS_STATUS_CHIP, "text-[11px] text-white/85")}>
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                       {name}
                     </span>
@@ -528,55 +553,62 @@ export default function DashboardPage() {
 
         {/* ─── Analytics: performance + task distribution ────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "lg:col-span-2 p-5 sm:p-6")}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-            <div className="relative z-10 mb-5 flex items-center justify-between">
-              <h3 className={WS_SECTION_TITLE}>تحليلات الأداء — الإيرادات</h3>
-              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">آخر 12 شهر</span>
-            </div>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, WS_CARD_PADDING, "lg:col-span-2")}>
+            <div className={WS_CARD_SHEEN} />
+            <DashboardCardHeader
+              title="تحليلات الأداء — الإيرادات"
+              subtitle="اتجاه الإيرادات الشهرية للمنشأة"
+              action={<span className={WS_PERIOD_CHIP}>آخر 12 شهر</span>}
+            />
+            <div className="relative z-10">
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={salesData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.4)" />
-                <XAxis dataKey="month" tick={{ fill: "#8ba3c7", fontSize: 11 }} />
-                <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <XAxis dataKey="month" tick={{ fill: "rgba(203,213,225,0.74)", fontSize: 11 }} />
+                <YAxis tick={{ fill: "rgba(203,213,225,0.74)", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend formatter={(v) => v === "current" ? String(currentYear) : String(currentYear - 1)} />
                 <Line type="monotone" dataKey="current" stroke="#22d3ee" strokeWidth={2.5} dot={false} name="current" />
                 <Line type="monotone" dataKey="previous" stroke="#1e3a5f" strokeWidth={1.5} dot={false} name="previous" strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
+            </div>
           </div>
 
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-            <div className="relative z-10 mb-4 flex items-center justify-between">
-              <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>توزيع المهام</h3>
-              <span className={`${WS_ICON_ORB} w-8 h-8 bg-cyan-400/10 ring-1 ring-cyan-300/25`}>
-                <ListChecks size={15} className="text-cyan-300" />
-              </span>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, WS_CARD_PADDING)}>
+            <div className={WS_CARD_SHEEN} />
+            <DashboardCardHeader
+              title="توزيع المهام"
+              subtitle="حالة المهام الحالية"
+              titleClassName="text-sm"
+              action={
+                <span className={cn(WS_ICON_ORB, WS_ICON_TILE_SM, WS_TINTS.cyan.orb)}>
+                  <ListChecks size={15} className={WS_TINTS.cyan.icon} />
+                </span>
+              }
+            />
+            <div className="relative z-10 flex h-2.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+              <div className="bg-emerald-400/85" style={{ width: taskDistribution.pct(taskDistribution.completed) }} />
+              <div className="bg-[#1e6fd9]/75"   style={{ width: taskDistribution.pct(taskDistribution.pending) }} />
+              <div className="bg-[#ff7a3d]/85"    style={{ width: taskDistribution.pct(taskDistribution.overdue) }} />
             </div>
-            <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-white/5">
-              <div className="bg-emerald-400/80" style={{ width: taskDistribution.pct(taskDistribution.completed) }} />
-              <div className="bg-amber-400/80"   style={{ width: taskDistribution.pct(taskDistribution.pending) }} />
-              <div className="bg-rose-400/80"    style={{ width: taskDistribution.pct(taskDistribution.overdue) }} />
-            </div>
-            <div className="mt-4 space-y-2.5">
+            <div className="relative z-10 mt-4 space-y-2.5">
               {[
                 { label: "مكتملة", value: taskDistribution.completed, dot: "bg-emerald-400" },
-                { label: "متبقية", value: taskDistribution.pending,   dot: "bg-amber-400" },
-                { label: "متأخرة", value: taskDistribution.overdue,   dot: "bg-rose-400" },
+                { label: "متبقية", value: taskDistribution.pending,   dot: "bg-[#1e6fd9]" },
+                { label: "متأخرة", value: taskDistribution.overdue,   dot: "bg-[#ff7a3d]" },
               ].map((row) => (
                 <div key={row.label} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-[#8ba3c7]">
+                  <span className={cn("flex items-center gap-2", WS_MUTED)}>
                     <span className={`h-2 w-2 rounded-full ${row.dot}`} />
                     {row.label}
                   </span>
-                  <span className="font-bold text-white">{row.value}</span>
+                  <span className="font-bold text-white tabular-nums">{row.value}</span>
                 </div>
               ))}
-              <div className="flex items-center justify-between border-t border-white/[0.06] pt-2.5 text-sm">
-                <span className="text-[#8ba3c7]">الإجمالي</span>
-                <span className="font-bold text-[#22d3ee]">{taskDistribution.total}</span>
+              <div className={cn("flex items-center justify-between border-t border-[rgba(148,163,184,0.10)] pt-2.5 text-sm")}>
+                <span className={WS_MUTED}>الإجمالي</span>
+                <span className="font-bold text-[#22d3ee] tabular-nums">{taskDistribution.total}</span>
               </div>
             </div>
           </div>
@@ -584,39 +616,47 @@ export default function DashboardPage() {
 
         {/* ─── Employees by dept + satisfaction + quick summary ──────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-            <div className="relative z-10 mb-5 flex items-center justify-between">
-              <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>الموظفون بالقسم</h3>
-              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">{activeEmployees} نشط</span>
-            </div>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, WS_CARD_PADDING)}>
+            <div className={WS_CARD_SHEEN} />
+            <DashboardCardHeader
+              title="الموظفون بالقسم"
+              subtitle="توزيع الفريق النشط"
+              titleClassName="text-sm"
+              action={<span className={WS_PERIOD_CHIP}>{activeEmployees} نشط</span>}
+            />
             {activeUsersData.length === 0 ? (
               <WorkspaceEmptyInline icon={Users} title="لا توجد بيانات" accent="cyan" className="h-[220px]" />
             ) : (
+              <div className="relative z-10">
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={activeUsersData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.4)" />
-                  <XAxis dataKey="date" tick={{ fill: "#8ba3c7", fontSize: 10 }} />
-                  <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#8ba3c7" }} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.35)" />
+                  <XAxis dataKey="date" tick={{ fill: "rgba(203,213,225,0.74)", fontSize: 10 }} />
+                  <YAxis tick={{ fill: "rgba(203,213,225,0.74)", fontSize: 11 }} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgba(203,213,225,0.74)" }} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
                   <Bar dataKey="users" fill="#1e6fd9" radius={[6, 6, 0, 0]} name="موظف نشط" />
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             )}
           </div>
 
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6 flex flex-col items-center justify-center")}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-            <h3 className="relative z-10 mb-4 text-sm text-[rgba(203,213,225,0.72)]">معدل رضا العملاء</h3>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, WS_CARD_PADDING, "flex flex-col items-center justify-center")}>
+            <div className={WS_CARD_SHEEN} />
+            <DashboardCardHeader
+              title="معدل رضا العملاء"
+              subtitle="نسبة العملاء النشطين والمتعاقدين"
+              titleClassName="text-sm"
+            />
             {kpiLoading ? (
-              <div className="flex h-32 w-32 items-center justify-center rounded-full border-8 border-[#1e3a5f]">
-                <span className="text-xs text-[#8ba3c7]">جارٍ التحميل...</span>
+              <div className="relative z-10 flex h-32 w-32 items-center justify-center rounded-full border-8 border-[rgba(148,163,184,0.16)]">
+                <span className={cn("text-xs", WS_MUTED)}>جارٍ التحميل...</span>
               </div>
             ) : (
               <>
-                <div className="relative h-32 w-32">
+                <div className="relative z-10 h-32 w-32">
                   <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-                    <circle cx="60" cy="60" r="50" fill="none" stroke="#1e3a5f" strokeWidth="10" />
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(148,163,184,0.16)" strokeWidth="10" />
                     <circle cx="60" cy="60" r="50" fill="none" stroke="url(#satGrad)" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 50 * (satisfactionPct / 100)} ${2 * Math.PI * 50 * (1 - satisfactionPct / 100)}`} />
                     <defs>
                       <linearGradient id="satGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -626,41 +666,43 @@ export default function DashboardPage() {
                     </defs>
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-3xl font-heading font-bold text-white">{satisfactionPct}%</span>
-                    <span className="text-xs font-medium" style={{ color: satisfactionPct >= 70 ? "#10b981" : satisfactionPct >= 40 ? "#f59e0b" : "#ef4444" }}>
+                    <span className="text-3xl font-heading font-bold text-white tabular-nums">{satisfactionPct}%</span>
+                    <span className="text-xs font-medium" style={{ color: satisfactionPct >= 70 ? "#10b981" : satisfactionPct >= 40 ? "#ff7a3d" : "#ef4444" }}>
                       {satisfactionPct >= 70 ? "ممتاز" : satisfactionPct >= 40 ? "متوسط" : "يحتاج تحسين"}
                     </span>
                   </div>
                 </div>
-                <p className="mt-3 text-center text-xs text-[#8ba3c7]">
+                <p className={cn("relative z-10 mt-3 text-center text-xs", WS_MUTED)}>
                   {clients.filter((c) => c.status === "نشط" || c.status === "متعاقد").length} من {clients.length} عميل نشط/متعاقد
                 </p>
               </>
             )}
           </div>
 
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-            <div className="relative z-10 mb-4 flex items-center justify-between">
-              <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>ملخص سريع</h3>
-              <span className="badge status-active">مباشر</span>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
-                <span className="text-xs text-[#8ba3c7]">إجمالي الموظفين</span>
-                <span className="text-sm font-bold text-white">{employees.length}</span>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, WS_CARD_PADDING)}>
+            <div className={WS_CARD_SHEEN} />
+            <DashboardCardHeader
+              title="ملخص سريع"
+              subtitle="مؤشرات تشغيلية مباشرة"
+              titleClassName="text-sm"
+              action={<span className={cn(WS_STATUS_CHIP, "text-emerald-200 border-emerald-300/22 bg-emerald-400/10")}>مباشر</span>}
+            />
+            <div className="relative z-10 space-y-0">
+              <div className={WS_SUMMARY_ROW}>
+                <span className={cn("text-xs", WS_MUTED)}>إجمالي الموظفين</span>
+                <span className="text-sm font-bold text-white tabular-nums">{employees.length}</span>
               </div>
-              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
-                <span className="text-xs text-[#8ba3c7]">الموظفون النشطون</span>
-                <span className="text-sm font-bold text-emerald-400">{activeEmployees}</span>
+              <div className={WS_SUMMARY_ROW}>
+                <span className={cn("text-xs", WS_MUTED)}>الموظفون النشطون</span>
+                <span className="text-sm font-bold text-emerald-400 tabular-nums">{activeEmployees}</span>
               </div>
-              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
-                <span className="text-xs text-[#8ba3c7]">إجمالي العملاء</span>
-                <span className="text-sm font-bold text-[#22d3ee]">{clients.length}</span>
+              <div className={WS_SUMMARY_ROW}>
+                <span className={cn("text-xs", WS_MUTED)}>إجمالي العملاء</span>
+                <span className="text-sm font-bold text-[#22d3ee] tabular-nums">{clients.length}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-[#8ba3c7]">صافي الدخل</span>
-                <span className="text-sm font-bold" style={{ color: kpi.netProfit >= 0 ? "#10b981" : "#ef4444" }}>{formatCurrency(kpi.netProfit)} SAR</span>
+              <div className={cn(WS_SUMMARY_ROW, "border-0")}>
+                <span className={cn("text-xs", WS_MUTED)}>صافي الدخل</span>
+                <span className="text-sm font-bold tabular-nums" style={{ color: kpi.netProfit >= 0 ? "#10b981" : "#ef4444" }}>{formatCurrency(kpi.netProfit)} SAR</span>
               </div>
             </div>
           </div>
@@ -668,39 +710,40 @@ export default function DashboardPage() {
 
         {/* ─── Projects + recent activity ────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "lg:col-span-2 p-5 sm:p-6")}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-            <div className="relative z-10 mb-4 flex items-center justify-between">
-              <h3 className={WS_SECTION_TITLE}>المشاريع النشطة</h3>
-              <button className="text-xs text-[#22d3ee] hover:underline">عرض الكل</button>
-            </div>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, WS_CARD_PADDING, "lg:col-span-2")}>
+            <div className={WS_CARD_SHEEN} />
+            <DashboardCardHeader
+              title="المشاريع النشطة"
+              subtitle="متابعة التقدم والميزانية"
+              action={<button className="text-xs text-[#22d3ee] hover:underline">عرض الكل</button>}
+            />
             {projLoad ? (
               <ChartSkeleton height={180} />
             ) : projects.length === 0 ? (
-              <WorkspaceEmptyInline icon={ListChecks} title="لا توجد مشاريع بعد" accent="violet" className="py-8" />
+              <WorkspaceEmptyInline icon={ListChecks} title="لا توجد مشاريع بعد" accent="cyan" className="py-8" />
             ) : (
-              <div className="overflow-x-auto">
+              <div className="relative z-10 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/[0.08]">
+                    <tr className={WS_TABLE_HEAD}>
                       {["المشروع", "العميل", "التقدم", "الميزانية", "الموعد", "الحالة"].map((h) => (
-                        <th key={h} className="pb-3 text-right font-medium text-[#8ba3c7]">{h}</th>
+                        <th key={h} className="pb-3 text-right font-medium">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {projects.map((project) => (
-                      <tr key={project.id} className="table-row border-b border-white/[0.05] last:border-0">
+                      <tr key={project.id} className={WS_TABLE_ROW}>
                         <td className="py-3"><span className="font-medium text-white">{project.name}</span></td>
-                        <td className="py-3 text-[#8ba3c7]">{project.clientName}</td>
+                        <td className={cn("py-3", WS_MUTED)}>{project.clientName}</td>
                         <td className="py-3">
                           <div className="flex items-center gap-2">
                             <div className="progress-bar w-20"><div className="progress-fill" style={{ width: `${project.progress}%`, background: project.progress === 100 ? "#10b981" : "linear-gradient(90deg,#22d3ee,#1e6fd9)" }} /></div>
-                            <span className="text-xs text-[#8ba3c7]">{project.progress}%</span>
+                            <span className={cn("text-xs tabular-nums", WS_MUTED)}>{project.progress}%</span>
                           </div>
                         </td>
-                        <td className="py-3 text-xs text-[#8ba3c7]">{formatCurrency(project.budget)} SAR</td>
-                        <td className="py-3 text-xs text-[#8ba3c7]">{project.deadline}</td>
+                        <td className={cn("py-3 text-xs tabular-nums", WS_MUTED)}>{formatCurrency(project.budget)} SAR</td>
+                        <td className={cn("py-3 text-xs", WS_MUTED)}>{project.deadline}</td>
                         <td className="py-3"><span className={`badge ${statusColors[project.status] ?? "status-pending"}`}>{project.status === "قيد_التنفيذ" ? "قيد التنفيذ" : project.status}</span></td>
                       </tr>
                     ))}
@@ -710,25 +753,23 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-            <div className="relative z-10 mb-4 flex items-center justify-between">
-              <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>النشاطات الأخيرة</h3>
-            </div>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, WS_CARD_PADDING)}>
+            <div className={WS_CARD_SHEEN} />
+            <DashboardCardHeader title="النشاطات الأخيرة" subtitle="آخر تحديثات المنشأة" titleClassName="text-sm" />
             {actLoad ? (
               <CardSkeleton rows={5} />
             ) : activities.length === 0 ? (
               <WorkspaceEmptyInline icon={Activity} title="لا توجد نشاطات بعد" accent="cyan" className="py-8" />
             ) : (
-              <div className="space-y-3">
+              <div className="relative z-10 space-y-0">
                 {activities.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3 border-b border-white/[0.05] pb-3 last:border-0 last:pb-0">
-                    <div className={`${WS_ICON_ORB} w-8 h-8 shrink-0 bg-cyan-400/10 ring-1 ring-cyan-300/20 text-[#22d3ee]`}>
+                  <div key={activity.id} className={WS_LIST_ROW}>
+                    <div className={cn(WS_ICON_ORB, WS_ICON_TILE_SM, WS_TINTS.cyan.orb, "text-[#22d3ee]")}>
                       {activityIcons[activity.type] ?? <Activity size={14} />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm leading-snug text-white">{activity.description}</p>
-                      <div className="mt-1 flex items-center gap-1 text-xs text-[#6b87ab]"><Clock size={10} /><span>{timeAgo(activity.timestamp)}</span></div>
+                      <div className={cn("mt-1 flex items-center gap-1 text-xs", WS_SUBTEXT)}><Clock size={10} /><span>{timeAgo(activity.timestamp)}</span></div>
                     </div>
                   </div>
                 ))}
@@ -738,17 +779,18 @@ export default function DashboardPage() {
         </div>
 
         {/* ─── Quick actions ─────────────────────────────────────────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className={`${WS_SECTION_TITLE} text-sm`}>اختصارات سريعة</h2>
-            <span className="text-[11px] text-[#6b87ab]">اختصارات لأهم العمليات</span>
-          </div>
-          <div className="flex items-stretch gap-3">
-            {/* Central quick-create orb (links to the existing task create flow) */}
+        <section className={cn(WS_SURFACE, "p-4 sm:p-5")}>
+          <div className={WS_CARD_SHEEN} />
+          <DashboardCardHeader
+            title="اختصارات سريعة"
+            subtitle="اختصارات لأهم العمليات"
+            titleClassName="text-sm"
+          />
+          <div className="relative z-10 flex items-stretch gap-3">
             <Link
               href="/tasks"
               aria-label="إنشاء سريع"
-              className="grid h-auto w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_14px_34px_-12px_rgba(124,58,237,0.75)] transition-opacity hover:opacity-90"
+              className="grid h-auto w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#1e6fd9] via-[#2563eb] to-[#22d3ee] text-white shadow-[0_14px_34px_-12px_rgba(30,111,217,0.55)] transition-opacity hover:opacity-90"
             >
               <Plus size={26} strokeWidth={2.2} />
             </Link>
@@ -763,59 +805,69 @@ export default function DashboardPage() {
         {/* ─── Drilldown modal (unchanged behavior) ──────────────────────── */}
         {activeBoard && (
           <div className="fixed inset-0 z-50 bg-[#030913]/65 backdrop-blur-md flex items-start sm:items-center justify-center px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5" dir="rtl">
-            <div className={`w-[calc(100vw-24px)] sm:w-full sm:max-w-4xl rounded-[28px] border bg-[linear-gradient(145deg,rgba(16,29,50,.88),rgba(6,16,30,.9))] backdrop-blur-2xl p-4 sm:p-6 max-h-[82dvh] overflow-y-auto ${BOARD_THEME[activeBoard].panelBorder}`}>
-              <div className="flex items-start justify-between mb-5 gap-3">
+            <div className={cn(
+              WS_CARD_MODAL,
+              "w-[calc(100vw-24px)] sm:w-full sm:max-w-4xl p-4 sm:p-6 max-h-[82dvh] overflow-y-auto",
+              BOARD_THEME[activeBoard].panelBorder,
+            )}>
+              <div className={WS_CARD_SHEEN} />
+              <div className="relative z-10 flex items-start justify-between mb-5 gap-3">
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className={`w-11 h-11 rounded-2xl border flex items-center justify-center ${BOARD_THEME[activeBoard].iconTile}`}>
+                  <div className={cn(WS_ICON_ORB, WS_ICON_TILE_MD, "flex items-center justify-center", BOARD_THEME[activeBoard].iconTile, BOARD_THEME[activeBoard].orb)}>
                     {activeBoard === "activeClients" ? <Users size={20} className={BOARD_THEME[activeBoard].iconColor} /> : activeBoard === "completedTasks" ? <CheckCircle size={20} className={BOARD_THEME[activeBoard].iconColor} /> : activeBoard === "incompleteTasks" ? <Timer size={20} className={BOARD_THEME[activeBoard].iconColor} /> : <AlertTriangle size={20} className={BOARD_THEME[activeBoard].iconColor} />}
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-white font-bold text-lg truncate">{kpiCards.find((c) => c.key === activeBoard)?.label}</h3>
-                    <p className="text-[#9db1cf] text-xs mt-0.5">لوحة تنفيذية مباشرة وتفاصيل مركزة</p>
-                    <span className={`inline-flex mt-2 items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${BOARD_THEME[activeBoard].livePill}`}><Sparkles size={11} />مباشر</span>
+                    <p className={cn(WS_SUBTEXT, "text-xs mt-0.5")}>لوحة تنفيذية مباشرة وتفاصيل مركزة</p>
+                    <span className={cn(WS_STATUS_CHIP, "inline-flex mt-2", BOARD_THEME[activeBoard].livePill)}><Sparkles size={11} />مباشر</span>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setActiveBoard(null)}
                   aria-label="إغلاق"
-                  className="w-9 h-9 rounded-xl border border-white/15 text-[#8ba3c7] hover:text-white hover:border-white/30 inline-flex items-center justify-center touch-manipulation"
+                  className={cn(WS_ICON_ORB, "w-9 h-9 rounded-xl text-[rgba(203,213,225,0.74)] hover:text-white hover:border-[rgba(34,211,238,0.34)] inline-flex items-center justify-center touch-manipulation")}
                   style={DISABLE_TEXT_SELECT_STYLE}
                 >
                   <X size={18} />
                 </button>
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-5">
+              <div className="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-5">
                 {dashboardBoards[activeBoard].detailRows.map(([label, value]) => (
-                  <div key={label} className={cn(WS_INNER_CARD, "p-3")}>
-                    <span className="text-[#8ba3c7] text-xs">{label}</span>
-                    <p className="text-white text-sm font-semibold mt-1 truncate">{value}</p>
+                  <div key={label} className={cn(WS_INNER_CARD, "p-3.5")}>
+                    <span className={cn("text-xs", WS_MUTED)}>{label}</span>
+                    <p className="text-white text-sm font-semibold mt-1 truncate tabular-nums">{value}</p>
                   </div>
                 ))}
               </div>
-              <div className={cn(WS_INNER_CARD, "p-3 sm:p-4")}>
-                <h4 className="text-white text-sm mb-2">تفاصيل اللوحة</h4>
-                <div className="text-xs text-[#8ba3c7] mb-3 space-y-1">
+              <div className={cn(WS_INNER_CARD, "relative z-10 p-3.5 sm:p-4")}>
+                <h4 className={cn(WS_SECTION_TITLE, "text-sm mb-2")}>تفاصيل اللوحة</h4>
+                <div className={cn("text-xs mb-3 space-y-1", WS_MUTED)}>
                   {dashboardBoards[activeBoard].summary.map((line) => <p key={line} className="truncate">{line}</p>)}
                 </div>
-                <h4 className="text-[#22d3ee] text-sm mb-2">آخر 5 عناصر</h4>
+                <h4 className="text-[#22d3ee] text-sm mb-2 font-semibold">آخر 5 عناصر</h4>
                 {dashboardBoards[activeBoard].detailList.length === 0 ? (
-                  <p className="text-[#8ba3c7] text-sm">لا توجد بيانات حالياً</p>
+                  <p className={cn("text-sm", WS_MUTED)}>لا توجد بيانات حالياً</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm min-w-[520px] sm:min-w-0">
                       <thead>
-                        <tr className="border-b border-white/10 text-[#8ba3c7]">
+                        <tr className={WS_TABLE_HEAD}>
                           <th className="text-right pb-2 font-medium">العنصر</th>
                           <th className="text-right pb-2 font-medium">الحالة</th>
                         </tr>
                       </thead>
                       <tbody>
                         {dashboardBoards[activeBoard].detailList.map((item) => (
-                          <tr key={item} className="border-b border-white/5 last:border-0">
+                          <tr key={item} className={WS_TABLE_ROW}>
                             <td className="py-2 text-white/90">{item.split("•")[0].trim()}</td>
                             <td className="py-2">
-                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] border ${BOARD_THEME[activeBoard].livePill}`}>{activeBoard === "overdueTasks" ? "حرج" : activeBoard === "completedTasks" ? "مكتمل" : activeBoard === "incompleteTasks" ? "قيد التنفيذ" : "عميل"}</span>
+                              <span className={cn(
+                                activeBoard === "overdueTasks" ? WS_ALERT_CHIP : WS_STATUS_CHIP,
+                                BOARD_THEME[activeBoard].livePill,
+                              )}>
+                                {activeBoard === "overdueTasks" ? "حرج" : activeBoard === "completedTasks" ? "مكتمل" : activeBoard === "incompleteTasks" ? "قيد التنفيذ" : "عميل"}
+                              </span>
                             </td>
                           </tr>
                         ))}
@@ -824,8 +876,8 @@ export default function DashboardPage() {
                   </div>
                 )}
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[#8ba3c7]">تصدير سريع</span>
-                  <span className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[#8ba3c7]">مشاركة تنفيذية</span>
+                  <span className={WS_PERIOD_CHIP}>تصدير سريع</span>
+                  <span className={WS_PERIOD_CHIP}>مشاركة تنفيذية</span>
                 </div>
               </div>
             </div>
