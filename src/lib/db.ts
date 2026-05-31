@@ -178,13 +178,27 @@ export async function deleteAuthUser(userId: string): Promise<void> {
   await adminInvoke("delete", { userId });
 }
 
-export async function updateAuthUser(userId: string, data: {
+export type UpdateAuthUserPayload = {
   role?: string;
   department?: string;
   isActive?: boolean;
   name?: string;
-}): Promise<void> {
-  await adminInvoke("update", { userId, ...data });
+  phone?: string | null;
+  salary?: number | null;
+  /** Org-structure department uuid — persisted via employee_relations on the server. */
+  departmentId?: string | null;
+};
+
+export type UpdateAuthUserResult = {
+  profileMissing?: boolean;
+};
+
+export async function updateAuthUser(
+  userId: string,
+  data: UpdateAuthUserPayload,
+): Promise<UpdateAuthUserResult> {
+  const result = await adminInvoke("update", { userId, ...data });
+  return { profileMissing: result.profileMissing === true };
 }
 
 // ─── Board Members ─────────────────────────────────────────────────────────────
