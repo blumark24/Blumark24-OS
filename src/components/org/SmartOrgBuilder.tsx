@@ -26,12 +26,11 @@ import {
   Layers,
   Shield,
   UserPlus,
-  LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { useOrgStructure } from "@/hooks/useOrgStructure";
-import { useEmployees, useTasks } from "@/hooks/useData";
+import { useEmployees } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import {
   buildOrgFlowGraph,
@@ -60,8 +59,6 @@ import StructureLevelFormModal from "./StructureLevelFormModal";
 import AssignEmployeeModal from "./AssignEmployeeModal";
 import TeamFormModal from "./TeamFormModal";
 import OrgLeadershipStudio from "./OrgLeadershipStudio";
-import VirtualOfficePreview, { ENABLE_VIRTUAL_OFFICE_PREVIEW } from "./VirtualOfficePreview";
-import VirtualOfficeErrorBoundary from "./VirtualOfficeErrorBoundary";
 import {
   checkCanAddPosition,
   checkCanAddTeam,
@@ -115,10 +112,8 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
     assignEmployeeToOrgUnit,
   } = useOrgStructure(true);
   const { data: employees } = useEmployees();
-  const { data: tasks } = useTasks();
 
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [showVirtualOffice, setShowVirtualOffice] = useState(false);
   const [levelModal, setLevelModal] = useState<{
     level: StructureLevel;
     department?: Department | null;
@@ -318,19 +313,6 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
     );
   }
 
-  if (showVirtualOffice && data) {
-    return (
-      <VirtualOfficeErrorBoundary onBack={() => setShowVirtualOffice(false)}>
-        <VirtualOfficePreview
-          snapshot={data}
-          employees={employees ?? []}
-          tasks={tasks ?? []}
-          onBack={() => setShowVirtualOffice(false)}
-        />
-      </VirtualOfficeErrorBoundary>
-    );
-  }
-
   return (
     <div className="space-y-5">
       {/* Hero */}
@@ -374,29 +356,14 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
               قاعدة البيانات ويبقى بعد التحديث.
             </p>
           </div>
-          <div className="flex flex-col items-end gap-3">
-            {/* Virtual Office entry — gated by ENABLE_VIRTUAL_OFFICE_PREVIEW */}
-            {ENABLE_VIRTUAL_OFFICE_PREVIEW && (
-              <button
-                type="button"
-                onClick={() => setShowVirtualOffice(true)}
-                className="group flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#22d3ee]/30 bg-[#22d3ee]/10 hover:bg-[#22d3ee]/20 text-[#22d3ee] hover:text-white transition-all text-sm font-medium min-h-11 touch-manipulation shadow-[0_0_20px_rgba(34,211,238,0.06)] hover:shadow-[0_0_24px_rgba(34,211,238,0.12)]"
-                title="محاكاة بصرية ذكية لهيكل منشأتك، مبنية من الوكالات والإدارات والأقسام والموظفين."
-              >
-                <LayoutDashboard size={16} className="flex-shrink-0" />
-                المكتب الافتراضي للمنشأة
-                <Sparkles size={12} className="opacity-60 group-hover:opacity-100 transition-opacity" />
-              </button>
+          <div className="flex items-center gap-2 text-[#6b87ab] text-xs">
+            <Network size={16} className="text-[#22d3ee]" />
+            {orgLabel}
+            {data && (
+              <span className="text-[#8ba3c7]">
+                · {linkedEmployeeCount} موظف{linkedEmployeeCount === 1 ? "" : "ون"} مرتبط
+              </span>
             )}
-            <div className="flex items-center gap-2 text-[#6b87ab] text-xs">
-              <Network size={16} className="text-[#22d3ee]" />
-              {orgLabel}
-              {data && (
-                <span className="text-[#8ba3c7]">
-                  · {linkedEmployeeCount} موظف{linkedEmployeeCount === 1 ? "" : "ون"} مرتبط
-                </span>
-              )}
-            </div>
           </div>
         </div>
       </section>
