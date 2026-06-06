@@ -409,7 +409,18 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
   const headerRef = useRef<HTMLElement>(null);
   useEffect(() => {
     function handle(e: MouseEvent) {
-      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement | null;
+
+      // Mobile dropdowns (profile, notifications) render through a portal to
+      // document.body via CommandFloatingOverlay, so their DOM lives outside
+      // headerRef. Treat any pointer-down inside a portaled dialog as "inside"
+      // so this handler does not close the menu on mousedown before the menu
+      // item's click handler can run. The overlay's own backdrop still closes.
+      if (target?.closest('[role="dialog"]')) {
+        return;
+      }
+
+      if (headerRef.current && !headerRef.current.contains(target as Node)) {
         setOpenNotif(false);
         setOpenMsg(false);
         setOpenNew(false);
