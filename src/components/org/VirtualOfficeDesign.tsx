@@ -33,6 +33,18 @@ export interface OfficeRoom extends SceneRoom {
   managerName: string | null;
 }
 
+type PreviewOrgUnitType = "agency" | "management" | "department" | "team";
+
+export interface PreviewOrgUnit {
+  id: string;
+  name: string;
+  type: PreviewOrgUnitType;
+  typeLabel: string;
+  code: string | null;
+  employeeCount: number;
+  taskCount: number;
+}
+
 export interface VirtualOfficeDesignProps {
   snapshot: OrgStructureSnapshot | null;
   employees: Employee[];
@@ -242,6 +254,69 @@ function buildOfficeRooms(
   return { rooms, isDemo: false };
 }
 
+const ORG_UNIT_LABELS: Record<PreviewOrgUnitType, string> = {
+  agency: "وكالة",
+  management: "إدارة",
+  department: "قسم",
+  team: "فريق",
+};
+
+function buildPreviewOrgUnits(
+  snapshot: OrgStructureSnapshot | null,
+  tasks: Task[],
+): PreviewOrgUnit[] {
+  const departments = Array.isArray(snapshot?.departments) ? snapshot!.departments : [];
+  const teams = Array.isArray(snapshot?.teams) ? snapshot!.teams : [];
+  const relations = Array.isArray(snapshot?.relations) ? snapshot!.relations : [];
+  const safeTasks = Array.isArray(tasks) ? tasks : [];
+
+  const countForEmployees = (employeeIds: Set<string>) =>
+    safeTasks.filter((task) => task?.assigneeId && employeeIds.has(task.assigneeId)).length;
+
+  const departmentUnits = departments.map((department) => {
+    const type = (department.structure_level ?? "department") as PreviewOrgUnitType;
+    const employeeIds = new Set(
+      relations
+        .filter((relation) => relation.department_id === department.id)
+        .map((relation) => relation.employee_id)
+        .filter((id): id is string => typeof id === "string"),
+    );
+    return {
+      id: `department:${department.id}`,
+      name: department.name,
+      type,
+      typeLabel: ORG_UNIT_LABELS[type] ?? ORG_UNIT_LABELS.department,
+      code: department.department_code ?? department.publicCode ?? null,
+      employeeCount: employeeIds.size,
+      taskCount: countForEmployees(employeeIds),
+    };
+  });
+
+  const teamUnits = teams.map((team) => {
+    const employeeIds = new Set(
+      relations
+        .filter((relation) => relation.team_id === team.id)
+        .map((relation) => relation.employee_id)
+        .filter((id): id is string => typeof id === "string"),
+    );
+    return {
+      id: `team:${team.id}`,
+      name: team.name,
+      type: "team" as const,
+      typeLabel: ORG_UNIT_LABELS.team,
+      code: null,
+      employeeCount: employeeIds.size,
+      taskCount: countForEmployees(employeeIds),
+    };
+  });
+
+  return [...departmentUnits, ...teamUnits];
+}
+
+function findAutoMappedUnit(room: OfficeRoom, units: PreviewOrgUnit[]): PreviewOrgUnit | null {
+  return units.find((unit) => unit.id === `department:${room.deptId}`) ?? null;
+}
+
 // ─── Workspace Identity Strip ─────────────────────────────────────────────────
 
 function WorkspaceIdentityStrip({ orgName, orgCode, snapshot, employees }: {
@@ -314,13 +389,182 @@ function WorkspaceIdentityStrip({ orgName, orgCode, snapshot, employees }: {
   );
 }
 
+function MappingPreviewModal({
+  room,
+  units,
+  currentUnit,
+  previewUnit,
+  onClose,
+  onPreview,
+}: {
+  room: OfficeRoom;
+  units: PreviewOrgUnit[];
+  currentUnit: PreviewOrgUnit | null;
+  previewUnit: PreviewOrgUnit | null;
+  onClose: () => void;
+  onPreview: (unit: PreviewOrgUnit) => void;
+}) {
+  const initialUnitId = previewUnit?.id ?? currentUnit?.id ?? units[0]?.id ?? "";
+  const [selectedUnitId, setSelectedUnitId] = useState(initialUnitId);
+  const selectedUnit = units.find((unit) => unit.id === selectedUnitId) ?? null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mapping-preview-title"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 80,
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        padding: "16px",
+        background: "rgba(2,8,23,0.72)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+      }}
+    >
+      <div
+        style={{
+          width: "min(720px, 100%)",
+          maxHeight: "min(760px, calc(100vh - 32px))",
+          overflow: "hidden",
+          borderRadius: 22,
+          border: "1px solid rgba(148,163,184,0.18)",
+          background: "rgba(6,14,28,0.98)",
+          boxShadow: "0 24px 70px rgba(0,0,0,0.55)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+        dir="rtl"
+      >
+        <div style={{ padding: "18px 18px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <h2 id="mapping-preview-title" style={{ margin: 0, color: "#fff", fontSize: 20, fontWeight: 800 }}>
+              تخصيص ربط الغرفة
+            </h2>
+            <p style={{ margin: "8px 0 0", color: "#8ba3c7", fontSize: 13, lineHeight: 1.7, maxWidth: 560 }}>
+              اختر وحدة من الهيكل الإداري لعرضها داخل هذه الغرفة. لن يتم حفظ هذا التخصيص في هذه المرحلة.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="إغلاق"
+            style={{ width: 36, height: 36, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div style={{ padding: "14px 18px", overflowY: "auto", minWidth: 0 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 14 }}>
+            <div style={{ borderRadius: 14, border: "1px solid rgba(34,211,238,0.18)", background: "rgba(34,211,238,0.06)", padding: 12 }}>
+              <p style={{ margin: 0, fontSize: 10, color: "#5a7a9a" }}>الغرفة المحددة</p>
+              <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 700, color: "#dff7ff" }}>{room.name}</p>
+            </div>
+            <div style={{ borderRadius: 14, border: "1px solid rgba(168,85,247,0.18)", background: "rgba(168,85,247,0.06)", padding: 12 }}>
+              <p style={{ margin: 0, fontSize: 10, color: "#5a7a9a" }}>الربط التلقائي الحالي</p>
+              <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 700, color: currentUnit ? "#e9d5ff" : "#64748b" }}>
+                {currentUnit ? currentUnit.name : "غير متاح"}
+              </p>
+            </div>
+          </div>
+
+          {units.length === 0 ? (
+            <div style={{ borderRadius: 16, border: "1px dashed rgba(34,211,238,0.25)", background: "rgba(10,22,40,0.55)", padding: 18, textAlign: "center" }}>
+              <p style={{ margin: 0, color: "#c8ddf0", fontSize: 13 }}>
+                لا توجد وحدات إدارية متاحة. ابدأ ببناء الهيكل الإداري أولاً.
+              </p>
+              <Link href="/org" style={{ marginTop: 12, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 40, padding: "8px 14px", borderRadius: 12, border: "1px solid rgba(34,211,238,0.28)", background: "rgba(34,211,238,0.10)", color: "#22d3ee", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
+                <MapPin size={14} />
+                الانتقال إلى الهيكل الإداري
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {units.map((unit) => {
+                  const selected = unit.id === selectedUnitId;
+                  return (
+                    <button
+                      key={unit.id}
+                      type="button"
+                      onClick={() => setSelectedUnitId(unit.id)}
+                      style={{
+                        width: "100%",
+                        textAlign: "right",
+                        borderRadius: 14,
+                        border: selected ? "1px solid rgba(34,211,238,0.55)" : "1px solid rgba(255,255,255,0.07)",
+                        background: selected ? "rgba(34,211,238,0.10)" : "rgba(255,255,255,0.035)",
+                        color: "#dbeafe",
+                        padding: "11px 12px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                        <span style={{ minWidth: 0 }}>
+                          <span style={{ display: "block", fontSize: 13, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {unit.name}
+                          </span>
+                          <span style={{ display: "block", marginTop: 3, fontSize: 10, color: "#6b87ab" }}>
+                            {unit.typeLabel}{unit.code ? ` · ${unit.code}` : ""}
+                          </span>
+                        </span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#8ba3c7", fontSize: 10, flexShrink: 0 }}>
+                          <span>{unit.employeeCount} موظف</span>
+                          <span>{unit.taskCount} مهمة</span>
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selectedUnit && (
+                <div style={{ marginTop: 14, borderRadius: 14, border: "1px solid rgba(16,185,129,0.22)", background: "rgba(16,185,129,0.07)", padding: 12 }}>
+                  <p style={{ margin: 0, color: "#a7f3d0", fontSize: 13, fontWeight: 700 }}>
+                    سيتم عرض {selectedUnit.name} داخل {room.name}
+                  </p>
+                  <p style={{ margin: "5px 0 0", color: "#6b87ab", fontSize: 11 }}>
+                    هذا التخصيص للمعاينة فقط ولن يتم حفظه.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div style={{ padding: "12px 18px calc(14px + env(safe-area-inset-bottom))", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+          <button type="button" onClick={onClose} className="btn-secondary text-sm min-h-10">
+            إلغاء
+          </button>
+          <button
+            type="button"
+            disabled={!selectedUnit}
+            onClick={() => selectedUnit && onPreview(selectedUnit)}
+            className="btn-primary text-sm min-h-10 disabled:opacity-50"
+          >
+            معاينة الربط
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Room Detail Panel ────────────────────────────────────────────────────────
 
-function RoomDetailPanel({ room, snapshot, employees, tasks, onClose }: {
+function RoomDetailPanel({ room, snapshot, employees, tasks, previewUnit, onOpenMapping, onClearPreview, onClose }: {
   room: OfficeRoom;
   snapshot: OrgStructureSnapshot | null;
   employees: Employee[];
   tasks: Task[];
+  previewUnit: PreviewOrgUnit | null;
+  onOpenMapping: () => void;
+  onClearPreview: () => void;
   onClose: () => void;
 }) {
   const rels     = Array.isArray(snapshot?.relations) ? snapshot!.relations : [];
@@ -400,6 +644,26 @@ function RoomDetailPanel({ room, snapshot, employees, tasks, onClose }: {
           </div>
         )}
 
+        {previewUnit && (
+          <div style={{ gridColumn: "1 / -1", borderRadius: 14, border: "1px solid rgba(16,185,129,0.26)", background: "rgba(16,185,129,0.08)", padding: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <div>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 800, color: "#86efac", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)", padding: "2px 8px", borderRadius: 999 }}>
+                  <MapPin size={11} />
+                  ربط تجريبي
+                </span>
+                <p style={{ margin: "7px 0 0", color: "#d1fae5", fontSize: 13, fontWeight: 750 }}>{previewUnit.name}</p>
+                <p style={{ margin: "3px 0 0", color: "#7aa6a0", fontSize: 11 }}>
+                  هذا التخصيص للمعاينة فقط ولن يتم حفظه.
+                </p>
+              </div>
+              <button type="button" onClick={onClearPreview} style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#b0c8e0", borderRadius: 10, padding: "7px 10px", fontSize: 11, cursor: "pointer" }}>
+                إلغاء المعاينة
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Employees */}
         {(roomEmps.length > 0 || room.isDemo) && (
           <div style={{ gridColumn: "1 / -1" }}>
@@ -455,25 +719,21 @@ function RoomDetailPanel({ room, snapshot, employees, tasks, onClose }: {
         <div style={{ gridColumn: "1 / -1", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 10, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
           <button
             type="button"
-            disabled
-            title="قريبًا"
+            onClick={onOpenMapping}
             style={{
               display: "inline-flex", alignItems: "center", gap: 6,
               padding: "7px 12px", borderRadius: 10,
-              border: "1px dashed rgba(139,92,246,0.30)",
-              background: "rgba(139,92,246,0.06)",
-              color: "rgba(168,85,247,0.55)",
-              fontSize: 11, fontWeight: 600, cursor: "not-allowed",
+              border: "1px solid rgba(139,92,246,0.36)",
+              background: "rgba(139,92,246,0.10)",
+              color: "#d8b4fe",
+              fontSize: 11, fontWeight: 700, cursor: "pointer",
             }}
           >
             <Layers size={12} />
             تخصيص الربط
-            <span style={{ fontSize: 9, color: "rgba(168,85,247,0.50)", marginRight: 4 }}>
-              قريبًا: ربط الغرفة بإدارة أو قسم
-            </span>
           </button>
           <span style={{ fontSize: 10, color: "#2a4060" }}>
-            للقراءة فقط · لا تغييرات في البيانات
+            معاينة فقط · لا يتم الحفظ
           </span>
         </div>
       </div>
@@ -648,6 +908,8 @@ export default function VirtualOfficeDesign({
   onBackToOrg, onRefresh, isRefreshing = false,
 }: VirtualOfficeDesignProps) {
   const [selectedRoom, setSelectedRoom] = useState<OfficeRoom | null>(null);
+  const [mappingModalRoom, setMappingModalRoom] = useState<OfficeRoom | null>(null);
+  const [previewMappings, setPreviewMappings] = useState<Record<string, PreviewOrgUnit>>({});
 
   const { rooms, isDemo } = useMemo(
     () => buildOfficeRooms(snapshot, employees, tasks),
@@ -658,6 +920,10 @@ export default function VirtualOfficeDesign({
   const safeRels  = useMemo(() => Array.isArray(snapshot?.relations)   ? snapshot!.relations   : [], [snapshot]);
   const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
   const safeEmps  = useMemo(() => Array.isArray(employees) ? employees : [], [employees]);
+  const previewOrgUnits = useMemo(
+    () => buildPreviewOrgUnits(snapshot, safeTasks),
+    [snapshot, safeTasks],
+  );
 
   const openTasks    = safeTasks.filter((t) => t?.status !== "مكتملة").length;
   const overdueTasks = safeTasks.filter((t) => t?.status === "متأخرة").length;
@@ -786,6 +1052,15 @@ export default function VirtualOfficeDesign({
                 snapshot={snapshot}
                 employees={safeEmps}
                 tasks={safeTasks}
+                previewUnit={previewMappings[selectedRoom.id] ?? null}
+                onOpenMapping={() => setMappingModalRoom(selectedRoom)}
+                onClearPreview={() =>
+                  setPreviewMappings((prev) => {
+                    const next = { ...prev };
+                    delete next[selectedRoom.id];
+                    return next;
+                  })
+                }
                 onClose={() => setSelectedRoom(null)}
               />
             )}
@@ -805,6 +1080,16 @@ export default function VirtualOfficeDesign({
               rooms={rooms}
               selectedRoom={selectedRoom}
               onRoomClick={(r) => setSelectedRoom(prev => prev?.id === r.id ? null : r as OfficeRoom)}
+              previewUnit={selectedRoom ? previewMappings[selectedRoom.id] ?? null : null}
+              onOpenMapping={() => selectedRoom && setMappingModalRoom(selectedRoom)}
+              onClearPreview={() =>
+                selectedRoom &&
+                setPreviewMappings((prev) => {
+                  const next = { ...prev };
+                  delete next[selectedRoom.id];
+                  return next;
+                })
+              }
               activity={mobileActivity}
               meetings={mobileMeetings}
               alerts={mobileAlerts}
@@ -816,6 +1101,21 @@ export default function VirtualOfficeDesign({
       <p style={{ fontSize: 10, color: "#1e3050", textAlign: "center", paddingBottom: 8 }}>
         محاكاة للقراءة فقط · لا تغييرات في البيانات · مبني من الهيكل الإداري
       </p>
+      {mappingModalRoom && (
+        <MappingPreviewModal
+          key={mappingModalRoom.id}
+          room={mappingModalRoom}
+          units={previewOrgUnits}
+          currentUnit={findAutoMappedUnit(mappingModalRoom, previewOrgUnits)}
+          previewUnit={previewMappings[mappingModalRoom.id] ?? null}
+          onClose={() => setMappingModalRoom(null)}
+          onPreview={(unit) => {
+            setPreviewMappings((prev) => ({ ...prev, [mappingModalRoom.id]: unit }));
+            setSelectedRoom(mappingModalRoom);
+            setMappingModalRoom(null);
+          }}
+        />
+      )}
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
