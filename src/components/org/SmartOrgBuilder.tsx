@@ -60,7 +60,8 @@ import StructureLevelFormModal from "./StructureLevelFormModal";
 import AssignEmployeeModal from "./AssignEmployeeModal";
 import TeamFormModal from "./TeamFormModal";
 import OrgLeadershipStudio from "./OrgLeadershipStudio";
-import VirtualOfficePreview from "./VirtualOfficePreview";
+import VirtualOfficePreview, { ENABLE_VIRTUAL_OFFICE_PREVIEW } from "./VirtualOfficePreview";
+import VirtualOfficeErrorBoundary from "./VirtualOfficeErrorBoundary";
 import {
   checkCanAddPosition,
   checkCanAddTeam,
@@ -319,12 +320,14 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
 
   if (showVirtualOffice && data) {
     return (
-      <VirtualOfficePreview
-        snapshot={data}
-        employees={employees}
-        tasks={tasks}
-        onBack={() => setShowVirtualOffice(false)}
-      />
+      <VirtualOfficeErrorBoundary onBack={() => setShowVirtualOffice(false)}>
+        <VirtualOfficePreview
+          snapshot={data}
+          employees={employees ?? []}
+          tasks={tasks ?? []}
+          onBack={() => setShowVirtualOffice(false)}
+        />
+      </VirtualOfficeErrorBoundary>
     );
   }
 
@@ -372,17 +375,19 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
             </p>
           </div>
           <div className="flex flex-col items-end gap-3">
-            {/* Virtual Office entry */}
-            <button
-              type="button"
-              onClick={() => setShowVirtualOffice(true)}
-              className="group flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#22d3ee]/30 bg-[#22d3ee]/10 hover:bg-[#22d3ee]/20 text-[#22d3ee] hover:text-white transition-all text-sm font-medium min-h-11 touch-manipulation shadow-[0_0_20px_rgba(34,211,238,0.06)] hover:shadow-[0_0_24px_rgba(34,211,238,0.12)]"
-              title="محاكاة بصرية ذكية لهيكل منشأتك، مبنية من الوكالات والإدارات والأقسام والموظفين."
-            >
-              <LayoutDashboard size={16} className="flex-shrink-0" />
-              المكتب الافتراضي للمنشأة
-              <Sparkles size={12} className="opacity-60 group-hover:opacity-100 transition-opacity" />
-            </button>
+            {/* Virtual Office entry — gated by ENABLE_VIRTUAL_OFFICE_PREVIEW */}
+            {ENABLE_VIRTUAL_OFFICE_PREVIEW && (
+              <button
+                type="button"
+                onClick={() => setShowVirtualOffice(true)}
+                className="group flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#22d3ee]/30 bg-[#22d3ee]/10 hover:bg-[#22d3ee]/20 text-[#22d3ee] hover:text-white transition-all text-sm font-medium min-h-11 touch-manipulation shadow-[0_0_20px_rgba(34,211,238,0.06)] hover:shadow-[0_0_24px_rgba(34,211,238,0.12)]"
+                title="محاكاة بصرية ذكية لهيكل منشأتك، مبنية من الوكالات والإدارات والأقسام والموظفين."
+              >
+                <LayoutDashboard size={16} className="flex-shrink-0" />
+                المكتب الافتراضي للمنشأة
+                <Sparkles size={12} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+              </button>
+            )}
             <div className="flex items-center gap-2 text-[#6b87ab] text-xs">
               <Network size={16} className="text-[#22d3ee]" />
               {orgLabel}
