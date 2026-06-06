@@ -315,6 +315,17 @@ export async function getTenantWorkspaceSettings(
   return data as TenantWorkspaceSettings;
 }
 
+export async function getOrganizationName(organizationId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("name")
+    .eq("id", organizationId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const raw = typeof data?.name === "string" ? data.name.trim() : "";
+  return raw || null;
+}
+
 export async function upsertTenantWorkspaceSettings(
   organizationId: string,
   patch: Partial<TenantWorkspaceSettings>,
@@ -429,12 +440,24 @@ export async function getAllProfiles(): Promise<DBProfile[]> {
 }
 
 export async function updateProfileRole(userId: string, role: string): Promise<void> {
-  const { error } = await supabase.from("profiles").update({ role }).eq("id", userId);
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) throw new Error("تعذر تحديد المنشأة أو صلاحيات الوصول.");
+  const { error } = await supabase
+    .from("profiles")
+    .update({ role })
+    .eq("id", userId)
+    .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
 }
 
 export async function toggleProfileStatus(userId: string, isActive: boolean): Promise<void> {
-  const { error } = await supabase.from("profiles").update({ is_active: isActive }).eq("id", userId);
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) throw new Error("تعذر تحديد المنشأة أو صلاحيات الوصول.");
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_active: isActive })
+    .eq("id", userId)
+    .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
 }
 

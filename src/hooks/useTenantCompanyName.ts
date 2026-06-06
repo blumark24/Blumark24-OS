@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
-import { getTenantWorkspaceSettings } from "@/lib/db";
+import { getOrganizationName, getTenantWorkspaceSettings } from "@/lib/db";
 
 /** Safe fallback shown when the current org has no saved company name. */
 const FALLBACK_NAME = "منشأتك";
@@ -34,12 +34,16 @@ export function useTenantCompanyName(): {
       return;
     }
     setLoading(true);
-    getTenantWorkspaceSettings(organizationId)
-      .then((row) => {
+    (async () => {
+      const row = await getTenantWorkspaceSettings(organizationId);
+      const info = (row?.company_info ?? {}) as { name?: unknown };
+      const savedName = typeof info.name === "string" ? info.name.trim() : "";
+      if (savedName) return savedName;
+      return getOrganizationName(organizationId);
+    })()
+      .then((resolvedName) => {
         if (cancelled) return;
-        const info = (row?.company_info ?? {}) as { name?: unknown };
-        const raw = typeof info.name === "string" ? info.name.trim() : "";
-        setName(raw || null);
+        setName(resolvedName || null);
       })
       .catch(() => {
         if (!cancelled) setName(null);

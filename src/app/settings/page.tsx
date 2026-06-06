@@ -29,6 +29,7 @@ import { supabase } from "@/lib/supabase";
 import {
   getSystemSettings,
   setSystemSetting,
+  getOrganizationName,
   getTenantWorkspaceSettings,
   upsertTenantWorkspaceSettings,
 } from "@/lib/db";
@@ -70,6 +71,7 @@ const TENANT_COMPANY_DEFAULTS = {
   website: "",
   city: "",
 };
+const TENANT_SETTINGS_DENIED_MESSAGE = "لا تملك صلاحية تعديل بيانات المنشأة.";
 
 // Add user redirect banner (real user creation happens in /employees)
 function AddUserBanner({ onClose }: { onClose: () => void }) {
@@ -318,10 +320,15 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const { organizationId } = useTenantWorkspace();
   const router = useRouter();
   const forcedAccount = user?.forcePasswordChange === true;
+  const effectiveRole = user?.role ? mapAuthRoleToUserRole(user.role) : null;
+  const isTenantSettingsScope =
+    !!organizationId &&
+    (hasPermission("manage_tenant_settings") || effectiveRole === "super_admin");
+  const canEditTenantSettings = effectiveRole === "organization_manager";
   const tenantMode =
     !accountOnly &&
-    hasPermission("manage_tenant_settings") &&
-    !hasPermission("manage_settings");
+    !!organizationId &&
+    isTenantSettingsScope;
 
   const [activeTab,  setActiveTab]  = useState(accountOnly ? "account" : "general");
 
@@ -354,8 +361,17 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
       try {
         if (tenantMode && organizationId) {
           const row = await getTenantWorkspaceSettings(organizationId);
+          let hasSavedCompanyName = false;
           if (row?.company_info && typeof row.company_info === "object") {
+            const info = row.company_info as typeof companyForm;
+            hasSavedCompanyName = typeof info.name === "string" && info.name.trim().length > 0;
             setCompanyForm((prev) => ({ ...prev, ...(row.company_info as typeof companyForm) }));
+          }
+          if (!hasSavedCompanyName) {
+            const organizationName = await getOrganizationName(organizationId);
+            if (organizationName) {
+              setCompanyForm((prev) => ({ ...prev, name: organizationName }));
+            }
           }
           if (row?.notifications && typeof row.notifications === "object") {
             setNotifs((prev) => ({ ...prev, ...(row.notifications as typeof notifs) }));
@@ -471,6 +487,9 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
     setSaving(true);
     try {
       if (tenantMode) {
+        if (!canEditTenantSettings) {
+          throw new Error(TENANT_SETTINGS_DENIED_MESSAGE);
+        }
         if (!organizationId) {
           throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول");
         }
@@ -539,7 +558,12 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
             </p>
           </div>
           {activeTab !== "permissions" && activeTab !== "account" && (
-            <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2 disabled:opacity-50">
+            <button
+              onClick={handleSave}
+              disabled={saving || (tenantMode && !canEditTenantSettings)}
+              title={tenantMode && !canEditTenantSettings ? TENANT_SETTINGS_DENIED_MESSAGE : undefined}
+              className="btn-primary flex items-center gap-2 disabled:opacity-50"
+            >
               {saving
                 ? <Loader2 size={16} className="animate-spin" />
                 : saved ? <Check size={16} className="text-emerald-400" /> : <Save size={16} />
@@ -548,6 +572,13 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
             </button>
           )}
         </div>
+
+        {tenantMode && !canEditTenantSettings && (
+          <div className="glass-card p-4 mb-4 flex items-center gap-2 text-sm text-amber-300 border border-amber-500/20">
+            <AlertTriangle size={16} />
+            {TENANT_SETTINGS_DENIED_MESSAGE}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Tabs */}
@@ -593,6 +624,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                       <input
                         className="input-dark text-sm"
                         value={companyForm[key as keyof typeof companyForm]}
+                        disabled={tenantMode && !canEditTenantSettings}
                         onChange={(e) => setCompanyForm({ ...companyForm, [key]: e.target.value })}
                       />
                     </div>
@@ -769,6 +801,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                     </div>
                     <button
                       onClick={() => setNotifs({ ...notifs, [n.key]: !notifs[n.key as keyof typeof notifs] })}
+                      disabled={tenantMode && !canEditTenantSettings}
                       className={`relative w-12 h-6 rounded-full transition-all ${notifs[n.key as keyof typeof notifs] ? "bg-[#22d3ee]" : "bg-[#1e3a5f]"}`}
                     >
                       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${notifs[n.key as keyof typeof notifs] ? "left-7" : "left-1"}`} />
@@ -855,6 +888,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                   <div className="flex gap-3">
                     {[{ label: "داكن", value: true, icon: "🌙" }, { label: "فاتح", value: false, icon: "☀️" }].map((m) => (
                       <button key={String(m.value)} onClick={() => setDarkMode(m.value)}
+                        disabled={tenantMode && !canEditTenantSettings}
                         className={`flex-1 p-4 rounded-2xl border transition-all flex items-center justify-center gap-2 ${darkMode === m.value ? "border-[#22d3ee] bg-[#22d3ee]/10 text-[#22d3ee]" : "border-[#1e3a5f] text-[#8ba3c7] hover:text-white"}`}>
                         <span className="text-2xl">{m.icon}</span>
                         <span className="font-medium">{m.label}</span>
@@ -869,6 +903,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                       <button
                         key={c}
                         onClick={() => setAccentColor(c)}
+                        disabled={tenantMode && !canEditTenantSettings}
                         className={`w-10 h-10 rounded-full border-2 transition-all ${accentColor === c ? "border-white scale-110 shadow-lg" : "border-transparent hover:border-white/50"}`}
                         style={{ background: c }}
                         title={l}
@@ -883,6 +918,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                       <button
                         key={lang}
                         onClick={() => setLanguage(lang)}
+                        disabled={tenantMode && !canEditTenantSettings}
                         className={`px-4 py-2 rounded-xl text-sm border transition-all ${language === lang ? "border-[#22d3ee] text-[#22d3ee] bg-[#22d3ee]/10" : "border-[#1e3a5f] text-[#8ba3c7] hover:text-white"}`}
                       >
                         {lang}
