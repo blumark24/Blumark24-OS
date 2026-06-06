@@ -29,6 +29,7 @@ import { StatPill, QuickActionTile, WorkspaceEmptyInline } from "@/components/ui
 import { PremiumMetricCard } from "@/components/ui/PremiumMetricCard";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
+import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
@@ -141,6 +142,7 @@ export default function DashboardPage() {
       ? getTenantRoleLabel(mapAuthRoleToUserRole(user.role))
       : "عضو الفريق";
   const { display: departmentDisplay } = useProfileOrgDepartment();
+  const { name: companyName, isFallback: companyIsFallback } = useTenantCompanyName();
 
   const activeEmployeeNames = useMemo(() => {
     if (!isSuperAdmin) return [];
@@ -368,6 +370,13 @@ export default function DashboardPage() {
               </h1>
 
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#8ba3c7]">
+                <span className={cn(
+                  "inline-flex items-center gap-1.5",
+                  companyIsFallback ? "text-white/40 italic" : "text-white/90 font-medium",
+                )}>
+                  <Building2 size={13} className={companyIsFallback ? "text-white/30" : "text-cyan-300"} />
+                  {companyName}
+                </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{todayArabic()}
                 </span>
