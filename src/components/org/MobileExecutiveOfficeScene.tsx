@@ -12,6 +12,7 @@ import {
   Activity, Calendar, BrainCircuit, MessageSquare, AlertTriangle,
 } from "lucide-react";
 import type { SceneRoom } from "./VirtualOfficeReferenceScene";
+import type { PreviewOrgUnit } from "./VirtualOfficeDesign";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -105,7 +106,17 @@ function Chip({ room, selected, onClick, position }: {
 
 // ─── Selected room card ───────────────────────────────────────────────────────
 
-function SelectedRoomCard({ room }: { room: MobileSelectedRoom }) {
+function SelectedRoomCard({
+  room,
+  previewUnit,
+  onOpenMapping,
+  onClearPreview,
+}: {
+  room: MobileSelectedRoom;
+  previewUnit: PreviewOrgUnit | null;
+  onOpenMapping: () => void;
+  onClearPreview: () => void;
+}) {
   const hp = hpStyle(room.healthPct);
   const lbl = hpLabel(room.healthPct);
   return (
@@ -152,23 +163,49 @@ function SelectedRoomCard({ room }: { room: MobileSelectedRoom }) {
         ))}
       </div>
 
-      {/* TODO: EXECUTIVE-OFFICE-MAPPING-2 — enable on manager mapping feature. */}
+      {previewUnit && (
+        <div style={{
+          borderRadius: 12,
+          border: "1px solid rgba(16,185,129,0.25)",
+          background: "rgba(16,185,129,0.08)",
+          padding: 10,
+          marginBottom: 10,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <div style={{ minWidth: 0 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, fontWeight: 800, color: "#86efac" }}>
+                <Layers size={10} />
+                ربط تجريبي
+              </span>
+              <p style={{ margin: "4px 0 0", color: "#d1fae5", fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {previewUnit.name}
+              </p>
+              <p style={{ margin: "3px 0 0", color: "#7aa6a0", fontSize: 9 }}>
+                هذا التخصيص للمعاينة فقط ولن يتم حفظه.
+              </p>
+            </div>
+            <button type="button" onClick={onClearPreview} style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#b0c8e0", borderRadius: 9, padding: "6px 8px", fontSize: 9, cursor: "pointer", flexShrink: 0 }}>
+              إلغاء المعاينة
+            </button>
+          </div>
+        </div>
+      )}
+
       <button
         type="button"
-        disabled
-        title="قريبًا"
+        onClick={onOpenMapping}
         style={{
           width: "100%",
           display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
           padding: "8px 12px", borderRadius: 10,
-          border: "1px dashed rgba(139,92,246,0.30)",
-          background: "rgba(139,92,246,0.06)",
-          color: "rgba(168,85,247,0.55)",
-          fontSize: 11, fontWeight: 600, cursor: "not-allowed",
+          border: "1px solid rgba(139,92,246,0.36)",
+          background: "rgba(139,92,246,0.10)",
+          color: "#d8b4fe",
+          fontSize: 11, fontWeight: 700, cursor: "pointer",
         }}
       >
         <Layers size={12} />
-        قريبًا: ربط الغرفة بإدارة أو قسم
+        تخصيص الربط
       </button>
     </div>
   );
@@ -286,6 +323,9 @@ export interface MobileExecutiveOfficeSceneProps {
   rooms: SceneRoom[];
   selectedRoom: MobileSelectedRoom | null;
   onRoomClick: (room: SceneRoom) => void;
+  previewUnit: PreviewOrgUnit | null;
+  onOpenMapping: () => void;
+  onClearPreview: () => void;
   activity: ActivityItem[];
   meetings: MeetingItem[];
   alerts:   AlertItem[];
@@ -293,6 +333,7 @@ export interface MobileExecutiveOfficeSceneProps {
 
 export default function MobileExecutiveOfficeScene({
   rooms, selectedRoom, onRoomClick,
+  previewUnit, onOpenMapping, onClearPreview,
   activity, meetings, alerts,
 }: MobileExecutiveOfficeSceneProps) {
   const [imgFailed, setImgFailed] = useState(false);
@@ -348,7 +389,12 @@ export default function MobileExecutiveOfficeScene({
 
       {/* Selected card / empty hint */}
       {selectedRoom ? (
-        <SelectedRoomCard room={selectedRoom} />
+        <SelectedRoomCard
+          room={selectedRoom}
+          previewUnit={previewUnit}
+          onOpenMapping={onOpenMapping}
+          onClearPreview={onClearPreview}
+        />
       ) : (
         <div style={{
           borderRadius: 12, border: "1px dashed rgba(34,211,238,0.22)",
