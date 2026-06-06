@@ -1,8 +1,8 @@
 "use client";
 
-// VirtualOfficeDesign.tsx — VIRTUAL-OFFICE-DESIGN-2
-// Premium floor-plan UI for /virtual-office.
-// Read-only, isolated from /org and SmartOrgBuilder.
+// VirtualOfficeDesign.tsx — VIRTUAL-OFFICE-DESIGN-2 (floor-plan rebuild)
+// Premium CSS-only floor-plan UI matching the approved reference image.
+// Read-only · isolated from /org · no external 3D libraries.
 
 import { useMemo } from "react";
 import Link from "next/link";
@@ -15,139 +15,23 @@ import {
   AlertCircle,
   Clock,
   Activity,
-  Building2,
   Calendar,
   Sparkles,
   Heart,
   AlertTriangle,
   Zap,
   LayoutGrid,
-  TrendingUp,
   MessageSquare,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { OrgStructureSnapshot } from "@/lib/org/types";
 import type { Employee, Task } from "@/types";
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const ROOM_PALETTES = [
-  {
-    border: "border-cyan-400/35",
-    headerBg: "rgba(34,211,238,0.10)",
-    glow: "0 0 24px rgba(34,211,238,0.08)",
-    accent: "#22d3ee",
-  },
-  {
-    border: "border-amber-400/35",
-    headerBg: "rgba(245,158,11,0.10)",
-    glow: "0 0 24px rgba(245,158,11,0.08)",
-    accent: "#f59e0b",
-  },
-  {
-    border: "border-emerald-400/35",
-    headerBg: "rgba(16,185,129,0.10)",
-    glow: "0 0 24px rgba(16,185,129,0.08)",
-    accent: "#10b981",
-  },
-  {
-    border: "border-violet-400/35",
-    headerBg: "rgba(139,92,246,0.10)",
-    glow: "0 0 24px rgba(139,92,246,0.08)",
-    accent: "#a855f7",
-  },
-  {
-    border: "border-blue-400/35",
-    headerBg: "rgba(59,130,246,0.10)",
-    glow: "0 0 24px rgba(59,130,246,0.08)",
-    accent: "#3b82f6",
-  },
-  {
-    border: "border-orange-400/35",
-    headerBg: "rgba(249,115,22,0.10)",
-    glow: "0 0 24px rgba(249,115,22,0.08)",
-    accent: "#f97316",
-  },
-  {
-    border: "border-pink-400/35",
-    headerBg: "rgba(236,72,153,0.10)",
-    glow: "0 0 24px rgba(236,72,153,0.08)",
-    accent: "#ec4899",
-  },
-  {
-    border: "border-teal-400/35",
-    headerBg: "rgba(20,184,166,0.10)",
-    glow: "0 0 24px rgba(20,184,166,0.08)",
-    accent: "#14b8a6",
-  },
-];
-
-const AVATAR_COLORS = [
-  "#22d3ee", "#a855f7", "#10b981", "#f59e0b",
-  "#3b82f6", "#f97316", "#ec4899", "#14b8a6",
-];
-
-const DEMO_ROOMS_DEF = [
-  { name: "غرفة المبيعات",          empCount: 3, open: 5, overdue: 1, health: 74 },
-  { name: "غرفة الإدارة العليا",     empCount: 5, open: 2, overdue: 0, health: 91 },
-  { name: "غرفة الدعم",              empCount: 4, open: 3, overdue: 0, health: 88 },
-  { name: "غرفة التسويق",            empCount: 3, open: 4, overdue: 1, health: 69 },
-  { name: "غرفة الاجتماعات",         empCount: 0, open: 0, overdue: 0, health: 0,  isCenter: true },
-  { name: "غرفة المالية",            empCount: 2, open: 2, overdue: 0, health: 81 },
-  { name: "غرفة التنفيذ",            empCount: 3, open: 3, overdue: 0, health: 76 },
-  { name: "غرفة الذكاء الاصطناعي",  empCount: 1, open: 0, overdue: 0, health: 94, isAI: true },
-];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function hashStr(s: string): number {
-  let h = 0;
-  for (const c of s) h = ((h * 31) + c.charCodeAt(0)) & 0xffffffff;
-  return Math.abs(h);
-}
-
-function nameInitials(name: string): string {
-  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "");
-  return (name ?? "؟").slice(0, 2) || "؟";
-}
-
-function avatarColor(name: string): string {
-  return AVATAR_COLORS[hashStr(name) % AVATAR_COLORS.length] ?? AVATAR_COLORS[0];
-}
-
-function healthColor(pct: number): string {
-  if (pct >= 80) return "text-emerald-400";
-  if (pct >= 60) return "text-amber-400";
-  return "text-rose-400";
-}
-
-function healthBarColor(pct: number): string {
-  if (pct >= 80) return "bg-emerald-400";
-  if (pct >= 60) return "bg-amber-400";
-  return "bg-rose-400";
-}
-
-function healthLabel(pct: number): string {
-  if (pct >= 85) return "ممتاز";
-  if (pct >= 70) return "جيد";
-  if (pct >= 55) return "متوسط";
-  return "يحتاج متابعة";
-}
-
-function computeHealthPct(open: number, overdue: number, empCount: number): number {
-  if (open === 0 && overdue === 0 && empCount === 0) return 85;
-  if (open === 0 && overdue === 0) return 90;
-  const score = 100 - overdue * 10 - Math.max(0, open - overdue) * 3;
-  return Math.max(45, Math.min(99, score));
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface OfficeRoom {
   id: string;
   name: string;
-  paletteIdx: number;
+  accentColor: string;
   employeeCount: number;
   avatars: Array<{ initials: string; color: string }>;
   openTasks: number;
@@ -167,359 +51,290 @@ export interface VirtualOfficeDesignProps {
   isRefreshing?: boolean;
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const ACCENT_CYCLE = [
+  "#22d3ee", // cyan
+  "#f59e0b", // amber
+  "#10b981", // emerald
+  "#a855f7", // violet
+  "#3b82f6", // blue
+  "#f97316", // orange
+  "#ec4899", // pink
+  "#14b8a6", // teal
+];
+
+const AVATAR_COLORS = [
+  "#22d3ee", "#a855f7", "#10b981", "#f59e0b",
+  "#3b82f6", "#f97316", "#ec4899", "#14b8a6",
+];
+
+// 8 fixed demo rooms matching the approved reference
+const DEMO_DEF = [
+  { name: "غرفة المبيعات",         emp: 3, open: 5, overdue: 1, hp: 74, center: false, ai: false },
+  { name: "غرفة الإدارة العليا",   emp: 5, open: 2, overdue: 0, hp: 91, center: false, ai: false },
+  { name: "غرفة الدعم",            emp: 4, open: 3, overdue: 0, hp: 88, center: false, ai: false },
+  { name: "غرفة التسويق",          emp: 3, open: 4, overdue: 1, hp: 69, center: false, ai: false },
+  { name: "غرفة الاجتماعات",       emp: 0, open: 0, overdue: 0, hp:  0, center: true,  ai: false },
+  { name: "غرفة المالية",          emp: 2, open: 2, overdue: 0, hp: 81, center: false, ai: false },
+  { name: "غرفة التنفيذ",          emp: 3, open: 3, overdue: 0, hp: 76, center: false, ai: false },
+  { name: "غرفة الذكاء الاصطناعي", emp: 1, open: 0, overdue: 0, hp: 94, center: false, ai: true  },
+] as const;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (const c of s) h = ((h * 31) + c.charCodeAt(0)) & 0xffffffff;
+  return Math.abs(h);
+}
+
+function nameInitials(name: string): string {
+  const p = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (p.length >= 2) return (p[0]?.[0] ?? "") + (p[1]?.[0] ?? "");
+  return (name ?? "؟").slice(0, 2) || "؟";
+}
+
+function avatarColor(name: string): string {
+  return AVATAR_COLORS[hashStr(name) % AVATAR_COLORS.length] ?? "#22d3ee";
+}
+
+function hpColor(pct: number) {
+  if (pct >= 85) return { text: "#10b981", bg: "rgba(16,185,129,0.18)", border: "rgba(16,185,129,0.35)" };
+  if (pct >= 70) return { text: "#f59e0b", bg: "rgba(245,158,11,0.18)",  border: "rgba(245,158,11,0.35)" };
+  return              { text: "#ef4444", bg: "rgba(239,68,68,0.18)",    border: "rgba(239,68,68,0.35)"  };
+}
+
+function hpLabel(pct: number) {
+  if (pct >= 85) return "ممتاز";
+  if (pct >= 70) return "جيد";
+  if (pct >= 55) return "متوسط";
+  return "يحتاج متابعة";
+}
+
+function computeHp(open: number, overdue: number, emp: number): number {
+  if (open === 0 && overdue === 0 && emp === 0) return 85;
+  if (open === 0 && overdue === 0) return 90;
+  return Math.max(45, Math.min(99, 100 - overdue * 10 - Math.max(0, open - overdue) * 3));
+}
+
 // ─── Data builder ─────────────────────────────────────────────────────────────
 
-function buildOfficeRooms(
+function buildRooms(
   snapshot: OrgStructureSnapshot | null,
   employees: Employee[],
   tasks: Task[],
 ): { rooms: OfficeRoom[]; isDemo: boolean } {
-  const departments = Array.isArray(snapshot?.departments) ? snapshot!.departments : [];
-  const relations   = Array.isArray(snapshot?.relations)   ? snapshot!.relations   : [];
-  const safeEmps    = Array.isArray(employees) ? employees : [];
-  const safeTasks   = Array.isArray(tasks)     ? tasks     : [];
+  const depts   = Array.isArray(snapshot?.departments) ? snapshot!.departments : [];
+  const rels    = Array.isArray(snapshot?.relations)   ? snapshot!.relations   : [];
+  const safeEmp = Array.isArray(employees) ? employees : [];
+  const safeTsk = Array.isArray(tasks)     ? tasks     : [];
 
-  const isDemo = departments.length === 0;
-
-  if (isDemo) {
+  if (depts.length === 0) {
     return {
       isDemo: true,
-      rooms: DEMO_ROOMS_DEF.map((d, idx) => ({
-        id: `demo-${idx}`,
+      rooms: DEMO_DEF.map((d, i) => ({
+        id: `demo-${i}`,
         name: d.name,
-        paletteIdx: idx % ROOM_PALETTES.length,
-        employeeCount: d.empCount,
+        accentColor: ACCENT_CYCLE[i % ACCENT_CYCLE.length] ?? "#22d3ee",
+        employeeCount: d.emp,
         avatars: [],
         openTasks: d.open,
         overdueTasks: d.overdue,
-        healthPct: d.health,
-        isCenter: d.isCenter ?? false,
-        isAI: d.isAI ?? false,
+        healthPct: d.hp,
+        isCenter: d.center,
+        isAI: d.ai,
         isDemo: true,
       })),
     };
   }
 
-  const empById = new Map(safeEmps.map((e) => [e.id, e]));
+  const empById = new Map(safeEmp.map((e) => [e.id, e]));
 
-  const rooms: OfficeRoom[] = departments.slice(0, 8).map((dept, idx) => {
+  const rooms: OfficeRoom[] = depts.slice(0, 8).map((dept, i) => {
     if (!dept) return null;
-
-    const deptRels = relations.filter((r) => r?.department_id === dept.id);
-    const deptEmpIds = new Set(
-      deptRels.map((r) => r.employee_id).filter((id): id is string => typeof id === "string"),
-    );
-    const deptEmps = Array.from(deptEmpIds)
-      .map((id) => empById.get(id))
-      .filter((e): e is Employee => e != null);
-
-    const deptTasks = safeTasks.filter(
-      (t) => t?.assigneeId && deptEmpIds.has(t.assigneeId),
-    );
-    const openTasks    = deptTasks.filter((t) => t?.status !== "مكتملة").length;
-    const overdueTasks = deptTasks.filter((t) => t?.status === "متأخرة").length;
-
-    const avatars = deptEmps.slice(0, 3).map((e) => ({
-      initials: nameInitials(e.name ?? e.email ?? "؟"),
-      color: avatarColor(e.name ?? e.email ?? "؟"),
-    }));
-
-    const name  = dept.name ?? "—";
-    const level = dept.structure_level ?? "department";
-    const isCenter = level === "management";
-    const isAI = name.includes("ذكاء") || name.toUpperCase().includes("AI");
-
+    const deptRels  = rels.filter((r) => r?.department_id === dept.id);
+    const empIds    = new Set(deptRels.map((r) => r.employee_id).filter((x): x is string => typeof x === "string"));
+    const deptEmps  = Array.from(empIds).map((id) => empById.get(id)).filter((e): e is Employee => e != null);
+    const deptTasks = safeTsk.filter((t) => t?.assigneeId && empIds.has(t.assigneeId));
+    const open    = deptTasks.filter((t) => t?.status !== "مكتملة").length;
+    const overdue = deptTasks.filter((t) => t?.status === "متأخرة").length;
+    const name    = dept.name ?? "—";
     return {
       id: dept.id,
       name,
-      paletteIdx: idx % ROOM_PALETTES.length,
+      accentColor: ACCENT_CYCLE[i % ACCENT_CYCLE.length] ?? "#22d3ee",
       employeeCount: deptRels.length,
-      avatars,
-      openTasks,
-      overdueTasks,
-      healthPct: computeHealthPct(openTasks, overdueTasks, deptRels.length),
-      isCenter,
-      isAI,
+      avatars: deptEmps.slice(0, 3).map((e) => ({
+        initials: nameInitials(e.name ?? e.email ?? "؟"),
+        color: avatarColor(e.name ?? e.email ?? "؟"),
+      })),
+      openTasks: open,
+      overdueTasks: overdue,
+      healthPct: computeHp(open, overdue, deptRels.length),
+      isCenter: dept.structure_level === "management",
+      isAI: name.includes("ذكاء") || name.toUpperCase().includes("AI"),
       isDemo: false,
     };
   }).filter((r): r is OfficeRoom => r !== null);
 
+  // Pad with demo placeholders so we always have 8 slots
+  while (rooms.length < 8) {
+    const i = rooms.length;
+    rooms.push({
+      id: `pad-${i}`,
+      name: DEMO_DEF[i]?.name ?? `غرفة ${i + 1}`,
+      accentColor: ACCENT_CYCLE[i % ACCENT_CYCLE.length] ?? "#22d3ee",
+      employeeCount: 0, avatars: [],
+      openTasks: 0, overdueTasks: 0, healthPct: 85,
+      isCenter: i === 4, isAI: i === 7, isDemo: true,
+    });
+  }
+
   return { rooms, isDemo: false };
 }
 
-// ─── Slot layout helpers ──────────────────────────────────────────────────────
+// ─── Slot layout ──────────────────────────────────────────────────────────────
+//  slots[0] row1-col1  slots[1] row1-col2  slots[2] row1-col3
+//  slots[3] row2-col1  slots[4] CENTER(row2-3 col2) slots[5] row2-col3
+//  slots[6] row3-col1  [corridor row3-col2]          slots[7] row3-col3
 
-// Builds a fixed 8-slot array for the floor-plan grid:
-//   slots[0..2] → row 1 (3 rooms)
-//   slots[3]    → row 2 left
-//   slots[4]    → CENTER (row 2-3, spans 2 rows)
-//   slots[5]    → row 2 right
-//   slots[6]    → row 3 left
-//   slots[7]    → row 3 right
 function buildSlots(rooms: OfficeRoom[]): (OfficeRoom | null)[] {
-  const slots: (OfficeRoom | null)[] = Array(8).fill(null);
+  const s: (OfficeRoom | null)[] = Array(8).fill(null);
   const used = new Set<number>();
-
-  const centerIdx = rooms.findIndex((r) => r.isCenter);
-  const aiIdx     = rooms.findIndex((r) => r.isAI && !r.isCenter);
-
-  if (centerIdx >= 0) { slots[4] = rooms[centerIdx]; used.add(centerIdx); }
-  if (aiIdx >= 0)     { slots[7] = rooms[aiIdx];     used.add(aiIdx); }
-
-  const remaining = rooms.filter((_, i) => !used.has(i));
-  const freePositions = [0, 1, 2, 3, 5, 6].filter((p) => slots[p] === null);
-  freePositions.forEach((pos, i) => {
-    if (remaining[i]) slots[pos] = remaining[i];
-  });
-
-  // If no explicit center room, use a synthetic one
-  if (!slots[4] && rooms.length > 0) {
-    const fallback = remaining[freePositions.length] ?? rooms[Math.floor(rooms.length / 2)];
-    if (fallback) slots[4] = { ...fallback, isCenter: true };
-  }
-
-  return slots;
+  const ci = rooms.findIndex((r) => r.isCenter);
+  const ai = rooms.findIndex((r) => r.isAI && !r.isCenter);
+  if (ci >= 0) { s[4] = rooms[ci]; used.add(ci); }
+  if (ai >= 0) { s[7] = rooms[ai]; used.add(ai); }
+  const rem = rooms.filter((_, i) => !used.has(i));
+  [0, 1, 2, 3, 5, 6].filter((p) => !s[p]).forEach((pos, i) => { if (rem[i]) s[pos] = rem[i]; });
+  if (!s[4]) { const fb = rem[6] ?? rooms[Math.floor(rooms.length / 2)]; if (fb) s[4] = { ...fb, isCenter: true }; }
+  return s;
 }
 
-// ─── Avatar stack ─────────────────────────────────────────────────────────────
+// ─── Furniture shapes ─────────────────────────────────────────────────────────
 
-function AvatarStack({
-  avatars,
-  totalCount,
-  isDemo,
-  paletteIdx,
-  demoPlaceholders,
-}: {
+function Desk({ w = 34, h = 16, opacity = 1 }: { w?: number; h?: number; opacity?: number }) {
+  return (
+    <div style={{
+      width: w, height: h, flexShrink: 0,
+      background: `rgba(255,255,255,${0.025 * opacity})`,
+      border: `1px solid rgba(255,255,255,${0.05 * opacity})`,
+      borderRadius: 4,
+    }} />
+  );
+}
+
+// ─── Avatar stack (inline, no extra hooks) ────────────────────────────────────
+
+function AvatarRow({ avatars, total, isDemo, demoCount }: {
   avatars: Array<{ initials: string; color: string }>;
-  totalCount: number;
+  total: number;
   isDemo: boolean;
-  paletteIdx: number;
-  demoPlaceholders: number;
+  demoCount: number;
 }) {
   const DEMO_LETTERS = ["م", "أ", "ع", "س", "ر"];
-
-  if (avatars.length > 0) {
-    return (
-      <div className="flex items-center gap-1 flex-wrap">
-        {avatars.map((av, i) => (
-          <span
-            key={i}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 border border-white/10"
-            style={{ background: av.color }}
-          >
-            {av.initials}
-          </span>
-        ))}
-        {totalCount > 3 && (
-          <span
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] text-[#6b87ab] flex-shrink-0 border border-white/[0.08]"
-            style={{ background: "rgba(255,255,255,0.04)" }}
-          >
-            +{totalCount - 3}
-          </span>
-        )}
-      </div>
-    );
-  }
-
-  if (isDemo && demoPlaceholders > 0) {
-    const count = Math.min(demoPlaceholders, 3);
-    return (
-      <div className="flex items-center gap-1">
-        {Array.from({ length: count }).map((_, i) => (
-          <span
-            key={i}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 border border-white/10"
-            style={{ background: AVATAR_COLORS[(i + paletteIdx * 3) % AVATAR_COLORS.length] }}
-          >
-            {DEMO_LETTERS[i] ?? "م"}
-          </span>
-        ))}
-        {demoPlaceholders > 3 && (
-          <span
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] text-[#6b87ab] flex-shrink-0 border border-white/[0.08]"
-            style={{ background: "rgba(255,255,255,0.04)" }}
-          >
-            +{demoPlaceholders - 3}
-          </span>
-        )}
-      </div>
-    );
-  }
-
-  return <span className="text-[10px] text-[#4a6a99]">لا يوجد موظفون</span>;
+  const show = avatars.length > 0 ? avatars.map((a, i) => ({ key: `a${i}`, bg: a.color, label: a.initials }))
+    : isDemo && demoCount > 0 ? Array.from({ length: Math.min(demoCount, 3) }).map((_, i) => ({
+        key: `d${i}`, bg: AVATAR_COLORS[(i * 3) % AVATAR_COLORS.length] ?? "#22d3ee", label: DEMO_LETTERS[i] ?? "م",
+      }))
+    : [];
+  const extra = avatars.length > 0 ? Math.max(0, total - 3) : isDemo ? Math.max(0, demoCount - 3) : 0;
+  if (show.length === 0) return null;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+      {show.map((a) => (
+        <div key={a.key} style={{
+          width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 10, fontWeight: 700, color: "#fff",
+          background: a.bg, border: "1px solid rgba(255,255,255,0.12)",
+        }}>{a.label}</div>
+      ))}
+      {extra > 0 && (
+        <div style={{
+          width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 10, color: "#6b87ab",
+          background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+        }}>+{extra}</div>
+      )}
+    </div>
+  );
 }
 
-// ─── Room Card ────────────────────────────────────────────────────────────────
+// ─── Health badge ─────────────────────────────────────────────────────────────
 
-function RoomCard({ room, className }: { room: OfficeRoom; className?: string }) {
-  const palette = ROOM_PALETTES[room.paletteIdx] ?? ROOM_PALETTES[0];
-
-  // ── Center / Meeting room ──
-  if (room.isCenter) {
-    return (
-      <div
-        className={cn(
-          "relative rounded-xl border-2 border-violet-500/40 p-3 flex flex-col gap-2 overflow-hidden",
-          className,
-        )}
-        style={{
-          background: "rgba(60,20,100,0.25)",
-          boxShadow: "0 0 40px rgba(139,92,246,0.12), inset 0 1px 0 rgba(255,255,255,0.06)",
-        }}
-      >
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(139,92,246,0.14), transparent)",
-          }}
-          aria-hidden
-        />
-        <div className="relative flex items-start justify-between gap-1">
-          <span className="text-sm font-bold text-white leading-tight">{room.name}</span>
-          <span className="flex-shrink-0 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-violet-500/25 text-violet-200 border border-violet-400/30">
-            <span className="w-1.5 h-1.5 rounded-full bg-violet-300 animate-pulse flex-shrink-0" />
-            {room.isDemo ? "مشغولة الآن" : "نشطة"}
-          </span>
-        </div>
-        <div className="relative flex flex-col items-center justify-center flex-1 py-2 gap-2">
-          <div
-            className="w-12 h-12 rounded-full flex items-center justify-center"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(139,92,246,0.3), rgba(139,92,246,0.08))",
-              border: "1px solid rgba(139,92,246,0.35)",
-            }}
-          >
-            <MessageSquare size={20} className="text-violet-300" />
-          </div>
-          {room.isDemo && (
-            <p className="text-violet-300/80 text-[11px] font-medium">11:00 – 11:30</p>
-          )}
-        </div>
-        <div className="relative text-center text-[10px] text-violet-300/60 mt-auto">
-          {room.isDemo ? "مراجعة فرص البيع الشهرية" : room.employeeCount > 0 ? `${room.employeeCount} حاضر` : "لا توجد اجتماعات"}
-        </div>
-      </div>
-    );
-  }
-
-  // ── AI room ──
-  if (room.isAI) {
-    return (
-      <div
-        className={cn(
-          "relative rounded-xl border border-cyan-400/35 p-3 flex flex-col gap-2 overflow-hidden",
-          className,
-        )}
-        style={{
-          background: "rgba(4,30,50,0.85)",
-          boxShadow: "0 0 30px rgba(34,211,238,0.10), inset 0 1px 0 rgba(255,255,255,0.05)",
-        }}
-      >
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(34,211,238,0.07), transparent)",
-          }}
-          aria-hidden
-        />
-        <div className="relative flex items-start justify-between gap-1">
-          <span className="text-sm font-semibold text-white leading-tight">{room.name}</span>
-          <span className={cn("text-[11px] font-bold flex-shrink-0", healthColor(room.healthPct))}>
-            {room.healthPct > 0 ? `${room.healthPct}%` : "—"}
-          </span>
-        </div>
-        <div className="relative flex items-center justify-center flex-1 py-1">
-          <div
-            className="w-12 h-12 rounded-full flex items-center justify-center"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(34,211,238,0.20), rgba(34,211,238,0.04))",
-              border: "1px solid rgba(34,211,238,0.30)",
-            }}
-          >
-            <BrainCircuit size={22} className="text-cyan-400" />
-          </div>
-        </div>
-        <div className="relative text-center text-[10px] text-cyan-400/60 mt-auto">
-          {room.employeeCount > 0
-            ? `${room.employeeCount} موظف`
-            : room.isDemo
-              ? "AI Engine Active"
-              : "—"}
-        </div>
-      </div>
-    );
-  }
-
-  // ── Standard room ──
+function HealthBadge({ pct }: { pct: number }) {
+  if (pct <= 0) return null;
+  const c = hpColor(pct);
   return (
-    <div
-      className={cn(
-        "relative rounded-xl border p-3 flex flex-col gap-2 overflow-hidden",
-        palette.border,
-        className,
-      )}
-      style={{
-        background: "rgba(6,15,28,0.88)",
-        boxShadow: palette.glow,
-      }}
-    >
-      {/* Colored top accent */}
-      <div
-        className="absolute top-0 inset-x-0 h-0.5 rounded-t-xl"
-        style={{ background: palette.accent, opacity: 0.6 }}
-        aria-hidden
-      />
+    <span style={{
+      fontSize: 11, fontWeight: 700, color: c.text,
+      background: c.bg, border: `1px solid ${c.border}`,
+      padding: "2px 7px", borderRadius: 20, flexShrink: 0,
+    }}>
+      {pct}%
+    </span>
+  );
+}
 
-      {/* Top row: name + alert badge + health % */}
-      <div className="flex items-start justify-between gap-1 pt-0.5">
-        <span className="text-[13px] font-bold text-white leading-tight truncate">{room.name}</span>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {room.overdueTasks > 0 && (
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
-              {room.overdueTasks}
-            </span>
-          )}
-          {room.healthPct > 0 && (
-            <span className={cn("text-[12px] font-bold", healthColor(room.healthPct))}>
-              {room.healthPct}%
-            </span>
-          )}
+// ─── Overdue alert badge ──────────────────────────────────────────────────────
+
+function AlertBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+      width: 18, height: 18, borderRadius: "50%",
+      background: "#ef4444", color: "#fff", fontSize: 10, fontWeight: 700, flexShrink: 0,
+    }}>{count}</span>
+  );
+}
+
+// ─── STANDARD ROOM ────────────────────────────────────────────────────────────
+
+function StandardRoom({ room, style }: { room: OfficeRoom; style?: React.CSSProperties }) {
+  return (
+    <div style={{
+      position: "relative", overflow: "hidden",
+      display: "flex", flexDirection: "column",
+      background: "linear-gradient(160deg, rgba(5,13,26,0.97) 0%, rgba(8,18,36,0.99) 100%)",
+      borderTop: `2px solid ${room.accentColor}60`,
+      border: "1px solid rgba(255,255,255,0.045)",
+      ...style,
+    }}>
+      {/* Subtle floor glow */}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none",
+        background: `radial-gradient(ellipse 90% 55% at 50% 120%, ${room.accentColor}0c, transparent)`,
+      }} />
+
+      {/* Top bar */}
+      <div style={{ padding: "8px 10px 4px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 4, position: "relative" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4", lineHeight: 1.25, flex: 1, minWidth: 0 }}>
+          {room.name}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          <AlertBadge count={room.overdueTasks} />
+          <HealthBadge pct={room.healthPct} />
         </div>
       </div>
 
-      {/* Health bar */}
-      {room.healthPct > 0 && (
-        <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-          <div
-            className={cn("h-full rounded-full", healthBarColor(room.healthPct))}
-            style={{ width: `${room.healthPct}%` }}
-          />
-        </div>
-      )}
+      {/* Desk furniture area */}
+      <div style={{ flex: 1, padding: "6px 10px 4px", display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: 5, position: "relative" }}>
+        <Desk />
+        <Desk />
+        {room.employeeCount > 2 && <Desk w={28} />}
+      </div>
 
-      {/* Avatars */}
-      <AvatarStack
-        avatars={room.avatars}
-        totalCount={room.employeeCount}
-        isDemo={room.isDemo}
-        paletteIdx={room.paletteIdx}
-        demoPlaceholders={room.employeeCount}
-      />
-
-      {/* Footer */}
-      <div className="flex items-center justify-between mt-auto">
-        <span className="text-[10px] text-[#6b87ab]">
-          {room.employeeCount} موظف
-        </span>
+      {/* Avatar + count footer */}
+      <div style={{ padding: "4px 10px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}>
+        <AvatarRow avatars={room.avatars} total={room.employeeCount} isDemo={room.isDemo} demoCount={room.employeeCount} />
         {room.openTasks > 0 && (
-          <span className="flex items-center gap-0.5 text-[10px] text-[#8ba3c7]">
-            <CheckCircle2 size={9} className="text-emerald-400" />
-            {room.openTasks} مهمة
+          <span style={{ fontSize: 10, color: "#5a7a9a", display: "flex", alignItems: "center", gap: 3 }}>
+            <CheckCircle2 size={9} color="#10b981" />
+            {room.openTasks}
           </span>
         )}
       </div>
@@ -527,88 +342,209 @@ function RoomCard({ room, className }: { room: OfficeRoom; className?: string })
   );
 }
 
-// ─── Floor Plan ───────────────────────────────────────────────────────────────
+// ─── MEETING ROOM (CENTER) ────────────────────────────────────────────────────
 
-function FloorPlan({ rooms }: { rooms: OfficeRoom[] }) {
+function MeetingRoom({ room, style }: { room: OfficeRoom; style?: React.CSSProperties }) {
+  return (
+    <div style={{
+      position: "relative", overflow: "hidden",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      background: "linear-gradient(160deg, rgba(32,10,65,0.96) 0%, rgba(16,6,42,0.98) 100%)",
+      border: "2px solid rgba(139,92,246,0.38)",
+      boxShadow: "0 0 50px rgba(139,92,246,0.14), inset 0 0 50px rgba(139,92,246,0.06)",
+      ...style,
+    }}>
+      {/* Ambient glow */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 90% 80% at 50% 50%, rgba(139,92,246,0.20), transparent)" }} />
+      {/* Corner grid lines (decorative) */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.06,
+        backgroundImage: "linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)",
+        backgroundSize: "20px 20px",
+      }} />
+
+      {/* Header row */}
+      <div style={{ position: "absolute", top: 8, left: 10, right: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0" }}>{room.name}</span>
+        {(room.isDemo || room.employeeCount === 0) && (
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 4,
+            fontSize: 10, color: "#c4b5fd",
+            background: "rgba(139,92,246,0.22)", border: "1px solid rgba(139,92,246,0.38)",
+            padding: "2px 8px", borderRadius: 20,
+          }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#a78bfa", display: "inline-block" }} />
+            مشغولة الآن
+          </span>
+        )}
+      </div>
+
+      {/* Central icon */}
+      <div style={{ position: "relative", marginBottom: 8 }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: "50%",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "radial-gradient(circle, rgba(139,92,246,0.38), rgba(139,92,246,0.06))",
+          border: "1px solid rgba(139,92,246,0.45)",
+          boxShadow: "0 0 24px rgba(139,92,246,0.25)",
+        }}>
+          <MessageSquare size={22} color="#c4b5fd" />
+        </div>
+      </div>
+
+      {room.isDemo && (
+        <>
+          <p style={{ fontSize: 13, color: "#c4b5fd", fontWeight: 600, position: "relative" }}>11:00 – 11:30</p>
+          <p style={{ fontSize: 10, color: "rgba(139,92,246,0.55)", marginTop: 4, position: "relative" }}>مراجعة فرص البيع الشهرية</p>
+        </>
+      )}
+
+      {/* Avatars at bottom */}
+      {(room.avatars.length > 0 || (room.isDemo && room.employeeCount > 0)) && (
+        <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 3 }}>
+          <AvatarRow avatars={room.avatars} total={room.employeeCount} isDemo={room.isDemo} demoCount={room.employeeCount} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── AI ROOM ─────────────────────────────────────────────────────────────────
+
+function AIRoomCell({ room, style }: { room: OfficeRoom; style?: React.CSSProperties }) {
+  return (
+    <div style={{
+      position: "relative", overflow: "hidden",
+      display: "flex", flexDirection: "column",
+      background: "linear-gradient(160deg, rgba(3,10,24,0.98) 0%, rgba(5,14,32,0.99) 100%)",
+      border: "1px solid rgba(34,211,238,0.22)",
+      boxShadow: "0 0 40px rgba(34,211,238,0.09), 0 0 60px rgba(139,92,246,0.06), inset 0 0 30px rgba(34,211,238,0.04)",
+      ...style,
+    }}>
+      {/* Dual neon glow */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none",
+        background: "radial-gradient(ellipse 70% 70% at 50% 110%, rgba(34,211,238,0.12), transparent), radial-gradient(ellipse 90% 50% at 90% 0%, rgba(139,92,246,0.10), transparent)",
+      }} />
+      {/* Hex grid texture */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.04,
+        backgroundImage: "linear-gradient(rgba(34,211,238,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.8) 1px, transparent 1px)",
+        backgroundSize: "16px 16px",
+      }} />
+
+      {/* Header */}
+      <div style={{ padding: "8px 10px 4px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 4, position: "relative" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4", lineHeight: 1.25, flex: 1 }}>{room.name}</span>
+        <HealthBadge pct={room.healthPct} />
+      </div>
+
+      {/* Brain icon */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+        <div style={{
+          width: 52, height: 52, borderRadius: "50%",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "radial-gradient(circle, rgba(34,211,238,0.26), rgba(34,211,238,0.04))",
+          border: "1px solid rgba(34,211,238,0.32)",
+          boxShadow: "0 0 24px rgba(34,211,238,0.20)",
+        }}>
+          <BrainCircuit size={24} color="#22d3ee" />
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div style={{ padding: "4px 10px 8px", textAlign: "center", position: "relative" }}>
+        <span style={{ fontSize: 10, color: "rgba(34,211,238,0.45)" }}>
+          {room.employeeCount > 0 ? `${room.employeeCount} موظف` : room.isDemo ? "AI Engine Active" : "—"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+
+// ─── OFFICE FLOOR PLAN ────────────────────────────────────────────────────────
+
+function OfficeFloorPlan({ rooms }: { rooms: OfficeRoom[] }) {
   const slots = useMemo(() => buildSlots(rooms), [rooms]);
 
-  const renderSlot = (slot: OfficeRoom | null, key: string) =>
-    slot ? (
-      <RoomCard key={key} room={slot} className="h-full" />
-    ) : (
-      <div
-        key={key}
-        className="h-full min-h-[120px] rounded-xl border border-dashed border-white/[0.04] flex items-center justify-center"
-      >
-        <span className="text-[#2a3a52] text-[10px]">ممر</span>
-      </div>
-    );
+  function cell(slot: OfficeRoom | null, key: string, gridCol: number | string, gridRow: number | string) {
+    const pos: React.CSSProperties = { gridColumn: gridCol as React.CSSProperties["gridColumn"], gridRow: gridRow as React.CSSProperties["gridRow"] };
+    if (!slot) return <div key={key} style={{ ...pos, background: "rgba(4,10,20,0.6)", border: "1px solid rgba(255,255,255,0.02)" }} />;
+    if (slot.isCenter) return <MeetingRoom key={key} room={slot} style={pos} />;
+    if (slot.isAI)    return <AIRoomCell  key={key} room={slot} style={pos} />;
+    return <StandardRoom key={key} room={slot} style={pos} />;
+  }
 
   return (
-    <div
-      className="rounded-2xl border border-white/[0.06] overflow-hidden"
-      style={{ background: "rgba(3,8,20,0.97)" }}
-    >
+    <div style={{
+      background: "rgba(2,6,16,0.99)",
+      border: "2px solid rgba(45,75,125,0.30)",
+      borderRadius: 20,
+      padding: 4,
+      boxShadow: "0 0 100px rgba(34,211,238,0.05), 0 32px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)",
+    }}>
       {/* Header bar */}
-      <div className="px-4 py-2.5 border-b border-white/[0.05] flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-emerald-400" />
-          <span className="text-[11px] text-[#4a6a99] font-medium">مخطط الطابق الرئيسي</span>
+      <div style={{ padding: "8px 14px 8px", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px #10b981" }} />
+          <span style={{ fontSize: 11, color: "rgba(80,120,160,0.85)", fontWeight: 500 }}>مخطط الطابق الرئيسي</span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1 text-[10px] text-[#4a6a99]">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            {rooms.filter((r) => !r.isCenter).length} غرفة
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <span style={{ fontSize: 10, color: "rgba(60,90,130,0.7)", display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
+            {rooms.filter((r) => !r.isCenter && !r.isAI).length} غرفة
           </span>
-          <span className="flex items-center gap-1 text-[10px] text-[#4a6a99]">
-            <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
-            1 قاعة اجتماعات
+          <span style={{ fontSize: 10, color: "rgba(60,90,130,0.7)", display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#a855f7", display: "inline-block" }} />
+            قاعة اجتماعات
+          </span>
+          <span style={{ fontSize: 10, color: "rgba(60,90,130,0.7)", display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22d3ee", display: "inline-block" }} />
+            غرفة AI
           </span>
         </div>
       </div>
 
       {/* ── Desktop grid (sm+) ── */}
       <div
-        className="hidden sm:grid p-3 gap-2"
+        className="hidden sm:grid"
         style={{
-          gridTemplateColumns: "1fr 1fr 1fr",
-          gridTemplateRows: "minmax(150px,auto) minmax(150px,auto) minmax(130px,auto)",
+          gridTemplateColumns: "1fr 1.12fr 1fr",
+          gridTemplateRows: "minmax(155px,auto) minmax(172px,auto) minmax(148px,auto)",
+          gap: 4,
+          background: "rgba(16,28,50,0.55)",
+          borderRadius: 14,
+          overflow: "hidden",
         }}
       >
-        {/* Row 1 */}
-        <div style={{ gridColumn: 1, gridRow: 1 }}>{renderSlot(slots[0], "s0")}</div>
-        <div style={{ gridColumn: 2, gridRow: 1 }}>{renderSlot(slots[1], "s1")}</div>
-        <div style={{ gridColumn: 3, gridRow: 1 }}>{renderSlot(slots[2], "s2")}</div>
-        {/* Row 2-3 */}
-        <div style={{ gridColumn: 1, gridRow: 2 }}>{renderSlot(slots[3], "s3")}</div>
-        {/* CENTER spans rows 2 & 3 */}
-        <div style={{ gridColumn: 2, gridRow: "2 / 4" }}>{renderSlot(slots[4], "s4")}</div>
-        <div style={{ gridColumn: 3, gridRow: 2 }}>{renderSlot(slots[5], "s5")}</div>
-        {/* Row 3 */}
-        <div style={{ gridColumn: 1, gridRow: 3 }}>{renderSlot(slots[6], "s6")}</div>
-        {/* col 2 row 3 taken by center span */}
-        <div style={{ gridColumn: 3, gridRow: 3 }}>{renderSlot(slots[7], "s7")}</div>
+        {cell(slots[0], "r0", 1, 1)}
+        {cell(slots[1], "r1", 2, 1)}
+        {cell(slots[2], "r2", 3, 1)}
+        {cell(slots[3], "r3", 1, 2)}
+        {cell(slots[4], "r4", 2, "2 / 4")}
+        {cell(slots[5], "r5", 3, 2)}
+        {cell(slots[6], "r6", 1, 3)}
+        {/* col 2 row 3 is fully occupied by the center room span (gridRow: "2 / 4") */}
+        {cell(slots[7], "r7", 3, 3)}
       </div>
 
-      {/* ── Mobile list (xs only) ── */}
-      <div className="sm:hidden p-3 grid grid-cols-1 gap-3">
-        {rooms.map((room) => (
-          <RoomCard key={room.id} room={room} />
-        ))}
+      {/* ── Mobile stacked (xs only) ── */}
+      <div className="sm:hidden space-y-2">
+        {rooms.map((room) =>
+          room.isCenter ? (
+            <MeetingRoom key={room.id} room={room} style={{ minHeight: 148 }} />
+          ) : room.isAI ? (
+            <AIRoomCell key={room.id} room={room} style={{ minHeight: 120 }} />
+          ) : (
+            <StandardRoom key={room.id} room={room} style={{ minHeight: 120 }} />
+          ),
+        )}
       </div>
     </div>
   );
 }
 
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
+// ─── KPI CARD ─────────────────────────────────────────────────────────────────
 
-function KpiCard({
-  label,
-  value,
-  sub,
-  Icon,
-  iconBg,
-}: {
+function KpiCard({ label, value, sub, Icon, iconBg }: {
   label: string;
   value: string | number;
   sub?: string;
@@ -617,80 +553,74 @@ function KpiCard({
 }) {
   return (
     <div
-      className="flex-shrink-0 min-w-[120px] rounded-2xl border border-white/[0.07] p-4 flex flex-col gap-1"
-      style={{ background: "rgba(8,18,34,0.88)" }}
+      className="flex-shrink-0 min-w-[118px]"
+      style={{
+        borderRadius: 18, border: "1px solid rgba(255,255,255,0.065)",
+        background: "rgba(6,14,28,0.92)",
+        padding: "14px 14px 12px",
+        display: "flex", flexDirection: "column", gap: 4,
+        boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+      }}
     >
-      <div
-        className="w-7 h-7 rounded-lg flex items-center justify-center mb-1.5"
-        style={{ background: iconBg }}
-      >
-        <Icon size={14} className="text-white" />
+      <div style={{
+        width: 30, height: 30, borderRadius: 10, marginBottom: 4,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: iconBg,
+      }}>
+        <Icon size={15} color="#fff" />
       </div>
-      <div className="text-2xl font-bold text-white leading-none tabular-nums">{value}</div>
-      {sub && <div className="text-[10px] text-emerald-400 font-medium leading-none">{sub}</div>}
-      <div className="text-[11px] text-[#5a7a9a] mt-0.5 leading-tight">{label}</div>
+      <div style={{ fontSize: 24, fontWeight: 800, color: "#fff", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</div>
+      {sub && <div style={{ fontSize: 10, color: "#10b981", fontWeight: 600, lineHeight: 1 }}>{sub}</div>}
+      <div style={{ fontSize: 11, color: "#4a6a8a", marginTop: 2, lineHeight: 1.3 }}>{label}</div>
     </div>
   );
 }
 
-// ─── Activity Panel ───────────────────────────────────────────────────────────
+// ─── ACTIVITY PANEL ───────────────────────────────────────────────────────────
 
 function ActivityPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] }) {
-  // Use last 5 tasks as "activity items"
   const items = useMemo(() => {
     const safeTasks = Array.isArray(tasks) ? tasks : [];
-    return [...safeTasks]
-      .filter((t) => t?.title)
-      .slice(0, 5)
-      .map((t, i) => ({
-        id: t.id ?? `act-${i}`,
-        title: t.title,
-        status: t.status,
-        room: rooms[i % rooms.length]?.name ?? "—",
-        ago: ["دقيقتين", "5 دقائق", "10 دقائق", "15 دقائق", "20 دقيقة"][i] ?? "—",
-      }));
+    const live = [...safeTasks].filter((t) => t?.title).slice(0, 5).map((t, i) => ({
+      id: t.id ?? `a${i}`,
+      title: t.title,
+      status: t.status ?? "",
+      room: rooms[i % Math.max(rooms.length, 1)]?.name ?? "—",
+      ago: (["دقيقتين", "5 دقائق", "10 دقائق", "15 دقائق", "20 دقيقة"] as const)[i] ?? "—",
+    }));
+    if (live.length > 0) return live;
+    return [
+      { id: "d1", title: "تم إسناد مهمة في غرفة التنفيذ",              room: "غرفة التنفيذ",         ago: "دقيقتين",  status: "قيد_التنفيذ" },
+      { id: "d2", title: "انضم محمد لاجتماع غرفة المبيعات",            room: "غرفة المبيعات",       ago: "5 دقائق",   status: "جديدة"       },
+      { id: "d3", title: "تم تحديث مهمة في غرفة الدعم",               room: "غرفة الدعم",          ago: "10 دقائق",  status: "قيد_التنفيذ" },
+      { id: "d4", title: "تم رفع فاتورة #INV-2026-0034",              room: "غرفة المالية",        ago: "15 دقائق",  status: "بانتظار_المراجعة" },
+      { id: "d5", title: "تم إنشاء اجتماع في غرفة الإدارة العليا",    room: "غرفة الإدارة العليا", ago: "20 دقيقة",  status: "جديدة"       },
+    ];
   }, [tasks, rooms]);
 
-  const demoItems = [
-    { id: "d1", title: "تم إسناد مهمة في غرفة التنفيذ", room: "غرفة التنفيذ", ago: "دقيقتين", status: "قيد_التنفيذ" },
-    { id: "d2", title: "انضم محمد لاجتماع غرفة المبيعات", room: "غرفة المبيعات", ago: "5 دقائق", status: "جديدة" },
-    { id: "d3", title: "تم تحديث مهمة في غرفة الدعم", room: "غرفة الدعم", ago: "10 دقائق", status: "قيد_التنفيذ" },
-    { id: "d4", title: "تم رفع فاتورة #INV-2026-0034", room: "غرفة المالية", ago: "15 دقائق", status: "بانتظار_المراجعة" },
-    { id: "d5", title: "تم إنشاء اجتماع في غرفة الإدارة العليا", room: "غرفة الإدارة العليا", ago: "20 دقيقة", status: "جديدة" },
-  ];
-
-  const displayItems = items.length > 0 ? items : demoItems;
-
-  const statusIcon = (s: string) => {
-    if (s === "متأخرة") return <AlertCircle size={12} className="text-rose-400 flex-shrink-0" />;
-    if (s === "مكتملة") return <CheckCircle2 size={12} className="text-emerald-400 flex-shrink-0" />;
-    if (s === "قيد_التنفيذ") return <Clock size={12} className="text-amber-400 flex-shrink-0" />;
-    return <Activity size={12} className="text-[#22d3ee] flex-shrink-0" />;
-  };
+  function StatusDot({ s }: { s: string }) {
+    const color = s === "متأخرة" ? "#ef4444" : s === "مكتملة" ? "#10b981" : s === "قيد_التنفيذ" ? "#f59e0b" : "#22d3ee";
+    return <span style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />;
+  }
 
   return (
-    <div
-      className="rounded-2xl border border-white/[0.07] overflow-hidden flex-1"
-      style={{ background: "rgba(8,18,34,0.88)" }}
-    >
-      <div className="px-4 py-3 border-b border-white/[0.05] flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Activity size={14} className="text-[#22d3ee]" />
-          <span className="text-[13px] font-semibold text-white">النشاط المباشر داخل المكتب</span>
+    <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(6,14,28,0.92)", overflow: "hidden", flex: 1 }}>
+      <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Activity size={14} color="#22d3ee" />
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>النشاط المباشر داخل المكتب</span>
         </div>
-        <Link href="/tasks" className="text-[10px] text-[#4a6a99] hover:text-[#22d3ee] transition-colors">
-          › الكل
-        </Link>
+        <Link href="/tasks" style={{ fontSize: 10, color: "#3a5a7a", textDecoration: "none" }}>› الكل</Link>
       </div>
-      <ul className="divide-y divide-white/[0.04]">
-        {displayItems.map((item) => (
-          <li key={item.id} className="px-4 py-3 flex items-start gap-3">
-            <div className="mt-0.5">{statusIcon(item.status ?? "جديدة")}</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[12px] text-[#c0d4ee] leading-snug truncate">{item.title}</p>
-              <p className="text-[10px] text-[#4a6a99] mt-0.5">{item.room}</p>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        {items.map((item, i) => (
+          <li key={item.id} style={{ padding: "10px 16px", borderBottom: i < items.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <StatusDot s={item.status} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 12, color: "#b0c8e0", margin: 0, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</p>
+              <p style={{ fontSize: 10, color: "#3a5a7a", margin: "2px 0 0" }}>{item.room}</p>
             </div>
-            <span className="text-[10px] text-[#3a5570] flex-shrink-0 mt-0.5">منذ {item.ago}</span>
+            <span style={{ fontSize: 10, color: "#2a4060", flexShrink: 0 }}>منذ {item.ago}</span>
           </li>
         ))}
       </ul>
@@ -698,60 +628,47 @@ function ActivityPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
   );
 }
 
-// ─── Meeting Rooms Panel ──────────────────────────────────────────────────────
+// ─── MEETING ROOMS PANEL ──────────────────────────────────────────────────────
 
 function MeetingRoomsPanel({ rooms }: { rooms: OfficeRoom[] }) {
-  const meetingRooms = rooms.length > 0
-    ? rooms.slice(0, 3)
-    : DEMO_ROOMS_DEF.slice(0, 3).map((d, i) => ({
-        id: `mr-${i}`,
-        name: d.name,
-        isCenter: d.isCenter ?? false,
-        employeeCount: d.empCount,
-      }));
-
-  const demoStatuses = ["مشغولة الآن", "جدولة سريعة", "جدولة سريعة"];
+  const list = rooms.length > 0 ? rooms.slice(0, 3) : DEMO_DEF.slice(0, 3).map((d, i) => ({
+    id: `mr${i}`, name: d.name, employeeCount: d.emp,
+  }));
 
   return (
-    <div
-      className="rounded-2xl border border-white/[0.07] overflow-hidden flex-1"
-      style={{ background: "rgba(8,18,34,0.88)" }}
-    >
-      <div className="px-4 py-3 border-b border-white/[0.05] flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Calendar size={14} className="text-violet-400" />
-          <span className="text-[13px] font-semibold text-white">غرف الاجتماعات</span>
+    <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(6,14,28,0.92)", overflow: "hidden", flex: 1 }}>
+      <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Calendar size={14} color="#a855f7" />
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>غرف الاجتماعات</span>
         </div>
-        <span className="text-[10px] text-[#4a6a99]">عرض التقويم</span>
+        <span style={{ fontSize: 10, color: "#3a5a7a" }}>عرض التقويم</span>
       </div>
-      <ul className="divide-y divide-white/[0.04]">
-        {meetingRooms.map((room, i) => {
-          const status = demoStatuses[i] ?? "جدولة سريعة";
-          const isOccupied = i === 0;
+      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        {list.map((room, i) => {
+          const occupied = i === 0;
           return (
-            <li key={room.id ?? i} className="px-4 py-3 flex items-center gap-3">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: isOccupied ? "rgba(139,92,246,0.20)" : "rgba(255,255,255,0.04)" }}
-              >
-                <MessageSquare size={14} className={isOccupied ? "text-violet-400" : "text-[#4a6a99]"} />
+            <li key={room.id ?? i} style={{ padding: "10px 16px", borderBottom: i < list.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: occupied ? "rgba(139,92,246,0.20)" : "rgba(255,255,255,0.04)",
+              }}>
+                <MessageSquare size={14} color={occupied ? "#a78bfa" : "#3a5a7a"} />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-medium text-white truncate">{room.name}</p>
-                <p className="text-[10px] text-[#4a6a99] mt-0.5">
-                  {isOccupied ? "11:00 - 11:30" : "لا يوجد اجتماع محدول"}
-                </p>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 12, fontWeight: 500, color: "#c8ddf0", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{room.name}</p>
+                <p style={{ fontSize: 10, color: "#3a5a7a", margin: "2px 0 0" }}>{occupied ? "11:00 - 11:30" : "لا يوجد اجتماع محدول"}</p>
               </div>
-              <button
-                type="button"
-                className={cn(
-                  "flex-shrink-0 text-[10px] px-2.5 py-1 rounded-lg border font-medium",
-                  isOccupied
-                    ? "border-violet-400/30 bg-violet-400/10 text-violet-300"
-                    : "border-white/[0.08] bg-white/[0.04] text-[#6b87ab] hover:text-white transition-colors",
-                )}
-              >
-                {status}
+              <button type="button" style={{
+                flexShrink: 0, fontSize: 10, fontWeight: 500,
+                padding: "4px 10px", borderRadius: 8,
+                border: occupied ? "1px solid rgba(139,92,246,0.35)" : "1px solid rgba(255,255,255,0.08)",
+                background: occupied ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.04)",
+                color: occupied ? "#c4b5fd" : "#5a7a9a",
+                cursor: "default",
+              }}>
+                {occupied ? "مشغولة الآن" : "جدولة سريعة"}
               </button>
             </li>
           );
@@ -761,101 +678,58 @@ function MeetingRoomsPanel({ rooms }: { rooms: OfficeRoom[] }) {
   );
 }
 
-// ─── AI Alerts Panel ──────────────────────────────────────────────────────────
+// ─── AI ALERTS PANEL ──────────────────────────────────────────────────────────
 
 function AIAlertsPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] }) {
-  type AlertItem = {
-    id: string;
-    type: "تنبيه" | "تحذير" | "حاد" | "توصية";
-    text: string;
-    room: string;
-    color: string;
-    icon: React.ElementType;
+  type AlertItem = { id: string; type: "تنبيه" | "تحذير" | "حاد" | "توصية"; text: string; room: string; Icon: React.ElementType; };
+  const TYPE_STYLE: Record<string, { bg: string; color: string; border: string }> = {
+    "تنبيه":  { bg: "rgba(245,158,11,0.14)", color: "#fbbf24", border: "rgba(245,158,11,0.28)" },
+    "تحذير":  { bg: "rgba(245,158,11,0.18)", color: "#f59e0b", border: "rgba(245,158,11,0.32)" },
+    "حاد":    { bg: "rgba(239,68,68,0.14)",  color: "#f87171", border: "rgba(239,68,68,0.28)"  },
+    "توصية":  { bg: "rgba(34,211,238,0.12)", color: "#22d3ee", border: "rgba(34,211,238,0.25)" },
   };
 
   const alerts: AlertItem[] = useMemo(() => {
     const safeTasks = Array.isArray(tasks) ? tasks : [];
-    const overdueTasks = safeTasks.filter((t) => t?.status === "متأخرة");
-    const pendingTasks = safeTasks.filter((t) => t?.status === "بانتظار_المراجعة");
-
+    const overdue = safeTasks.filter((t) => t?.status === "متأخرة");
+    const pending = safeTasks.filter((t) => t?.status === "بانتظار_المراجعة");
     const result: AlertItem[] = [];
-    const mainRoom = rooms[0]?.name ?? "غرفة المبيعات";
-
-    if (overdueTasks.length > 0) {
-      result.push({
-        id: "a1",
-        type: "تحذير",
-        text: `${overdueTasks.length} مهام متأخرة في ${mainRoom}`,
-        room: mainRoom,
-        color: "text-amber-400",
-        icon: AlertTriangle,
-      });
-    }
-    if (pendingTasks.length > 0) {
-      result.push({
-        id: "a2",
-        type: "حاد",
-        text: "#INV-2026-0034 متأخر عن الموعد",
-        room: rooms[1]?.name ?? "غرفة المالية",
-        color: "text-rose-400",
-        icon: AlertCircle,
-      });
-    }
-
-    const demoAlerts: AlertItem[] = [
-      { id: "d1", type: "تنبيه", text: "مؤشر النشاط انخفض -38% مقارنة بالأسبوع الماضي", room: "غرفة المبيعات", color: "text-amber-400", icon: AlertTriangle },
-      { id: "d2", type: "تحذير", text: "3 مهام متأخرة في غرفة التسويق", room: "غرفة التسويق", color: "text-amber-400", icon: AlertTriangle },
-      { id: "d3", type: "حاد", text: "#INV-2026-0034 متأخر عن الموعد", room: "غرفة المالية", color: "text-rose-400", icon: AlertCircle },
-      { id: "d4", type: "توصية", text: "إعادة توزيع مهام الدعم على موظفين من قسم التنفيذ", room: "غرفة الدعم", color: "text-cyan-400", icon: Zap },
+    if (overdue.length > 0) result.push({ id: "a1", type: "تحذير", text: `${overdue.length} مهام متأخرة في ${rooms[0]?.name ?? "الأقسام"}`, room: rooms[0]?.name ?? "—", Icon: AlertTriangle });
+    if (pending.length > 0) result.push({ id: "a2", type: "حاد",   text: "#INV-2026-0034 متأخر عن الموعد", room: rooms[1]?.name ?? "—", Icon: AlertCircle });
+    if (result.length >= 2) return result;
+    return [
+      { id: "d1", type: "تنبيه",  text: "مؤشر النشاط انخفض -38% مقارنة بالأسبوع الماضي", room: "غرفة المبيعات", Icon: AlertTriangle },
+      { id: "d2", type: "تحذير",  text: "3 مهام متأخرة في غرفة التسويق", room: "غرفة التسويق", Icon: AlertTriangle },
+      { id: "d3", type: "حاد",    text: "#INV-2026-0034 متأخر عن الموعد", room: "غرفة المالية", Icon: AlertCircle },
+      { id: "d4", type: "توصية",  text: "إعادة توزيع مهام الدعم على موظفين من قسم التنفيذ", room: "غرفة الدعم", Icon: Zap },
     ];
-
-    return result.length >= 2 ? result : demoAlerts;
   }, [tasks, rooms]);
 
-  const typeBadge: Record<string, string> = {
-    "تنبيه":   "bg-amber-400/15 text-amber-300 border border-amber-400/25",
-    "تحذير":   "bg-amber-500/15 text-amber-200 border border-amber-500/25",
-    "حاد":     "bg-rose-400/15  text-rose-300  border border-rose-400/25",
-    "توصية":   "bg-cyan-400/15  text-cyan-300  border border-cyan-400/25",
-  };
-
   return (
-    <div
-      className="rounded-2xl border border-white/[0.07] overflow-hidden flex-1"
-      style={{ background: "rgba(8,18,34,0.88)" }}
-    >
-      <div className="px-4 py-3 border-b border-white/[0.05] flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BrainCircuit size={14} className="text-cyan-400" />
-          <span className="text-[13px] font-semibold text-white">تنبيهات الذكاء الاصطناعي</span>
+    <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(6,14,28,0.92)", overflow: "hidden", flex: 1 }}>
+      <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <BrainCircuit size={14} color="#22d3ee" />
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>تنبيهات الذكاء الاصطناعي</span>
         </div>
-        <span className="text-[10px] text-[#4a6a99] hover:text-[#22d3ee] transition-colors cursor-pointer">
-          عرض الكل
-        </span>
+        <span style={{ fontSize: 10, color: "#3a5a7a" }}>عرض الكل</span>
       </div>
-      <ul className="divide-y divide-white/[0.04]">
-        {alerts.slice(0, 4).map((alert) => {
-          const Icon = alert.icon;
+      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        {alerts.slice(0, 4).map((alert, i) => {
+          const ts = TYPE_STYLE[alert.type] ?? TYPE_STYLE["تنبيه"]!;
+          const AlertIcon = alert.Icon;
           return (
-            <li key={alert.id} className="px-4 py-3 flex items-start gap-3">
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                style={{ background: "rgba(255,255,255,0.04)" }}
-              >
-                <Icon size={13} className={alert.color} />
+            <li key={alert.id} style={{ padding: "10px 16px", borderBottom: i < Math.min(alerts.length, 4) - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.04)" }}>
+                <AlertIcon size={13} color={ts.color} />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", typeBadge[alert.type] ?? typeBadge["تنبيه"])}>
-                    {alert.type}
-                  </span>
-                </div>
-                <p className="text-[11px] text-[#c0d4ee] leading-snug">{alert.text}</p>
-                <p className="text-[10px] text-[#3a5570] mt-0.5">{alert.room}</p>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 6, background: ts.bg, color: ts.color, border: `1px solid ${ts.border}`, display: "inline-block", marginBottom: 4 }}>
+                  {alert.type}
+                </span>
+                <p style={{ fontSize: 11, color: "#b0c8e0", margin: 0, lineHeight: 1.4 }}>{alert.text}</p>
+                <p style={{ fontSize: 10, color: "#2a4060", margin: "2px 0 0" }}>{alert.room}</p>
               </div>
-              <button type="button" className="text-[10px] text-[#3a5570] hover:text-[#6b87ab] flex-shrink-0 mt-1 transition-colors">
-                ···
-              </button>
             </li>
           );
         })}
@@ -864,7 +738,7 @@ function AIAlertsPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 export default function VirtualOfficeDesign({
   snapshot,
@@ -875,137 +749,129 @@ export default function VirtualOfficeDesign({
   isRefreshing = false,
 }: VirtualOfficeDesignProps) {
   const { rooms, isDemo } = useMemo(
-    () => buildOfficeRooms(snapshot, employees, tasks),
+    () => buildRooms(snapshot, employees, tasks),
     [snapshot, employees, tasks],
   );
 
-  // ── Safe arrays (inside useMemo to avoid stale closure warnings) ──
   const safeRels  = useMemo(() => Array.isArray(snapshot?.relations)   ? snapshot!.relations   : [], [snapshot]);
   const safeDepts = useMemo(() => Array.isArray(snapshot?.departments) ? snapshot!.departments : [], [snapshot]);
-  const safeTasks = useMemo(() => Array.isArray(tasks)     ? tasks     : [], [tasks]);
+  const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
 
-  // ── KPIs ──
   const openTasks    = safeTasks.filter((t) => t?.status !== "مكتملة").length;
   const overdueTasks = safeTasks.filter((t) => t?.status === "متأخرة").length;
   const activeEmps   = safeRels.length;
-  const deptCount    = isDemo ? DEMO_ROOMS_DEF.length : safeDepts.length;
+  const deptCount    = isDemo ? DEMO_DEF.length : safeDepts.length;
 
   const avgHealth = useMemo(() => {
-    const healthRooms = rooms.filter((r) => r.healthPct > 0);
-    if (healthRooms.length === 0) return 82;
-    return Math.round(healthRooms.reduce((sum, r) => sum + r.healthPct, 0) / healthRooms.length);
+    const hr = rooms.filter((r) => r.healthPct > 0);
+    return hr.length === 0 ? 82 : Math.round(hr.reduce((s, r) => s + r.healthPct, 0) / hr.length);
   }, [rooms]);
 
   const kpis = [
-    { label: "صحة المكتب",        value: `${avgHealth}%`, sub: healthLabel(avgHealth), Icon: Heart,        iconBg: "rgba(236,72,153,0.25)" },
-    { label: "الأقسام",           value: deptCount,       sub: undefined,              Icon: LayoutGrid,   iconBg: "rgba(59,130,246,0.25)" },
-    { label: "الموظفون النشطون",  value: isDemo ? 18 : activeEmps, sub: `من ${isDemo ? 24 : (Array.isArray(employees) ? employees.length : 0)}`, Icon: Users, iconBg: "rgba(34,211,238,0.25)" },
-    { label: "اجتماعات اليوم",   value: isDemo ? 5 : 0,  sub: isDemo ? "اجتماعات" : undefined,  Icon: Calendar,     iconBg: "rgba(139,92,246,0.25)" },
-    { label: "المهام المفتوحة",   value: isDemo ? 46 : openTasks,    sub: "مهمة",    Icon: CheckCircle2, iconBg: "rgba(245,158,11,0.25)" },
-    { label: "المهام المتأخرة",   value: isDemo ? 6  : overdueTasks, sub: "مهمة",    Icon: AlertCircle,  iconBg: "rgba(239,68,68,0.25)" },
-    { label: "تنبيهات AI",        value: isDemo ? 4  : Math.max(overdueTasks, 0), sub: "تنبيه", Icon: BrainCircuit, iconBg: "rgba(139,92,246,0.25)" },
+    { label: "صحة المكتب",       value: `${avgHealth}%`, sub: hpLabel(avgHealth),                  Icon: Heart,        iconBg: "rgba(16,185,129,0.28)" },
+    { label: "الأقسام",          value: deptCount,        sub: undefined,                          Icon: LayoutGrid,   iconBg: "rgba(34,211,238,0.25)" },
+    { label: "الموظفون النشطون", value: isDemo ? 18 : activeEmps, sub: `من ${isDemo ? 24 : (Array.isArray(employees) ? employees.length : 0)}`, Icon: Users, iconBg: "rgba(59,130,246,0.25)" },
+    { label: "اجتماعات اليوم",  value: isDemo ? 5 : 0,   sub: isDemo ? "اجتماعات" : undefined,    Icon: Calendar,     iconBg: "rgba(139,92,246,0.25)" },
+    { label: "المهام المفتوحة",  value: isDemo ? 46 : openTasks,    sub: "مهمة",                  Icon: CheckCircle2, iconBg: "rgba(16,185,129,0.25)" },
+    { label: "المهام المتأخرة",  value: isDemo ? 6  : overdueTasks, sub: "مهمة",                  Icon: AlertCircle,  iconBg: "rgba(245,158,11,0.28)" },
+    { label: "تنبيهات AI",       value: isDemo ? 4  : Math.max(overdueTasks, 0), sub: "تنبيه",    Icon: BrainCircuit, iconBg: "rgba(139,92,246,0.28)" },
   ];
 
   return (
     <div className="space-y-5 min-w-0" dir="rtl">
 
       {/* ── Header ── */}
-      <section
-        className="relative overflow-hidden rounded-2xl border border-[#22d3ee]/20 p-5 sm:p-6"
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(8,18,36,0.98) 0%, rgba(20,40,72,0.95) 60%, rgba(60,20,100,0.15) 100%)",
-          boxShadow: "0 0 60px rgba(34,211,238,0.06)",
-        }}
-      >
-        <div
-          className="absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-15 blur-3xl pointer-events-none"
-          style={{ background: "radial-gradient(circle, #22d3ee, transparent)" }}
-          aria-hidden
-        />
-        <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          {/* Title block */}
+      <section style={{
+        position: "relative", overflow: "hidden",
+        borderRadius: 20,
+        border: "1px solid rgba(34,211,238,0.18)",
+        padding: "20px 22px",
+        background: "linear-gradient(135deg, rgba(6,15,30,0.98) 0%, rgba(18,36,68,0.96) 55%, rgba(50,16,80,0.14) 100%)",
+        boxShadow: "0 0 70px rgba(34,211,238,0.05)",
+      }}>
+        <div style={{ position: "absolute", top: -80, right: -80, width: 260, height: 260, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,238,0.09), transparent)", pointerEvents: "none" }} />
+        <div style={{ position: "relative", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          {/* Title */}
           <div>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span
-                className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded"
-                style={{ background: "rgba(245,158,11,0.20)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.30)" }}
-              >
-                BETA
-              </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: "rgba(245,158,11,0.20)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.32)" }}>BETA</span>
               {isDemo && (
-                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-amber-400/25 bg-amber-400/10 text-amber-300">
-                  <Sparkles size={9} />
+                <span style={{ fontSize: 10, fontWeight: 500, padding: "2px 8px", borderRadius: 20, background: "rgba(245,158,11,0.12)", color: "#fcd34d", border: "1px solid rgba(245,158,11,0.22)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <Sparkles size={9} color="#fcd34d" />
                   عرض توضيحي
                 </span>
               )}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-heading font-bold text-white leading-tight">
+            <h1 style={{ fontSize: "clamp(22px,4vw,30px)", fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.2 }}>
               المكتب الافتراضي الذكي
             </h1>
-            <p className="text-[#8ba3c7] text-sm mt-2 max-w-lg leading-relaxed">
+            <p style={{ fontSize: 13, color: "#7a9ab8", marginTop: 8, maxWidth: 520, lineHeight: 1.6 }}>
               محاكاة تفاعلية لهيكل منشأتك. اعرف كل ما يحدث في أقسامك في نظرة واحدة.
             </p>
           </div>
 
           {/* Action buttons */}
-          <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
-            <button
-              type="button"
-              onClick={onBackToOrg}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/[0.1] bg-white/[0.05] text-[#8ba3c7] hover:text-white hover:bg-white/[0.08] transition-all text-sm min-h-10 touch-manipulation"
-            >
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <button type="button" onClick={onBackToOrg} style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "8px 14px", borderRadius: 12,
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "rgba(255,255,255,0.05)", color: "#8ba3c7",
+              fontSize: 13, cursor: "pointer",
+            }}>
               <ArrowRight size={14} />
               رجوع للهيكل
             </button>
-            <button
-              type="button"
-              onClick={onRefresh}
-              disabled={isRefreshing || !onRefresh}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/8 text-[#22d3ee] hover:bg-[#22d3ee]/15 transition-all text-sm min-h-10 touch-manipulation disabled:opacity-50"
-            >
-              <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
+            <button type="button" onClick={onRefresh} disabled={isRefreshing || !onRefresh} style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "8px 14px", borderRadius: 12,
+              border: "1px solid rgba(34,211,238,0.25)",
+              background: "rgba(34,211,238,0.08)", color: "#22d3ee",
+              fontSize: 13, cursor: "pointer", opacity: (isRefreshing || !onRefresh) ? 0.5 : 1,
+            }}>
+              <RefreshCw size={14} style={isRefreshing ? { animation: "spin 1s linear infinite" } : undefined} />
               مزامنة من الهيكل
             </button>
-            {/* AI report — disabled/preview */}
-            <div className="relative group">
-              <button
-                type="button"
-                disabled
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-violet-400/20 bg-violet-400/5 text-violet-400/50 text-sm cursor-not-allowed min-h-10"
-              >
+            <div className="relative group" style={{ position: "relative" }}>
+              <button type="button" disabled style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "8px 14px", borderRadius: 12,
+                border: "1px solid rgba(139,92,246,0.22)",
+                background: "rgba(139,92,246,0.07)", color: "rgba(168,85,247,0.50)",
+                fontSize: 13, cursor: "not-allowed",
+              }}>
                 <BrainCircuit size={14} />
                 تقرير AI
               </button>
-              <div className="absolute bottom-full mb-2 left-0 hidden group-hover:block z-20 w-52 p-2.5 rounded-xl border border-white/[0.08] bg-[#0a1628]/95 backdrop-blur-xl text-[11px] text-[#8ba3c7] leading-relaxed shadow-xl">
-                سيتم ربط التقرير الذكي بعد تفعيل AI Copilot.
-              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* ── KPI Row ── */}
-      <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+      <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
         {kpis.map((k) => (
           <KpiCard key={k.label} label={k.label} value={k.value} sub={k.sub} Icon={k.Icon} iconBg={k.iconBg} />
         ))}
       </div>
 
-      {/* ── Floor Plan ── */}
-      <FloorPlan rooms={rooms} />
+      {/* ── Office Floor Plan ── */}
+      <OfficeFloorPlan rooms={rooms} />
 
       {/* ── Bottom Panels ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ alignItems: "start" }}>
         <ActivityPanel tasks={safeTasks} rooms={rooms} />
         <MeetingRoomsPanel rooms={rooms} />
         <AIAlertsPanel tasks={safeTasks} rooms={rooms} />
       </div>
 
-      {/* ── Footer note ── */}
-      <p className="text-[10px] text-[#3a5570] text-center pb-2">
+      {/* Footer */}
+      <p style={{ fontSize: 10, color: "#1e3050", textAlign: "center", paddingBottom: 8 }}>
         معاينة للقراءة فقط · لا تغييرات في البيانات · مبني من الهيكل الإداري
       </p>
+
+      {/* Keyframes for spin */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
