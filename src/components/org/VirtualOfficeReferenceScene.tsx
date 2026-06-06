@@ -38,6 +38,7 @@ export interface VirtualOfficeReferenceSceneProps {
 
 // ─── Asset path ───────────────────────────────────────────────────────────────
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
+const IMAGE_ASPECT_RATIO = "1672 / 941";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -56,14 +57,14 @@ interface SlotPos {
   isMeeting?: boolean;
 }
 const SLOT_POSITIONS: SlotPos[] = [
-  { top: "1%",    left:  "1%",   width: "31%", height: "30%" },
-  { top: "1%",    left:  "34%",  width: "32%", height: "30%" },
-  { top: "1%",    right: "1%",   width: "31%", height: "30%" },
-  { top: "34%",   left:  "1%",   width: "31%", height: "29%" },
-  { top: "33%",   left:  "34%",  width: "32%", height: "62%", isMeeting: true },
-  { top: "34%",   right: "1%",   width: "31%", height: "29%" },
-  { bottom: "1%", left:  "1%",   width: "31%", height: "29%" },
-  { bottom: "1%", right: "1%",   width: "31%", height: "29%" },
+  { top: "63%", left: "4%",  width: "29%", height: "32%" },
+  { top: "3%",  left: "5%",  width: "31%", height: "27%" },
+  { top: "3%",  left: "39%", width: "22%", height: "27%" },
+  { top: "34%", left: "4%",  width: "29%", height: "27%" },
+  { top: "35%", left: "39%", width: "22%", height: "24%", isMeeting: true },
+  { top: "34%", left: "69%", width: "27%", height: "27%" },
+  { top: "65%", left: "38%", width: "26%", height: "29%" },
+  { top: "64%", left: "69%", width: "27%", height: "31%" },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -420,8 +421,8 @@ export default function VirtualOfficeReferenceScene({
             position: "relative",
             borderRadius: 14,
             overflow: "hidden",
-            // Match the actual asset aspect ratio (1536×1024 = 3:2). No crop.
-            aspectRatio: "3 / 2",
+            // Match the final asset aspect ratio (1672x941). No crop.
+            aspectRatio: IMAGE_ASPECT_RATIO,
             // Cap so it doesn't dominate the page on very wide screens.
             maxHeight: 700,
             margin: "0 auto",
