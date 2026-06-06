@@ -112,39 +112,50 @@ function RoomOverlay({ room, selected, onClick }: { room: SceneRoom; selected: b
     <div
       onClick={onClick}
       style={{
+        position: "relative",
         width: "100%", height: "100%",
-        display: "flex", flexDirection: "column",
-        justifyContent: "space-between",
-        padding: "6px 6px 8px",
         cursor: "pointer",
         ...(selected ? { outline: `2px solid ${room.accentColor}`, outlineOffset: -2, borderRadius: 8 } : {}),
       }}
     >
+      {/* Compact HUD pill — top-left, auto-width */}
       <div style={{
-        display: "flex", alignItems: "center", gap: 5,
-        background: selected ? `${room.accentColor}22` : "rgba(4,10,22,0.72)",
-        backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
-        borderRadius: 8, padding: "5px 8px",
-        border: selected ? `1px solid ${room.accentColor}55` : "1px solid rgba(255,255,255,0.09)",
-        boxShadow: selected ? `0 0 16px ${room.accentColor}30` : "0 2px 12px rgba(0,0,0,0.35)",
-        transition: "all 0.2s ease",
+        position: "absolute", top: 6, left: 6,
+        display: "inline-flex", alignItems: "center", gap: 5,
+        background: selected ? `${room.accentColor}26` : "rgba(4,10,22,0.70)",
+        backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+        borderRadius: 999, padding: "2px 7px 2px 4px",
+        border: selected ? `1px solid ${room.accentColor}55` : "1px solid rgba(255,255,255,0.10)",
+        boxShadow: selected ? `0 0 12px ${room.accentColor}30` : "0 1px 6px rgba(0,0,0,0.45)",
+        transition: "all 0.18s ease",
+        maxWidth: "85%",
       }}>
         {room.healthPct > 0 && (
-          <span style={{ fontSize: 11, fontWeight: 800, color: hp.color, background: hp.bg, border: `1px solid ${hp.border}`, padding: "1px 6px", borderRadius: 14, flexShrink: 0, lineHeight: 1.5 }}>
-            {room.healthPct}%
-          </span>
+          <span style={{
+            fontSize: 9, fontWeight: 800, color: hp.color,
+            background: hp.bg, border: `1px solid ${hp.border}`,
+            padding: "0 5px", borderRadius: 999, lineHeight: 1.45, flexShrink: 0,
+          }}>{room.healthPct}%</span>
         )}
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#ffffff", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {room.name}
-        </span>
+        <span style={{
+          fontSize: 10, fontWeight: 600, color: "#e5edf8",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          maxWidth: 120,
+        }}>{room.name}</span>
         {room.overdueTasks > 0 && (
-          <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#ef4444", color: "#fff", fontSize: 10, fontWeight: 700, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 8px rgba(239,68,68,0.60)" }}>
-            {room.overdueTasks}
-          </span>
+          <span style={{
+            width: 13, height: 13, borderRadius: "50%",
+            background: "#ef4444", color: "#fff",
+            fontSize: 8, fontWeight: 700, flexShrink: 0,
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 0 6px rgba(239,68,68,0.55)",
+          }}>{room.overdueTasks}</span>
         )}
       </div>
-      <div style={{ paddingRight: 4 }}>
-        <AvatarRow room={room} />
+
+      {/* Tiny avatar cluster near bottom-right (over the desks area) */}
+      <div style={{ position: "absolute", bottom: 6, right: 6 }}>
+        <AvatarRow room={room} size={18} />
       </div>
     </div>
   );
@@ -157,45 +168,58 @@ function MeetingOverlay({ room, selected, onClick }: { room: SceneRoom; selected
     <div
       onClick={onClick}
       style={{
+        position: "relative",
         width: "100%", height: "100%",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", gap: 6,
         cursor: "pointer",
         ...(selected ? { outline: "2px solid rgba(139,92,246,0.80)", outlineOffset: -2, borderRadius: 8 } : {}),
       }}
     >
+      {/* Top compact name pill */}
       <div style={{
-        position: "absolute", top: 6, left: 6, right: 6,
-        display: "flex", alignItems: "center", gap: 5,
-        background: selected ? "rgba(139,92,246,0.28)" : "rgba(20,6,48,0.75)",
-        backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-        borderRadius: 8, padding: "5px 8px",
+        position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)",
+        display: "inline-flex", alignItems: "center", gap: 4,
+        background: selected ? "rgba(139,92,246,0.28)" : "rgba(20,6,48,0.72)",
+        backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+        borderRadius: 999, padding: "2px 9px",
         border: selected ? "1px solid rgba(139,92,246,0.65)" : "1px solid rgba(139,92,246,0.40)",
-        transition: "all 0.2s ease",
+        transition: "all 0.18s ease", maxWidth: "90%",
       }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {room.name}
-        </span>
+        <span style={{
+          fontSize: 10, fontWeight: 700, color: "#ddd6fe",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>{room.name}</span>
       </div>
+
+      {/* Center compact status — "مشغولة الآن" + time */}
       <div style={{
-        background: "rgba(20,6,48,0.80)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
-        border: "1px solid rgba(139,92,246,0.50)", borderRadius: 30, padding: "10px 18px",
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-        boxShadow: "0 0 40px rgba(139,92,246,0.22), inset 0 1px 0 rgba(255,255,255,0.07)",
+        position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)",
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
+        pointerEvents: "none",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#a78bfa", display: "inline-block" }} />
-          <span style={{ fontSize: 11, color: "#c4b5fd", fontWeight: 600 }}>مشغولة الآن</span>
-        </div>
-        <div style={{ width: 38, height: 38, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,92,246,0.40), rgba(139,92,246,0.06))", border: "1px solid rgba(139,92,246,0.50)", boxShadow: "0 0 18px rgba(139,92,246,0.28)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <MessageSquare size={17} color="#c4b5fd" />
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 5,
+          background: "rgba(20,6,48,0.78)",
+          backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
+          border: "1px solid rgba(167,139,250,0.55)",
+          borderRadius: 999, padding: "3px 9px",
+          boxShadow: "0 0 16px rgba(139,92,246,0.35)",
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#a78bfa", boxShadow: "0 0 6px #a78bfa" }} />
+          <span style={{ fontSize: 10, color: "#ddd6fe", fontWeight: 600 }}>مشغولة الآن</span>
         </div>
         {(room.isDemo || room.employeeCount === 0) && (
-          <span style={{ fontSize: 11, color: "#c4b5fd", fontWeight: 600 }}>11:00 – 11:30</span>
+          <span style={{
+            fontSize: 10, fontWeight: 700, color: "#e9d5ff",
+            background: "rgba(20,6,48,0.62)",
+            border: "1px solid rgba(139,92,246,0.35)",
+            padding: "1px 7px", borderRadius: 999,
+          }}>11:00 – 11:30</span>
         )}
       </div>
-      <div style={{ position: "absolute", bottom: 8 }}>
-        <AvatarRow room={room} />
+
+      {/* Tiny avatar cluster bottom-center */}
+      <div style={{ position: "absolute", bottom: 6, left: "50%", transform: "translateX(-50%)" }}>
+        <AvatarRow room={room} size={18} />
       </div>
     </div>
   );
@@ -210,32 +234,38 @@ function AIOverlay({ room, selected, onClick }: { room: SceneRoom; selected: boo
     <div
       onClick={onClick}
       style={{
+        position: "relative",
         width: "100%", height: "100%",
-        display: "flex", flexDirection: "column",
-        justifyContent: "space-between", padding: "6px 6px 8px",
         cursor: "pointer",
         ...(selected ? { outline: "2px solid rgba(34,211,238,0.70)", outlineOffset: -2, borderRadius: 8 } : {}),
       }}
     >
+      {/* Compact HUD pill — top-right */}
       <div style={{
-        display: "flex", alignItems: "center", gap: 5,
-        background: selected ? "rgba(34,211,238,0.18)" : "rgba(2,10,22,0.75)",
-        backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-        borderRadius: 8, padding: "5px 8px",
-        border: selected ? "1px solid rgba(34,211,238,0.50)" : "1px solid rgba(34,211,238,0.30)",
-        boxShadow: selected ? "0 0 18px rgba(34,211,238,0.22)" : "0 0 14px rgba(34,211,238,0.12)",
-        transition: "all 0.2s ease",
+        position: "absolute", top: 6, right: 6,
+        display: "inline-flex", alignItems: "center", gap: 5,
+        background: selected ? "rgba(34,211,238,0.18)" : "rgba(2,10,22,0.72)",
+        backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+        borderRadius: 999, padding: "2px 7px 2px 4px",
+        border: selected ? "1px solid rgba(34,211,238,0.55)" : "1px solid rgba(34,211,238,0.32)",
+        boxShadow: selected ? "0 0 14px rgba(34,211,238,0.30)" : "0 0 10px rgba(34,211,238,0.14)",
+        transition: "all 0.18s ease", maxWidth: "85%",
       }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#ffffff", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{room.name}</span>
-        <span style={{ fontSize: 11, fontWeight: 800, color: hp.color, background: hp.bg, border: `1px solid ${hp.border}`, padding: "1px 6px", borderRadius: 14, flexShrink: 0 }}>{pct}%</span>
+        <span style={{
+          fontSize: 9, fontWeight: 800, color: hp.color,
+          background: hp.bg, border: `1px solid ${hp.border}`,
+          padding: "0 5px", borderRadius: 999, lineHeight: 1.45, flexShrink: 0,
+        }}>{pct}%</span>
+        <span style={{
+          fontSize: 10, fontWeight: 600, color: "#e5edf8",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          maxWidth: 120,
+        }}>{room.name}</span>
       </div>
-      <div style={{ display: "flex", justifyContent: "center" }}>
-        <div style={{ width: 48, height: 48, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,238,0.30), rgba(34,211,238,0.04))", border: "1px solid rgba(34,211,238,0.38)", boxShadow: "0 0 24px rgba(34,211,238,0.25), 0 0 50px rgba(139,92,246,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <BrainCircuit size={22} color="#22d3ee" />
-        </div>
-      </div>
-      <div style={{ paddingRight: 4 }}>
-        <AvatarRow room={room} />
+
+      {/* Avatar cluster bottom-left so it doesn't cover the AI chip */}
+      <div style={{ position: "absolute", bottom: 6, left: 6 }}>
+        <AvatarRow room={room} size={18} />
       </div>
     </div>
   );
@@ -386,13 +416,31 @@ export default function VirtualOfficeReferenceScene({
       {/* ── Desktop scene ── */}
       <div className="hidden sm:block">
         {!imgFailed ? (
-          <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", aspectRatio: "16/9" }}>
-            {/* Image base */}
-            <Image src={IMAGE_SRC} alt="Office floor plan" fill style={{ objectFit: "cover", objectPosition: "center" }} onError={() => setImgFailed(true)} priority />
+          <div style={{
+            position: "relative",
+            borderRadius: 14,
+            overflow: "hidden",
+            // Match the actual asset aspect ratio (1536×1024 = 3:2). No crop.
+            aspectRatio: "3 / 2",
+            // Cap so it doesn't dominate the page on very wide screens.
+            maxHeight: 700,
+            margin: "0 auto",
+            background: "#06111f",
+          }}>
+            {/* Image base — contain to show full floor plan, no cropping */}
+            <Image
+              src={IMAGE_SRC}
+              alt="Office floor plan"
+              fill
+              sizes="(min-width: 1024px) 1100px, 100vw"
+              style={{ objectFit: "contain", objectPosition: "center" }}
+              onError={() => setImgFailed(true)}
+              priority
+            />
             {/* Vignette */}
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 90% 90% at 50% 50%, transparent 45%, rgba(0,0,0,0.50) 100%)" }} />
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 90% 90% at 50% 50%, transparent 55%, rgba(0,0,0,0.45) 100%)" }} />
             {/* Glow */}
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 50% 30% at 10% 10%, rgba(34,211,238,0.07), transparent), radial-gradient(ellipse 45% 30% at 90% 90%, rgba(139,92,246,0.09), transparent)" }} />
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 50% 30% at 10% 10%, rgba(34,211,238,0.06), transparent), radial-gradient(ellipse 45% 30% at 90% 90%, rgba(139,92,246,0.07), transparent)" }} />
             {/* Room overlays */}
             {slots.map((room, i) => {
               if (!room) return null;
