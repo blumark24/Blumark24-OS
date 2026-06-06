@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { validateUserId, validateRole, validateName, firstError } from "@/lib/apiValidation";
 import {
+  assertDepartmentInOrg,
   assertTargetUserInCallerOrg,
   authorizeUserProvisioner,
   sanitizeRoleForProvisioner,
@@ -68,23 +69,46 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
-  const { userId, role, department, isActive, name } = body as {
+  const { userId, role, department, isActive, name, phone, salary, departmentId } = body as {
     userId: string;
     role?: string;
     department?: string;
     isActive?: boolean;
     name?: string;
+    phone?: string | null;
+    salary?: number | null;
+    departmentId?: string | null;
   };
 
   const cleanDept     = typeof department === "string" ? department.slice(0, 100) : undefined;
   const cleanIsActive = typeof isActive === "boolean" ? isActive : undefined;
   const cleanName     = typeof name === "string" ? name.trim().slice(0, 100) : undefined;
+  const cleanPhone =
+    phone === null
+      ? null
+      : typeof phone === "string"
+        ? phone.trim().slice(0, 30)
+        : undefined;
+  const cleanSalary =
+    salary === null
+      ? null
+      : typeof salary === "number" && Number.isFinite(salary)
+        ? salary
+        : undefined;
+  const cleanDepartmentId =
+    departmentId === null
+      ? null
+      : typeof departmentId === "string" && departmentId.trim()
+        ? departmentId.trim()
+        : undefined;
+
   let cleanRole = typeof role === "string" ? role : undefined;
 
   const targetCheck = await assertTargetUserInCallerOrg(admin, userId, provisioner);
   if (!targetCheck.ok) {
     return fail(targetCheck.status, targetCheck.error, targetCheck.debug ?? "step=org-scope");
   }
+  const { targetOrgId, hasProfile } = targetCheck;
 
   if (cleanRole) {
     const roleCheck = sanitizeRoleForProvisioner(provisioner, cleanRole);
@@ -94,52 +118,113 @@ export async function PATCH(req: NextRequest) {
     cleanRole = roleCheck;
   }
 
-  if (!cleanRole && !cleanDept && cleanIsActive === undefined && !cleanName) {
+  const hasEmployeeField =
+    cleanRole !== undefined ||
+    cleanDept !== undefined ||
+    cleanIsActive !== undefined ||
+    cleanName !== undefined ||
+    cleanPhone !== undefined ||
+    cleanSalary !== undefined ||
+    cleanDepartmentId !== undefined;
+
+  if (!hasEmployeeField) {
     return fail(400, "لا توجد حقول للتحديث", "step=validate: no updatable fields");
   }
 
-  // profiles table does not have updated_at — build update map without it
-  const profileUpdate: Record<string, unknown> = {};
-  if (cleanRole     !== undefined) profileUpdate.role       = cleanRole;
-  if (cleanDept     !== undefined) profileUpdate.department = cleanDept;
-  if (cleanIsActive !== undefined) profileUpdate.is_active  = cleanIsActive;
-  if (cleanName     !== undefined) profileUpdate.name       = cleanName;
-
-  console.log(`${TAG} step=updateProfile | userId=${userId} fields=${JSON.stringify(profileUpdate)}`);
-  const { error: profileError } = await admin.from("profiles").update(profileUpdate).eq("id", userId);
-  if (profileError) {
-    return fail(500,
-      `فشل تحديث الملف الشخصي: ${profileError.message}`,
-      `step=updateProfile: ${profileError.message}`,
-    );
-  }
-  console.log(`${TAG} step=updateProfile ok`);
-
-  if (cleanName !== undefined) {
-    console.log(`${TAG} step=updateAuthMeta | userId=${userId} name=${cleanName}`);
-    await admin.auth.admin.updateUserById(userId, { user_metadata: { name: cleanName } });
+  let resolvedDeptLabel = cleanDept;
+  if (cleanDepartmentId) {
+    const deptCheck = await assertDepartmentInOrg(admin, cleanDepartmentId, targetOrgId);
+    if (!deptCheck.ok) {
+      return fail(deptCheck.status, deptCheck.error, deptCheck.debug ?? "step=department");
+    }
+    resolvedDeptLabel = deptCheck.name;
   }
 
-  // Sync the same fields to the employees table so the employees list
-  // stays consistent with the profiles table after a Settings-panel edit.
-  // Non-fatal: employee row may not exist for board members / admin-only accounts.
-  const employeeSync: Record<string, unknown> = {};
-  if (cleanName     !== undefined) employeeSync.name       = cleanName;
-  if (cleanRole     !== undefined) employeeSync.role       = cleanRole;
-  if (cleanDept     !== undefined) employeeSync.department = cleanDept;
-  if (cleanIsActive !== undefined) employeeSync.status     = cleanIsActive ? "نشط" : "غير_نشط";
-  if (Object.keys(employeeSync).length > 0) {
+  // ── 1. Persist employee row (service role — bypasses client RLS) ──────────
+  const employeeUpdate: Record<string, unknown> = {};
+  if (cleanName !== undefined) employeeUpdate.name = cleanName;
+  if (cleanRole !== undefined) employeeUpdate.role = cleanRole;
+  if (resolvedDeptLabel !== undefined) employeeUpdate.department = resolvedDeptLabel;
+  if (cleanIsActive !== undefined) {
+    employeeUpdate.status = cleanIsActive ? "نشط" : "غير_نشط";
+  }
+  if (cleanPhone !== undefined) employeeUpdate.phone = cleanPhone;
+  if (cleanSalary !== undefined) employeeUpdate.salary = cleanSalary;
+
+  if (Object.keys(employeeUpdate).length > 0) {
+    console.log(`${TAG} step=updateEmployee | userId=${userId} fields=${JSON.stringify(employeeUpdate)}`);
     const { error: empError } = await admin
       .from("employees")
-      .update(employeeSync)
+      .update(employeeUpdate)
       .eq("id", userId);
     if (empError) {
-      console.warn(`${TAG} employees sync skipped (non-fatal): ${empError.message}`);
-    } else {
-      console.log(`${TAG} step=syncEmployees ok`);
+      return fail(500,
+        `فشل تحديث بيانات الموظف: ${empError.message}`,
+        `step=updateEmployee: ${empError.message}`,
+      );
+    }
+    console.log(`${TAG} step=updateEmployee ok`);
+  }
+
+  // ── 2. Org unit assignment (employee_relations) ───────────────────────────
+  if (cleanDepartmentId && targetOrgId) {
+    console.log(`${TAG} step=upsertRelation | userId=${userId} dept=${cleanDepartmentId}`);
+    const { error: relError } = await admin
+      .from("employee_relations")
+      .upsert(
+        {
+          organization_id: targetOrgId,
+          employee_id: userId,
+          department_id: cleanDepartmentId,
+          team_id: null,
+          position_id: null,
+          manager_id: null,
+        },
+        { onConflict: "organization_id,employee_id" },
+      );
+    if (relError) {
+      return fail(500,
+        `فشل ربط الموظف بالوحدة التنظيمية: ${relError.message}`,
+        `step=upsertRelation: ${relError.message}`,
+      );
+    }
+    console.log(`${TAG} step=upsertRelation ok`);
+  }
+
+  // ── 3. Profile + auth sync (PR5-B) — non-fatal when profile missing ───────
+  let profileMissing = !hasProfile;
+
+  if (hasProfile) {
+    const profileUpdate: Record<string, unknown> = {};
+    if (cleanRole !== undefined) profileUpdate.role = cleanRole;
+    if (resolvedDeptLabel !== undefined) profileUpdate.department = resolvedDeptLabel;
+    if (cleanIsActive !== undefined) profileUpdate.is_active = cleanIsActive;
+    if (cleanName !== undefined) profileUpdate.name = cleanName;
+
+    if (Object.keys(profileUpdate).length > 0) {
+      console.log(`${TAG} step=updateProfile | userId=${userId} fields=${JSON.stringify(profileUpdate)}`);
+      const { error: profileError } = await admin.from("profiles").update(profileUpdate).eq("id", userId);
+      if (profileError) {
+        return fail(500,
+          `فشل تحديث الملف الشخصي: ${profileError.message}`,
+          `step=updateProfile: ${profileError.message}`,
+        );
+      }
+      console.log(`${TAG} step=updateProfile ok`);
+    }
+
+    if (cleanName !== undefined) {
+      console.log(`${TAG} step=updateAuthMeta | userId=${userId} name=${cleanName}`);
+      const { error: authMetaErr } = await admin.auth.admin.updateUserById(userId, {
+        user_metadata: { name: cleanName },
+      });
+      if (authMetaErr) {
+        console.warn(`${TAG} auth metadata skipped (non-fatal): ${authMetaErr.message}`);
+        profileMissing = true;
+      }
     }
   }
 
-  console.log(`${TAG} SUCCESS | userId=${userId}`);
-  return ok({ success: true });
+  console.log(`${TAG} SUCCESS | userId=${userId} profileMissing=${profileMissing}`);
+  return ok({ success: true, profileMissing });
 }
