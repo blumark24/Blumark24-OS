@@ -10,8 +10,8 @@ const FALLBACK_NAME = "منشأتك";
 /**
  * Resolves the current organization's display name for tenant identity in the
  * customer workspace. Source of truth is the SAME tenant-scoped row that the
- * Settings → general "اسم الشركة" field writes:
- *   tenant_workspace_settings.company_info.name  (keyed by organization_id)
+ * Settings → general "اسم المنشأة" field writes:
+ *   tenant_workspace_settings.company_info.name/logo_url (keyed by organization_id)
  * so a saved company name reflects on the dashboard after refresh.
  *
  * Scoped to the active organization_id from TenantWorkspaceContext — it never
@@ -20,33 +20,41 @@ const FALLBACK_NAME = "منشأتك";
  */
 export function useTenantCompanyName(): {
   name: string;
+  logoUrl: string | null;
   isFallback: boolean;
   loading: boolean;
 } {
   const { organizationId } = useTenantWorkspace();
-  const [name, setName] = useState<string | null>(null);
+  const [company, setCompany] = useState<{ name: string | null; logoUrl: string | null }>({
+    name: null,
+    logoUrl: null,
+  });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     if (!organizationId) {
-      setName(null);
+      setCompany({ name: null, logoUrl: null });
       return;
     }
     setLoading(true);
     (async () => {
       const row = await getTenantWorkspaceSettings(organizationId);
-      const info = (row?.company_info ?? {}) as { name?: unknown };
+      const info = (row?.company_info ?? {}) as { name?: unknown; logo_url?: unknown };
       const savedName = typeof info.name === "string" ? info.name.trim() : "";
-      if (savedName) return savedName;
-      return getOrganizationName(organizationId);
+      const savedLogoUrl = typeof info.logo_url === "string" ? info.logo_url.trim() : "";
+      const resolvedName = savedName || (await getOrganizationName(organizationId));
+      return {
+        name: resolvedName || null,
+        logoUrl: savedLogoUrl || null,
+      };
     })()
-      .then((resolvedName) => {
+      .then((resolvedCompany) => {
         if (cancelled) return;
-        setName(resolvedName || null);
+        setCompany(resolvedCompany);
       })
       .catch(() => {
-        if (!cancelled) setName(null);
+        if (!cancelled) setCompany({ name: null, logoUrl: null });
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -56,5 +64,10 @@ export function useTenantCompanyName(): {
     };
   }, [organizationId]);
 
-  return { name: name ?? FALLBACK_NAME, isFallback: !name, loading };
+  return {
+    name: company.name ?? FALLBACK_NAME,
+    logoUrl: company.logoUrl,
+    isFallback: !company.name,
+    loading,
+  };
 }

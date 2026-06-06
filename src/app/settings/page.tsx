@@ -65,11 +65,16 @@ const RULE_TRIGGERS: Record<string, string> = {
 
 const TENANT_COMPANY_DEFAULTS = {
   name: "",
+  logo_url: "",
   tagline: "",
   email: "",
   phone: "",
   website: "",
   city: "",
+  activity_type: "",
+  address: "",
+  commercial_register: "",
+  tax_number: "",
 };
 const TENANT_SETTINGS_DENIED_MESSAGE = "لا تملك صلاحية تعديل بيانات المنشأة.";
 
@@ -387,15 +392,20 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
 
         const s = await getSystemSettings();
         if (s.company_info) {
-          setCompanyForm(s.company_info as typeof companyForm);
+          setCompanyForm((prev) => ({ ...prev, ...(s.company_info as typeof companyForm) }));
         } else if (!tenantMode) {
           setCompanyForm({
             name: "Blumark24",
+            logo_url: "",
             tagline: "نظام إدارة الأعمال بالذكاء الاصطناعي",
             email: "info@blumark24.com",
             phone: "0550000000",
             website: "blumark24.com",
             city: "جدة",
+            activity_type: "",
+            address: "",
+            commercial_register: "",
+            tax_number: "",
           });
         }
         if (s.notifications) setNotifs(s.notifications as typeof notifs);
@@ -612,12 +622,17 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                 <h3 className="text-white font-medium text-lg mb-4">معلومات الشركة</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
-                    { label: "اسم الشركة",      key: "name"    },
-                    { label: "شعار الشركة",      key: "tagline" },
-                    { label: "البريد الإلكتروني",key: "email"   },
-                    { label: "رقم الهاتف",       key: "phone"   },
-                    { label: "الموقع الإلكتروني",key: "website" },
-                    { label: "المدينة",          key: "city"    },
+                    { label: "اسم المنشأة", key: "name" },
+                    { label: "رابط شعار المنشأة", key: "logo_url" },
+                    { label: "الشعار النصي", key: "tagline" },
+                    { label: "البريد الإلكتروني", key: "email" },
+                    { label: "رقم الهاتف", key: "phone" },
+                    { label: "الموقع الإلكتروني", key: "website" },
+                    { label: "المدينة", key: "city" },
+                    { label: "نوع النشاط", key: "activity_type" },
+                    { label: "العنوان", key: "address" },
+                    { label: "السجل التجاري (اختياري)", key: "commercial_register" },
+                    { label: "الرقم الضريبي (اختياري)", key: "tax_number" },
                   ].map(({ label, key }) => (
                     <div key={key}>
                       <label className="block text-xs text-[#8ba3c7] mb-1.5">{label}</label>
