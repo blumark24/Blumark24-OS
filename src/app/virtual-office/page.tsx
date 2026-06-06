@@ -1,28 +1,32 @@
 "use client";
 
-// VIRTUAL-OFFICE-MAIN-ROUTE-1
+// VIRTUAL-OFFICE-DESIGN-2
 // Isolated route — no imports from or to /org or SmartOrgBuilder.
 // TODO: Gate virtual office by plan/features in a future PR.
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Sparkles, ArrowRight } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
-import { PageHero } from "@/components/ui/workspaceUi";
 import { WS_PAGE } from "@/components/ui/workspaceVisual";
 import { useOrgStructure } from "@/hooks/useOrgStructure";
 import { useEmployees, useTasks } from "@/hooks/useData";
-import VirtualOfficePreview from "@/components/org/VirtualOfficePreview";
+import VirtualOfficeDesign from "@/components/org/VirtualOfficeDesign";
 import VirtualOfficeErrorBoundary from "@/components/org/VirtualOfficeErrorBoundary";
 
-// ─── Content (uses hooks — kept in its own component so errors are catchable) ─
+// ─── Content (hooks live here so errors stay catchable by the boundary) ───────
 
 function VirtualOfficeContent({ onBack }: { onBack: () => void }) {
   const { data: snapshot, loading, error, refresh } = useOrgStructure(true);
   const { data: employees } = useEmployees();
   const { data: tasks } = useTasks();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refresh(); } finally { setRefreshing(false); }
+  }, [refresh]);
 
   if (loading) {
     return (
@@ -37,7 +41,7 @@ function VirtualOfficeContent({ onBack }: { onBack: () => void }) {
 
   if (error) {
     return (
-      <div className="rounded-2xl border border-red-500/30 p-6 text-red-400 text-sm space-y-3 bg-red-500/5">
+      <div className="rounded-2xl border border-red-500/30 p-6 text-red-400 text-sm space-y-3 bg-red-500/5" dir="rtl">
         <p>{error}</p>
         <div className="flex items-center gap-3">
           <button
@@ -56,11 +60,13 @@ function VirtualOfficeContent({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <VirtualOfficePreview
+    <VirtualOfficeDesign
       snapshot={snapshot}
       employees={employees ?? []}
       tasks={tasks ?? []}
-      onBack={onBack}
+      onBackToOrg={onBack}
+      onRefresh={() => void handleRefresh()}
+      isRefreshing={refreshing}
     />
   );
 }
@@ -75,23 +81,6 @@ export default function VirtualOfficePage() {
     <PageGuard permission="view_dashboard">
       <DashboardLayout>
         <div className={WS_PAGE}>
-          <PageHero
-            title="المكتب الافتراضي"
-            subtitle="محاكاة بصرية ذكية مبنية من الهيكل الإداري لكل منشأة."
-          >
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium border border-[#22d3ee]/30 bg-[#22d3ee]/10 text-[#22d3ee]">
-              <Sparkles size={12} />
-              معاينة
-            </span>
-            <Link
-              href="/org"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] border border-white/[0.1] bg-white/[0.04] text-[#8ba3c7] hover:text-white hover:bg-white/[0.08] transition-all"
-            >
-              <ArrowRight size={12} />
-              العودة إلى الهيكل الإداري
-            </Link>
-          </PageHero>
-
           <VirtualOfficeErrorBoundary onBack={handleBack}>
             <VirtualOfficeContent onBack={handleBack} />
           </VirtualOfficeErrorBoundary>
