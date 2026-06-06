@@ -18,9 +18,11 @@ import { cn } from "@/lib/utils";
 import type { OrgStructureSnapshot } from "@/lib/org/types";
 import type { Employee, Task } from "@/types";
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ──────────────────────────────────────────────────────────────────────────────
+// ─── Feature gate ─────────────────────────────────────────────────────────────
+// Set to false to hide the virtual office entry button completely.
+export const ENABLE_VIRTUAL_OFFICE_PREVIEW = true;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const LEVEL_LABELS: Record<string, string> = {
   agency: "جناح",
@@ -57,11 +59,17 @@ const LEVEL_ACCENT: Record<string, { border: string; bg: string; text: string; b
 
 type HealthStatus = "ممتاز" | "يحتاج متابعة" | "ضغط مرتفع";
 
+const VALID_HEALTH = new Set<HealthStatus>(["ممتاز", "يحتاج متابعة", "ضغط مرتفع"]);
+
 function getHealth(openCount: number, overdueCount: number, empCount: number): HealthStatus {
   if (empCount === 0) return "يحتاج متابعة";
   if (overdueCount > 0 && openCount > 0 && overdueCount >= openCount * 0.5) return "ضغط مرتفع";
   if (overdueCount > 0) return "يحتاج متابعة";
   return "ممتاز";
+}
+
+function safeHealth(h: HealthStatus): HealthStatus {
+  return VALID_HEALTH.has(h) ? h : "يحتاج متابعة";
 }
 
 const HEALTH_STYLE: Record<HealthStatus, string> = {
@@ -76,9 +84,7 @@ const HEALTH_ICON: Record<HealthStatus, typeof CheckCircle2> = {
   "ضغط مرتفع": AlertCircle,
 };
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Types
-// ──────────────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface RoomCard {
   id: string;
@@ -94,86 +100,126 @@ interface RoomCard {
   teams: { id: string; name: string; memberCount: number }[];
 }
 
-interface VirtualOfficePreviewProps {
-  snapshot: OrgStructureSnapshot;
+export interface VirtualOfficePreviewProps {
+  snapshot: OrgStructureSnapshot | null;
   employees: Employee[];
   tasks: Task[];
   onBack: () => void;
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Data builder
-// ──────────────────────────────────────────────────────────────────────────────
+// ─── Data builder (fully defensive) ──────────────────────────────────────────
 
 function buildRooms(
-  snapshot: OrgStructureSnapshot,
+  snapshot: OrgStructureSnapshot | null,
   employees: Employee[],
   tasks: Task[],
 ): RoomCard[] {
-  const { departments, teams, relations } = snapshot;
+  if (!snapshot) return [];
 
-  // Map employee IDs to employees for task lookup
-  const employeeIdSet = new Set(employees.map((e) => e.id));
+  // Safe defaults — guard every array against undefined/null at the source
+  const departments = Array.isArray(snapshot.departments) ? snapshot.departments : [];
+  const teams = Array.isArray(snapshot.teams) ? snapshot.teams : [];
+  const relations = Array.isArray(snapshot.relations) ? snapshot.relations : [];
+  const safeEmployees = Array.isArray(employees) ? employees : [];
+  const safeTasks = Array.isArray(tasks) ? tasks : [];
+
+  // Build employee ID set for task lookup
+  const employeeIdSet = new Set(
+    safeEmployees.map((e) => e?.id).filter((id): id is string => typeof id === "string"),
+  );
 
   return departments.map((dept) => {
-    // Employees linked to this department
-    const deptRelations = relations.filter((r) => r.department_id === dept.id);
-    const deptEmployeeIds = new Set(deptRelations.map((r) => r.employee_id));
+    if (!dept) {
+      return {
+        id: "unknown",
+        name: "—",
+        type: "وحدة",
+        level: "department",
+        departmentCode: null,
+        employeeCount: 0,
+        teamCount: 0,
+        openTaskCount: 0,
+        overdueTaskCount: 0,
+        health: "يحتاج متابعة" as HealthStatus,
+        teams: [],
+      };
+    }
+
+    const deptId = dept.id ?? "";
+
+    // Relations for this department
+    const deptRelations = relations.filter(
+      (r) => r != null && r.department_id === deptId,
+    );
+    const deptEmployeeIds = new Set(
+      deptRelations.map((r) => r.employee_id).filter((id): id is string => typeof id === "string"),
+    );
     const employeeCount = deptRelations.length;
 
     // Teams in this department
-    const deptTeams = teams.filter((t) => t.department_id === dept.id);
+    const deptTeams = teams.filter((t) => t != null && t.department_id === deptId);
 
     // Team member counts
     const teamCards = deptTeams.map((team) => {
-      const memberCount = relations.filter((r) => r.team_id === team.id).length;
-      return { id: team.id, name: team.name, memberCount };
+      const memberCount = relations.filter(
+        (r) => r != null && r.team_id === team.id,
+      ).length;
+      return {
+        id: team.id ?? "",
+        name: team.name ?? "—",
+        memberCount,
+      };
     });
 
-    // Tasks for employees in this department
+    // Tasks belonging to employees in this department
     const deptTaskAssignees = new Set(
       Array.from(deptEmployeeIds).filter((id) => employeeIdSet.has(id)),
     );
 
-    const deptTasks = tasks.filter(
-      (t) => t.assigneeId && deptTaskAssignees.has(t.assigneeId),
+    const deptTasks = safeTasks.filter(
+      (t) => t != null && typeof t.assigneeId === "string" && deptTaskAssignees.has(t.assigneeId),
     );
 
     const openTaskCount = deptTasks.filter(
-      (t) => t.status !== "مكتملة",
+      (t) => typeof t.status === "string" && t.status !== "مكتملة",
     ).length;
 
     const overdueTaskCount = deptTasks.filter(
-      (t) => t.status === "متأخرة",
+      (t) => typeof t.status === "string" && t.status === "متأخرة",
     ).length;
 
-    const level = dept.structure_level ?? "department";
+    const level =
+      typeof dept.structure_level === "string" ? dept.structure_level : "department";
     const type = LEVEL_LABELS[level] ?? "وحدة";
 
+    const health = safeHealth(getHealth(openTaskCount, overdueTaskCount, employeeCount));
+
     return {
-      id: dept.id,
-      name: dept.name,
+      id: deptId,
+      name: dept.name ?? "—",
       type,
       level,
-      departmentCode: dept.department_code ?? dept.publicCode ?? null,
+      departmentCode:
+        (dept.department_code ?? dept.publicCode) != null
+          ? String(dept.department_code ?? dept.publicCode)
+          : null,
       employeeCount,
       teamCount: deptTeams.length,
       openTaskCount,
       overdueTaskCount,
-      health: getHealth(openTaskCount, overdueTaskCount, employeeCount),
+      health,
       teams: teamCards,
     };
   });
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Room card sub-component
-// ──────────────────────────────────────────────────────────────────────────────
+// ─── Room card ────────────────────────────────────────────────────────────────
 
 function RoomCardView({ room }: { room: RoomCard }) {
   const accent = LEVEL_ACCENT[room.level] ?? LEVEL_ACCENT.department;
   const Icon = LEVEL_ICONS[room.level as keyof typeof LEVEL_ICONS] ?? Building2;
-  const HealthIcon = HEALTH_ICON[room.health];
+  const health = safeHealth(room.health);
+  const HealthIcon = HEALTH_ICON[health] ?? CheckCircle2;
 
   return (
     <div
@@ -202,7 +248,12 @@ function RoomCardView({ room }: { room: RoomCard }) {
             )}
           </div>
         </div>
-        <span className={cn("flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full font-medium", accent.badge)}>
+        <span
+          className={cn(
+            "flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full font-medium",
+            accent.badge,
+          )}
+        >
           {room.type}
         </span>
       </div>
@@ -256,20 +307,18 @@ function RoomCardView({ room }: { room: RoomCard }) {
         <span
           className={cn(
             "inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-medium",
-            HEALTH_STYLE[room.health],
+            HEALTH_STYLE[health],
           )}
         >
           <HealthIcon size={11} />
-          {room.health}
+          {health}
         </span>
       </div>
     </div>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Main component
-// ──────────────────────────────────────────────────────────────────────────────
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function VirtualOfficePreview({
   snapshot,
@@ -277,12 +326,16 @@ export default function VirtualOfficePreview({
   tasks,
   onBack,
 }: VirtualOfficePreviewProps) {
+  const safeSnapshot = snapshot ?? { departments: [], teams: [], positions: [], relations: [] };
+
   const rooms = useMemo(
-    () => buildRooms(snapshot, employees, tasks),
+    () => buildRooms(snapshot, employees ?? [], tasks ?? []),
     [snapshot, employees, tasks],
   );
 
-  const isEmpty = snapshot.departments.length === 0 && snapshot.teams.length === 0;
+  const isEmpty =
+    (safeSnapshot.departments?.length ?? 0) === 0 &&
+    (safeSnapshot.teams?.length ?? 0) === 0;
 
   // Group rooms by level order: agency → management → department
   const grouped = useMemo(() => {
@@ -293,8 +346,8 @@ export default function VirtualOfficePreview({
       groups[key].push(room);
     }
     return order
-      .filter((lvl) => groups[lvl].length > 0)
-      .map((lvl) => ({ level: lvl, label: LEVEL_LABELS[lvl], rooms: groups[lvl] }));
+      .filter((lvl) => (groups[lvl]?.length ?? 0) > 0)
+      .map((lvl) => ({ level: lvl, label: LEVEL_LABELS[lvl] ?? lvl, rooms: groups[lvl] ?? [] }));
   }, [rooms]);
 
   return (
@@ -400,7 +453,7 @@ export default function VirtualOfficePreview({
                 {/* Room grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {levelRooms.map((room) => (
-                    <RoomCardView key={room.id} room={room} />
+                    <RoomCardView key={room.id || room.name} room={room} />
                   ))}
                 </div>
               </section>
@@ -414,15 +467,15 @@ export default function VirtualOfficePreview({
           >
             <span className="flex items-center gap-1.5">
               <Building2 size={14} className="text-[#22d3ee]" />
-              {snapshot.departments.length} وحدة إدارية
+              {safeSnapshot.departments?.length ?? 0} وحدة إدارية
             </span>
             <span className="flex items-center gap-1.5">
               <LayoutGrid size={14} className="text-violet-400" />
-              {snapshot.teams.length} فريق
+              {safeSnapshot.teams?.length ?? 0} فريق
             </span>
             <span className="flex items-center gap-1.5">
               <Users size={14} className="text-emerald-400" />
-              {snapshot.relations.length} موظف مرتبط
+              {safeSnapshot.relations?.length ?? 0} موظف مرتبط
             </span>
             <span className="mr-auto text-[11px] text-[#4a6a99]">
               معاينة للقراءة فقط · لا تغييرات في البيانات
