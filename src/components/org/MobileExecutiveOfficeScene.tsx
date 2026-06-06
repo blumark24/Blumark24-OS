@@ -14,6 +14,7 @@ import {
 import type { SceneRoom } from "./VirtualOfficeReferenceScene";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
+const IMAGE_ASPECT_RATIO = "1672 / 941";
 
 // Loose superset of SceneRoom — OfficeRoom satisfies this.
 export interface MobileSelectedRoom extends SceneRoom {
@@ -26,14 +27,14 @@ export interface MobileSelectedRoom extends SceneRoom {
 
 interface ChipPos { top: string; left: string; }
 const CHIP_POSITIONS: ChipPos[] = [
-  { top: "17%", left: "16%" }, // 0 Sales
-  { top: "17%", left: "50%" }, // 1 Exec
-  { top: "17%", left: "84%" }, // 2 Support
-  { top: "47%", left: "16%" }, // 3 Marketing
-  { top: "50%", left: "50%" }, // 4 Meeting (center)
-  { top: "47%", left: "84%" }, // 5 Finance
-  { top: "82%", left: "16%" }, // 6 Execution
-  { top: "82%", left: "84%" }, // 7 AI
+  { top: "79%", left: "19%" }, // 0 Sales
+  { top: "18%", left: "20%" }, // 1 Exec
+  { top: "18%", left: "50%" }, // 2 Support
+  { top: "48%", left: "19%" }, // 3 Marketing
+  { top: "48%", left: "50%" }, // 4 Meeting (center)
+  { top: "48%", left: "82%" }, // 5 Finance
+  { top: "80%", left: "51%" }, // 6 Execution
+  { top: "79%", left: "82%" }, // 7 AI
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -309,9 +310,8 @@ export default function MobileExecutiveOfficeScene({
         <div style={{
           position: "relative",
           width: "100%",
-          aspectRatio: "3 / 2",
-          minHeight: 260,
-          maxHeight: 320,
+          aspectRatio: IMAGE_ASPECT_RATIO,
+          maxHeight: 340,
           margin: "0 auto",
         }}>
           {!imgFailed ? (
@@ -320,7 +320,7 @@ export default function MobileExecutiveOfficeScene({
               alt="Office floor plan"
               fill
               sizes="100vw"
-              style={{ objectFit: "cover", objectPosition: "center" }}
+              style={{ objectFit: "contain", objectPosition: "center" }}
               onError={() => setImgFailed(true)}
               priority
             />
