@@ -142,7 +142,8 @@ export default function DashboardPage() {
       ? getTenantRoleLabel(mapAuthRoleToUserRole(user.role))
       : "عضو الفريق";
   const { display: departmentDisplay } = useProfileOrgDepartment();
-  const { name: companyName, isFallback: companyIsFallback } = useTenantCompanyName();
+  const { name: companyName, logoUrl: companyLogoUrl, isFallback: companyIsFallback } = useTenantCompanyName();
+  const employeeDisplayName = user?.name?.trim() || user?.email || "...";
 
   const activeEmployeeNames = useMemo(() => {
     if (!isSuperAdmin) return [];
@@ -364,12 +365,25 @@ export default function DashboardPage() {
           <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             {/* Welcome + identity + live status metrics (right side on desktop) */}
             <div className="min-w-0 flex-1">
-              <p className="text-sm text-[#8ba3c7]">مرحباً بك 👋</p>
-              <h1 className="mt-0.5 truncate text-xl sm:text-2xl font-heading font-bold text-white">
-                {user?.name ?? "..."}
-              </h1>
+              <div className="flex min-w-0 items-start gap-3">
+                {companyLogoUrl && (
+                  <span
+                    aria-label="شعار المنشأة"
+                    role="img"
+                    className="mt-0.5 h-9 w-9 shrink-0 rounded-xl border border-white/10 bg-white/5 bg-cover bg-center"
+                    style={{ backgroundImage: `url(${companyLogoUrl})` }}
+                  />
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm text-[#8ba3c7]">مرحباً بك 👋</p>
+                  <h1 className="mt-0.5 truncate text-xl sm:text-2xl font-heading font-bold text-white">
+                    {employeeDisplayName}
+                  </h1>
+                </div>
+              </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#8ba3c7]">
+                <span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} className="text-cyan-300" />{roleLabel}</span>
                 <span className={cn(
                   "inline-flex items-center gap-1.5",
                   companyIsFallback ? "text-white/40 italic" : "text-white/90 font-medium",
@@ -377,16 +391,15 @@ export default function DashboardPage() {
                   <Building2 size={13} className={companyIsFallback ? "text-white/30" : "text-cyan-300"} />
                   {companyName}
                 </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{todayArabic()}
-                </span>
-                <span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} className="text-cyan-300" />{roleLabel}</span>
                 <span className={cn(
                   "inline-flex items-center gap-1.5",
                   departmentDisplay.isEmpty ? "text-white/40 italic" : "text-[#8ba3c7]",
                 )}>
                   <Building2 size={13} className={departmentDisplay.isEmpty ? "text-white/30" : "text-cyan-300"} />
                   {departmentDisplay.text}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{todayArabic()}
                 </span>
               </div>
 
