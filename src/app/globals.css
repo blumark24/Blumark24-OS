@@ -18,6 +18,17 @@
   --border:        #1e3a5f;
   --text-muted:    #8ba3c7;
   --text-main:     #e2e8f0;
+
+  /* Dashboard executive palette (Phase 1.5) */
+  --dash-bg-main:       #06111f;
+  --dash-bg-deep:       #081827;
+  --dash-cyan:          #22d3ee;
+  --dash-blue:          #1e6fd9;
+  --dash-orange:        #ff7a3d;
+  --dash-emerald:       #10b981;
+  --dash-border-soft:   rgba(148, 163, 184, 0.16);
+  --dash-border-active: rgba(34, 211, 238, 0.34);
+  --dash-text-muted:    rgba(203, 213, 225, 0.74);
 }
 
 /* Light mode overrides — applied when data-theme="light" is set on <html> */
@@ -80,6 +91,34 @@ html, body {
   border-color: rgba(34, 211, 238, 0.25);
   box-shadow: 0 8px 32px rgba(34, 211, 238, 0.1);
   transform: translateY(-2px);
+}
+
+/* Dashboard ambient canvas — radial glow behind dashboard content only */
+.dashboard-canvas::before {
+  content: "";
+  position: absolute;
+  inset: -12% -8% auto -8%;
+  height: 55%;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 70% 55% at 85% 0%, rgba(34, 211, 238, 0.10), transparent 62%),
+    radial-gradient(ellipse 55% 45% at 10% 15%, rgba(30, 111, 217, 0.08), transparent 58%);
+}
+
+.dashboard-canvas::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -8% -10%;
+  height: 40%;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse 60% 50% at 50% 100%, rgba(30, 111, 217, 0.06), transparent 65%);
+}
+
+.dashboard-canvas > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Glow effects */

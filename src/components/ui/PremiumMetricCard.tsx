@@ -6,10 +6,14 @@ import type { KpiTheme } from "@/components/ui/workspaceVisual";
 import {
   WS_CARD,
   WS_CARD_HOVER,
+  WS_CARD_PADDING,
+  WS_CARD_SHEEN,
   WS_ICON_ORB,
+  WS_ICON_TILE_MD,
   WS_METRIC_LABEL,
   WS_METRIC_VALUE,
   WS_STATUS_CHIP,
+  WS_SUBTEXT,
 } from "@/components/ui/workspaceVisual";
 import { Sparkline } from "@/components/ui/workspaceUi";
 
@@ -34,7 +38,7 @@ export interface PremiumMetricCardProps {
 }
 
 /**
- * Dashboard KPI tile — premium glass card with icon tile, status badge, sparkline.
+ * Dashboard KPI tile — executive glass metric with accent line and sparkline.
  */
 export function PremiumMetricCard({
   label,
@@ -57,31 +61,23 @@ export function PremiumMetricCard({
         "group relative w-full h-full flex flex-col overflow-hidden",
         WS_CARD,
         WS_CARD_HOVER,
-        "min-h-[168px] sm:min-h-[188px]",
+        "min-h-[172px] sm:min-h-[192px]",
         theme.panelBorder,
         theme.glow,
         className,
       )}
     >
-      {/* Ambient layers */}
       <div className={cn("pointer-events-none absolute inset-0", theme.ambient)} />
+      <div className={WS_CARD_SHEEN} />
       <div
-        className="pointer-events-none absolute -top-12 -right-8 h-28 w-28 rounded-full blur-2xl opacity-40"
-        style={{ background: "var(--kpi-orb, rgba(34,211,238,0.25))" }}
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-gradient-to-l from-[rgba(34,211,238,0.55)] via-[rgba(30,111,217,0.35)] to-transparent opacity-80"
         aria-hidden
       />
-      <div
-        className="pointer-events-none absolute -bottom-10 -left-6 h-24 w-24 rounded-full blur-2xl opacity-25"
-        style={{ background: "var(--kpi-orb-secondary, rgba(34,211,238,0.15))" }}
-        aria-hidden
-      />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_55%_at_50%_0%,rgba(255,255,255,0.06),transparent_62%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
-      <div className="relative z-10 flex h-full flex-col justify-between gap-3 p-4 sm:p-5 min-w-0">
+      <div className={cn("relative z-10 flex h-full flex-col justify-between gap-3 min-w-0", WS_CARD_PADDING, "py-4 sm:py-5")}>
         <div className="flex items-start justify-between gap-2">
-          <div className={cn(WS_ICON_ORB, "w-[42px] h-[42px] shrink-0", theme.iconTile, theme.orb)}>
-            <Icon size={18} className={iconColor} />
+          <div className={cn(WS_ICON_ORB, WS_ICON_TILE_MD, theme.iconTile, theme.orb)}>
+            <Icon size={19} className={iconColor} />
           </div>
           {onLiveClick ? (
             <button
@@ -93,7 +89,7 @@ export function PremiumMetricCard({
               onClick={onLiveClick}
               className={cn(
                 WS_STATUS_CHIP,
-                "cursor-pointer touch-manipulation select-none transition-colors hover:border-[rgba(34,211,238,0.28)]",
+                "cursor-pointer touch-manipulation select-none transition-colors hover:border-[rgba(34,211,238,0.34)]",
                 theme.livePill,
               )}
               style={DISABLE_TEXT_SELECT_STYLE}
@@ -110,25 +106,23 @@ export function PremiumMetricCard({
         </div>
 
         <div className="min-w-0">
-          <div className={cn(WS_METRIC_VALUE, "drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]")}>
+          <div className={cn(WS_METRIC_VALUE, "drop-shadow-[0_2px_14px_rgba(0,0,0,0.40)] tabular-nums")}>
             {value}
           </div>
-          <div className={cn(WS_METRIC_LABEL, "mt-2 font-semibold text-white/90 line-clamp-2")}>{label}</div>
-          <div className="text-[11px] text-white/45 mt-1 leading-snug line-clamp-1">{subtitle}</div>
+          <div className={cn(WS_METRIC_LABEL, "mt-2 line-clamp-2")}>{label}</div>
+          <div className={cn(WS_SUBTEXT, "text-[11px] mt-1 leading-snug line-clamp-1")}>{subtitle}</div>
         </div>
 
         <div className="space-y-2 min-w-0">
-          {footer && <div className="min-w-0 text-[11px]">{footer}</div>}
+          {footer && <div className={cn("min-w-0 text-[11px]", theme.accent)}>{footer}</div>}
           <div className="flex items-end justify-between gap-2">
-            <div className={cn("h-1 flex-1 rounded-full overflow-hidden bg-white/[0.08]", theme.accent)}>
+            <div className="h-1 flex-1 rounded-full overflow-hidden bg-white/[0.08]">
               <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-500 bg-gradient-to-l from-current to-transparent opacity-90",
-                )}
+                className="h-full rounded-full transition-all duration-500 bg-gradient-to-l from-[#22d3ee] via-[#1e6fd9] to-transparent opacity-90"
                 style={{ width: progressWidth ?? "42%" }}
               />
             </div>
-            <div className={cn("h-5 w-14 shrink-0 opacity-60", theme.spark)}>
+            <div className={cn("h-5 w-14 shrink-0 opacity-70", theme.spark)}>
               <Sparkline colorClass={theme.iconColor} />
             </div>
           </div>
