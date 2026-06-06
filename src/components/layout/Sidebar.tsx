@@ -6,6 +6,7 @@ import {
   LayoutDashboard, Users, CheckSquare, UserCircle,
   DollarSign, Map, Bot, BarChart3, Settings, LogOut,
   ChevronLeft, Network, Zap, Activity, X, ArrowLeft,
+  Building2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,7 @@ const ICON_BY_NAME: Record<string, LucideIcon> = {
   DollarSign,
   Map,
   Network,
+  Building2,
   Zap,
   Activity,
   Bot,

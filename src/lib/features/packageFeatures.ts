@@ -24,6 +24,7 @@ export type WorkspaceRouteId =
   | "finance"
   | "strategy"
   | "org"
+  | "virtual_office"
   | "automation"
   | "ai"
   | "reports"
@@ -93,6 +94,7 @@ export const TENANT_NAV_ORDER: WorkspaceRouteId[] = [
   "clients",
   "employees",
   "org",
+  "virtual_office",
   "strategy",
   "finance",
   "automation",
@@ -141,6 +143,15 @@ export const WORKSPACE_ROUTES: WorkspaceRouteDef[] = [
     permission: "view_dashboard",
     audience: "shared",
     iconName: "Network",
+  },
+  {
+    // TODO: Gate virtual office by plan/features in a future PR.
+    id: "virtual_office",
+    href: "/virtual-office",
+    feature: "org",
+    permission: "view_dashboard",
+    audience: "shared",
+    iconName: "Building2",
   },
   {
     id: "strategy",
@@ -213,6 +224,7 @@ const ROUTE_LABELS_AR: Record<WorkspaceRouteId, string> = {
   finance: "مالية المنشأة",
   strategy: "استراتيجية المنشأة",
   org: "الهيكل الإداري للمنشأة",
+  virtual_office: "المكتب الافتراضي",
   automation: "مركز الأتمتة",
   ai: "المساعد الذكي",
   reports: "التقارير والتحليلات",
