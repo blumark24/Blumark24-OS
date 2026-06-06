@@ -80,20 +80,20 @@ function Chip({ room, selected, onClick, position }: {
           ? `0 0 14px ${accent}66, 0 0 0 2px rgba(2,8,23,0.5)`
           : "0 1px 4px rgba(0,0,0,0.55)",
         color: "#e5edf8",
-        fontSize: 9, fontWeight: 600,
+        fontSize: 8.5, fontWeight: 600,
         whiteSpace: "nowrap", cursor: "pointer",
-        maxWidth: "44%",
+        maxWidth: "40%",
         transition: "all 0.18s ease",
       }}
     >
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: hp.color, boxShadow: `0 0 4px ${hp.color}` }} />
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", maxWidth: 72 }}>
+      <span style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: hp.color, boxShadow: `0 0 4px ${hp.color}` }} />
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", maxWidth: 64 }}>
         {shortName(room.name)}
       </span>
       {room.healthPct > 0 && (
         <span style={{
-          fontSize: 8, fontWeight: 800, color: hp.color,
-          padding: "0 4px", borderRadius: 999,
+          fontSize: 7.5, fontWeight: 800, color: hp.color,
+          padding: "0 3.5px", borderRadius: 999,
           background: hp.bg, border: `1px solid ${hp.border}`,
           lineHeight: 1.45,
         }}>{room.healthPct}%</span>
@@ -112,6 +112,7 @@ function SelectedRoomCard({ room }: { room: MobileSelectedRoom }) {
       borderRadius: 14, border: `1px solid ${room.accentColor}30`,
       background: "rgba(6,14,28,0.92)",
       padding: 12,
+      marginBottom: 4,
       boxShadow: `0 0 18px ${room.accentColor}14`,
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
@@ -296,16 +297,23 @@ export default function MobileExecutiveOfficeScene({
   const [imgFailed, setImgFailed] = useState(false);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: "100%", overflow: "hidden" }}>
       {/* Office preview card */}
       <div style={{
-        position: "relative", width: "100%",
+        position: "relative", width: "100%", maxWidth: "100%",
         borderRadius: 18, overflow: "hidden",
         background: "#06111f",
         border: "1px solid rgba(148,163,184,0.14)",
         boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
       }}>
-        <div style={{ position: "relative", width: "100%", aspectRatio: "3 / 2", maxHeight: 320 }}>
+        <div style={{
+          position: "relative",
+          width: "100%",
+          aspectRatio: "3 / 2",
+          minHeight: 260,
+          maxHeight: 320,
+          margin: "0 auto",
+        }}>
           {!imgFailed ? (
             <Image
               src={IMAGE_SRC}

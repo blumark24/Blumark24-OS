@@ -797,7 +797,10 @@ export default function VirtualOfficeDesign({
           </div>
 
           {/* ── Mobile console (xs only) ── */}
-          <div className="sm:hidden" style={{ paddingBottom: 88 }}>
+          <div
+            className="sm:hidden"
+            style={{ paddingBottom: "calc(120px + env(safe-area-inset-bottom))" }}
+          >
             <MobileExecutiveOfficeScene
               rooms={rooms}
               selectedRoom={selectedRoom}
