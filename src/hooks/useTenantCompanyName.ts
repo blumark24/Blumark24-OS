@@ -20,29 +20,37 @@ const FALLBACK_NAME = "منشأتك";
  */
 export function useTenantCompanyName(): {
   name: string;
+  logoUrl: string | null;
   isFallback: boolean;
   loading: boolean;
 } {
   const { organizationId } = useTenantWorkspace();
   const [name, setName] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     if (!organizationId) {
       setName(null);
+      setLogoUrl(null);
       return;
     }
     setLoading(true);
     getTenantWorkspaceSettings(organizationId)
       .then((row) => {
         if (cancelled) return;
-        const info = (row?.company_info ?? {}) as { name?: unknown };
+        const info = (row?.company_info ?? {}) as { name?: unknown; logo_url?: unknown };
         const raw = typeof info.name === "string" ? info.name.trim() : "";
+        const logo = typeof info.logo_url === "string" ? info.logo_url.trim() : "";
         setName(raw || null);
+        setLogoUrl(logo || null);
       })
       .catch(() => {
-        if (!cancelled) setName(null);
+        if (!cancelled) {
+          setName(null);
+          setLogoUrl(null);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -52,5 +60,5 @@ export function useTenantCompanyName(): {
     };
   }, [organizationId]);
 
-  return { name: name ?? FALLBACK_NAME, isFallback: !name, loading };
+  return { name: name ?? FALLBACK_NAME, logoUrl, isFallback: !name, loading };
 }

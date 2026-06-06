@@ -142,7 +142,7 @@ export default function DashboardPage() {
       ? getTenantRoleLabel(mapAuthRoleToUserRole(user.role))
       : "عضو الفريق";
   const { display: departmentDisplay } = useProfileOrgDepartment();
-  const { name: companyName, isFallback: companyIsFallback } = useTenantCompanyName();
+  const { name: companyName, logoUrl: companyLogoUrl, isFallback: companyIsFallback } = useTenantCompanyName();
 
   const activeEmployeeNames = useMemo(() => {
     if (!isSuperAdmin) return [];
@@ -374,7 +374,12 @@ export default function DashboardPage() {
                   "inline-flex items-center gap-1.5",
                   companyIsFallback ? "text-white/40 italic" : "text-white/90 font-medium",
                 )}>
-                  <Building2 size={13} className={companyIsFallback ? "text-white/30" : "text-cyan-300"} />
+                  {companyLogoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={companyLogoUrl} alt="" className="h-5 w-5 rounded-md object-contain border border-white/10" />
+                  ) : (
+                    <Building2 size={13} className={companyIsFallback ? "text-white/30" : "text-cyan-300"} />
+                  )}
                   {companyName}
                 </span>
                 <span className="inline-flex items-center gap-1.5">

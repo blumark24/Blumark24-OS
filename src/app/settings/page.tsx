@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import {
   Settings, Users, Shield, Building2, Palette, Link2, Bell, Save,
   Check, Zap, ExternalLink, Clock, ToggleLeft, ToggleRight,
   Plus, Pencil, UserX, UserCheck, X, Key, Loader2,
-  Lock, Eye, EyeOff, AlertTriangle,
+  Lock, Eye, EyeOff, AlertTriangle, Upload,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -33,6 +33,7 @@ import {
   upsertTenantWorkspaceSettings,
 } from "@/lib/db";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import { uploadOrganizationLogo } from "@/lib/tenant/uploadOrgLogo";
 import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
 import { useAutomations } from "@/hooks/useData";
@@ -69,6 +70,7 @@ const TENANT_COMPANY_DEFAULTS = {
   phone: "",
   website: "",
   city: "",
+  logo_url: "",
 };
 
 // Add user redirect banner (real user creation happens in /employees)
@@ -336,6 +338,11 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const [saved,      setSaved]      = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [companyForm, setCompanyForm] = useState({ ...TENANT_COMPANY_DEFAULTS });
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  // organization_manager (manage_tenant_settings) or platform admin (manage_settings)
+  // may change the logo. finance_manager/employee never reach the general tab.
+  const canEditCompany = hasPermission("manage_tenant_settings") || hasPermission("manage_settings");
   const [darkMode,     setDarkMode]     = useState(true);
   const [accentColor,  setAccentColor]  = useState("#22d3ee");
   const [language,     setLanguage]     = useState("العربية");
@@ -380,6 +387,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
             phone: "0550000000",
             website: "blumark24.com",
             city: "جدة",
+            logo_url: "",
           });
         }
         if (s.notifications) setNotifs(s.notifications as typeof notifs);
@@ -464,6 +472,30 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
       setPwError("حدث خطأ غير متوقع");
     } finally {
       setPwLoading(false);
+    }
+  };
+
+  const handleLogoSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    if (!organizationId) {
+      toast.error("تعذر تحديد منشأتك — أعد تسجيل الدخول");
+      return;
+    }
+    setLogoUploading(true);
+    try {
+      const url = await withTimeout(
+        uploadOrganizationLogo(organizationId, file),
+        20_000,
+        "انتهت مهلة رفع الشعار — تحقق من الاتصال",
+      );
+      setCompanyForm((prev) => ({ ...prev, logo_url: url }));
+      toast.success("تم رفع الشعار — اضغط «حفظ التغييرات» لحفظه");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "تعذر رفع الشعار");
+    } finally {
+      setLogoUploading(false);
     }
   };
 
@@ -579,6 +611,41 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
             {activeTab === "general" && (
               <div className="glass-card p-6 space-y-4">
                 <h3 className="text-white font-medium text-lg mb-4">معلومات الشركة</h3>
+
+                {/* Company logo upload */}
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl overflow-hidden border border-[#1e3a5f] bg-[#0d1f3c]/60 flex items-center justify-center flex-shrink-0">
+                    {companyForm.logo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={companyForm.logo_url} alt="شعار المنشأة" className="w-full h-full object-contain" />
+                    ) : (
+                      <Building2 size={24} className="text-[#22d3ee]" />
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="text-white text-sm font-medium">شعار المنشأة</div>
+                    <div className="text-[#8ba3c7] text-xs">PNG أو JPEG أو WebP — بحد أقصى 2 ميغابايت</div>
+                    {canEditCompany && (
+                      <button
+                        type="button"
+                        onClick={() => logoInputRef.current?.click()}
+                        disabled={logoUploading}
+                        className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        {logoUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                        {logoUploading ? "جارٍ الرفع..." : "رفع شعار المنشأة"}
+                      </button>
+                    )}
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={handleLogoSelected}
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
                     { label: "اسم الشركة",      key: "name"    },
