@@ -1,7 +1,8 @@
 "use client";
 
-// VirtualOfficeDesign.tsx — VIRTUAL-OFFICE-DESIGN-2 (floor-plan rebuild)
-// Premium CSS-only floor-plan UI matching the approved reference image.
+// VirtualOfficeDesign.tsx — VIRTUAL-OFFICE-DESIGN-2D
+// Orchestrator: builds data, renders header, KPI row, scene, bottom panels.
+// Scene rendering delegated to VirtualOfficeReferenceScene.
 // Read-only · isolated from /org · no external 3D libraries.
 
 import { useMemo } from "react";
@@ -25,10 +26,11 @@ import {
 } from "lucide-react";
 import type { OrgStructureSnapshot } from "@/lib/org/types";
 import type { Employee, Task } from "@/types";
+import VirtualOfficeReferenceScene from "./VirtualOfficeReferenceScene";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface OfficeRoom {
+export interface OfficeRoom {
   id: string;
   name: string;
   accentColor: string;
@@ -856,7 +858,7 @@ export default function VirtualOfficeDesign({
       </div>
 
       {/* ── Office Floor Plan ── */}
-      <OfficeFloorPlan rooms={rooms} />
+      <VirtualOfficeReferenceScene rooms={rooms} />
 
       {/* ── Bottom Panels ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ alignItems: "start" }}>
