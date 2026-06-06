@@ -19,6 +19,7 @@ import {
 import type { OrgStructureSnapshot } from "@/lib/org/types";
 import type { Employee, Task } from "@/types";
 import VirtualOfficeReferenceScene, { type SceneRoom } from "./VirtualOfficeReferenceScene";
+import MobileExecutiveOfficeScene from "./MobileExecutiveOfficeScene";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -680,6 +681,47 @@ export default function VirtualOfficeDesign({
 
   const isEmpty = safeDepts.length === 0 && !isDemo;
 
+  // Compact mobile feed (max 2 each) — derived, no fetches.
+  const mobileActivity = useMemo(() => {
+    const fromTasks = safeTasks
+      .filter((t) => t?.title)
+      .slice(0, 2)
+      .map((t, i) => ({
+        id: t.id ?? `m-a-${i}`,
+        title: t.title,
+        room: rooms[i % Math.max(rooms.length, 1)]?.name ?? "—",
+        ago: i === 0 ? "دقيقتين" : "5 دقائق",
+      }));
+    if (fromTasks.length > 0) return fromTasks;
+    return [
+      { id: "ma1", title: "تم إسناد مهمة في غرفة التنفيذ",   room: "غرفة التنفيذ",   ago: "دقيقتين" },
+      { id: "ma2", title: "انضم محمد لاجتماع غرفة المبيعات", room: "غرفة المبيعات", ago: "5 دقائق" },
+    ];
+  }, [safeTasks, rooms]);
+
+  const mobileMeetings = useMemo(() => {
+    const meet = rooms.find((r) => r.isCenter);
+    const next = rooms.find((r) => !r.isCenter && !r.isAI);
+    const list: Array<{ id: string; name: string; status: string }> = [];
+    if (meet) list.push({ id: meet.id, name: meet.name, status: "مشغولة الآن · 11:00 – 11:30" });
+    if (next) list.push({ id: next.id, name: `اجتماع ${next.name}`, status: "لا يوجد اجتماع مجدول" });
+    return list;
+  }, [rooms]);
+
+  const mobileAlerts = useMemo(() => {
+    const overdue = safeTasks.filter((t) => t?.status === "متأخرة");
+    if (overdue.length > 0) {
+      return [
+        { id: "mal1", type: "تحذير", text: `${overdue.length} مهام متأخرة في ${rooms[0]?.name ?? "الأقسام"}`, room: rooms[0]?.name ?? "—" },
+        { id: "mal2", type: "حاد",   text: "تحقق من تكليفات المهام المتأخرة", room: rooms[1]?.name ?? "—" },
+      ];
+    }
+    return [
+      { id: "mal1", type: "تنبيه", text: "مؤشر النشاط مستقر هذا الأسبوع", room: "غرفة المبيعات" },
+      { id: "mal2", type: "توصية", text: "راجع توزيع المهام في الدعم",    room: "غرفة الدعم"   },
+    ];
+  }, [safeTasks, rooms]);
+
   return (
     <div className="space-y-5 min-w-0" dir="rtl">
 
@@ -731,29 +773,39 @@ export default function VirtualOfficeDesign({
         </div>
       ) : (
         <>
-          {/* ── Office Floor Plan ── */}
-          <VirtualOfficeReferenceScene
-            rooms={rooms}
-            selectedRoomId={selectedRoom?.id ?? null}
-            onRoomClick={(r) => setSelectedRoom(prev => prev?.id === r.id ? null : r as OfficeRoom)}
-          />
-
-          {/* ── Room Detail Panel (shown when room is selected) ── */}
-          {selectedRoom && (
-            <RoomDetailPanel
-              room={selectedRoom}
-              snapshot={snapshot}
-              employees={safeEmps}
-              tasks={safeTasks}
-              onClose={() => setSelectedRoom(null)}
+          {/* ── Desktop scene (sm+) ── */}
+          <div className="hidden sm:block space-y-5">
+            <VirtualOfficeReferenceScene
+              rooms={rooms}
+              selectedRoomId={selectedRoom?.id ?? null}
+              onRoomClick={(r) => setSelectedRoom(prev => prev?.id === r.id ? null : r as OfficeRoom)}
             />
-          )}
+            {selectedRoom && (
+              <RoomDetailPanel
+                room={selectedRoom}
+                snapshot={snapshot}
+                employees={safeEmps}
+                tasks={safeTasks}
+                onClose={() => setSelectedRoom(null)}
+              />
+            )}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ alignItems: "start" }}>
+              <ActivityPanel tasks={safeTasks} rooms={rooms} />
+              <MeetingRoomsPanel rooms={rooms} />
+              <AIAlertsPanel tasks={safeTasks} rooms={rooms} />
+            </div>
+          </div>
 
-          {/* ── Bottom Panels ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ alignItems: "start" }}>
-            <ActivityPanel tasks={safeTasks} rooms={rooms} />
-            <MeetingRoomsPanel rooms={rooms} />
-            <AIAlertsPanel tasks={safeTasks} rooms={rooms} />
+          {/* ── Mobile console (xs only) ── */}
+          <div className="sm:hidden" style={{ paddingBottom: 88 }}>
+            <MobileExecutiveOfficeScene
+              rooms={rooms}
+              selectedRoom={selectedRoom}
+              onRoomClick={(r) => setSelectedRoom(prev => prev?.id === r.id ? null : r as OfficeRoom)}
+              activity={mobileActivity}
+              meetings={mobileMeetings}
+              alerts={mobileAlerts}
+            />
           </div>
         </>
       )}
