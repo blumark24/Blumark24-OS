@@ -106,7 +106,11 @@ export async function PATCH(req: NextRequest) {
   if (cleanName     !== undefined) profileUpdate.name       = cleanName;
 
   console.log(`${TAG} step=updateProfile | userId=${userId} fields=${JSON.stringify(profileUpdate)}`);
-  const { error: profileError } = await admin.from("profiles").update(profileUpdate).eq("id", userId);
+  let profileUpdateQuery = admin.from("profiles").update(profileUpdate).eq("id", userId);
+  if (targetCheck.targetOrgId) {
+    profileUpdateQuery = profileUpdateQuery.eq("organization_id", targetCheck.targetOrgId);
+  }
+  const { error: profileError } = await profileUpdateQuery;
   if (profileError) {
     return fail(500,
       `فشل تحديث الملف الشخصي: ${profileError.message}`,
@@ -129,10 +133,14 @@ export async function PATCH(req: NextRequest) {
   if (cleanDept     !== undefined) employeeSync.department = cleanDept;
   if (cleanIsActive !== undefined) employeeSync.status     = cleanIsActive ? "نشط" : "غير_نشط";
   if (Object.keys(employeeSync).length > 0) {
-    const { error: empError } = await admin
+    let employeeUpdateQuery = admin
       .from("employees")
       .update(employeeSync)
       .eq("id", userId);
+    if (targetCheck.targetOrgId) {
+      employeeUpdateQuery = employeeUpdateQuery.eq("organization_id", targetCheck.targetOrgId);
+    }
+    const { error: empError } = await employeeUpdateQuery;
     if (empError) {
       console.warn(`${TAG} employees sync skipped (non-fatal): ${empError.message}`);
     } else {
