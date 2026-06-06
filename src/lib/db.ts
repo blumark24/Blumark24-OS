@@ -410,10 +410,20 @@ export async function getUserProfile(userId: string): Promise<DBProfile | null> 
   return (data as DBProfile) ?? null;
 }
 
+// Tenant-scoped on purpose: the customer-workspace user list (Settings →
+// users/permissions) must show ONLY the current organization's members.
+// Relying on RLS alone is unsafe here — the legacy "profiles: read" policy
+// (auth.role()='authenticated') and the super_admin/owner cross-org bypass in
+// later policies would otherwise leak other tenants' users into this list.
+// An explicit organization_id filter scopes the result for every role,
+// including a super_admin viewing a customer workspace.
 export async function getAllProfiles(): Promise<DBProfile[]> {
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) return [];
   const { data } = await supabase
     .from("profiles")
     .select("id, email, name, role, is_active, department, avatar")
+    .eq("organization_id", orgId)
     .order("name");
   return (data ?? []) as DBProfile[];
 }
