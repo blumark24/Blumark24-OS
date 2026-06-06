@@ -1,9 +1,11 @@
 "use client";
 
-// VIRTUAL-OFFICE-INTERACTIVE-3
-// Tenant-aware virtual office simulator.
+// EXECUTIVE-OFFICE-VISUAL-1
+// Tenant-aware Executive Virtual Office (Kumospace-inspired).
+// Fixed 8-zone Executive Office Template. Read-only.
 // Isolated route — no imports from or to /org or SmartOrgBuilder.
 // TODO: Gate virtual office by plan/features in a future PR.
+// TODO: EXECUTIVE-OFFICE-MAPPING-2 will let managers map rooms → org units.
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -28,19 +30,25 @@ function VirtualOfficeContent({ onBack }: { onBack: () => void }) {
   const { organizationId } = useTenantWorkspace();
   const [refreshing, setRefreshing] = useState(false);
   const [orgName, setOrgName] = useState("");
+  const [orgCode, setOrgCode] = useState<string>("");
 
-  // Fetch org/company name from workspace settings (read-only)
+  // Fetch org/company identity from workspace settings (read-only)
   useEffect(() => {
     if (!organizationId) return;
     getTenantWorkspaceSettings(organizationId)
       .then((settings) => {
-        const name = typeof settings?.company_info?.name === "string"
-          ? settings.company_info.name
-          : "";
+        const ci = settings?.company_info as Record<string, unknown> | undefined;
+        const name = typeof ci?.name === "string" ? ci.name : "";
+        const code = typeof ci?.code === "string"
+          ? ci.code
+          : typeof ci?.commercial_registration === "string"
+            ? ci.commercial_registration
+            : "";
         if (name) setOrgName(name);
+        if (code) setOrgCode(code);
       })
       .catch(() => {
-        // Safe fallback — orgName stays "" → displays "منشأتك"
+        // Safe fallback — orgName/orgCode stay ""
       });
   }, [organizationId]);
 
@@ -83,6 +91,7 @@ function VirtualOfficeContent({ onBack }: { onBack: () => void }) {
       employees={employees ?? []}
       tasks={tasks ?? []}
       orgName={orgName}
+      orgCode={orgCode}
       onBackToOrg={onBack}
       onRefresh={() => void handleRefresh()}
       isRefreshing={refreshing}

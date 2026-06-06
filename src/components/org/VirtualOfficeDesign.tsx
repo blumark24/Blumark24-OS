@@ -1,9 +1,11 @@
 "use client";
 
-// VirtualOfficeDesign.tsx — VIRTUAL-OFFICE-INTERACTIVE-3
-// Tenant-aware virtual office simulator.
-// Each tenant sees their own org structure mapped into fixed visual slots.
-// Interactive: click a room to open the detail panel (read-only).
+// VirtualOfficeDesign.tsx — EXECUTIVE-OFFICE-VISUAL-1
+// Tenant-aware executive virtual office (Kumospace-inspired).
+// Fixed 8-zone Executive Office Template, clickable rooms, read-only.
+// TODO: EXECUTIVE-OFFICE-MAPPING-2 will let managers map each fixed
+//       room to org units (department / management / team). Mapping
+//       persistence requires DB/RLS review before implementation.
 // Isolated from /org · no DB writes.
 
 import { useMemo, useState } from "react";
@@ -35,10 +37,27 @@ export interface VirtualOfficeDesignProps {
   employees: Employee[];
   tasks: Task[];
   orgName: string;
+  orgCode?: string;
   onBackToOrg: () => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
 }
+
+// Executive Office Template — fixed 8 zones, mapped 1:1 to slot index.
+// TODO: EXECUTIVE-OFFICE-MAPPING-2 will replace the keyword auto-assignment
+//       with manager-controlled mapping (zone → department/management/team).
+const EXECUTIVE_TEMPLATE_ZONES = [
+  "المبيعات",
+  "الإدارة العليا",
+  "الدعم",
+  "التسويق",
+  "الاجتماعات",
+  "المالية",
+  "التنفيذ",
+  "غرفة الذكاء الاصطناعي",
+] as const;
+const EXECUTIVE_TEMPLATE_LABEL = "Executive Office";
+const EXECUTIVE_TEMPLATE_LABEL_AR = "قالب المكتب التنفيذي";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -224,16 +243,14 @@ function buildOfficeRooms(
 
 // ─── Workspace Identity Strip ─────────────────────────────────────────────────
 
-function WorkspaceIdentityStrip({ orgName, snapshot, employees, planSlug }: {
+function WorkspaceIdentityStrip({ orgName, orgCode, snapshot, employees }: {
   orgName: string;
+  orgCode?: string;
   snapshot: OrgStructureSnapshot | null;
   employees: Employee[];
-  planSlug?: string;
 }) {
   const deptCount = Array.isArray(snapshot?.departments) ? snapshot!.departments.length : 0;
   const empCount  = Array.isArray(employees) ? employees.length : 0;
-  const PLAN_LABELS: Record<string, string> = { basic: "بسيط", growth: "نمو", advanced: "متقدم" };
-  const planLabel = planSlug ? (PLAN_LABELS[planSlug] ?? planSlug) : "";
   return (
     <div style={{
       borderRadius: 14, border: "1px solid rgba(255,255,255,0.065)",
@@ -251,7 +268,24 @@ function WorkspaceIdentityStrip({ orgName, snapshot, employees, planSlug }: {
           <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1.2 }}>
             {orgName || "منشأتك"}
           </p>
-          {planLabel && <p style={{ fontSize: 10, color: "#4a6a8a", margin: 0 }}>باقة {planLabel}</p>}
+          {orgCode && (
+            <p style={{ fontSize: 10, color: "#4a6a8a", margin: 0, fontFamily: "monospace" }}>
+              كود المنشأة · {orgCode}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.08)" }} />
+
+      {/* Office template */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <Layers size={13} color="#a855f7" />
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <span style={{ fontSize: 10, color: "#4a6a8a", lineHeight: 1.1 }}>قالب المكتب</span>
+          <span style={{ fontSize: 12, color: "#c0d4ee", fontWeight: 600, lineHeight: 1.2 }}>
+            {EXECUTIVE_TEMPLATE_LABEL_AR} <span style={{ color: "#5a7a9a", fontWeight: 500 }}>({EXECUTIVE_TEMPLATE_LABEL})</span>
+          </span>
         </div>
       </div>
 
@@ -270,9 +304,10 @@ function WorkspaceIdentityStrip({ orgName, snapshot, employees, planSlug }: {
         ))}
       </div>
 
+      {/* Sync status */}
       <div style={{ marginRight: "auto", display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#3a5570" }}>
-        <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#10b981" }} />
-        مبني من الهيكل الإداري · للقراءة فقط
+        <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px #10b981" }} />
+        حالة المزامنة · مبني من الهيكل الإداري
       </div>
     </div>
   );
@@ -413,8 +448,32 @@ function RoomDetailPanel({ room, snapshot, employees, tasks, onClose }: {
           </div>
         )}
 
-        <div style={{ gridColumn: "1 / -1", fontSize: 10, color: "#2a4060", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 8, marginTop: 4 }}>
-          للقراءة فقط · لا تغييرات في البيانات
+        {/* TODO: EXECUTIVE-OFFICE-MAPPING-2 — enable this button so managers can */}
+        {/* map this fixed room to a department / management / team. */}
+        {/* TODO: mapping persistence requires DB/RLS review before implementation. */}
+        <div style={{ gridColumn: "1 / -1", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 10, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            disabled
+            title="قريبًا"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "7px 12px", borderRadius: 10,
+              border: "1px dashed rgba(139,92,246,0.30)",
+              background: "rgba(139,92,246,0.06)",
+              color: "rgba(168,85,247,0.55)",
+              fontSize: 11, fontWeight: 600, cursor: "not-allowed",
+            }}
+          >
+            <Layers size={12} />
+            تخصيص الربط
+            <span style={{ fontSize: 9, color: "rgba(168,85,247,0.50)", marginRight: 4 }}>
+              قريبًا: ربط الغرفة بإدارة أو قسم
+            </span>
+          </button>
+          <span style={{ fontSize: 10, color: "#2a4060" }}>
+            للقراءة فقط · لا تغييرات في البيانات
+          </span>
         </div>
       </div>
     </div>
@@ -466,7 +525,7 @@ function ActivityPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
       <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Activity size={14} color="#22d3ee" />
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>النشاط المباشر داخل المكتب</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>النشاط داخل المكتب التنفيذي</span>
         </div>
         <Link href="/tasks" style={{ fontSize: 10, color: "#3a5a7a", textDecoration: "none" }}>› الكل</Link>
       </div>
@@ -493,7 +552,7 @@ function MeetingRoomsPanel({ rooms }: { rooms: OfficeRoom[] }) {
   return (
     <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(6,14,28,0.92)", overflow: "hidden", flex: 1 }}>
       <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Calendar size={14} color="#a855f7" /><span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>غرف الاجتماعات</span></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Calendar size={14} color="#a855f7" /><span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>غرف الاجتماعات التنفيذية</span></div>
         <span style={{ fontSize: 10, color: "#3a5a7a" }}>عرض التقويم</span>
       </div>
       <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
@@ -556,7 +615,7 @@ function AIAlertsPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
   return (
     <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(6,14,28,0.92)", overflow: "hidden", flex: 1 }}>
       <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}><BrainCircuit size={14} color="#22d3ee" /><span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>تنبيهات الذكاء الاصطناعي</span></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}><BrainCircuit size={14} color="#22d3ee" /><span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>تنبيهات المكتب الذكي</span></div>
         <span style={{ fontSize: 10, color: "#3a5a7a" }}>عرض الكل</span>
       </div>
       <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
@@ -584,7 +643,7 @@ function AIAlertsPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function VirtualOfficeDesign({
-  snapshot, employees, tasks, orgName,
+  snapshot, employees, tasks, orgName, orgCode,
   onBackToOrg, onRefresh, isRefreshing = false,
 }: VirtualOfficeDesignProps) {
   const [selectedRoom, setSelectedRoom] = useState<OfficeRoom | null>(null);
@@ -633,8 +692,8 @@ export default function VirtualOfficeDesign({
               <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: "rgba(245,158,11,0.20)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.32)" }}>BETA</span>
               {isDemo && <span style={{ fontSize: 10, fontWeight: 500, padding: "2px 8px", borderRadius: 20, background: "rgba(245,158,11,0.12)", color: "#fcd34d", border: "1px solid rgba(245,158,11,0.22)", display: "inline-flex", alignItems: "center", gap: 4 }}><Sparkles size={9} color="#fcd34d" />عرض توضيحي</span>}
             </div>
-            <h1 style={{ fontSize: "clamp(22px,4vw,30px)", fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.2 }}>المكتب الافتراضي الذكي</h1>
-            <p style={{ fontSize: 13, color: "#7a9ab8", marginTop: 8, maxWidth: 520, lineHeight: 1.6 }}>محاكاة تفاعلية مبنية من الهيكل الإداري لكل منشأة.</p>
+            <h1 style={{ fontSize: "clamp(22px,4vw,30px)", fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.2 }}>المكتب التنفيذي الافتراضي</h1>
+            <p style={{ fontSize: 13, color: "#7a9ab8", marginTop: 8, maxWidth: 560, lineHeight: 1.6 }}>مساحة عمل تفاعلية مستوحاة من أسلوب المكاتب الافتراضية، مبنية من هيكل منشأتك.</p>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <button type="button" onClick={onBackToOrg} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.05)", color: "#8ba3c7", fontSize: 13, cursor: "pointer" }}>
@@ -651,7 +710,7 @@ export default function VirtualOfficeDesign({
       </section>
 
       {/* ── Workspace Identity Strip ── */}
-      <WorkspaceIdentityStrip orgName={orgName} snapshot={snapshot} employees={safeEmps} />
+      <WorkspaceIdentityStrip orgName={orgName} orgCode={orgCode} snapshot={snapshot} employees={safeEmps} />
 
       {/* ── KPI Row ── */}
       <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
