@@ -38,6 +38,7 @@ import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantD
 import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
 import { useAutomations } from "@/hooks/useData";
 import { withTimeout } from "@/lib/asyncHelpers";
+import { uploadOrgLogo } from "@/lib/tenant/uploadOrgLogo";
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -347,6 +348,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const [showConfirmPw,setShowConfirmPw]= useState(false);
   const [saved,      setSaved]      = useState(false);
   const [saving,     setSaving]     = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [companyForm, setCompanyForm] = useState({ ...TENANT_COMPANY_DEFAULTS });
   const [darkMode,     setDarkMode]     = useState(true);
   const [accentColor,  setAccentColor]  = useState("#22d3ee");
@@ -535,6 +537,29 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
     }
   };
 
+  const handleLogoFileChange = async (file: File | null) => {
+    if (!file) return;
+    if (!tenantMode || !canEditTenantSettings || !organizationId) {
+      toast.error(TENANT_SETTINGS_DENIED_MESSAGE);
+      return;
+    }
+
+    setLogoUploading(true);
+    try {
+      const uploaded = await withTimeout(
+        uploadOrgLogo(organizationId, file),
+        20_000,
+        "انتهت مهلة رفع الشعار — تحقق من الاتصال",
+      );
+      setCompanyForm((prev) => ({ ...prev, logo_url: uploaded.publicUrl }));
+      toast.success("تم رفع الشعار. احفظ التغييرات لتثبيت الرابط.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "تعذر رفع الشعار");
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
   const toggleRule = async (id: string, currentEnabled: boolean) => {
     try {
       await withTimeout(toggleAutomation(id, !currentEnabled), 8_000, "انتهت مهلة تحديث الأتمتة");
@@ -642,6 +667,21 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                         disabled={tenantMode && !canEditTenantSettings}
                         onChange={(e) => setCompanyForm({ ...companyForm, [key]: e.target.value })}
                       />
+                      {key === "logo_url" && tenantMode && (
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="input-dark mt-2 text-xs"
+                          disabled={!canEditTenantSettings || logoUploading}
+                          onChange={(e) => {
+                            void handleLogoFileChange(e.target.files?.[0] ?? null);
+                            e.currentTarget.value = "";
+                          }}
+                        />
+                      )}
+                      {key === "logo_url" && logoUploading && (
+                        <p className="mt-1 text-[11px] text-[#8ba3c7]">جاري رفع الشعار...</p>
+                      )}
                     </div>
                   ))}
                 </div>
