@@ -42,6 +42,8 @@ export interface Employee extends User {
   tasks?: number;
   completedTasks?: number;
   publicCode?: string;
+  /** Organizational job-title tier (display label, e.g. "مدير إدارة"). */
+  jobTitle?: string;
 }
 
 export type TaskStatus = "جديدة" | "قيد_التنفيذ" | "بانتظار_المراجعة" | "مكتملة" | "متأخرة";

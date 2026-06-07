@@ -25,7 +25,7 @@ import {
   TENANT_ROLES,
   UserRole,
 } from "@/contexts/PermissionsContext";
-import { TENANT_ASSIGNABLE_ROLES } from "@/lib/tenant/tenantDisplay";
+import { TENANT_ASSIGNABLE_ROLES, TENANT_JOB_TITLES, DEFAULT_TENANT_JOB_TITLE } from "@/lib/tenant/tenantDisplay";
 import { useEmployees } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import PageGuard from "@/components/ui/PageGuard";
@@ -47,6 +47,7 @@ type FormState = {
   phone:      string;
   departmentId: string;
   role:       UserRole;
+  jobTitle:   string;
   status:     "نشط" | "غير_نشط";
   salary:     string;
 };
@@ -86,7 +87,7 @@ function EmployeesContent() {
   const [legacyDeptHint, setLegacyDeptHint] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>({
     name: "", email: "", password: "", phone: "", departmentId: defaultDeptId,
-    role: "employee", status: "نشط", salary: "",
+    role: "employee", jobTitle: DEFAULT_TENANT_JOB_TITLE, status: "نشط", salary: "",
   });
 
   // Safety net: if saving is stuck (network issue, unhandled error, etc.)
@@ -109,7 +110,7 @@ function EmployeesContent() {
   const openAdd = () => {
     setEditId(null);
     setLegacyDeptHint(null);
-    setForm({ name: "", email: "", password: "", phone: "", departmentId: defaultDeptId, role: "employee", status: "نشط", salary: "" });
+    setForm({ name: "", email: "", password: "", phone: "", departmentId: defaultDeptId, role: "employee", jobTitle: DEFAULT_TENANT_JOB_TITLE, status: "نشط", salary: "" });
     setShowPass(false);
     setShowModal(true);
   };
@@ -125,6 +126,7 @@ function EmployeesContent() {
       phone:      emp.phone || "",
       departmentId: resolvedId,
       role:       emp.role as UserRole,
+      jobTitle:   emp.jobTitle || DEFAULT_TENANT_JOB_TITLE,
       status:     emp.status,
       salary:     String(emp.salary ?? ""),
     });
@@ -179,6 +181,7 @@ function EmployeesContent() {
           phone:      form.phone,
           department: departmentLabel,
           role:       form.role as never,
+          jobTitle:   form.jobTitle,
           status:     form.status,
           salary:     form.salary ? Number(form.salary) : undefined,
         });
@@ -198,6 +201,7 @@ function EmployeesContent() {
               department: departmentLabel,
               isActive: form.status === "نشط",
               name: form.name.trim(),
+              jobTitle: form.jobTitle,
             }),
             12_000,
             "انتهت مهلة مزامنة حساب الدخول — تحقق من اتصالك بالإنترنت",
@@ -223,7 +227,10 @@ function EmployeesContent() {
             email:      cleanEmail,
             password:   form.password,
             name:       form.name.trim(),
-            role:       form.role,
+            // New tenant hires are always auth-role "employee" (constraint-safe,
+            // no broad permissions). The organizational tier is the job title.
+            role:       "employee",
+            jobTitle:   form.jobTitle,
             department: departmentLabel,
             phone:      form.phone || null,
             salary:     form.salary ? Number(form.salary) : null,
@@ -247,7 +254,8 @@ function EmployeesContent() {
           id:             created.id,
           name:           form.name.trim(),
           email:          cleanEmail,
-          role:           form.role,
+          role:           "employee",
+          jobTitle:       form.jobTitle,
           department:     departmentLabel,
           status:         form.status,
           joinDate:       new Date().toISOString().split("T")[0],
@@ -442,7 +450,7 @@ function EmployeesContent() {
                         {emp.department}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{getTenantRoleLabel(emp.role)}</td>
+                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{emp.jobTitle || getTenantRoleLabel(emp.role)}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-0.5">
                         {[1,2,3,4,5].map((s) => (
@@ -597,14 +605,11 @@ function EmployeesContent() {
                 </div>
                 <div>
                   <PremiumRolePicker
-                    label="الدور"
+                    label="الدور الوظيفي"
                     required
-                    value={form.role}
-                    options={assignableRoles.map((r) => ({
-                      value: r,
-                      label: getTenantRoleLabel(r),
-                    }))}
-                    onChange={(v) => setForm({ ...form, role: v as UserRole })}
+                    value={form.jobTitle}
+                    options={TENANT_JOB_TITLES.map((t) => ({ value: t.value, label: t.label }))}
+                    onChange={(v) => setForm({ ...form, jobTitle: v })}
                   />
                 </div>
               </div>

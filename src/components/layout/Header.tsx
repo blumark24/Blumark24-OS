@@ -200,7 +200,7 @@ function ProfilePanelContent({
       {/* Actions */}
       <div className="p-2 space-y-0.5">
         <button
-          onClick={() => { onNavigate("/employees"); onClose(); }}
+          onClick={() => { onNavigate("/profile"); onClose(); }}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-[#8ba3c7] hover:text-white hover:bg-white/[0.05] transition-all text-right"
         >
           <span className="grid h-8 w-8 place-items-center rounded-lg border border-white/[0.08] bg-cyan-500/10">

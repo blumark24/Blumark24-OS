@@ -174,6 +174,7 @@ function employeeFromDB(row: Record<string, unknown>): Employee {
     avatar:         row.avatar          as string | undefined,
     salary:         row.salary          as number | undefined,
     publicCode:     (row.employee_code  as string | undefined) || undefined,
+    jobTitle:       (row.job_title       as string | undefined) || undefined,
   };
 }
 
@@ -208,6 +209,7 @@ function employeeUpdateToDB(changes: Partial<Employee>): Record<string, unknown>
   if (changes.completedTasks !== undefined) map.completed_tasks = changes.completedTasks;
   if (changes.avatar         !== undefined) map.avatar          = changes.avatar;
   if (changes.salary         !== undefined) map.salary          = changes.salary;
+  if (changes.jobTitle       !== undefined) map.job_title       = changes.jobTitle;
   return map;
 }
 
