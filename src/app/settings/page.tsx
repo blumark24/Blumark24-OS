@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import {
   Settings, Users, Shield, Building2, Palette, Link2, Bell, Save,
   Check, Zap, ExternalLink, Clock, ToggleLeft, ToggleRight,
   Plus, Pencil, UserX, UserCheck, X, Key, Loader2,
-  Lock, Eye, EyeOff, AlertTriangle,
+  Lock, Eye, EyeOff, AlertTriangle, Upload, User,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -32,6 +32,7 @@ import {
   getOrganizationName,
   getTenantWorkspaceSettings,
   upsertTenantWorkspaceSettings,
+  updateMyProfile,
 } from "@/lib/db";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
@@ -319,6 +320,79 @@ function PermissionsTab() {
 // It never exposes company/global settings or other users.
 const TENANT_MANAGER_TABS = new Set(["general", "account", "notifications", "appearance"]);
 
+// ─── Personal profile (every user edits only their OWN basic info) ───────────
+function PersonalProfileSection() {
+  const { user, refreshCurrentUser } = useAuth();
+  const toast = useToast();
+  const [name, setName] = useState(user?.name ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setName(user?.name ?? "");
+  }, [user?.name]);
+
+  const handleSaveProfile = async () => {
+    if (!user?.id) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error("الاسم مطلوب");
+      return;
+    }
+    setSaving(true);
+    try {
+      // Scoped to .eq("id", user.id) inside updateMyProfile — never another user.
+      await withTimeout(updateMyProfile(user.id, { name: trimmed }), 12_000, "انتهت مهلة حفظ الملف الشخصي");
+      await refreshCurrentUser();
+      toast.success("تم تحديث ملفك الشخصي بنجاح");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "تعذر حفظ الملف الشخصي");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const roleLabel = user?.role ? getTenantRoleLabel(user.role) : "";
+
+  return (
+    <div className="glass-card p-6 space-y-4">
+      <h3 className="text-white font-medium text-lg flex items-center gap-2">
+        <User size={18} className="text-[#22d3ee]" />
+        الملف الشخصي
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs text-[#8ba3c7] mb-1.5">الاسم</label>
+          <input className="input-dark text-sm" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div>
+          <label className="block text-xs text-[#8ba3c7] mb-1.5">البريد الإلكتروني</label>
+          <input className="input-dark text-sm disabled:opacity-60" value={user?.email ?? ""} disabled />
+        </div>
+        <div>
+          <label className="block text-xs text-[#8ba3c7] mb-1.5">الدور</label>
+          <input className="input-dark text-sm disabled:opacity-60" value={roleLabel} disabled />
+        </div>
+        <div>
+          <label className="block text-xs text-[#8ba3c7] mb-1.5">القسم</label>
+          <input
+            className="input-dark text-sm disabled:opacity-60"
+            value={formatTenantDepartment(user?.department ?? "").text}
+            disabled
+          />
+        </div>
+      </div>
+      <button
+        onClick={handleSaveProfile}
+        disabled={saving}
+        className="btn-primary flex items-center gap-2 text-sm disabled:opacity-50"
+      >
+        {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+        {saving ? "جارٍ الحفظ..." : "حفظ الملف الشخصي"}
+      </button>
+    </div>
+  );
+}
+
 function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const toast = useToast();
   const { hasPermission } = usePermissions();
@@ -350,6 +424,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const [saving,     setSaving]     = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const [companyForm, setCompanyForm] = useState({ ...TENANT_COMPANY_DEFAULTS });
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [darkMode,     setDarkMode]     = useState(true);
   const [accentColor,  setAccentColor]  = useState("#22d3ee");
   const [language,     setLanguage]     = useState("العربية");
@@ -362,10 +437,25 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   // Skipped in account-only mode — company/global settings are never loaded
   // into a tenant manager's client.
   useEffect(() => {
-    if (accountOnly) return;
-
     const load = async () => {
       try {
+        // Account-only viewers (finance_manager / employee): best-effort read of
+        // their OWN org company info for the read-only identity card. Never global.
+        if (accountOnly) {
+          if (organizationId) {
+            try {
+              const row = await getTenantWorkspaceSettings(organizationId);
+              if (row?.company_info && typeof row.company_info === "object") {
+                setCompanyForm((prev) => ({ ...prev, ...(row.company_info as typeof companyForm) }));
+              } else {
+                const organizationName = await getOrganizationName(organizationId);
+                if (organizationName) setCompanyForm((prev) => ({ ...prev, name: organizationName }));
+              }
+            } catch { /* viewer may lack read access — show fallback */ }
+          }
+          return;
+        }
+
         if (tenantMode && organizationId) {
           const row = await getTenantWorkspaceSettings(organizationId);
           let hasSavedCompanyName = false;
@@ -560,6 +650,19 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
     }
   };
 
+  const companyFieldsDisabled = tenantMode && !canEditTenantSettings;
+  const renderCompanyField = (label: string, key: keyof typeof companyForm) => (
+    <div key={key}>
+      <label className="block text-xs text-[#8ba3c7] mb-1.5">{label}</label>
+      <input
+        className="input-dark text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+        value={companyForm[key] ?? ""}
+        disabled={companyFieldsDisabled}
+        onChange={(e) => setCompanyForm({ ...companyForm, [key]: e.target.value })}
+      />
+    </div>
+  );
+
   const toggleRule = async (id: string, currentEnabled: boolean) => {
     try {
       await withTimeout(toggleAutomation(id, !currentEnabled), 8_000, "انتهت مهلة تحديث الأتمتة");
@@ -643,47 +746,76 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
 
             {/* ── General ── */}
             {activeTab === "general" && (
-              <div className="glass-card p-6 space-y-4">
-                <h3 className="text-white font-medium text-lg mb-4">معلومات الشركة</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[
-                    { label: "اسم المنشأة", key: "name" },
-                    { label: "رابط شعار المنشأة", key: "logo_url" },
-                    { label: "الشعار النصي", key: "tagline" },
-                    { label: "البريد الإلكتروني", key: "email" },
-                    { label: "رقم الهاتف", key: "phone" },
-                    { label: "الموقع الإلكتروني", key: "website" },
-                    { label: "المدينة", key: "city" },
-                    { label: "نوع النشاط", key: "activity_type" },
-                    { label: "العنوان", key: "address" },
-                    { label: "السجل التجاري (اختياري)", key: "commercial_register" },
-                    { label: "الرقم الضريبي (اختياري)", key: "tax_number" },
-                  ].map(({ label, key }) => (
-                    <div key={key}>
-                      <label className="block text-xs text-[#8ba3c7] mb-1.5">{label}</label>
-                      <input
-                        className="input-dark text-sm"
-                        value={companyForm[key as keyof typeof companyForm]}
-                        disabled={tenantMode && !canEditTenantSettings}
-                        onChange={(e) => setCompanyForm({ ...companyForm, [key]: e.target.value })}
-                      />
-                      {key === "logo_url" && tenantMode && (
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp"
-                          className="input-dark mt-2 text-xs"
-                          disabled={!canEditTenantSettings || logoUploading}
-                          onChange={(e) => {
-                            void handleLogoFileChange(e.target.files?.[0] ?? null);
-                            e.currentTarget.value = "";
-                          }}
-                        />
-                      )}
-                      {key === "logo_url" && logoUploading && (
-                        <p className="mt-1 text-[11px] text-[#8ba3c7]">جاري رفع الشعار...</p>
+              <div className="space-y-4">
+                {/* A) هوية المنشأة */}
+                <div className="glass-card p-6 space-y-4">
+                  <h3 className="text-white font-medium text-lg">هوية المنشأة</h3>
+
+                  {/* Logo — preview + upload only (no URL field) */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden border border-[#1e3a5f] bg-[#0d1f3c]/60 flex items-center justify-center flex-shrink-0">
+                      {companyForm.logo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={companyForm.logo_url} alt="شعار المنشأة" className="w-full h-full object-contain" />
+                      ) : companyForm.name ? (
+                        <span className="text-[#22d3ee] text-lg font-bold">{companyForm.name.slice(0, 2)}</span>
+                      ) : (
+                        <Building2 size={24} className="text-[#22d3ee]" />
                       )}
                     </div>
-                  ))}
+                    <div className="space-y-1.5">
+                      <div className="text-white text-sm font-medium">شعار المنشأة</div>
+                      <div className="text-[#8ba3c7] text-xs">PNG أو JPEG أو WebP — بحد أقصى 2 ميغابايت</div>
+                      {canEditTenantSettings && (
+                        <button
+                          type="button"
+                          onClick={() => logoInputRef.current?.click()}
+                          disabled={logoUploading}
+                          className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {logoUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                          {logoUploading ? "جارٍ الرفع..." : "رفع / تغيير الشعار"}
+                        </button>
+                      )}
+                      <input
+                        ref={logoInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          void handleLogoFileChange(e.target.files?.[0] ?? null);
+                          e.currentTarget.value = "";
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {renderCompanyField("اسم المنشأة", "name")}
+                    {renderCompanyField("وصف قصير", "tagline")}
+                    {renderCompanyField("نوع النشاط", "activity_type")}
+                    {renderCompanyField("المدينة", "city")}
+                  </div>
+                </div>
+
+                {/* B) بيانات التواصل */}
+                <div className="glass-card p-6 space-y-4">
+                  <h3 className="text-white font-medium text-lg">بيانات التواصل</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {renderCompanyField("البريد الإلكتروني", "email")}
+                    {renderCompanyField("رقم الهاتف", "phone")}
+                    {renderCompanyField("الموقع الإلكتروني", "website")}
+                    {renderCompanyField("العنوان المختصر", "address")}
+                  </div>
+                </div>
+
+                {/* C) بيانات إضافية */}
+                <div className="glass-card p-6 space-y-4">
+                  <h3 className="text-white font-medium text-lg">بيانات إضافية</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {renderCompanyField("السجل التجاري", "commercial_register")}
+                    {renderCompanyField("الرقم الضريبي", "tax_number")}
+                  </div>
                 </div>
               </div>
             )}
@@ -692,6 +824,39 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
             {/* ── Account ── */}
             {activeTab === "account" && (
               <div className="space-y-4">
+                {/* Personal profile — every user edits their own basic info */}
+                <PersonalProfileSection />
+
+                {/* Read-only company identity for users who cannot edit it */}
+                {!canEditTenantSettings && (
+                  <div className="glass-card p-6 space-y-3">
+                    <h3 className="text-white font-medium text-lg flex items-center gap-2">
+                      <Building2 size={18} className="text-[#22d3ee]" />
+                      بيانات المنشأة
+                    </h3>
+                    <div className="flex items-center gap-3">
+                      <div className="w-14 h-14 rounded-2xl overflow-hidden border border-[#1e3a5f] bg-[#0d1f3c]/60 flex items-center justify-center flex-shrink-0">
+                        {companyForm.logo_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={companyForm.logo_url} alt="شعار المنشأة" className="w-full h-full object-contain" />
+                        ) : (
+                          <Building2 size={22} className="text-[#22d3ee]" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-white font-medium text-sm truncate">{companyForm.name || "—"}</div>
+                        <div className="text-[#8ba3c7] text-xs truncate">
+                          {[companyForm.activity_type, companyForm.city].filter(Boolean).join(" · ")}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-amber-300/80 text-xs flex items-center gap-2">
+                      <AlertTriangle size={12} className="flex-shrink-0" />
+                      {TENANT_SETTINGS_DENIED_MESSAGE}
+                    </div>
+                  </div>
+                )}
+
                 <div className="glass-card p-6">
                   <h3 className="text-white font-medium text-lg mb-1 flex items-center gap-2">
                     <Lock size={18} className="text-[#22d3ee]" />
@@ -1007,20 +1172,20 @@ export default function SettingsPage() {
   const { user, loading } = useAuth();
   const { hasPermission } = usePermissions();
 
-  // Forced-password users who lack manage_settings (e.g. organization_manager)
-  // must be able to clear the temporary password to finish first login. They
-  // get an ACCOUNT-ONLY view (own password only) — never company/global
-  // settings. Everyone else keeps the standard manage_settings gate, so this
-  // never broadens access to system settings.
-  if (!loading && user && user.forcePasswordChange === true) {
-    const role = mapAuthRoleToUserRole(user.role);
-    const canManageSettings =
-      role === "super_admin" ||
-      hasPermission("manage_settings") ||
-      hasPermission("manage_tenant_settings");
-    if (!canManageSettings) {
-      return <SettingsContent accountOnly />;
-    }
+  // Users WITHOUT company-settings permission (finance_manager, employee, and
+  // forced-password users) get an ACCOUNT-ONLY view: their personal profile +
+  // password + a READ-ONLY company identity card. They can never edit company
+  // data or reach the users/permissions tabs. Org managers / platform admins
+  // (manage_tenant_settings | manage_settings) get the full settings. No role
+  // or RLS change — purely which view renders.
+  const role = user ? mapAuthRoleToUserRole(user.role) : null;
+  const canManageCompany =
+    role === "super_admin" ||
+    hasPermission("manage_settings") ||
+    hasPermission("manage_tenant_settings");
+
+  if (!loading && user && !canManageCompany) {
+    return <SettingsContent accountOnly />;
   }
 
   return (
