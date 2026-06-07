@@ -495,6 +495,17 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
     }
   };
 
+  const preserveSavedLogoUrl = async (nextCompanyInfo: typeof companyForm) => {
+    if (!organizationId) return nextCompanyInfo;
+    const nextLogoUrl = nextCompanyInfo.logo_url.trim();
+    if (nextLogoUrl) return nextCompanyInfo;
+
+    const row = await getTenantWorkspaceSettings(organizationId);
+    const savedCompanyInfo = (row?.company_info ?? {}) as { logo_url?: unknown };
+    const savedLogoUrl = typeof savedCompanyInfo.logo_url === "string" ? savedCompanyInfo.logo_url.trim() : "";
+    return savedLogoUrl ? { ...nextCompanyInfo, logo_url: savedLogoUrl } : nextCompanyInfo;
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -505,15 +516,17 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
         if (!organizationId) {
           throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول");
         }
+        const companyInfo = await preserveSavedLogoUrl(companyForm);
         await withTimeout(
           upsertTenantWorkspaceSettings(organizationId, {
-            company_info: companyForm,
+            company_info: companyInfo,
             notifications: notifs,
             appearance: { darkMode, accentColor, language },
           }),
           12_000,
           "انتهت مهلة حفظ الإعدادات — تحقق من الاتصال",
         );
+        setCompanyForm(companyInfo);
       } else {
         await withTimeout(
           Promise.all([
@@ -551,8 +564,22 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
         20_000,
         "انتهت مهلة رفع الشعار — تحقق من الاتصال",
       );
-      setCompanyForm((prev) => ({ ...prev, logo_url: uploaded.publicUrl }));
-      toast.success("تم رفع الشعار. احفظ التغييرات لتثبيت الرابط.");
+      const nextCompanyInfo = { ...companyForm, logo_url: uploaded.publicUrl };
+      try {
+        await withTimeout(
+          upsertTenantWorkspaceSettings(organizationId, {
+            company_info: nextCompanyInfo,
+          }),
+          12_000,
+          "تم رفع الشعار لكن تعذر حفظه في إعدادات المنشأة.",
+        );
+      } catch {
+        setCompanyForm(nextCompanyInfo);
+        toast.error("تم رفع الشعار لكن تعذر حفظه في إعدادات المنشأة.");
+        return;
+      }
+      setCompanyForm(nextCompanyInfo);
+      toast.success("تم رفع الشعار وحفظه في إعدادات المنشأة.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "تعذر رفع الشعار");
     } finally {
