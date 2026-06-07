@@ -423,6 +423,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const [saved,      setSaved]      = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [logoBroken, setLogoBroken] = useState(false);
   const [companyForm, setCompanyForm] = useState({ ...TENANT_COMPANY_DEFAULTS });
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [darkMode,     setDarkMode]     = useState(true);
@@ -527,6 +528,11 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   useEffect(() => {
     if (forcedAccount) setActiveTab("account");
   }, [forcedAccount]);
+
+  // Reset the broken-image flag whenever the logo URL changes (e.g. new upload).
+  useEffect(() => {
+    setLogoBroken(false);
+  }, [companyForm.logo_url]);
 
   // Apply theme to DOM whenever appearance state changes
   useEffect(() => {
@@ -641,8 +647,17 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
         20_000,
         "انتهت مهلة رفع الشعار — تحقق من الاتصال",
       );
-      setCompanyForm((prev) => ({ ...prev, logo_url: uploaded.publicUrl }));
-      toast.success("تم رفع الشعار. احفظ التغييرات لتثبيت الرابط.");
+      // Auto-save: update the form immediately for instant preview, then persist
+      // logo_url into tenant_workspace_settings.company_info for THIS org —
+      // merging existing company_info values so nothing else is overwritten.
+      const nextCompany = { ...companyForm, logo_url: uploaded.publicUrl };
+      setCompanyForm(nextCompany);
+      await withTimeout(
+        upsertTenantWorkspaceSettings(organizationId, { company_info: nextCompany }),
+        12_000,
+        "تم رفع الشعار لكن تعذر حفظ الرابط — حاول مرة أخرى",
+      );
+      toast.success("تم رفع الشعار وحفظه بنجاح.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "تعذر رفع الشعار");
     } finally {
@@ -754,9 +769,14 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                   {/* Logo — preview + upload only (no URL field) */}
                   <div className="flex items-center gap-4">
                     <div className="w-16 h-16 rounded-2xl overflow-hidden border border-[#1e3a5f] bg-[#0d1f3c]/60 flex items-center justify-center flex-shrink-0">
-                      {companyForm.logo_url ? (
+                      {companyForm.logo_url && !logoBroken ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={companyForm.logo_url} alt="شعار المنشأة" className="w-full h-full object-contain" />
+                        <img
+                          src={companyForm.logo_url}
+                          alt="شعار المنشأة"
+                          className="w-full h-full object-contain"
+                          onError={() => setLogoBroken(true)}
+                        />
                       ) : companyForm.name ? (
                         <span className="text-[#22d3ee] text-lg font-bold">{companyForm.name.slice(0, 2)}</span>
                       ) : (
