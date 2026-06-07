@@ -40,6 +40,7 @@ import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
 import { useAutomations } from "@/hooks/useData";
 import { withTimeout } from "@/lib/asyncHelpers";
 import { uploadOrgLogo } from "@/lib/tenant/uploadOrgLogo";
+import { notifyTenantCompanyChanged } from "@/hooks/useTenantCompanyName";
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -623,6 +624,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
           "انتهت مهلة حفظ الإعدادات — تحقق من الاتصال",
         );
         setCompanyForm(companyInfo);
+        notifyTenantCompanyChanged();
       } else {
         await withTimeout(
           Promise.all([
@@ -671,6 +673,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
           12_000,
           "تم رفع الشعار لكن تعذر حفظه في إعدادات المنشأة.",
         );
+        notifyTenantCompanyChanged();
       } catch {
         toast.error("تم رفع الشعار لكن تعذر حفظه في إعدادات المنشأة.");
         return;
