@@ -591,6 +591,17 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
     }
   };
 
+  const preserveSavedLogoUrl = async (nextCompanyInfo: typeof companyForm) => {
+    if (!organizationId) return nextCompanyInfo;
+    const nextLogoUrl = nextCompanyInfo.logo_url.trim();
+    if (nextLogoUrl) return nextCompanyInfo;
+
+    const row = await getTenantWorkspaceSettings(organizationId);
+    const savedCompanyInfo = (row?.company_info ?? {}) as { logo_url?: unknown };
+    const savedLogoUrl = typeof savedCompanyInfo.logo_url === "string" ? savedCompanyInfo.logo_url.trim() : "";
+    return savedLogoUrl ? { ...nextCompanyInfo, logo_url: savedLogoUrl } : nextCompanyInfo;
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -601,15 +612,17 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
         if (!organizationId) {
           throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول");
         }
+        const companyInfo = await preserveSavedLogoUrl(companyForm);
         await withTimeout(
           upsertTenantWorkspaceSettings(organizationId, {
-            company_info: companyForm,
+            company_info: companyInfo,
             notifications: notifs,
             appearance: { darkMode, accentColor, language },
           }),
           12_000,
           "انتهت مهلة حفظ الإعدادات — تحقق من الاتصال",
         );
+        setCompanyForm(companyInfo);
       } else {
         await withTimeout(
           Promise.all([
@@ -652,11 +665,16 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
       // merging existing company_info values so nothing else is overwritten.
       const nextCompany = { ...companyForm, logo_url: uploaded.publicUrl };
       setCompanyForm(nextCompany);
-      await withTimeout(
-        upsertTenantWorkspaceSettings(organizationId, { company_info: nextCompany }),
-        12_000,
-        "تم رفع الشعار لكن تعذر حفظ الرابط — حاول مرة أخرى",
-      );
+      try {
+        await withTimeout(
+          upsertTenantWorkspaceSettings(organizationId, { company_info: nextCompany }),
+          12_000,
+          "تم رفع الشعار لكن تعذر حفظه في إعدادات المنشأة.",
+        );
+      } catch {
+        toast.error("تم رفع الشعار لكن تعذر حفظه في إعدادات المنشأة.");
+        return;
+      }
       toast.success("تم رفع الشعار وحفظه بنجاح.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "تعذر رفع الشعار");
