@@ -24,6 +24,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { QuickActionsList } from "@/components/layout/QuickActionsMenu";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
+import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 import { withTimeout } from "@/lib/asyncHelpers";
 
 // Header global-search timeout — a slow Supabase must never hang the dropdown.
@@ -87,9 +88,50 @@ const NOTIF_ICONS = {
 
 // ─── Profile panel content (shared desktop popover + mobile sheet) ───────────
 
+function TenantProfileAvatar({
+  logoUrl,
+  initials,
+  className,
+  textClassName,
+}: {
+  logoUrl: string | null;
+  initials: string;
+  className: string;
+  textClassName: string;
+}) {
+  const [logoFailed, setLogoFailed] = useState(false);
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [logoUrl]);
+
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-center overflow-hidden flex-shrink-0 text-white font-bold",
+        className,
+      )}
+      style={{ background: "linear-gradient(135deg,#ff7a3d,#ff5722)" }}
+    >
+      {logoUrl && !logoFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={logoUrl}
+          alt=""
+          className="h-full w-full object-contain"
+          onError={() => setLogoFailed(true)}
+        />
+      ) : (
+        <span className={textClassName}>{initials}</span>
+      )}
+    </div>
+  );
+}
+
 function ProfilePanelContent({
   user,
   userRole,
+  tenantLogoUrl,
   loggingOut,
   onLogout,
   onNavigate,
@@ -97,6 +139,7 @@ function ProfilePanelContent({
 }: {
   user: NonNullable<ProfileDropdownProps["user"]>;
   userRole: string | null;
+  tenantLogoUrl: string | null;
   loggingOut: boolean;
   onLogout: () => void;
   onNavigate: (href: string) => void;
@@ -114,12 +157,12 @@ function ProfilePanelContent({
       {/* Identity header */}
       <div className="px-3.5 pt-3.5 pb-3 border-b border-white/[0.06]">
         <div className="flex items-center gap-3">
-          <div
-            className="w-11 h-11 rounded-2xl flex items-center justify-center text-base font-bold text-white flex-shrink-0 ring-1 ring-white/10"
-            style={{ background: "linear-gradient(135deg,#ff7a3d,#ff5722)" }}
-          >
-            {initials}
-          </div>
+          <TenantProfileAvatar
+            logoUrl={tenantLogoUrl}
+            initials={initials}
+            className="w-11 h-11 rounded-2xl ring-1 ring-white/10"
+            textClassName="text-base"
+          />
           <div className="flex-1 min-w-0">
             <div className="text-white font-semibold text-sm truncate">{user.name}</div>
             <div className="text-[#8ba3c7] text-[11px] truncate mt-0.5">{user.email}</div>
@@ -303,6 +346,7 @@ interface ProfileDropdownProps {
 
 function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, open, onToggle }: ProfileDropdownProps) {
   const isMobile = useIsMobile();
+  const { logoUrl: tenantLogoUrl } = useTenantCompanyName();
   if (!user) return null;
 
   const initials = user.name?.slice(0, 2) ?? "م";
@@ -322,12 +366,12 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
         aria-label="الملف الشخصي"
         aria-expanded={open}
       >
-        <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-          style={{ background: "linear-gradient(135deg,#ff7a3d,#ff5722)" }}
-        >
-          {initials}
-        </div>
+        <TenantProfileAvatar
+          logoUrl={tenantLogoUrl}
+          initials={initials}
+          className="w-8 h-8 rounded-full"
+          textClassName="text-sm"
+        />
         <div className="hidden sm:block text-right leading-none">
           <div className="text-xs font-medium text-white">{user.name}</div>
           {roleLabel ? <div className="text-[10px] text-[#8ba3c7] mt-0.5">{roleLabel}</div> : null}
@@ -340,6 +384,7 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
           <ProfilePanelContent
             user={user}
             userRole={userRole}
+            tenantLogoUrl={tenantLogoUrl}
             loggingOut={loggingOut}
             onLogout={onLogout}
             onNavigate={onNavigate}
@@ -360,6 +405,7 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
         <ProfilePanelContent
           user={user}
           userRole={userRole}
+          tenantLogoUrl={tenantLogoUrl}
           loggingOut={loggingOut}
           onLogout={onLogout}
           onNavigate={onNavigate}

@@ -141,8 +141,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "manage_reports",
   ],
   // Tenant manager ("مدير المنشأة"): the establishment-level admin of a single
-  // customer organization. Broad in-org access, but never internal-only modules
-  // (user management, automations, system settings). RLS confines every query
+  // customer organization. Broad in-org access, including tenant automations,
+  // but never platform-only system settings. RLS confines every query
   // to the manager's own organization_id.
   organization_manager: [
     "view_dashboard",
@@ -153,6 +153,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "manage_finance",
     "manage_reports",
     "manage_tenant_settings",
+    "manage_automations",
     "manage_board",
   ],
   employee: [
