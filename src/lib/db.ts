@@ -433,6 +433,22 @@ export async function updateProfileRole(userId: string, role: string): Promise<v
   if (error) throw new Error(error.message);
 }
 
+// Self-service: a user updates ONLY their own basic profile fields. Never
+// touches role/organization_id/is_active/department (those are blocked by the
+// profiles_block_protected_updates trigger anyway). Always scoped to the
+// caller's own id so one user can never edit another's profile.
+export async function updateMyProfile(
+  userId: string,
+  patch: { name?: string },
+): Promise<void> {
+  if (!userId) throw new Error("تعذر تحديد المستخدم الحالي");
+  const clean: Record<string, unknown> = {};
+  if (patch.name !== undefined) clean.name = patch.name.trim();
+  if (Object.keys(clean).length === 0) return;
+  const { error } = await supabase.from("profiles").update(clean).eq("id", userId);
+  if (error) throw new Error(error.message);
+}
+
 export async function toggleProfileStatus(userId: string, isActive: boolean): Promise<void> {
   const { error } = await supabase.from("profiles").update({ is_active: isActive }).eq("id", userId);
   if (error) throw new Error(error.message);
