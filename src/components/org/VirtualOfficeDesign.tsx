@@ -2,13 +2,10 @@
 
 // VirtualOfficeDesign.tsx — EXECUTIVE-OFFICE-VISUAL-1
 // Tenant-aware executive virtual office (Kumospace-inspired).
-// Fixed 8-zone Executive Office Template, clickable rooms, read-only.
-// TODO: EXECUTIVE-OFFICE-MAPPING-2 will let managers map each fixed
-//       room to org units (department / management / team). Mapping
-//       persistence requires DB/RLS review before implementation.
-// Isolated from /org · no DB writes.
+// Fixed 8-zone Executive Office Template with API-backed room mapping.
+// Isolated from /org. Client writes go through the tenant API route only.
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight, RefreshCw, BrainCircuit, Users, CheckCircle2,
@@ -18,12 +15,19 @@ import {
 } from "lucide-react";
 import type { OrgStructureSnapshot } from "@/lib/org/types";
 import type { Employee, Task } from "@/types";
+import { supabase } from "@/lib/supabaseClient";
+import type {
+  ExecutiveOfficeFixedRoomKey,
+  ExecutiveOfficeRoomMapping,
+  ExecutiveOfficeRoomMappingByRoom,
+} from "@/lib/tenant/executiveOfficeRoomMappings";
 import VirtualOfficeReferenceScene, { type SceneRoom } from "./VirtualOfficeReferenceScene";
 import MobileExecutiveOfficeScene from "./MobileExecutiveOfficeScene";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface OfficeRoom extends SceneRoom {
+  fixedRoomKey: ExecutiveOfficeFixedRoomKey;
   deptId: string;         // real department id (may differ from id for demo rooms)
   deptCode: string | null;
   type: string;           // human-readable level label
@@ -34,6 +38,7 @@ export interface OfficeRoom extends SceneRoom {
 }
 
 type PreviewOrgUnitType = "agency" | "management" | "department" | "team";
+export type MappingSource = "saved" | "preview" | "auto";
 
 export interface PreviewOrgUnit {
   id: string;
@@ -68,6 +73,16 @@ const EXECUTIVE_TEMPLATE_ZONES = [
   "المالية",
   "التنفيذ",
   "غرفة الذكاء الاصطناعي",
+] as const;
+const ROOM_KEYS_BY_SLOT: readonly ExecutiveOfficeFixedRoomKey[] = [
+  "sales",
+  "executive",
+  "support",
+  "marketing",
+  "meetings",
+  "finance",
+  "execution",
+  "ai",
 ] as const;
 const EXECUTIVE_TEMPLATE_LABEL = "Executive Office";
 const EXECUTIVE_TEMPLATE_LABEL_AR = "قالب المكتب التنفيذي";
@@ -182,7 +197,7 @@ function buildOfficeRooms(
     return {
       isDemo: true,
       rooms: DEMO_DEF.map((d, i) => ({
-        id: `demo-${i}`, deptId: `demo-${i}`,
+        id: `demo-${i}`, fixedRoomKey: ROOM_KEYS_BY_SLOT[i] ?? "sales", deptId: `demo-${i}`,
         name: d.name,
         accentColor: ACCENT_CYCLE[i % ACCENT_CYCLE.length] ?? "#22d3ee",
         employeeCount: d.emp, avatars: [],
@@ -198,7 +213,7 @@ function buildOfficeRooms(
   const empById  = new Map(safeEmp.map((e) => [e.id, e]));
   const usedSlots = new Set<number>();
 
-  const rooms: OfficeRoom[] = depts.slice(0, 8).map((dept) => {
+  const rooms: OfficeRoom[] = depts.slice(0, 8).map((dept, deptIndex) => {
     if (!dept) return null;
     const deptRels    = rels.filter((r) => r?.department_id === dept.id);
     const empIds      = new Set(deptRels.map((r) => r.employee_id).filter((x): x is string => typeof x === "string"));
@@ -216,8 +231,9 @@ function buildOfficeRooms(
     const slotIdx     = assignSlot(name, level, isCenter, isAI, usedSlots);
     if (slotIdx >= 0) usedSlots.add(slotIdx);
     const accentIdx   = slotIdx >= 0 ? slotIdx : (hashStr(dept.id) % ACCENT_CYCLE.length);
+    const fixedRoomKey = ROOM_KEYS_BY_SLOT[slotIdx >= 0 ? slotIdx : deptIndex] ?? "sales";
     return {
-      id: dept.id, deptId: dept.id,
+      id: dept.id, fixedRoomKey, deptId: dept.id,
       name,
       accentColor: ACCENT_CYCLE[accentIdx % ACCENT_CYCLE.length] ?? "#22d3ee",
       employeeCount: deptRels.length,
@@ -239,7 +255,7 @@ function buildOfficeRooms(
     const def = DEMO_DEF[i];
     if (!def) break;
     rooms.push({
-      id: `pad-${i}`, deptId: `pad-${i}`,
+      id: `pad-${i}`, fixedRoomKey: ROOM_KEYS_BY_SLOT[i] ?? "sales", deptId: `pad-${i}`,
       name: def.name,
       accentColor: ACCENT_CYCLE[i % ACCENT_CYCLE.length] ?? "#22d3ee",
       employeeCount: 0, avatars: [],
@@ -260,6 +276,8 @@ const ORG_UNIT_LABELS: Record<PreviewOrgUnitType, string> = {
   department: "قسم",
   team: "فريق",
 };
+
+const ROOM_MAPPINGS_API = "/api/tenant/executive-office/room-mappings";
 
 function buildPreviewOrgUnits(
   snapshot: OrgStructureSnapshot | null,
@@ -315,6 +333,97 @@ function buildPreviewOrgUnits(
 
 function findAutoMappedUnit(room: OfficeRoom, units: PreviewOrgUnit[]): PreviewOrgUnit | null {
   return units.find((unit) => unit.id === `department:${room.deptId}`) ?? null;
+}
+
+function unitApiId(unit: PreviewOrgUnit): string {
+  return unit.id.includes(":") ? unit.id.split(":").slice(1).join(":") : unit.id;
+}
+
+function unitCompositeId(type: PreviewOrgUnitType, id: string): string {
+  return type === "team" ? `team:${id}` : `department:${id}`;
+}
+
+function findSavedMappedUnit(
+  mapping: ExecutiveOfficeRoomMapping | undefined,
+  units: PreviewOrgUnit[],
+): PreviewOrgUnit | null {
+  if (!mapping) return null;
+  const unit = units.find(
+    (candidate) =>
+      candidate.type === mapping.mapped_unit_type &&
+      candidate.id === unitCompositeId(mapping.mapped_unit_type, mapping.mapped_unit_id),
+  );
+  if (!unit) return null;
+  const displayName = mapping.display_name?.trim();
+  return displayName ? { ...unit, name: displayName } : unit;
+}
+
+function resolveRoomMapping(input: {
+  room: OfficeRoom;
+  units: PreviewOrgUnit[];
+  savedMappings: ExecutiveOfficeRoomMappingByRoom;
+  previewMappings: Record<string, PreviewOrgUnit>;
+}): { unit: PreviewOrgUnit | null; source: MappingSource | null } {
+  const savedUnit = findSavedMappedUnit(
+    input.savedMappings[input.room.fixedRoomKey],
+    input.units,
+  );
+  if (savedUnit) return { unit: savedUnit, source: "saved" };
+
+  const previewUnit = input.previewMappings[input.room.id] ?? null;
+  if (previewUnit) return { unit: previewUnit, source: "preview" };
+
+  const autoUnit = findAutoMappedUnit(input.room, input.units);
+  if (autoUnit) return { unit: autoUnit, source: "auto" };
+
+  return { unit: null, source: null };
+}
+
+async function getRoomMappingAccessToken(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
+function mappingHeaders(token: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+}
+
+function mapRoomMappingApiError(status: number, fallback?: string): string {
+  if (status === 401) return "انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى.";
+  if (status === 403) return "ليست لديك صلاحية تعديل ربط الغرف.";
+  if (status === 409) return "يوجد تعارض في الربط، أعد المحاولة.";
+  if (status === 400 && fallback) return fallback;
+  return "تعذر حفظ الربط حاليًا.";
+}
+
+function safeRoomMappingErrorMessage(err: unknown): string {
+  const message = err instanceof Error ? err.message : "";
+  if (message === "401") return mapRoomMappingApiError(401);
+  if (
+    message === "انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى." ||
+    message === "ليست لديك صلاحية تعديل ربط الغرف." ||
+    message === "يوجد تعارض في الربط، أعد المحاولة." ||
+    message === "تعذر حفظ الربط حاليًا." ||
+    /[\u0600-\u06ff]/.test(message)
+  ) {
+    return message;
+  }
+  return "تعذر حفظ الربط حاليًا.";
+}
+
+function normalizeSavedMappings(value: unknown): ExecutiveOfficeRoomMappingByRoom {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const output: ExecutiveOfficeRoomMappingByRoom = {};
+  for (const key of ROOM_KEYS_BY_SLOT) {
+    const candidate = (value as Record<string, unknown>)[key];
+    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+      output[key] = candidate as ExecutiveOfficeRoomMapping;
+    }
+  }
+  return output;
 }
 
 // ─── Workspace Identity Strip ─────────────────────────────────────────────────
@@ -394,15 +503,21 @@ function MappingPreviewModal({
   units,
   currentUnit,
   previewUnit,
+  saveError,
+  isSaving,
   onClose,
   onPreview,
+  onSave,
 }: {
   room: OfficeRoom;
   units: PreviewOrgUnit[];
   currentUnit: PreviewOrgUnit | null;
   previewUnit: PreviewOrgUnit | null;
+  saveError: string | null;
+  isSaving: boolean;
   onClose: () => void;
   onPreview: (unit: PreviewOrgUnit) => void;
+  onSave: (unit: PreviewOrgUnit) => void;
 }) {
   const initialUnitId = previewUnit?.id ?? currentUnit?.id ?? units[0]?.id ?? "";
   const [selectedUnitId, setSelectedUnitId] = useState(initialUnitId);
@@ -446,7 +561,7 @@ function MappingPreviewModal({
               تخصيص ربط الغرفة
             </h2>
             <p style={{ margin: "8px 0 0", color: "#8ba3c7", fontSize: 13, lineHeight: 1.7, maxWidth: 560 }}>
-              اختر وحدة من الهيكل الإداري لعرضها داخل هذه الغرفة. لن يتم حفظ هذا التخصيص في هذه المرحلة.
+              اختر وحدة من الهيكل الإداري لربطها بهذه الغرفة داخل المكتب التنفيذي.
             </p>
           </div>
           <button
@@ -533,6 +648,11 @@ function MappingPreviewModal({
                   </p>
                 </div>
               )}
+              {saveError && (
+                <div style={{ marginTop: 10, borderRadius: 12, border: "1px solid rgba(239,68,68,0.24)", background: "rgba(239,68,68,0.08)", color: "#fecaca", fontSize: 12, lineHeight: 1.6, padding: "9px 11px" }}>
+                  {saveError}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -549,6 +669,14 @@ function MappingPreviewModal({
           >
             معاينة الربط
           </button>
+          <button
+            type="button"
+            disabled={!selectedUnit || isSaving}
+            onClick={() => selectedUnit && onSave(selectedUnit)}
+            className="btn-primary text-sm min-h-10 disabled:opacity-50"
+          >
+            {isSaving ? "جارٍ الحفظ..." : "حفظ الربط"}
+          </button>
         </div>
       </div>
     </div>
@@ -557,14 +685,31 @@ function MappingPreviewModal({
 
 // ─── Room Detail Panel ────────────────────────────────────────────────────────
 
-function RoomDetailPanel({ room, snapshot, employees, tasks, previewUnit, onOpenMapping, onClearPreview, onClose }: {
+function RoomDetailPanel({
+  room,
+  snapshot,
+  employees,
+  tasks,
+  mappingUnit,
+  mappingSource,
+  mappingError,
+  isDeletingSaved,
+  onOpenMapping,
+  onClearPreview,
+  onClearSaved,
+  onClose,
+}: {
   room: OfficeRoom;
   snapshot: OrgStructureSnapshot | null;
   employees: Employee[];
   tasks: Task[];
-  previewUnit: PreviewOrgUnit | null;
+  mappingUnit: PreviewOrgUnit | null;
+  mappingSource: MappingSource | null;
+  mappingError: string | null;
+  isDeletingSaved: boolean;
   onOpenMapping: () => void;
   onClearPreview: () => void;
+  onClearSaved: () => void;
   onClose: () => void;
 }) {
   const rels     = Array.isArray(snapshot?.relations) ? snapshot!.relations : [];
@@ -644,23 +789,38 @@ function RoomDetailPanel({ room, snapshot, employees, tasks, previewUnit, onOpen
           </div>
         )}
 
-        {previewUnit && (
-          <div style={{ gridColumn: "1 / -1", borderRadius: 14, border: "1px solid rgba(16,185,129,0.26)", background: "rgba(16,185,129,0.08)", padding: 12 }}>
+        {mappingUnit && mappingSource && (
+          <div style={{ gridColumn: "1 / -1", borderRadius: 14, border: mappingSource === "saved" ? "1px solid rgba(34,211,238,0.28)" : mappingSource === "preview" ? "1px solid rgba(16,185,129,0.26)" : "1px solid rgba(168,85,247,0.22)", background: mappingSource === "saved" ? "rgba(34,211,238,0.08)" : mappingSource === "preview" ? "rgba(16,185,129,0.08)" : "rgba(168,85,247,0.07)", padding: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 800, color: "#86efac", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)", padding: "2px 8px", borderRadius: 999 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 800, color: mappingSource === "saved" ? "#67e8f9" : mappingSource === "preview" ? "#86efac" : "#d8b4fe", background: mappingSource === "saved" ? "rgba(34,211,238,0.12)" : mappingSource === "preview" ? "rgba(16,185,129,0.12)" : "rgba(168,85,247,0.12)", border: mappingSource === "saved" ? "1px solid rgba(34,211,238,0.25)" : mappingSource === "preview" ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(168,85,247,0.24)", padding: "2px 8px", borderRadius: 999 }}>
                   <MapPin size={11} />
-                  ربط تجريبي
+                  {mappingSource === "saved" ? "ربط محفوظ" : mappingSource === "preview" ? "ربط تجريبي" : "ربط تلقائي من الهيكل"}
                 </span>
-                <p style={{ margin: "7px 0 0", color: "#d1fae5", fontSize: 13, fontWeight: 750 }}>{previewUnit.name}</p>
-                <p style={{ margin: "3px 0 0", color: "#7aa6a0", fontSize: 11 }}>
-                  هذا التخصيص للمعاينة فقط ولن يتم حفظه.
-                </p>
+                <p style={{ margin: "7px 0 0", color: mappingSource === "saved" ? "#cffafe" : mappingSource === "preview" ? "#d1fae5" : "#ede9fe", fontSize: 13, fontWeight: 750 }}>{mappingUnit.name}</p>
+                {mappingSource === "preview" && (
+                  <p style={{ margin: "3px 0 0", color: "#7aa6a0", fontSize: 11 }}>
+                    هذا التخصيص للمعاينة فقط ولن يتم حفظه.
+                  </p>
+                )}
               </div>
-              <button type="button" onClick={onClearPreview} style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#b0c8e0", borderRadius: 10, padding: "7px 10px", fontSize: 11, cursor: "pointer" }}>
-                إلغاء المعاينة
-              </button>
+              {mappingSource === "preview" && (
+                <button type="button" onClick={onClearPreview} style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#b0c8e0", borderRadius: 10, padding: "7px 10px", fontSize: 11, cursor: "pointer" }}>
+                  إلغاء المعاينة
+                </button>
+              )}
+              {mappingSource === "saved" && (
+                <button type="button" onClick={onClearSaved} disabled={isDeletingSaved} style={{ border: "1px solid rgba(239,68,68,0.24)", background: "rgba(239,68,68,0.08)", color: "#fecaca", borderRadius: 10, padding: "7px 10px", fontSize: 11, cursor: isDeletingSaved ? "wait" : "pointer", opacity: isDeletingSaved ? 0.65 : 1 }}>
+                  {isDeletingSaved ? "جارٍ الإلغاء..." : "إلغاء الربط المحفوظ"}
+                </button>
+              )}
             </div>
+          </div>
+        )}
+
+        {mappingError && (
+          <div style={{ gridColumn: "1 / -1", borderRadius: 12, border: "1px solid rgba(239,68,68,0.22)", background: "rgba(239,68,68,0.07)", color: "#fecaca", fontSize: 11, lineHeight: 1.6, padding: "8px 10px" }}>
+            {mappingError}
           </div>
         )}
 
@@ -733,7 +893,7 @@ function RoomDetailPanel({ room, snapshot, employees, tasks, previewUnit, onOpen
             تخصيص الربط
           </button>
           <span style={{ fontSize: 10, color: "#2a4060" }}>
-            معاينة فقط · لا يتم الحفظ
+            محفوظ / تجريبي / تلقائي حسب أولوية الربط
           </span>
         </div>
       </div>
@@ -910,6 +1070,10 @@ export default function VirtualOfficeDesign({
   const [selectedRoom, setSelectedRoom] = useState<OfficeRoom | null>(null);
   const [mappingModalRoom, setMappingModalRoom] = useState<OfficeRoom | null>(null);
   const [previewMappings, setPreviewMappings] = useState<Record<string, PreviewOrgUnit>>({});
+  const [savedMappings, setSavedMappings] = useState<ExecutiveOfficeRoomMappingByRoom>({});
+  const [mappingErrorByRoom, setMappingErrorByRoom] = useState<Record<string, string>>({});
+  const [savingRoomKey, setSavingRoomKey] = useState<ExecutiveOfficeFixedRoomKey | null>(null);
+  const [deletingRoomKey, setDeletingRoomKey] = useState<ExecutiveOfficeFixedRoomKey | null>(null);
 
   const { rooms, isDemo } = useMemo(
     () => buildOfficeRooms(snapshot, employees, tasks),
@@ -924,6 +1088,122 @@ export default function VirtualOfficeDesign({
     () => buildPreviewOrgUnits(snapshot, safeTasks),
     [snapshot, safeTasks],
   );
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadSavedMappings() {
+      try {
+        const token = await getRoomMappingAccessToken();
+        if (!token) return;
+        const res = await fetch(ROOM_MAPPINGS_API, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const body = (await res.json().catch(() => null)) as { mappings?: unknown } | null;
+        if (alive) setSavedMappings(normalizeSavedMappings(body?.mappings));
+      } catch {
+        // Saved mappings are additive; auto-mapping keeps the office usable.
+      }
+    }
+
+    void loadSavedMappings();
+    return () => { alive = false; };
+  }, []);
+
+  const clearRoomMappingError = useCallback((room: OfficeRoom) => {
+    setMappingErrorByRoom((prev) => {
+      if (!prev[room.id]) return prev;
+      const next = { ...prev };
+      delete next[room.id];
+      return next;
+    });
+  }, []);
+
+  const clearPreviewForRoom = useCallback((room: OfficeRoom) => {
+    setPreviewMappings((prev) => {
+      const next = { ...prev };
+      delete next[room.id];
+      return next;
+    });
+  }, []);
+
+  const handleSaveMapping = useCallback(async (room: OfficeRoom, unit: PreviewOrgUnit) => {
+    setSavingRoomKey(room.fixedRoomKey);
+    clearRoomMappingError(room);
+    try {
+      const token = await getRoomMappingAccessToken();
+      if (!token) throw new Error("401");
+
+      const res = await fetch(ROOM_MAPPINGS_API, {
+        method: "POST",
+        headers: mappingHeaders(token),
+        cache: "no-store",
+        body: JSON.stringify({
+          fixed_room_key: room.fixedRoomKey,
+          mapped_unit_type: unit.type,
+          mapped_unit_id: unitApiId(unit),
+          display_name: null,
+        }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        mapping?: ExecutiveOfficeRoomMapping;
+        error?: string;
+      };
+
+      if (!res.ok || !body.mapping) {
+        throw new Error(mapRoomMappingApiError(res.status, body.error));
+      }
+
+      setSavedMappings((prev) => ({ ...prev, [body.mapping!.fixed_room_key]: body.mapping! }));
+      clearPreviewForRoom(room);
+      setSelectedRoom(room);
+      setMappingModalRoom(null);
+    } catch (err) {
+      setMappingErrorByRoom((prev) => ({
+        ...prev,
+        [room.id]: safeRoomMappingErrorMessage(err),
+      }));
+    } finally {
+      setSavingRoomKey(null);
+    }
+  }, [clearPreviewForRoom, clearRoomMappingError]);
+
+  const handleDeleteSavedMapping = useCallback(async (room: OfficeRoom) => {
+    setDeletingRoomKey(room.fixedRoomKey);
+    clearRoomMappingError(room);
+    try {
+      const token = await getRoomMappingAccessToken();
+      if (!token) throw new Error("401");
+
+      const res = await fetch(ROOM_MAPPINGS_API, {
+        method: "DELETE",
+        headers: mappingHeaders(token),
+        cache: "no-store",
+        body: JSON.stringify({ fixed_room_key: room.fixedRoomKey }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+
+      if (!res.ok) {
+        throw new Error(mapRoomMappingApiError(res.status, body.error));
+      }
+
+      setSavedMappings((prev) => {
+        const next = { ...prev };
+        delete next[room.fixedRoomKey];
+        return next;
+      });
+      clearPreviewForRoom(room);
+    } catch (err) {
+      setMappingErrorByRoom((prev) => ({
+        ...prev,
+        [room.id]: safeRoomMappingErrorMessage(err),
+      }));
+    } finally {
+      setDeletingRoomKey(null);
+    }
+  }, [clearPreviewForRoom, clearRoomMappingError]);
 
   const openTasks    = safeTasks.filter((t) => t?.status !== "مكتملة").length;
   const overdueTasks = safeTasks.filter((t) => t?.status === "متأخرة").length;
@@ -987,6 +1267,18 @@ export default function VirtualOfficeDesign({
       { id: "mal2", type: "توصية", text: "راجع توزيع المهام في الدعم",    room: "غرفة الدعم"   },
     ];
   }, [safeTasks, rooms]);
+
+  const selectedMapping = selectedRoom
+    ? resolveRoomMapping({
+        room: selectedRoom,
+        units: previewOrgUnits,
+        savedMappings,
+        previewMappings,
+      })
+    : { unit: null, source: null as MappingSource | null };
+
+  const modalSaveError = mappingModalRoom ? mappingErrorByRoom[mappingModalRoom.id] ?? null : null;
+  const selectedMappingError = selectedRoom ? mappingErrorByRoom[selectedRoom.id] ?? null : null;
 
   return (
     <div className="space-y-5 min-w-0" dir="rtl">
@@ -1052,15 +1344,13 @@ export default function VirtualOfficeDesign({
                 snapshot={snapshot}
                 employees={safeEmps}
                 tasks={safeTasks}
-                previewUnit={previewMappings[selectedRoom.id] ?? null}
+                mappingUnit={selectedMapping.unit}
+                mappingSource={selectedMapping.source}
+                mappingError={selectedMappingError}
+                isDeletingSaved={deletingRoomKey === selectedRoom.fixedRoomKey}
                 onOpenMapping={() => setMappingModalRoom(selectedRoom)}
-                onClearPreview={() =>
-                  setPreviewMappings((prev) => {
-                    const next = { ...prev };
-                    delete next[selectedRoom.id];
-                    return next;
-                  })
-                }
+                onClearPreview={() => clearPreviewForRoom(selectedRoom)}
+                onClearSaved={() => void handleDeleteSavedMapping(selectedRoom)}
                 onClose={() => setSelectedRoom(null)}
               />
             )}
@@ -1080,16 +1370,13 @@ export default function VirtualOfficeDesign({
               rooms={rooms}
               selectedRoom={selectedRoom}
               onRoomClick={(r) => setSelectedRoom(prev => prev?.id === r.id ? null : r as OfficeRoom)}
-              previewUnit={selectedRoom ? previewMappings[selectedRoom.id] ?? null : null}
+              mappingUnit={selectedMapping.unit}
+              mappingSource={selectedMapping.source}
+              mappingError={selectedMappingError}
+              isDeletingSaved={selectedRoom ? deletingRoomKey === selectedRoom.fixedRoomKey : false}
               onOpenMapping={() => selectedRoom && setMappingModalRoom(selectedRoom)}
-              onClearPreview={() =>
-                selectedRoom &&
-                setPreviewMappings((prev) => {
-                  const next = { ...prev };
-                  delete next[selectedRoom.id];
-                  return next;
-                })
-              }
+              onClearPreview={() => selectedRoom && clearPreviewForRoom(selectedRoom)}
+              onClearSaved={() => selectedRoom && void handleDeleteSavedMapping(selectedRoom)}
               activity={mobileActivity}
               meetings={mobileMeetings}
               alerts={mobileAlerts}
@@ -1108,12 +1395,16 @@ export default function VirtualOfficeDesign({
           units={previewOrgUnits}
           currentUnit={findAutoMappedUnit(mappingModalRoom, previewOrgUnits)}
           previewUnit={previewMappings[mappingModalRoom.id] ?? null}
+          saveError={modalSaveError}
+          isSaving={savingRoomKey === mappingModalRoom.fixedRoomKey}
           onClose={() => setMappingModalRoom(null)}
           onPreview={(unit) => {
+            clearRoomMappingError(mappingModalRoom);
             setPreviewMappings((prev) => ({ ...prev, [mappingModalRoom.id]: unit }));
             setSelectedRoom(mappingModalRoom);
             setMappingModalRoom(null);
           }}
+          onSave={(unit) => void handleSaveMapping(mappingModalRoom, unit)}
         />
       )}
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

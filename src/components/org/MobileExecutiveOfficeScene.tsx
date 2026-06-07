@@ -3,7 +3,7 @@
 // MobileExecutiveOfficeScene.tsx — EXECUTIVE-OFFICE-MOBILE-SAFE-2
 // Compact mobile-first console for /virtual-office.
 // Reuses the office-map-reference asset and slot-ordered rooms.
-// Read-only. No DB writes. No new libraries.
+// Mapping actions are delegated to the parent /virtual-office API wiring.
 
 import { useState } from "react";
 import Image from "next/image";
@@ -12,7 +12,7 @@ import {
   Activity, Calendar, BrainCircuit, MessageSquare, AlertTriangle,
 } from "lucide-react";
 import type { SceneRoom } from "./VirtualOfficeReferenceScene";
-import type { PreviewOrgUnit } from "./VirtualOfficeDesign";
+import type { MappingSource, PreviewOrgUnit } from "./VirtualOfficeDesign";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -108,14 +108,22 @@ function Chip({ room, selected, onClick, position }: {
 
 function SelectedRoomCard({
   room,
-  previewUnit,
+  mappingUnit,
+  mappingSource,
+  mappingError,
+  isDeletingSaved,
   onOpenMapping,
   onClearPreview,
+  onClearSaved,
 }: {
   room: MobileSelectedRoom;
-  previewUnit: PreviewOrgUnit | null;
+  mappingUnit: PreviewOrgUnit | null;
+  mappingSource: MappingSource | null;
+  mappingError: string | null;
+  isDeletingSaved: boolean;
   onOpenMapping: () => void;
   onClearPreview: () => void;
+  onClearSaved: () => void;
 }) {
   const hp = hpStyle(room.healthPct);
   const lbl = hpLabel(room.healthPct);
@@ -163,31 +171,46 @@ function SelectedRoomCard({
         ))}
       </div>
 
-      {previewUnit && (
+      {mappingUnit && mappingSource && (
         <div style={{
           borderRadius: 12,
-          border: "1px solid rgba(16,185,129,0.25)",
-          background: "rgba(16,185,129,0.08)",
+          border: mappingSource === "saved" ? "1px solid rgba(34,211,238,0.25)" : mappingSource === "preview" ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(168,85,247,0.22)",
+          background: mappingSource === "saved" ? "rgba(34,211,238,0.08)" : mappingSource === "preview" ? "rgba(16,185,129,0.08)" : "rgba(168,85,247,0.07)",
           padding: 10,
           marginBottom: 10,
         }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <div style={{ minWidth: 0 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, fontWeight: 800, color: "#86efac" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, fontWeight: 800, color: mappingSource === "saved" ? "#67e8f9" : mappingSource === "preview" ? "#86efac" : "#d8b4fe" }}>
                 <Layers size={10} />
-                ربط تجريبي
+                {mappingSource === "saved" ? "ربط محفوظ" : mappingSource === "preview" ? "ربط تجريبي" : "ربط تلقائي من الهيكل"}
               </span>
-              <p style={{ margin: "4px 0 0", color: "#d1fae5", fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {previewUnit.name}
+              <p style={{ margin: "4px 0 0", color: mappingSource === "saved" ? "#cffafe" : mappingSource === "preview" ? "#d1fae5" : "#ede9fe", fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {mappingUnit.name}
               </p>
-              <p style={{ margin: "3px 0 0", color: "#7aa6a0", fontSize: 9 }}>
-                هذا التخصيص للمعاينة فقط ولن يتم حفظه.
-              </p>
+              {mappingSource === "preview" && (
+                <p style={{ margin: "3px 0 0", color: "#7aa6a0", fontSize: 9 }}>
+                  هذا التخصيص للمعاينة فقط ولن يتم حفظه.
+                </p>
+              )}
             </div>
-            <button type="button" onClick={onClearPreview} style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#b0c8e0", borderRadius: 9, padding: "6px 8px", fontSize: 9, cursor: "pointer", flexShrink: 0 }}>
-              إلغاء المعاينة
-            </button>
+            {mappingSource === "preview" && (
+              <button type="button" onClick={onClearPreview} style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#b0c8e0", borderRadius: 9, padding: "6px 8px", fontSize: 9, cursor: "pointer", flexShrink: 0 }}>
+                إلغاء المعاينة
+              </button>
+            )}
+            {mappingSource === "saved" && (
+              <button type="button" onClick={onClearSaved} disabled={isDeletingSaved} style={{ border: "1px solid rgba(239,68,68,0.24)", background: "rgba(239,68,68,0.08)", color: "#fecaca", borderRadius: 9, padding: "6px 8px", fontSize: 9, cursor: isDeletingSaved ? "wait" : "pointer", opacity: isDeletingSaved ? 0.65 : 1, flexShrink: 0 }}>
+                {isDeletingSaved ? "جارٍ الإلغاء..." : "إلغاء الربط المحفوظ"}
+              </button>
+            )}
           </div>
+        </div>
+      )}
+
+      {mappingError && (
+        <div style={{ borderRadius: 10, border: "1px solid rgba(239,68,68,0.22)", background: "rgba(239,68,68,0.07)", color: "#fecaca", fontSize: 10, lineHeight: 1.5, padding: "7px 9px", marginBottom: 10 }}>
+          {mappingError}
         </div>
       )}
 
@@ -323,9 +346,13 @@ export interface MobileExecutiveOfficeSceneProps {
   rooms: SceneRoom[];
   selectedRoom: MobileSelectedRoom | null;
   onRoomClick: (room: SceneRoom) => void;
-  previewUnit: PreviewOrgUnit | null;
+  mappingUnit: PreviewOrgUnit | null;
+  mappingSource: MappingSource | null;
+  mappingError: string | null;
+  isDeletingSaved: boolean;
   onOpenMapping: () => void;
   onClearPreview: () => void;
+  onClearSaved: () => void;
   activity: ActivityItem[];
   meetings: MeetingItem[];
   alerts:   AlertItem[];
@@ -333,7 +360,8 @@ export interface MobileExecutiveOfficeSceneProps {
 
 export default function MobileExecutiveOfficeScene({
   rooms, selectedRoom, onRoomClick,
-  previewUnit, onOpenMapping, onClearPreview,
+  mappingUnit, mappingSource, mappingError, isDeletingSaved,
+  onOpenMapping, onClearPreview, onClearSaved,
   activity, meetings, alerts,
 }: MobileExecutiveOfficeSceneProps) {
   const [imgFailed, setImgFailed] = useState(false);
@@ -391,9 +419,13 @@ export default function MobileExecutiveOfficeScene({
       {selectedRoom ? (
         <SelectedRoomCard
           room={selectedRoom}
-          previewUnit={previewUnit}
+          mappingUnit={mappingUnit}
+          mappingSource={mappingSource}
+          mappingError={mappingError}
+          isDeletingSaved={isDeletingSaved}
           onOpenMapping={onOpenMapping}
           onClearPreview={onClearPreview}
+          onClearSaved={onClearSaved}
         />
       ) : (
         <div style={{
