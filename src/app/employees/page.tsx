@@ -624,17 +624,14 @@ function EmployeesContent() {
                       </Link>
                     </div>
                   ) : (
-                    <select
-                      className="input-dark text-sm"
+                    <PremiumRolePicker
+                      hideLabel
+                      label="الوحدة التنظيمية"
                       value={form.departmentId}
-                      required
-                      onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
-                    >
-                      <option value="">— اختر الوحدة —</option>
-                      {orgUnits.map((d) => (
-                        <option key={d.id} value={d.id}>{formatOrgUnitOption(d)}</option>
-                      ))}
-                    </select>
+                      placeholder="— اختر الوحدة —"
+                      options={orgUnits.map((d) => ({ value: d.id, label: formatOrgUnitOption(d) }))}
+                      onChange={(v) => setForm({ ...form, departmentId: v })}
+                    />
                   )}
                   {legacyDeptHint && (
                     <p className="text-[10px] text-amber-200/90 mt-1.5 leading-relaxed">

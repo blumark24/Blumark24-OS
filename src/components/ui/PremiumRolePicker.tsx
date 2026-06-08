@@ -18,6 +18,7 @@ export function PremiumRolePicker({
   required,
   disabled,
   hideLabel,
+  placeholder = "— اختر الدور —",
 }: {
   value: string;
   options: RoleOption[];
@@ -26,6 +27,7 @@ export function PremiumRolePicker({
   required?: boolean;
   disabled?: boolean;
   hideLabel?: boolean;
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -64,7 +66,7 @@ export function PremiumRolePicker({
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-cyan-400/20 bg-cyan-500/10">
             <ShieldCheck size={14} className="text-cyan-300" />
           </span>
-          <span className="truncate text-white">{selected?.label ?? "— اختر الدور —"}</span>
+          <span className="truncate text-white">{selected?.label ?? placeholder}</span>
         </span>
         <ChevronDown
           size={16}
