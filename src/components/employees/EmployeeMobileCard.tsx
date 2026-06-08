@@ -1,12 +1,15 @@
 "use client";
 
-import { Star, Edit2, UserMinus, UserCheck } from "lucide-react";
+import { Star, Edit2, UserMinus, UserCheck, Unlink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { departmentColor } from "@/lib/services/departments";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
+import { isEmployeeActive, employeeStatusLabel } from "@/lib/tenant/employeeStatus";
 import { WS_CARD } from "@/components/ui/workspaceVisual";
 import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import type { UserRole } from "@/contexts/PermissionsContext";
+
+const NEEDS_LINK_MSG = "هذا الحساب يحتاج مراجعة قبل التحكم به. يرجى التواصل مع الدعم.";
 
 export interface EmployeeRow {
   id: string;
@@ -30,6 +33,7 @@ export function EmployeeMobileCard({
   onDeactivate,
   onReactivate,
   busy = false,
+  needsLink = false,
   departmentColorFn = departmentColor,
 }: {
   emp: EmployeeRow;
@@ -38,10 +42,14 @@ export function EmployeeMobileCard({
   onDeactivate: () => void;
   onReactivate: () => void;
   busy?: boolean;
+  /** Employee has no matching profile (by id) in this org — actions disabled. */
+  needsLink?: boolean;
   departmentColorFn?: (name: string) => string;
 }) {
-  const isActive = emp.status === "نشط";
+  const isActive = isEmployeeActive(emp.status);
   const deptColor = departmentColorFn(emp.department);
+  // Broken/unlinked records can never be safely mutated — disable all actions.
+  const actionsDisabled = busy || needsLink;
 
   return (
     <article className={cn(WS_CARD, "p-3.5 space-y-3 min-w-0")}>
@@ -73,9 +81,17 @@ export function EmployeeMobileCard({
             </span>
           </div>
         </div>
-        <span className={cn("badge text-[10px] shrink-0", isActive ? "status-active" : "status-inactive")}>
-          {isActive ? "نشط" : "غير نشط"}
-        </span>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className={cn("badge text-[10px]", isActive ? "status-active" : "status-inactive")}>
+            {employeeStatusLabel(emp.status)}
+          </span>
+          {needsLink && (
+            <span className="badge text-[10px] bg-amber-500/10 text-amber-300 flex items-center gap-1">
+              <Unlink size={10} />
+              يتطلب مراجعة
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center">
@@ -106,38 +122,46 @@ export function EmployeeMobileCard({
       </div>
 
       {canManage && (
-        <div className="flex gap-2 pt-0.5">
-          <button
-            type="button"
-            onClick={onEdit}
-            disabled={busy}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2 text-xs text-[#8ba3c7] hover:text-cyan-300 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Edit2 size={14} />
-            تعديل
-          </button>
-          {isActive ? (
-            <button
-              type="button"
-              onClick={onDeactivate}
-              disabled={busy}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <UserMinus size={14} />
-              حذف من الفريق
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onReactivate}
-              disabled={busy}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 py-2 text-xs text-emerald-400 hover:bg-emerald-500/10 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <UserCheck size={14} />
-              تفعيل الموظف
-            </button>
+        <>
+          {needsLink && (
+            <p className="text-[11px] text-amber-300/90 leading-relaxed">{NEEDS_LINK_MSG}</p>
           )}
-        </div>
+          <div className="flex gap-2 pt-0.5">
+            <button
+              type="button"
+              onClick={onEdit}
+              disabled={actionsDisabled}
+              title={needsLink ? NEEDS_LINK_MSG : undefined}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2 text-xs text-[#8ba3c7] hover:text-cyan-300 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Edit2 size={14} />
+              تعديل
+            </button>
+            {isActive ? (
+              <button
+                type="button"
+                onClick={onDeactivate}
+                disabled={actionsDisabled}
+                title={needsLink ? NEEDS_LINK_MSG : undefined}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <UserMinus size={14} />
+                حذف من الفريق
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onReactivate}
+                disabled={actionsDisabled}
+                title={needsLink ? NEEDS_LINK_MSG : undefined}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 py-2 text-xs text-emerald-400 hover:bg-emerald-500/10 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <UserCheck size={14} />
+                تفعيل الموظف
+              </button>
+            )}
+          </div>
+        </>
       )}
     </article>
   );

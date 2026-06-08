@@ -1,15 +1,19 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import {
   User, Mail, ShieldCheck, Building2, Briefcase, Network,
-  UserCog, Phone, CalendarDays, Pencil,
+  UserCog, Phone, CalendarDays, Pencil, X, UserX,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getTenantRoleLabel, formatTenantDepartment } from "@/lib/tenant/tenantDisplay";
+import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
+import { supabase } from "@/lib/supabase";
+import { updateMySelfProfile } from "@/lib/db";
+import { withTimeout } from "@/lib/asyncHelpers";
+import { useToast } from "@/contexts/ToastContext";
 
 const FALLBACK = "غير محدد";
 
@@ -41,13 +45,83 @@ function Field({
 
 export default function ProfilePage() {
   // Scoped to the CURRENT authenticated user only — never another profile.
-  const { user } = useAuth();
+  const { user, refreshCurrentUser } = useAuth();
   const { name: companyName, isFallback: companyIsFallback } = useTenantCompanyName();
   const { display: departmentDisplay } = useProfileOrgDepartment();
+  const toast = useToast();
+
+  // Personal phone lives on the employees row (not profiles); load the current
+  // user's own record (RLS returns only the caller's own row by id).
+  const [phone, setPhone] = useState<string>("");
+  const [showEdit, setShowEdit] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (!user?.id) return;
+    (async () => {
+      const { data } = await supabase
+        .from("employees")
+        .select("phone")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (active && data?.phone) setPhone(String(data.phone));
+    })();
+    return () => { active = false; };
+  }, [user?.id]);
 
   const roleLabel = user?.role ? getTenantRoleLabel(user.role) : FALLBACK;
   const department = departmentDisplay.isEmpty ? FALLBACK : departmentDisplay.text;
   const initials = user?.name?.slice(0, 2) ?? "م";
+
+  // Inactive accounts cannot view or edit their profile — mirrors the
+  // WorkspaceRouteGuard block applied to the rest of the Customer Workspace.
+  if (user && user.is_active === false) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4 px-4">
+          <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center">
+            <UserX size={28} className="text-red-400" />
+          </div>
+          <h2 className="text-white text-xl font-heading font-bold">الحساب معطّل</h2>
+          <p className="text-[#8ba3c7] text-sm max-w-xs leading-relaxed">
+            تم تعطيل حسابك داخل هذه المنشأة. يرجى التواصل مع مدير المنشأة.
+          </p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const openEdit = () => {
+    setEditName(user?.name ?? "");
+    setEditPhone(phone);
+    setShowEdit(true);
+  };
+
+  const handleSave = async () => {
+    const trimmedName = editName.trim();
+    if (!trimmedName) { toast.error("الاسم مطلوب"); return; }
+    setSaving(true);
+    try {
+      // Only personal fields are sent; the server ignores everything else and
+      // writes strictly to the caller's own id.
+      await withTimeout(
+        updateMySelfProfile({ name: trimmedName, phone: editPhone.trim() || null }),
+        12_000,
+        "انتهت مهلة حفظ الملف الشخصي — تحقق من اتصالك بالإنترنت",
+      );
+      setPhone(editPhone.trim());
+      await refreshCurrentUser();
+      toast.success("تم تحديث ملفك الشخصي بنجاح");
+      setShowEdit(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message.split("\n")[0] : "تعذر حفظ الملف الشخصي");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -69,13 +143,14 @@ export default function ProfilePage() {
                 {roleLabel}
               </span>
             </div>
-            <Link
-              href="/settings?tab=account"
+            <button
+              type="button"
+              onClick={openEdit}
               className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 shrink-0"
             >
               <Pencil size={12} />
               تعديل
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -93,14 +168,65 @@ export default function ProfilePage() {
             <Field icon={Building2} label="المنشأة" value={companyName} muted={companyIsFallback} />
             <Field icon={Network} label="الإدارة / القسم" value={department} muted={department === FALLBACK} />
             <Field icon={UserCog} label="المدير المباشر" value={FALLBACK} muted />
-            <Field icon={Phone} label="الهاتف" value={FALLBACK} muted />
+            <Field icon={Phone} label="الهاتف" value={phone || FALLBACK} muted={!phone} />
             <Field icon={CalendarDays} label="تاريخ الانضمام" value={FALLBACK} muted />
           </div>
           <p className="text-[11px] text-[#8ba3c7]">
-            الهيكل التنظيمي: وكالة ← إدارة ← قسم. تُحدَّث المسميات تلقائياً عند تغيير موقعك في الهيكل الإداري.
+            يمكنك تعديل اسمك ورقم هاتفك فقط. تُدار بقية البيانات (الدور، القسم، الراتب، الحالة) من قِبل مدير المنشأة.
           </p>
         </div>
       </div>
+
+      {/* Personal edit modal — name + phone only */}
+      {showEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-white font-heading font-bold text-lg">تعديل بياناتي</h3>
+              <button onClick={() => setShowEdit(false)} className="text-[#8ba3c7] hover:text-white" aria-label="إغلاق">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-[#8ba3c7] mb-1.5">الاسم</label>
+                <input
+                  className="input-dark text-sm"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="الاسم الكامل"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-[#8ba3c7] mb-1.5">رقم الهاتف</label>
+                <input
+                  className="input-dark text-sm"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="05XXXXXXXX"
+                  inputMode="tel"
+                />
+              </div>
+              <p className="text-[11px] text-[#8ba3c7] leading-relaxed">
+                لا يمكنك تعديل الدور أو الراتب أو الحالة أو القسم من هنا.
+              </p>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                {saving ? "جارٍ الحفظ..." : "حفظ"}
+              </button>
+              <button onClick={() => setShowEdit(false)} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

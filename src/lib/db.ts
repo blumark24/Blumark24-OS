@@ -470,6 +470,32 @@ export async function updateMyProfile(
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Self-service update of the CURRENT user's own personal fields (name, phone).
+ * Routes through the self-scoped service-role endpoint — the only safe write
+ * path for a regular employee's phone (employees writes are RLS-blocked for
+ * non-owners). Never accepts a target id; the server uses the verified token.
+ */
+export async function updateMySelfProfile(
+  patch: { name?: string; phone?: string | null },
+): Promise<{ name?: string; phone?: string | null }> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) {
+    throw new Error("لم يتم تسجيل الدخول — يرجى تحديث الصفحة وإعادة المحاولة");
+  }
+  const headers: Record<string, string> = {
+    "Content-Type":  "application/json",
+    "Authorization": `Bearer ${token}`,
+  };
+  const result = await callApiRoute(
+    { path: "/api/profile/update-self", method: "PATCH" },
+    headers,
+    patch as Record<string, unknown>,
+  );
+  return result as { name?: string; phone?: string | null };
+}
+
 export async function toggleProfileStatus(userId: string, isActive: boolean): Promise<void> {
   const orgId = await resolveCurrentOrgId();
   if (!orgId) throw new Error("تعذر تحديد المنشأة أو صلاحيات الوصول.");

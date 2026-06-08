@@ -19,23 +19,27 @@ import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Users, Plus, Search, Star, Edit2, UserMinus, UserCheck, X, Eye, EyeOff } from "lucide-react";
+import { Users, Plus, Search, Star, Edit2, UserMinus, UserCheck, Unlink, X, Eye, EyeOff } from "lucide-react";
 import {
   usePermissions,
   TENANT_ROLES,
   UserRole,
 } from "@/contexts/PermissionsContext";
 import { TENANT_ASSIGNABLE_ROLES, TENANT_JOB_TITLES, DEFAULT_TENANT_JOB_TITLE } from "@/lib/tenant/tenantDisplay";
+import { isEmployeeActive, canonicalEmployeeStatus, employeeStatusLabel } from "@/lib/tenant/employeeStatus";
 import { allowedStructureLevels } from "@/lib/org/packageHierarchy";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
-import { useEmployees } from "@/hooks/useData";
+import { useEmployees, useOrgProfileIds } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import PageGuard from "@/components/ui/PageGuard";
 import { createAuthUser, updateAuthUser } from "@/lib/db";
 import { withSoftTimeout, withTimeout } from "@/lib/asyncHelpers";
 
 const statusBadge = (status: string) =>
-  status === "نشط" ? "status-active" : "status-inactive";
+  isEmployeeActive(status) ? "status-active" : "status-inactive";
+
+// Shown when an employee account cannot be safely controlled (incomplete linkage).
+const NEEDS_LINK_MSG = "هذا الحساب يحتاج مراجعة قبل التحكم به. يرجى التواصل مع الدعم.";
 
 function isMissingLoginProfile(message: string): boolean {
   return /المستخدم غير موجود|not found|404/i.test(message);
@@ -57,6 +61,12 @@ type FormState = {
 function EmployeesContent() {
   const { data: employees, loading, error, update, refetch, setData } = useEmployees();
   const { data: orgSnapshot, loading: orgLoading } = useOrgStructure(true);
+  // Profile-linkage: an employee is "linked" when employees.id matches a
+  // profiles.id in THIS organization (RLS scopes the set to the caller's org).
+  // While the set is still loading we optimistically treat rows as linked so
+  // the action buttons don't flicker disabled on first paint.
+  const { ids: linkedProfileIds, loading: linkLoading } = useOrgProfileIds();
+  const needsLinkEmployee = (id: string) => !linkLoading && !linkedProfileIds.has(id);
   const orgUnits = getAssignableOrgUnits(orgSnapshot?.departments ?? []);
   const { userRole, hasPermission } = usePermissions();
   const { planSlug } = useTenantWorkspace();
@@ -146,7 +156,8 @@ function EmployeesContent() {
       departmentId: resolvedId,
       role:       emp.role as UserRole,
       jobTitle:   emp.jobTitle || DEFAULT_TENANT_JOB_TITLE,
-      status:     emp.status,
+      // Normalize legacy/unknown status to a canonical value for the editor.
+      status:     canonicalEmployeeStatus(isEmployeeActive(emp.status)),
       salary:     String(emp.salary ?? ""),
     });
     setShowPass(false);
@@ -369,7 +380,8 @@ function EmployeesContent() {
   // the org structure is kept so the employee shows as inactive, not orphaned.
   const handleDeactivate = async (emp: typeof employees[0]) => {
     if (rowBusyId) return;
-    if (emp.status !== "نشط") return;
+    if (needsLinkEmployee(emp.id)) { toast.error(NEEDS_LINK_MSG); return; }
+    if (!isEmployeeActive(emp.status)) return;
     if (!confirm(`هل تريد إزالة ${emp.name} من الفريق؟ سيتم تعطيل الحساب (بدون حذف) ويمكنك إعادة تفعيله لاحقاً.`)) return;
     setRowBusyId(emp.id);
     try {
@@ -397,7 +409,8 @@ function EmployeesContent() {
   // Reactivate ("تفعيل الموظف"): restore active state (mirror of deactivate).
   const handleReactivate = async (emp: typeof employees[0]) => {
     if (rowBusyId) return;
-    if (emp.status === "نشط") return;
+    if (needsLinkEmployee(emp.id)) { toast.error(NEEDS_LINK_MSG); return; }
+    if (isEmployeeActive(emp.status)) return;
     setRowBusyId(emp.id);
     try {
       await withTimeout(
@@ -423,7 +436,7 @@ function EmployeesContent() {
 
   const stats = {
     total:  employees.length,
-    active: employees.filter((e) => e.status === "نشط").length,
+    active: employees.filter((e) => isEmployeeActive(e.status)).length,
     depts:  orgUnits.length || new Set(employees.map((e) => e.department)).size,
   };
 
@@ -513,6 +526,7 @@ function EmployeesContent() {
                   emp={emp}
                   canManage={canManageEmployees}
                   busy={rowBusyId === emp.id}
+                  needsLink={needsLinkEmployee(emp.id)}
                   departmentColorFn={deptColorFor}
                   onEdit={() => openEdit(emp)}
                   onDeactivate={() => handleDeactivate(emp)}
@@ -576,27 +590,39 @@ function EmployeesContent() {
                     </td>
                     <td className="px-4 py-3 text-[#8ba3c7] text-xs">{emp.joinDate}</td>
                     <td className="px-4 py-3">
-                      <span className={`badge ${statusBadge(emp.status)}`}>
-                        {emp.status === "نشط" ? "نشط" : "غير نشط"}
-                      </span>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className={`badge ${statusBadge(emp.status)}`}>
+                          {employeeStatusLabel(emp.status)}
+                        </span>
+                        {needsLinkEmployee(emp.id) && (
+                          <span className="badge bg-amber-500/10 text-amber-300 flex items-center gap-1" title={NEEDS_LINK_MSG}>
+                            <Unlink size={11} />
+                            يتطلب مراجعة
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
-                      {canManageEmployees && (
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => openEdit(emp)} aria-label="تعديل الموظف" disabled={rowBusyId === emp.id} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                            <Edit2 size={14} />
-                          </button>
-                          {emp.status === "نشط" ? (
-                            <button onClick={() => handleDeactivate(emp)} aria-label="حذف من الفريق" title="حذف من الفريق" disabled={rowBusyId === emp.id} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                              <UserMinus size={14} />
+                      {canManageEmployees && (() => {
+                        const broken = needsLinkEmployee(emp.id);
+                        const rowDisabled = rowBusyId === emp.id || broken;
+                        return (
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => openEdit(emp)} aria-label="تعديل الموظف" title={broken ? NEEDS_LINK_MSG : undefined} disabled={rowDisabled} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                              <Edit2 size={14} />
                             </button>
-                          ) : (
-                            <button onClick={() => handleReactivate(emp)} aria-label="تفعيل الموظف" title="تفعيل الموظف" disabled={rowBusyId === emp.id} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-emerald-400 hover:bg-emerald-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                              <UserCheck size={14} />
-                            </button>
-                          )}
-                        </div>
-                      )}
+                            {isEmployeeActive(emp.status) ? (
+                              <button onClick={() => handleDeactivate(emp)} aria-label="حذف من الفريق" title={broken ? NEEDS_LINK_MSG : "حذف من الفريق"} disabled={rowDisabled} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                                <UserMinus size={14} />
+                              </button>
+                            ) : (
+                              <button onClick={() => handleReactivate(emp)} aria-label="تفعيل الموظف" title={broken ? NEEDS_LINK_MSG : "تفعيل الموظف"} disabled={rowDisabled} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-emerald-400 hover:bg-emerald-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                                <UserCheck size={14} />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}
@@ -627,6 +653,19 @@ function EmployeesContent() {
             </div>
 
             <div className="space-y-4">
+              {editId && (
+                <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+                  <span className="text-[11px] text-[#8ba3c7]">حالة الحساب</span>
+                  {needsLinkEmployee(editId) ? (
+                    <span className="badge text-[10px] bg-amber-500/10 text-amber-300 flex items-center gap-1">
+                      <Unlink size={10} />
+                      يتطلب مراجعة
+                    </span>
+                  ) : (
+                    <span className="badge text-[10px] status-active">مكتمل</span>
+                  )}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-[#8ba3c7] mb-1.5">الاسم الكامل *</label>
