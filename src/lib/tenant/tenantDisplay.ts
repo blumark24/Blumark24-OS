@@ -38,12 +38,16 @@ export const TENANT_ASSIGNABLE_ROLES: UserRole[] = [
  * excluded: it is reserved for the organization_manager (tenant subscriber).
  * The auth role for these hires stays "employee" (no broad permissions).
  */
-export const TENANT_JOB_TITLES = [
-  { value: "موظف", label: "موظف" },
-  { value: "مدير قسم", label: "مدير قسم" },
-  { value: "مدير إدارة", label: "مدير إدارة" },
-  { value: "مدير وكالة", label: "مدير وكالة" },
-] as const;
+export const TENANT_JOB_TITLES: {
+  value: string;
+  label: string;
+  level: "agency" | "management" | "department" | null;
+}[] = [
+  { value: "مدير وكالة", label: "مدير وكالة", level: "agency" },
+  { value: "مدير إدارة", label: "مدير إدارة", level: "management" },
+  { value: "مدير قسم", label: "مدير قسم", level: "department" },
+  { value: "موظف", label: "موظف", level: null },
+];
 
 export const DEFAULT_TENANT_JOB_TITLE = "موظف";
 

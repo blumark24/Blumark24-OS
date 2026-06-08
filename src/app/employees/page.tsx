@@ -26,6 +26,8 @@ import {
   UserRole,
 } from "@/contexts/PermissionsContext";
 import { TENANT_ASSIGNABLE_ROLES, TENANT_JOB_TITLES, DEFAULT_TENANT_JOB_TITLE } from "@/lib/tenant/tenantDisplay";
+import { allowedStructureLevels } from "@/lib/org/packageHierarchy";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { useEmployees } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import PageGuard from "@/components/ui/PageGuard";
@@ -57,8 +59,16 @@ function EmployeesContent() {
   const { data: orgSnapshot, loading: orgLoading } = useOrgStructure(true);
   const orgUnits = getAssignableOrgUnits(orgSnapshot?.departments ?? []);
   const { userRole, hasPermission } = usePermissions();
+  const { planSlug } = useTenantWorkspace();
   const assignableRoles: UserRole[] =
     userRole === "super_admin" ? [...TENANT_ASSIGNABLE_ROLES, "super_admin"] : [...TENANT_ASSIGNABLE_ROLES];
+
+  // Job-title tiers gated by the active subscription plan's org-structure levels
+  // (موظف always; مدير المنشأة is never offered here — reserved for org_manager).
+  const allowedLevels = allowedStructureLevels(planSlug);
+  const availableJobTitles = TENANT_JOB_TITLES.filter(
+    (t) => t.level === null || allowedLevels.includes(t.level),
+  );
   const defaultDeptId = orgUnits[0]?.id ?? "";
   const toast = useToast();
   const canManageEmployees =
@@ -175,16 +185,25 @@ function EmployeesContent() {
     setSaving(true);
     try {
       if (editId) {
-        await update(editId, {
-          name:       form.name.trim(),
-          email:      cleanEmail,
-          phone:      form.phone,
-          department: departmentLabel,
-          role:       form.role as never,
-          jobTitle:   form.jobTitle,
-          status:     form.status,
-          salary:     form.salary ? Number(form.salary) : undefined,
-        });
+        // organization_manager cannot client-write the employees table (RLS
+        // allows only owner/super_admin), so this client update() is best-effort.
+        // The canonical persistence — including job_title — is the service-role
+        // admin API (updateAuthUser) below; never let an RLS-blocked client
+        // update abort the edit.
+        try {
+          await update(editId, {
+            name:       form.name.trim(),
+            email:      cleanEmail,
+            phone:      form.phone,
+            department: departmentLabel,
+            role:       form.role as never,
+            jobTitle:   form.jobTitle,
+            status:     form.status,
+            salary:     form.salary ? Number(form.salary) : undefined,
+          });
+        } catch (clientErr) {
+          console.warn("[employees] client update skipped (using admin API):", clientErr);
+        }
         if (form.departmentId) {
           await assignEmployeeToOrgUnit({
             employee_id: editId,
@@ -219,6 +238,26 @@ function EmployeesContent() {
             );
           }
         }
+
+        // Reflect the edit locally even if the client update() was RLS-skipped,
+        // then reconcile with the DB (job_title is read back by employeeFromDB).
+        setData((prev) =>
+          prev.map((e) =>
+            e.id === editId
+              ? {
+                  ...e,
+                  name: form.name.trim(),
+                  email: cleanEmail,
+                  phone: form.phone || undefined,
+                  department: departmentLabel,
+                  jobTitle: form.jobTitle,
+                  status: form.status,
+                  salary: form.salary ? Number(form.salary) : undefined,
+                }
+              : e,
+          ),
+        );
+        await withSoftTimeout(refetch(), 6_000);
       } else {
         // Hard 15-second client timeout — button NEVER hangs beyond this.
         // (Network AbortController in db.ts fires at 12 s; this is the fallback.)
@@ -572,7 +611,7 @@ function EmployeesContent() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">القسم *</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الوحدة التنظيمية *</label>
                   {orgLoading ? (
                     <div className="input-dark text-sm text-[#8ba3c7] px-3 py-2.5 rounded-xl">
                       جارٍ تحميل وحدات الهيكل...
@@ -608,7 +647,15 @@ function EmployeesContent() {
                     label="الدور الوظيفي"
                     required
                     value={form.jobTitle}
-                    options={TENANT_JOB_TITLES.map((t) => ({ value: t.value, label: t.label }))}
+                    options={(() => {
+                      const opts = availableJobTitles.map((t) => ({ value: t.value, label: t.label }));
+                      // Keep an existing (possibly higher-tier) job title visible when editing,
+                      // even if the current plan would otherwise hide it.
+                      if (form.jobTitle && !opts.some((o) => o.value === form.jobTitle)) {
+                        opts.unshift({ value: form.jobTitle, label: form.jobTitle });
+                      }
+                      return opts;
+                    })()}
                     onChange={(v) => setForm({ ...form, jobTitle: v })}
                   />
                 </div>
