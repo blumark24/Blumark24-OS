@@ -31,6 +31,22 @@ export const TENANT_ASSIGNABLE_ROLES: UserRole[] = [
   "employee",
 ];
 
+/**
+ * Organizational JOB-TITLE tiers selectable in the Add/Edit Employee modal.
+ * These are DISPLAY labels stored in employees.job_title — NOT auth roles, so
+ * no DB role-constraint change is required. "مدير المنشأة" is intentionally
+ * excluded: it is reserved for the organization_manager (tenant subscriber).
+ * The auth role for these hires stays "employee" (no broad permissions).
+ */
+export const TENANT_JOB_TITLES = [
+  { value: "موظف", label: "موظف" },
+  { value: "مدير قسم", label: "مدير قسم" },
+  { value: "مدير إدارة", label: "مدير إدارة" },
+  { value: "مدير وكالة", label: "مدير وكالة" },
+] as const;
+
+export const DEFAULT_TENANT_JOB_TITLE = "موظف";
+
 /** Safe labels for tenant-facing UI — legacy internal roles are rewritten. */
 const TENANT_ROLE_LABELS: Record<string, string> = {
   super_admin: "مدير أعلى",
@@ -38,10 +54,17 @@ const TENANT_ROLE_LABELS: Record<string, string> = {
   attack_manager: "مدير تشغيل",
   defense_manager: "مدير تشغيل",
   organization_manager: "مدير المنشأة",
-  finance_manager: "مدير مالي",
+  // Organizational tiers (display labels; not stored as auth roles).
+  agency_manager: "مدير وكالة",
+  department_manager: "مدير إدارة",
+  section_manager: "مدير قسم",
   employee: "موظف",
   admin: "مدير المنشأة",
-  manager: "مدير المنشأة",
+  // Backward-compatible display fallbacks for legacy stored roles (no DB rewrite).
+  manager: "مدير إدارة",
+  finance_manager: "مدير إدارة",
+  marketing_manager: "مدير إدارة",
+  hr_manager: "مدير إدارة",
 };
 
 const INTERNAL_ROLE_LABELS: Record<string, string> = {
@@ -74,7 +97,8 @@ export function getTenantRoleLabel(
 ): string {
   if (!role) return "";
   const map = isInternal ? INTERNAL_ROLE_LABELS : TENANT_ROLE_LABELS;
-  return map[role] ?? map[String(role)] ?? "عضو الفريق";
+  // Unknown roles fall back to "موظف" (safe tenant default).
+  return map[role] ?? map[String(role)] ?? "موظف";
 }
 
 export function formatTenantDepartment(

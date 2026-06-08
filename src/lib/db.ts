@@ -169,6 +169,7 @@ export async function createAuthUser(data: {
   phone?: string | null;
   salary?: number | null;
   status?: string;
+  jobTitle?: string | null;
 }): Promise<{ id: string }> {
   const result = await adminInvoke("create", data as Record<string, unknown>);
   return result as { id: string };
@@ -183,6 +184,7 @@ export async function updateAuthUser(userId: string, data: {
   department?: string;
   isActive?: boolean;
   name?: string;
+  jobTitle?: string | null;
 }): Promise<void> {
   await adminInvoke("update", { userId, ...data });
 }

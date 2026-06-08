@@ -68,17 +68,20 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
-  const { userId, role, department, isActive, name } = body as {
+  const { userId, role, department, isActive, name, jobTitle } = body as {
     userId: string;
     role?: string;
     department?: string;
     isActive?: boolean;
     name?: string;
+    jobTitle?: string;
   };
 
   const cleanDept     = typeof department === "string" ? department.slice(0, 100) : undefined;
   const cleanIsActive = typeof isActive === "boolean" ? isActive : undefined;
   const cleanName     = typeof name === "string" ? name.trim().slice(0, 100) : undefined;
+  // Organizational job-title tier (display label only; employees table only).
+  const cleanJobTitle = typeof jobTitle === "string" ? jobTitle.slice(0, 60) : undefined;
   let cleanRole = typeof role === "string" ? role : undefined;
 
   const targetCheck = await assertTargetUserInCallerOrg(admin, userId, provisioner);
@@ -94,7 +97,7 @@ export async function PATCH(req: NextRequest) {
     cleanRole = roleCheck;
   }
 
-  if (!cleanRole && !cleanDept && cleanIsActive === undefined && !cleanName) {
+  if (!cleanRole && !cleanDept && cleanIsActive === undefined && !cleanName && cleanJobTitle === undefined) {
     return fail(400, "لا توجد حقول للتحديث", "step=validate: no updatable fields");
   }
 
@@ -131,6 +134,7 @@ export async function PATCH(req: NextRequest) {
   if (cleanName     !== undefined) employeeSync.name       = cleanName;
   if (cleanRole     !== undefined) employeeSync.role       = cleanRole;
   if (cleanDept     !== undefined) employeeSync.department = cleanDept;
+  if (cleanJobTitle !== undefined) employeeSync.job_title  = cleanJobTitle;
   if (cleanIsActive !== undefined) employeeSync.status     = cleanIsActive ? "نشط" : "غير_نشط";
   if (Object.keys(employeeSync).length > 0) {
     let employeeUpdateQuery = admin
