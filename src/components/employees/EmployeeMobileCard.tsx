@@ -14,6 +14,7 @@ export interface EmployeeRow {
   email?: string;
   department: string;
   role: string;
+  jobTitle?: string;
   performance?: number;
   completedTasks?: number;
   tasks?: number;
@@ -64,7 +65,7 @@ export function EmployeeMobileCard({
               {emp.department}
             </span>
             <span className="badge text-[10px] bg-white/[0.06] text-[#8ba3c7]">
-              {getTenantRoleLabel(emp.role as UserRole)}
+              {emp.jobTitle || getTenantRoleLabel(emp.role as UserRole)}
             </span>
           </div>
         </div>
