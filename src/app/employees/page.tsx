@@ -467,7 +467,7 @@ function EmployeesContent() {
 
   const stats = {
     total:  employees.length,
-    active: employees.filter((e) => isEmployeeActive(e.status)).length,
+    active: employees.filter((e) => effectiveState(e) === "active").length,
     depts:  orgUnits.length || new Set(employees.map((e) => e.department)).size,
   };
 
@@ -485,7 +485,23 @@ function EmployeesContent() {
           )}
         </PageHero>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 min-w-0">
+        {/* Mobile: compact horizontal stat chips (< sm) */}
+        <div className="sm:hidden flex items-center gap-2 overflow-x-auto min-w-0">
+          <div className="flex items-center gap-1.5 rounded-xl border border-[#1e3a5f] bg-[#0d1f3c]/60 px-3 py-2 shrink-0">
+            <span className="text-[#8ba3c7] text-[11px]">الإجمالي</span>
+            <span className="text-white font-bold text-sm">{stats.total}</span>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 shrink-0">
+            <span className="text-[#8ba3c7] text-[11px]">النشطون</span>
+            <span className="text-emerald-400 font-bold text-sm">{stats.active}</span>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2 shrink-0">
+            <span className="text-[#8ba3c7] text-[11px]">الأقسام</span>
+            <span className="text-sky-300 font-bold text-sm">{stats.depts}</span>
+          </div>
+        </div>
+        {/* Desktop/tablet: full KPI cards (sm+) */}
+        <div className="hidden sm:grid sm:grid-cols-3 gap-4 min-w-0">
           <KpiStatCard label="إجمالي الموظفين" value={String(stats.total)} icon={Users} accent="cyan" showLive={false} showSparkline={false} />
           <KpiStatCard label="الموظفون النشطون" value={String(stats.active)} icon={Users} accent="emerald" showLive={false} showSparkline={false} />
           <KpiStatCard label="الأقسام" value={String(stats.depts)} icon={Users} accent="sky" showLive={false} showSparkline={false} />
