@@ -95,6 +95,10 @@ function EmployeesContent() {
   const [saving,     setSaving]     = useState(false);
   const [showPass,   setShowPass]   = useState(false);
   const [legacyDeptHint, setLegacyDeptHint] = useState<string | null>(null);
+  // Inline modal error — stays visible (toasts auto-dismiss) so the user sees
+  // exactly why a create/save failed without the modal closing.
+  const [formError, setFormError] = useState<string | null>(null);
+  const showFormError = (m: string) => { setFormError(m); toast.error(m); };
   const [form, setForm] = useState<FormState>({
     name: "", email: "", password: "", phone: "", departmentId: defaultDeptId,
     role: "employee", jobTitle: DEFAULT_TENANT_JOB_TITLE, status: "نشط", salary: "",
@@ -120,6 +124,7 @@ function EmployeesContent() {
   const openAdd = () => {
     setEditId(null);
     setLegacyDeptHint(null);
+    setFormError(null);
     setForm({ name: "", email: "", password: "", phone: "", departmentId: defaultDeptId, role: "employee", jobTitle: DEFAULT_TENANT_JOB_TITLE, status: "نشط", salary: "" });
     setShowPass(false);
     setShowModal(true);
@@ -127,6 +132,7 @@ function EmployeesContent() {
 
   const openEdit = (emp: typeof employees[0]) => {
     setEditId(emp.id);
+    setFormError(null);
     const resolvedId = resolveDeptId(emp);
     setLegacyDeptHint(!resolvedId && emp.department?.trim() ? emp.department.trim() : null);
     setForm({
@@ -144,39 +150,34 @@ function EmployeesContent() {
     setShowModal(true);
   };
 
-  const closeModal = () => { setShowModal(false); setLegacyDeptHint(null); };
+  const closeModal = () => { setShowModal(false); setLegacyDeptHint(null); setFormError(null); };
 
   const handleSave = async () => {
     // ── client-side clean + validate ──────────────────────────────────────────
+    setFormError(null);
     // eslint-disable-next-line no-control-regex
     const cleanEmail = form.email.replace(/[^\x00-\x7F]/g, "").replace(/\s/g, "").trim().toLowerCase();
 
-    if (!form.name.trim()) { toast.error("الاسم الكامل مطلوب"); return; }
-    if (!form.role) { toast.error("الدور مطلوب"); return; }
+    if (!form.name.trim()) { showFormError("الاسم الكامل مطلوب"); return; }
+    if (!form.role) { showFormError("الدور مطلوب"); return; }
     if (!assignableRoles.includes(form.role)) {
-      toast.error("الدور المحدد غير مسموح به في واجهة المنشأة");
+      showFormError("الدور المحدد غير مسموح به في واجهة المنشأة");
       return;
     }
-    if (orgUnits.length > 0 && !form.departmentId) {
-      toast.error("القسم مطلوب — اختر وحدة من الهيكل الإداري");
-      return;
-    }
-    if (orgUnits.length === 0 && !editId) {
-      toast.error("أنشئ وحدة تنظيمية أولاً من الهيكل الإداري");
-      return;
-    }
-    if (!cleanEmail) { toast.error("البريد الإلكتروني مطلوب"); return; }
+    // Organizational unit is OPTIONAL — an employee can be created without it and
+    // linked later from the org structure. (When a unit is chosen it is assigned.)
+    if (!cleanEmail) { showFormError("البريد الإلكتروني مطلوب"); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      toast.error("البريد الإلكتروني غير صالح — مثال: user@domain.com");
+      showFormError("البريد الإلكتروني غير صالح — مثال: user@domain.com");
       return;
     }
     if (!editId) {
-      if (!form.password)                       { toast.error("كلمة المرور مطلوبة لإنشاء حساب جديد"); return; }
-      if (form.password.length < 8)             { toast.error("كلمة المرور يجب أن تكون 8 أحرف على الأقل"); return; }
-      if (!/[A-Z]/.test(form.password))         { toast.error("كلمة المرور يجب أن تحتوي على حرف كبير (A-Z)"); return; }
-      if (!/[a-z]/.test(form.password))         { toast.error("كلمة المرور يجب أن تحتوي على حرف صغير (a-z)"); return; }
-      if (!/[0-9]/.test(form.password))         { toast.error("كلمة المرور يجب أن تحتوي على رقم (0-9)"); return; }
-      if (!/[^A-Za-z0-9]/.test(form.password)) { toast.error("كلمة المرور يجب أن تحتوي على رمز (!@#$%^&*)"); return; }
+      if (!form.password)                       { showFormError("كلمة المرور مطلوبة لإنشاء حساب جديد"); return; }
+      if (form.password.length < 8)             { showFormError("كلمة المرور يجب أن تكون 8 أحرف على الأقل"); return; }
+      if (!/[A-Z]/.test(form.password))         { showFormError("كلمة المرور يجب أن تحتوي على حرف كبير (A-Z)"); return; }
+      if (!/[a-z]/.test(form.password))         { showFormError("كلمة المرور يجب أن تحتوي على حرف صغير (a-z)"); return; }
+      if (!/[0-9]/.test(form.password))         { showFormError("كلمة المرور يجب أن تحتوي على رقم (0-9)"); return; }
+      if (!/[^A-Za-z0-9]/.test(form.password)) { showFormError("كلمة المرور يجب أن تحتوي على رمز (!@#$%^&*)"); return; }
     }
 
     const selectedUnit = findOrgUnitById(orgSnapshot?.departments ?? [], form.departmentId);
@@ -278,17 +279,9 @@ function EmployeesContent() {
           15_000,
           "انتهت مهلة الحفظ (15 ثانية) — تحقق من اتصالك بالإنترنت وحاول مرة أخرى",
         );
-        if (form.departmentId) {
-          await assignEmployeeToOrgUnit({
-            employee_id: created.id,
-            department_id: form.departmentId,
-            team_id: null,
-            position_id: null,
-            manager_id: null,
-          });
-        }
-        // Optimistically prepend to the list so the new employee appears immediately
-        // even if the background refetch times out or is delayed.
+        // The auth user + profile + employee row are already created server-side.
+        // Reflect that in the list immediately so the new employee never gets
+        // "lost" even if a later step (org-unit link) fails.
         setData((prev) => [{
           id:             created.id,
           name:           form.name.trim(),
@@ -305,23 +298,52 @@ function EmployeesContent() {
           completedTasks: 0,
           avatar:         undefined,
         }, ...prev]);
+
+        // Org-unit linking is a separate, non-fatal step: the employee already
+        // exists, so an assignment failure must NOT roll back or block — report
+        // it clearly instead of leaving an unclear state.
+        let assignWarning = "";
+        if (form.departmentId) {
+          try {
+            await assignEmployeeToOrgUnit({
+              employee_id: created.id,
+              department_id: form.departmentId,
+              team_id: null,
+              position_id: null,
+              manager_id: null,
+            });
+          } catch (assignErr) {
+            assignWarning = assignErr instanceof Error ? assignErr.message : String(assignErr);
+            console.warn("[employees] org-unit assignment failed:", assignErr);
+          }
+        }
         // Background sync with the actual DB state (soft timeout — non-blocking)
         await withSoftTimeout(refetch(), 6_000);
-        toast.success(`تم إنشاء حساب ${form.name.trim()} بنجاح`);
+        if (assignWarning) {
+          toast.warning(
+            `تم إنشاء حساب ${form.name.trim()} بنجاح، لكن تعذّر ربطه بالوحدة التنظيمية: ${assignWarning.split("\n")[0]} — يمكنك ربطه لاحقاً من الهيكل الإداري.`,
+          );
+        } else {
+          toast.success(`تم إنشاء حساب ${form.name.trim()} بنجاح`);
+        }
       }
       closeModal();
     } catch (err) {
       const raw = err instanceof Error ? err.message : "حدث خطأ أثناء الحفظ";
-      // Map common Supabase / server errors to clear Arabic messages
+      // Map common Supabase / server errors to clear Arabic messages.
+      // The modal stays open (closeModal only runs on success) and the message
+      // is shown inline via showFormError so it does not auto-dismiss.
       let msg = raw;
-      if (/مسجل مسبقاً|already|registered|exists/i.test(raw)) {
-        msg = `البريد الإلكتروني (${cleanEmail}) مستخدم مسبقاً — جرّب بريداً آخر أو احذف الحساب القديم من Supabase Auth`;
+      if (/مسجل مسبقاً|already|registered|exists|duplicate/i.test(raw)) {
+        msg = "البريد الإلكتروني مستخدم مسبقًا. استخدم بريدًا آخر أو اربطه من لوحة المالك.";
+      } else if (/غير مربوط بمنشأة|organization_id/i.test(raw)) {
+        msg = "حسابك غير مربوط بمنشأة — تواصل مع الدعم قبل إضافة الموظفين.";
       } else if (/service_role|SERVICE_ROLE_KEY/i.test(raw)) {
         msg = "خطأ في إعداد الخادم — تحقق من إضافة SUPABASE_SERVICE_ROLE_KEY في Vercel";
       } else if (/invalid email/i.test(raw)) {
         msg = "البريد الإلكتروني غير صالح — تأكد من الكتابة بشكل صحيح";
       }
-      toast.error(msg);
+      showFormError(msg);
       console.error("[Employees handleSave] raw error:", raw);
     } finally {
       setSaving(false);
@@ -611,14 +633,14 @@ function EmployeesContent() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الوحدة التنظيمية *</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الوحدة التنظيمية (اختياري)</label>
                   {orgLoading ? (
                     <div className="input-dark text-sm text-[#8ba3c7] px-3 py-2.5 rounded-xl">
                       جارٍ تحميل وحدات الهيكل...
                     </div>
                   ) : orgUnits.length === 0 ? (
                     <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2.5 text-[11px] text-amber-100/90 leading-relaxed">
-                      أنشئ وحدة تنظيمية أولاً من{" "}
+                      يمكنك إضافة الموظف الآن وربطه بوحدة تنظيمية لاحقاً من{" "}
                       <Link href="/org" className="text-[#22d3ee] underline underline-offset-2">
                         الهيكل الإداري
                       </Link>
@@ -667,6 +689,12 @@ function EmployeesContent() {
                 </select>
               </div>
             </div>
+
+            {formError && (
+              <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-xs text-red-300 leading-relaxed">
+                {formError}
+              </div>
+            )}
 
             <div className="flex gap-3 mt-6">
               <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
