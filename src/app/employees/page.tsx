@@ -19,7 +19,7 @@ import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Users, Plus, Search, Star, Edit2, Trash2, X, Eye, EyeOff } from "lucide-react";
+import { Users, Plus, Search, Star, Edit2, UserMinus, UserCheck, X, Eye, EyeOff } from "lucide-react";
 import {
   usePermissions,
   TENANT_ROLES,
@@ -31,7 +31,7 @@ import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { useEmployees } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import PageGuard from "@/components/ui/PageGuard";
-import { createAuthUser, deleteAuthUser, updateAuthUser } from "@/lib/db";
+import { createAuthUser, updateAuthUser } from "@/lib/db";
 import { withSoftTimeout, withTimeout } from "@/lib/asyncHelpers";
 
 const statusBadge = (status: string) =>
@@ -55,7 +55,7 @@ type FormState = {
 };
 
 function EmployeesContent() {
-  const { data: employees, loading, error, update, remove, refetch, setData } = useEmployees();
+  const { data: employees, loading, error, update, refetch, setData } = useEmployees();
   const { data: orgSnapshot, loading: orgLoading } = useOrgStructure(true);
   const orgUnits = getAssignableOrgUnits(orgSnapshot?.departments ?? []);
   const { userRole, hasPermission } = usePermissions();
@@ -93,6 +93,9 @@ function EmployeesContent() {
   const [showModal,  setShowModal]  = useState(false);
   const [editId,     setEditId]     = useState<string | null>(null);
   const [saving,     setSaving]     = useState(false);
+  // Per-row busy flag for deactivate/reactivate so only the acted-on row's
+  // buttons disable (the modal's `saving` flag is separate).
+  const [rowBusyId,  setRowBusyId]  = useState<string | null>(null);
   const [showPass,   setShowPass]   = useState(false);
   const [legacyDeptHint, setLegacyDeptHint] = useState<string | null>(null);
   // Inline modal error — stays visible (toasts auto-dismiss) so the user sees
@@ -205,14 +208,20 @@ function EmployeesContent() {
         } catch (clientErr) {
           console.warn("[employees] client update skipped (using admin API):", clientErr);
         }
+        // Org-unit linking is non-fatal here too: an RLS/structure failure must
+        // NOT abort the edit before the canonical service-role sync below runs.
         if (form.departmentId) {
-          await assignEmployeeToOrgUnit({
-            employee_id: editId,
-            department_id: form.departmentId,
-            team_id: null,
-            position_id: null,
-            manager_id: null,
-          });
+          try {
+            await assignEmployeeToOrgUnit({
+              employee_id: editId,
+              department_id: form.departmentId,
+              team_id: null,
+              position_id: null,
+              manager_id: null,
+            });
+          } catch (assignErr) {
+            console.warn("[employees] org-unit assignment (edit) failed:", assignErr);
+          }
         }
         try {
           await withTimeout(
@@ -222,6 +231,10 @@ function EmployeesContent() {
               isActive: form.status === "نشط",
               name: form.name.trim(),
               jobTitle: form.jobTitle,
+              // phone/salary persist via the service-role route (client update()
+              // above is RLS-blocked for organization_manager).
+              phone: form.phone || null,
+              salary: form.salary ? Number(form.salary) : null,
             }),
             12_000,
             "انتهت مهلة مزامنة حساب الدخول — تحقق من اتصالك بالإنترنت",
@@ -350,25 +363,61 @@ function EmployeesContent() {
     }
   };
 
-  const handleDelete = async (emp: typeof employees[0]) => {
-    if (!confirm(`هل أنت متأكد من حذف ${emp.name}؟ سيُحذف حسابه من نظام المصادقة أيضاً.`)) return;
+  // Soft remove ("حذف من الفريق"): deactivate/archive — never a hard delete.
+  // Sets profiles.is_active=false + employees.status="غير_نشط" via the
+  // service-role route (org-scoped). auth.users is preserved; the relation to
+  // the org structure is kept so the employee shows as inactive, not orphaned.
+  const handleDeactivate = async (emp: typeof employees[0]) => {
+    if (rowBusyId) return;
+    if (emp.status !== "نشط") return;
+    if (!confirm(`هل تريد إزالة ${emp.name} من الفريق؟ سيتم تعطيل الحساب (بدون حذف) ويمكنك إعادة تفعيله لاحقاً.`)) return;
+    setRowBusyId(emp.id);
     try {
-      // Delete from Supabase Auth via Edge Function (non-blocking for legacy records with no auth account)
-      try {
-        await deleteAuthUser(emp.id);
-      } catch (authErr) {
-        const msg = authErr instanceof Error ? authErr.message : "";
-        // Legacy employees may not have an auth account — treat as non-fatal
-        if (!msg.includes("غير موجود") && !msg.toLowerCase().includes("not found")) {
-          throw authErr;
-        }
-      }
-      // Delete employee row (useData remove handles profile cleanup)
-      await remove(emp.id);
-      toast.success(`تم حذف ${emp.name} بنجاح`);
+      await withTimeout(
+        updateAuthUser(emp.id, { isActive: false }),
+        12_000,
+        "انتهت مهلة العملية — تحقق من اتصالك بالإنترنت",
+      );
+      setData((prev) => prev.map((e) => (e.id === emp.id ? { ...e, status: "غير_نشط" } : e)));
+      toast.success(`تم إزالة ${emp.name} من الفريق (تعطيل بدون حذف)`);
+      await withSoftTimeout(refetch(), 6_000);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "حدث خطأ أثناء الحذف");
-      console.error("[Employee Delete Error]", err);
+      const raw = err instanceof Error ? err.message : "تعذر تنفيذ العملية";
+      toast.error(
+        isMissingLoginProfile(raw)
+          ? "لا يوجد حساب دخول مرتبط بهذا الموظف لتعطيله"
+          : raw.split("\n")[0],
+      );
+      console.error("[Employee Deactivate Error]", err);
+    } finally {
+      setRowBusyId(null);
+    }
+  };
+
+  // Reactivate ("تفعيل الموظف"): restore active state (mirror of deactivate).
+  const handleReactivate = async (emp: typeof employees[0]) => {
+    if (rowBusyId) return;
+    if (emp.status === "نشط") return;
+    setRowBusyId(emp.id);
+    try {
+      await withTimeout(
+        updateAuthUser(emp.id, { isActive: true }),
+        12_000,
+        "انتهت مهلة العملية — تحقق من اتصالك بالإنترنت",
+      );
+      setData((prev) => prev.map((e) => (e.id === emp.id ? { ...e, status: "نشط" } : e)));
+      toast.success(`تم تفعيل ${emp.name} بنجاح`);
+      await withSoftTimeout(refetch(), 6_000);
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "تعذر تنفيذ العملية";
+      toast.error(
+        isMissingLoginProfile(raw)
+          ? "لا يوجد حساب دخول مرتبط بهذا الموظف لتفعيله"
+          : raw.split("\n")[0],
+      );
+      console.error("[Employee Reactivate Error]", err);
+    } finally {
+      setRowBusyId(null);
     }
   };
 
@@ -463,9 +512,11 @@ function EmployeesContent() {
                   key={emp.id}
                   emp={emp}
                   canManage={canManageEmployees}
+                  busy={rowBusyId === emp.id}
                   departmentColorFn={deptColorFor}
                   onEdit={() => openEdit(emp)}
-                  onDelete={() => handleDelete(emp)}
+                  onDeactivate={() => handleDeactivate(emp)}
+                  onReactivate={() => handleReactivate(emp)}
                 />
               ))}
               {filtered.length === 0 && (
@@ -532,12 +583,18 @@ function EmployeesContent() {
                     <td className="px-4 py-3">
                       {canManageEmployees && (
                         <div className="flex items-center gap-2">
-                          <button onClick={() => openEdit(emp)} aria-label="تعديل الموظف" className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all">
+                          <button onClick={() => openEdit(emp)} aria-label="تعديل الموظف" disabled={rowBusyId === emp.id} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                             <Edit2 size={14} />
                           </button>
-                          <button onClick={() => handleDelete(emp)} aria-label="حذف الموظف" className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all">
-                            <Trash2 size={14} />
-                          </button>
+                          {emp.status === "نشط" ? (
+                            <button onClick={() => handleDeactivate(emp)} aria-label="حذف من الفريق" title="حذف من الفريق" disabled={rowBusyId === emp.id} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                              <UserMinus size={14} />
+                            </button>
+                          ) : (
+                            <button onClick={() => handleReactivate(emp)} aria-label="تفعيل الموظف" title="تفعيل الموظف" disabled={rowBusyId === emp.id} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-emerald-400 hover:bg-emerald-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                              <UserCheck size={14} />
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>

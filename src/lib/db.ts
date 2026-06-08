@@ -185,6 +185,8 @@ export async function updateAuthUser(userId: string, data: {
   isActive?: boolean;
   name?: string;
   jobTitle?: string | null;
+  phone?: string | null;
+  salary?: number | null;
 }): Promise<void> {
   await adminInvoke("update", { userId, ...data });
 }

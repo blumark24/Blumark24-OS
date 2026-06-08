@@ -1,6 +1,6 @@
 "use client";
 
-import { Star, Edit2, Trash2 } from "lucide-react";
+import { Star, Edit2, UserMinus, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { departmentColor } from "@/lib/services/departments";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
@@ -27,13 +27,17 @@ export function EmployeeMobileCard({
   emp,
   canManage,
   onEdit,
-  onDelete,
+  onDeactivate,
+  onReactivate,
+  busy = false,
   departmentColorFn = departmentColor,
 }: {
   emp: EmployeeRow;
   canManage: boolean;
   onEdit: () => void;
-  onDelete: () => void;
+  onDeactivate: () => void;
+  onReactivate: () => void;
+  busy?: boolean;
   departmentColorFn?: (name: string) => string;
 }) {
   const isActive = emp.status === "نشط";
@@ -106,19 +110,33 @@ export function EmployeeMobileCard({
           <button
             type="button"
             onClick={onEdit}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2 text-xs text-[#8ba3c7] hover:text-cyan-300 transition-colors min-h-10"
+            disabled={busy}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2 text-xs text-[#8ba3c7] hover:text-cyan-300 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Edit2 size={14} />
             تعديل
           </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-10"
-          >
-            <Trash2 size={14} />
-            حذف
-          </button>
+          {isActive ? (
+            <button
+              type="button"
+              onClick={onDeactivate}
+              disabled={busy}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <UserMinus size={14} />
+              حذف من الفريق
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onReactivate}
+              disabled={busy}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 py-2 text-xs text-emerald-400 hover:bg-emerald-500/10 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <UserCheck size={14} />
+              تفعيل الموظف
+            </button>
+          )}
         </div>
       )}
     </article>
