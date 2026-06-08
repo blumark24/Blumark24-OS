@@ -38,8 +38,8 @@ import { withSoftTimeout, withTimeout } from "@/lib/asyncHelpers";
 const statusBadge = (status: string) =>
   isEmployeeActive(status) ? "status-active" : "status-inactive";
 
-// Shown when an employees row has no matching profile (by id) in this org.
-const NEEDS_LINK_MSG = "هذا الموظف يحتاج ربط حساب قبل التحكم به.";
+// Shown when an employee account cannot be safely controlled (incomplete linkage).
+const NEEDS_LINK_MSG = "هذا الحساب يحتاج مراجعة قبل التحكم به. يرجى التواصل مع الدعم.";
 
 function isMissingLoginProfile(message: string): boolean {
   return /المستخدم غير موجود|not found|404/i.test(message);
@@ -597,7 +597,7 @@ function EmployeesContent() {
                         {needsLinkEmployee(emp.id) && (
                           <span className="badge bg-amber-500/10 text-amber-300 flex items-center gap-1" title={NEEDS_LINK_MSG}>
                             <Unlink size={11} />
-                            يحتاج ربط
+                            يتطلب مراجعة
                           </span>
                         )}
                       </div>
@@ -655,14 +655,14 @@ function EmployeesContent() {
             <div className="space-y-4">
               {editId && (
                 <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2">
-                  <span className="text-[11px] text-[#8ba3c7]">حالة الربط</span>
+                  <span className="text-[11px] text-[#8ba3c7]">حالة الحساب</span>
                   {needsLinkEmployee(editId) ? (
                     <span className="badge text-[10px] bg-amber-500/10 text-amber-300 flex items-center gap-1">
                       <Unlink size={10} />
-                      يحتاج ربط
+                      يتطلب مراجعة
                     </span>
                   ) : (
-                    <span className="badge text-[10px] status-active">مكتمل الربط</span>
+                    <span className="badge text-[10px] status-active">مكتمل</span>
                   )}
                 </div>
               )}

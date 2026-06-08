@@ -9,7 +9,7 @@ import { WS_CARD } from "@/components/ui/workspaceVisual";
 import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import type { UserRole } from "@/contexts/PermissionsContext";
 
-const NEEDS_LINK_MSG = "هذا الموظف يحتاج ربط حساب قبل التحكم به.";
+const NEEDS_LINK_MSG = "هذا الحساب يحتاج مراجعة قبل التحكم به. يرجى التواصل مع الدعم.";
 
 export interface EmployeeRow {
   id: string;
@@ -88,7 +88,7 @@ export function EmployeeMobileCard({
           {needsLink && (
             <span className="badge text-[10px] bg-amber-500/10 text-amber-300 flex items-center gap-1">
               <Unlink size={10} />
-              يحتاج ربط
+              يتطلب مراجعة
             </span>
           )}
         </div>
