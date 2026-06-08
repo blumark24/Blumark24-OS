@@ -32,6 +32,7 @@ See `package.json` scripts:
 
 ### Gotchas
 
+- **Do not run `npm run build` while `npm run dev` is active** — it can corrupt the dev `.next` cache and cause 500s on routes like `/demo`. Stop dev first, or restart `npm run dev` after a build.
 - **No docker-compose** — do not expect local Postgres; point at a hosted Supabase project.
 - **Detached HEAD** may occur on cloud VMs; create feature branches from `main` when making changes.
 - **Owner vs customer auth** use separate Supabase browser clients (`ownerClient.ts` vs `supabaseClient.ts`) with different `storageKey` values.
