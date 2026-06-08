@@ -100,6 +100,9 @@ function EmployeesContent() {
 
   const [search,     setSearch]     = useState("");
   const [deptFilter, setDeptFilter] = useState("الكل");
+  // Status filter — defaults to "active" so soft-removed ("حذف من الفريق")
+  // employees behave like an archive and don't clutter the active team list.
+  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "review" | "all">("active");
   const [showModal,  setShowModal]  = useState(false);
   const [editId,     setEditId]     = useState<string | null>(null);
   const [saving,     setSaving]     = useState(false);
@@ -128,11 +131,39 @@ function EmployeesContent() {
     return () => clearTimeout(timer);
   }, [saving]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The single customer-facing state of an employee row. These are mutually
+  // exclusive and map 1:1 to the three labels: نشط / غير نشط / يتطلب مراجعة.
+  const effectiveState = (emp: typeof employees[0]): "active" | "inactive" | "review" =>
+    needsLinkEmployee(emp.id) ? "review" : isEmployeeActive(emp.status) ? "active" : "inactive";
+
+  const statusCounts = {
+    all:      employees.length,
+    active:   employees.filter((e) => effectiveState(e) === "active").length,
+    inactive: employees.filter((e) => effectiveState(e) === "inactive").length,
+    review:   employees.filter((e) => effectiveState(e) === "review").length,
+  };
+
   const filtered = employees.filter((e) => {
     const q = search.toLowerCase();
-    return (deptFilter === "الكل" || e.department === deptFilter)
+    const matchesStatus = statusFilter === "all" || effectiveState(e) === statusFilter;
+    return matchesStatus
+      && (deptFilter === "الكل" || e.department === deptFilter)
       && (e.name.toLowerCase().includes(q) || (e.email ?? "").toLowerCase().includes(q));
   });
+
+  const emptyMessage = search.trim()
+    ? "لا توجد نتائج مطابقة للبحث"
+    : statusFilter === "active"   ? "لا يوجد موظفون نشطون"
+    : statusFilter === "inactive" ? "لا يوجد موظفون غير نشطين"
+    : statusFilter === "review"   ? "لا توجد حسابات تتطلب مراجعة"
+    : "لا توجد نتائج مطابقة";
+
+  const STATUS_FILTERS: { key: typeof statusFilter; label: string; count: number }[] = [
+    { key: "active",   label: "النشطون",      count: statusCounts.active },
+    { key: "inactive", label: "غير النشطين",  count: statusCounts.inactive },
+    { key: "review",   label: "يتطلب مراجعة", count: statusCounts.review },
+    { key: "all",      label: "الكل",         count: statusCounts.all },
+  ];
 
   const openAdd = () => {
     setEditId(null);
@@ -461,29 +492,60 @@ function EmployeesContent() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 max-w-xs">
-            <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba3c7]" />
-            <input
-              className="input-dark pr-9 py-2 text-sm"
-              placeholder="بحث بالاسم أو البريد..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+        <div className="space-y-3">
+          {/* Search + status segmented control */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="relative sm:flex-1 sm:max-w-xs">
+              <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba3c7]" />
+              <input
+                className="input-dark pr-9 py-2 text-sm w-full"
+                placeholder="بحث بالاسم أو البريد..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-1 rounded-xl bg-[#0d1f3c]/60 border border-[#1e3a5f] p-1 overflow-x-auto">
+              {STATUS_FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setStatusFilter(f.key)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all min-h-9",
+                    statusFilter === f.key
+                      ? "bg-[#22d3ee] text-[#0a1628]"
+                      : "text-[#8ba3c7] hover:text-white hover:bg-white/[0.04]",
+                  )}
+                >
+                  {f.label}
+                  <span
+                    className={cn(
+                      "inline-flex items-center justify-center rounded-md text-[10px] px-1.5 min-w-5",
+                      statusFilter === f.key ? "bg-[#0a1628]/20 text-[#0a1628]" : "bg-white/[0.06] text-[#8ba3c7]",
+                    )}
+                  >
+                    {f.count}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {filterDepts.map((d) => (
-              <button
-                key={d}
-                onClick={() => setDeptFilter(d)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                  deptFilter === d ? "bg-[#22d3ee] text-[#0a1628]" : "bg-[#1a3356]/50 text-[#8ba3c7] hover:text-white"
-                }`}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
+
+          {/* Department chips */}
+          {filterDepts.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              {filterDepts.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setDeptFilter(d)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                    deptFilter === d ? "bg-[#22d3ee] text-[#0a1628]" : "bg-[#1a3356]/50 text-[#8ba3c7] hover:text-white"
+                  }`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {error && (
@@ -535,7 +597,7 @@ function EmployeesContent() {
               ))}
               {filtered.length === 0 && (
                 <div className={cn(WS_CARD, "py-10 text-center text-[#8ba3c7] text-sm")}>
-                  لا توجد نتائج مطابقة للبحث
+                  {emptyMessage}
                 </div>
               )}
             </div>
@@ -545,15 +607,22 @@ function EmployeesContent() {
             <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[#1e3a5f]">
-                  {["الموظف", "القسم", "الدور", "الأداء", "المهام", "تاريخ الانضمام", "الحالة", ""].map((h) => (
-                    <th key={h} className="text-right text-[#8ba3c7] font-medium px-4 py-3">{h}</th>
-                  ))}
+                <tr className="border-b border-[#1e3a5f] bg-white/[0.02]">
+                  <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">الموظف</th>
+                  <th className="hidden xl:table-cell text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">البريد</th>
+                  <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">الوحدة التنظيمية</th>
+                  <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">الدور الوظيفي</th>
+                  <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">الحالة</th>
+                  <th className="hidden xl:table-cell text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">المهام</th>
+                  <th className="hidden xl:table-cell text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">الأداء</th>
+                  <th className="hidden 2xl:table-cell text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">تاريخ الانضمام</th>
+                  <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">الإجراءات</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((emp) => (
                   <tr key={emp.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
+                    {/* الموظف */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div
@@ -563,32 +632,28 @@ function EmployeesContent() {
                           {emp.name.slice(0, 2)}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-white font-medium">{emp.name}</div>
-                          <div className="text-xs text-[#8ba3c7]">{emp.email}</div>
+                          <div className="text-white font-medium truncate">{emp.name}</div>
+                          {/* Email shown here only when the dedicated البريد column is hidden */}
+                          <div className="xl:hidden text-xs text-[#8ba3c7] truncate" dir="ltr">{emp.email}</div>
                           <div className="mt-0.5">
                             <PublicCodeBadge code={emp.publicCode} />
                           </div>
                         </div>
                       </div>
                     </td>
+                    {/* البريد */}
+                    <td className="hidden xl:table-cell px-4 py-3">
+                      <span className="text-[#8ba3c7] text-xs truncate inline-block max-w-[200px] align-middle" dir="ltr">{emp.email}</span>
+                    </td>
+                    {/* الوحدة التنظيمية */}
                     <td className="px-4 py-3">
-                      <span className="badge text-xs" style={{ background: `${deptColorFor(emp.department)}20`, color: deptColorFor(emp.department) }}>
-                        {emp.department}
+                      <span className="badge text-xs max-w-[160px] truncate inline-block align-middle" style={{ background: `${deptColorFor(emp.department)}20`, color: deptColorFor(emp.department) }}>
+                        {emp.department || "—"}
                       </span>
                     </td>
+                    {/* الدور الوظيفي */}
                     <td className="px-4 py-3 text-[#8ba3c7] text-xs">{emp.jobTitle || getTenantRoleLabel(emp.role)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-0.5">
-                        {[1,2,3,4,5].map((s) => (
-                          <Star key={s} size={12} fill={s <= (emp.performance ?? 0) ? "#fbbf24" : "none"} className={s <= (emp.performance ?? 0) ? "text-amber-400" : "text-[#1e3a5f]"} />
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-white">{emp.completedTasks ?? 0}</span>
-                      <span className="text-[#8ba3c7]">/{emp.tasks ?? 0}</span>
-                    </td>
-                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{emp.joinDate}</td>
+                    {/* الحالة */}
                     <td className="px-4 py-3">
                       <div className="flex flex-col items-start gap-1">
                         <span className={`badge ${statusBadge(emp.status)}`}>
@@ -602,13 +667,29 @@ function EmployeesContent() {
                         )}
                       </div>
                     </td>
+                    {/* المهام */}
+                    <td className="hidden xl:table-cell px-4 py-3 whitespace-nowrap">
+                      <span className="text-white">{emp.completedTasks ?? 0}</span>
+                      <span className="text-[#8ba3c7]">/{emp.tasks ?? 0}</span>
+                    </td>
+                    {/* الأداء */}
+                    <td className="hidden xl:table-cell px-4 py-3">
+                      <div className="flex gap-0.5">
+                        {[1,2,3,4,5].map((s) => (
+                          <Star key={s} size={12} fill={s <= (emp.performance ?? 0) ? "#fbbf24" : "none"} className={s <= (emp.performance ?? 0) ? "text-amber-400" : "text-[#1e3a5f]"} />
+                        ))}
+                      </div>
+                    </td>
+                    {/* تاريخ الانضمام */}
+                    <td className="hidden 2xl:table-cell px-4 py-3 text-[#8ba3c7] text-xs whitespace-nowrap">{emp.joinDate}</td>
+                    {/* الإجراءات */}
                     <td className="px-4 py-3">
                       {canManageEmployees && (() => {
                         const broken = needsLinkEmployee(emp.id);
                         const rowDisabled = rowBusyId === emp.id || broken;
                         return (
                           <div className="flex items-center gap-2">
-                            <button onClick={() => openEdit(emp)} aria-label="تعديل الموظف" title={broken ? NEEDS_LINK_MSG : undefined} disabled={rowDisabled} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                            <button onClick={() => openEdit(emp)} aria-label="تعديل الموظف" title={broken ? NEEDS_LINK_MSG : "تعديل"} disabled={rowDisabled} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                               <Edit2 size={14} />
                             </button>
                             {isEmployeeActive(emp.status) ? (
@@ -631,7 +712,7 @@ function EmployeesContent() {
             </div>
             {filtered.length === 0 && (
               <div className="text-center py-12 text-[#8ba3c7]">
-                <p className="text-sm">لا توجد نتائج مطابقة للبحث</p>
+                <p className="text-sm">{emptyMessage}</p>
               </div>
             )}
           </div>
