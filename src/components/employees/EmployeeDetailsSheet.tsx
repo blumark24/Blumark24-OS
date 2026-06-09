@@ -79,13 +79,14 @@ export function EmployeeDetailsSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="glass-card w-full sm:max-w-md max-h-[88vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-5 space-y-4"
+        className="relative w-[min(360px,calc(100vw-48px))] max-[380px]:w-[calc(100vw-36px)] max-h-[72vh] max-[380px]:max-h-[76vh] sm:max-w-[420px] sm:max-h-[80vh] overflow-y-auto rounded-[26px] border border-[rgba(34,211,238,0.18)] bg-[linear-gradient(155deg,rgba(13,25,48,0.97),rgba(7,15,32,0.98))] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.7),0_0_28px_rgba(34,211,238,0.05)] backdrop-blur-[20px] p-4 space-y-3.5"
         onClick={(e) => e.stopPropagation()}
       >
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/25 to-transparent" />
         {/* Header */}
         <div className="flex items-start gap-3">
           <div

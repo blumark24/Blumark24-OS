@@ -6,9 +6,10 @@ import PageGuard from "@/components/ui/PageGuard";
 import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X, LayoutGrid, ChevronLeft, Search, Edit2, Trash2 } from "lucide-react";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { cn } from "@/lib/utils";
-import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
+import { WS_PAGE, WS_CARD } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
 import { MobileHeroCard } from "@/components/ui/MobileHeroCard";
+import { WorkspaceCenterModal } from "@/components/ui/WorkspaceCenterModal";
 import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import { useTasks, useClients, useEmployees } from "@/hooks/useData";
 import { usePermissions } from "@/contexts/PermissionsContext";
@@ -476,32 +477,33 @@ function TasksContent() {
         )}
       </div>
 
-      {/* Mobile task details sheet */}
+      {/* Task details — compact centered glass */}
       {detailsTask && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setDetailsId(null)}>
-          <div className="glass-card w-full sm:max-w-md max-h-[88vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm" onClick={() => setDetailsId(null)}>
+          <div className="relative w-[min(360px,calc(100vw-48px))] max-[380px]:w-[calc(100vw-36px)] max-h-[72vh] max-[380px]:max-h-[76vh] sm:max-w-[420px] sm:max-h-[80vh] overflow-y-auto rounded-[26px] border border-[rgba(34,211,238,0.18)] bg-[linear-gradient(155deg,rgba(13,25,48,0.97),rgba(7,15,32,0.98))] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.7),0_0_28px_rgba(34,211,238,0.05)] backdrop-blur-[20px] p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/25 to-transparent" />
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-white font-heading font-bold text-base leading-snug">{detailsTask.title}</h3>
+                <h3 className="text-white font-heading font-bold text-[15px] leading-snug">{detailsTask.title}</h3>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   <span className="badge text-[10px]" style={{ background: `${statusMeta(detailsTask.status).color}20`, color: statusMeta(detailsTask.status).color }}>{statusMeta(detailsTask.status).label}</span>
                   <span className={cn("badge text-[10px]", PRIORITY_CONFIG[detailsTask.priority].class)}>{PRIORITY_CONFIG[detailsTask.priority].label}</span>
                   <PublicCodeBadge code={detailsTask.publicCode} />
                 </div>
               </div>
-              <button onClick={() => setDetailsId(null)} className="text-[#8ba3c7] hover:text-white shrink-0" aria-label="إغلاق"><X size={20} /></button>
+              <button onClick={() => setDetailsId(null)} className="text-[#8ba3c7] hover:text-white shrink-0" aria-label="إغلاق"><X size={18} /></button>
             </div>
-            {detailsTask.description && <p className="text-[13px] text-[#8ba3c7] leading-relaxed">{detailsTask.description}</p>}
-            <div className="grid grid-cols-1 gap-2 text-[13px]">
-              <div className="flex items-center justify-between rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2.5">
+            {detailsTask.description && <p className="text-[12px] text-[#8ba3c7] leading-relaxed">{detailsTask.description}</p>}
+            <div className="grid grid-cols-1 gap-1.5 text-[13px]">
+              <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
                 <span className="text-[#8ba3c7] text-[11px]">المُكلَّف</span>
                 <span className="text-white font-medium truncate">{detailsTask.assigneeName || "—"}</span>
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2.5">
+              <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
                 <span className="text-[#8ba3c7] text-[11px]">العميل</span>
                 <span className="text-white font-medium truncate">{detailsTask.clientName || "—"}</span>
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2.5">
+              <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
                 <span className="text-[#8ba3c7] text-[11px]">الموعد النهائي</span>
                 <span className={cn("font-medium flex items-center gap-1", isOverdue(detailsTask.dueDate, detailsTask.status) ? "text-red-300" : "text-white")}>
                   {isOverdue(detailsTask.dueDate, detailsTask.status) && <AlertTriangle size={12} />}{detailsTask.dueDate}
@@ -509,11 +511,11 @@ function TasksContent() {
               </div>
             </div>
             {canManageTasks && (
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2 pt-0.5">
                 <button
                   type="button"
                   onClick={() => { const t = detailsTask; setDetailsId(null); openEdit(t); }}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2.5 text-xs text-[#8ba3c7] hover:text-cyan-300 transition-colors min-h-11"
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2 text-xs text-[#8ba3c7] hover:text-cyan-300 transition-colors min-h-10"
                 >
                   <Edit2 size={14} />
                   تعديل
@@ -521,7 +523,7 @@ function TasksContent() {
                 <button
                   type="button"
                   onClick={() => { const t = detailsTask; setDetailsId(null); handleDeleteTask(t.id, t.title); }}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 py-2.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-11"
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-10"
                 >
                   <Trash2 size={14} />
                   حذف
@@ -532,71 +534,66 @@ function TasksContent() {
         </div>
       )}
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm">
-          <div className="flex min-h-[100dvh] items-end justify-center p-2 sm:items-center sm:p-4">
-            <div className={cn(WS_GLASS_MODAL, "max-w-2xl rounded-t-2xl sm:rounded-2xl pb-[max(env(safe-area-inset-bottom),1rem)] shadow-[0_30px_80px_-45px_rgba(34,211,238,0.55)]")}>
-              <div className="mb-5 flex items-center justify-between">
-                <h3 className="text-lg font-heading font-bold text-white">{editTask ? "تعديل المهمة" : "إضافة مهمة جديدة"}</h3>
-                <button onClick={() => { setShowModal(false); resetForm(); }} className="rounded-md p-1 text-[#8ba3c7] transition-colors hover:text-white">
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="space-y-4">
+      {/* Add / edit task — centered glass */}
+      <WorkspaceCenterModal
+        open={showModal}
+        onClose={() => { setShowModal(false); resetForm(); }}
+        title={editTask ? "تعديل المهمة" : "إضافة مهمة جديدة"}
+        footer={
+          <div className="flex flex-col-reverse gap-3 sm:flex-row">
+            <button onClick={() => { setShowModal(false); resetForm(); }} disabled={saving} className="btn-secondary min-h-11 flex-1">إلغاء</button>
+            <button onClick={handleSave} disabled={saving} className="btn-primary min-h-11 flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
+              {saving && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
+              {saving ? "جارٍ الحفظ..." : editTask ? "حفظ التعديلات" : "إضافة المهمة"}
+            </button>
+          </div>
+        }
+      >
+              <div className="space-y-3">
                 <div>
-                  <label className="mb-1.5 block text-xs text-[#8ba3c7]">عنوان المهمة</label>
-                  <input className="input-dark min-h-11 text-sm" placeholder="أدخل عنوان المهمة" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                  <label className="mb-1 block text-xs text-[#8ba3c7]">عنوان المهمة</label>
+                  <input className="input-dark min-h-10 text-sm" placeholder="أدخل عنوان المهمة" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs text-[#8ba3c7]">الوصف</label>
-                  <textarea className="input-dark min-h-24 resize-none text-sm" rows={3} placeholder="وصف تفصيلي للمهمة" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                  <label className="mb-1 block text-xs text-[#8ba3c7]">الوصف</label>
+                  <textarea className="input-dark min-h-16 resize-none text-sm" rows={2} placeholder="وصف تفصيلي للمهمة" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1.5 block text-xs text-[#8ba3c7]">الأولوية</label>
-                    <select className="input-dark min-h-11 text-sm" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as TaskPriority })}>
+                    <label className="mb-1 block text-xs text-[#8ba3c7]">الأولوية</label>
+                    <select className="input-dark min-h-10 text-sm" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as TaskPriority })}>
                       <option value="عاجلة">عاجلة</option><option value="عالية">عالية</option><option value="متوسطة">متوسطة</option><option value="منخفضة">منخفضة</option>
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs text-[#8ba3c7]">الحالة</label>
-                    <select className="input-dark min-h-11 text-sm" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TaskStatus })}>
+                    <label className="mb-1 block text-xs text-[#8ba3c7]">الحالة</label>
+                    <select className="input-dark min-h-10 text-sm" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TaskStatus })}>
                       {STATUS_COLUMNS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1.5 block text-xs text-[#8ba3c7]">المُكلَّف</label>
+                    <label className="mb-1 block text-xs text-[#8ba3c7]">المُكلَّف</label>
                     <select className="input-dark min-h-11 text-sm" value={form.assigneeId} onChange={(e) => { const emp = employees.find((x) => x.id === e.target.value); setForm({ ...form, assigneeId: e.target.value, assigneeName: emp?.name ?? "" }); }}>
                       <option value="">— اختر موظفاً —</option>
                       {employees.filter((e) => e.status === "نشط").map((e) => <option key={e.id} value={e.id}>{e.name} ({e.department})</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs text-[#8ba3c7]">الموعد النهائي</label>
-                    <input className="input-dark min-h-11 text-sm" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+                    <label className="mb-1 block text-xs text-[#8ba3c7]">الموعد النهائي</label>
+                    <input className="input-dark min-h-10 text-sm" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs text-[#8ba3c7]">العميل (اختياري)</label>
-                  <select className="input-dark min-h-11 text-sm" value={form.clientId} onChange={(e) => { const cl = clients.find((x) => x.id === e.target.value); setForm({ ...form, clientId: e.target.value, clientName: cl?.name ?? "" }); }}>
+                  <label className="mb-1 block text-xs text-[#8ba3c7]">العميل (اختياري)</label>
+                  <select className="input-dark min-h-10 text-sm" value={form.clientId} onChange={(e) => { const cl = clients.find((x) => x.id === e.target.value); setForm({ ...form, clientId: e.target.value, clientName: cl?.name ?? "" }); }}>
                     <option value="">— بدون عميل —</option>
                     {clients.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.status})</option>)}
                   </select>
                 </div>
               </div>
-              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">
-                <button onClick={() => { setShowModal(false); resetForm(); }} disabled={saving} className="btn-secondary min-h-11 flex-1">إلغاء</button>
-                <button onClick={handleSave} disabled={saving} className="btn-primary min-h-11 flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
-                  {saving && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
-                  {saving ? "جارٍ الحفظ..." : editTask ? "حفظ التعديلات" : "إضافة المهمة"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      </WorkspaceCenterModal>
     </DashboardLayout>
   );
 }

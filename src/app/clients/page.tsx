@@ -14,6 +14,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recha
 import { WS_PAGE, WS_CARD } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty, GlassPanel } from "@/components/ui/workspaceUi";
 import { MobileHeroCard } from "@/components/ui/MobileHeroCard";
+import { WorkspaceCenterModal } from "@/components/ui/WorkspaceCenterModal";
 import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; class: string; color: string }> = {
@@ -430,52 +431,50 @@ function ClientsContent() {
         )}
       </div>
 
-      {/* Mobile client details sheet */}
+      {/* Client details — compact centered glass */}
       {detailsClient && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setDetailsId(null)}>
-          <div className="glass-card w-full sm:max-w-md max-h-[88vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm" onClick={() => setDetailsId(null)}>
+          <div className="relative w-[min(360px,calc(100vw-48px))] max-[380px]:w-[calc(100vw-36px)] max-h-[72vh] max-[380px]:max-h-[76vh] sm:max-w-[420px] sm:max-h-[80vh] overflow-y-auto rounded-[26px] border border-[rgba(34,211,238,0.18)] bg-[linear-gradient(155deg,rgba(13,25,48,0.97),rgba(7,15,32,0.98))] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.7),0_0_28px_rgba(34,211,238,0.05)] backdrop-blur-[20px] p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/25 to-transparent" />
             <div className="flex items-start gap-3">
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-base font-bold text-white flex-shrink-0 ring-1 ring-white/10"
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ring-1 ring-white/10"
                 style={{ background: `linear-gradient(135deg,${STATUS_CONFIG[detailsClient.status].color},#0a1628)` }}
               >
                 {detailsClient.name.slice(0, 2)}
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-white font-heading font-bold text-base truncate">{detailsClient.name}</h3>
+                <h3 className="text-white font-heading font-bold text-[15px] truncate">{detailsClient.name}</h3>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   <span className={cn("badge text-[10px]", STATUS_CONFIG[detailsClient.status].class)}>{STATUS_CONFIG[detailsClient.status].label}</span>
+                  <span className="badge text-[10px]" style={{ background: `${PKG_CONFIG[detailsClient.packageType].color}20`, color: PKG_CONFIG[detailsClient.packageType].color }}>{PKG_CONFIG[detailsClient.packageType].label}</span>
                   <PublicCodeBadge code={detailsClient.publicCode} />
                 </div>
               </div>
-              <button onClick={() => setDetailsId(null)} className="text-[#8ba3c7] hover:text-white shrink-0" aria-label="إغلاق"><X size={20} /></button>
+              <button onClick={() => setDetailsId(null)} className="text-[#8ba3c7] hover:text-white shrink-0" aria-label="إغلاق"><X size={18} /></button>
             </div>
 
-            <div className="grid grid-cols-1 gap-2 text-[13px]">
-              <div className="flex items-center justify-between rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2.5">
+            <div className="grid grid-cols-1 gap-1.5 text-[13px]">
+              <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
                 <span className="text-[#8ba3c7] text-[11px] flex items-center gap-1.5"><Phone size={12} />الهاتف</span>
                 <span className="text-white font-medium truncate" dir="ltr">{detailsClient.phone || "—"}</span>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex items-center justify-between rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2.5">
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
                   <span className="text-[#8ba3c7] text-[11px]">المدينة</span>
                   <span className="text-white font-medium truncate">{detailsClient.city || "—"}</span>
                 </div>
-                <div className="flex items-center justify-between rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2.5">
-                  <span className="text-[#8ba3c7] text-[11px]">الحزمة</span>
-                  <span className="font-medium truncate" style={{ color: PKG_CONFIG[detailsClient.packageType].color }}>{PKG_CONFIG[detailsClient.packageType].label}</span>
+                <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
+                  <span className="text-[#8ba3c7] text-[11px]">النشاط</span>
+                  <span className="text-white font-medium truncate">{detailsClient.businessType || "—"}</span>
                 </div>
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2.5">
-                <span className="text-[#8ba3c7] text-[11px]">نوع النشاط</span>
-                <span className="text-white font-medium truncate">{detailsClient.businessType || "—"}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2.5">
+              <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
                 <span className="text-[#8ba3c7] text-[11px]">قيمة العقد</span>
                 <span className="text-white font-medium truncate">{formatCurrency(detailsClient.contractValue)} SAR</span>
               </div>
               {detailsClient.accountManagerName && (
-                <div className="flex items-center justify-between rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2.5">
+                <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
                   <span className="text-[#8ba3c7] text-[11px]">مدير الحساب</span>
                   <span className="text-white font-medium truncate">{detailsClient.accountManagerName}</span>
                 </div>
@@ -483,11 +482,11 @@ function ClientsContent() {
             </div>
 
             {canManageClients && (
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2 pt-0.5">
                 <button
                   type="button"
                   onClick={() => { const c = detailsClient; setDetailsId(null); openEdit(c); }}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2.5 text-xs text-[#8ba3c7] hover:text-cyan-300 transition-colors min-h-11"
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2 text-xs text-[#8ba3c7] hover:text-cyan-300 transition-colors min-h-10"
                 >
                   <Edit2 size={14} />
                   تعديل
@@ -495,7 +494,7 @@ function ClientsContent() {
                 <button
                   type="button"
                   onClick={() => { const c = detailsClient; setDetailsId(null); handleDelete(c.id); }}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 py-2.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-11"
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-10"
                 >
                   <Trash2 size={14} />
                   حذف
@@ -506,40 +505,47 @@ function ClientsContent() {
         </div>
       )}
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
-          <div className={cn(WS_CARD, "w-full max-w-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto")}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white font-heading font-bold text-lg">{editId ? "تعديل عميل" : "عميل جديد"}</h3>
-              <button onClick={() => setShowModal(false)} className="text-[#8ba3c7] hover:text-white"><X size={20} /></button>
-            </div>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+      {/* Add / edit client — centered glass */}
+      <WorkspaceCenterModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={editId ? "تعديل عميل" : "عميل جديد"}
+        footer={
+          <div className="flex gap-3">
+            <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
+              {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              {saving ? "جارٍ الحفظ..." : editId ? "حفظ" : "إضافة"}
+            </button>
+            <button onClick={() => setShowModal(false)} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
+          </div>
+        }
+      >
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">اسم العميل</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">اسم العميل</label>
                   <input className="input-dark text-sm" placeholder="اسم الشركة أو العميل" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">رقم الهاتف</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">رقم الهاتف</label>
                   <input className="input-dark text-sm" placeholder="05XXXXXXXX" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">نوع النشاط</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">نوع النشاط</label>
                   <input className="input-dark text-sm" placeholder="مطعم، تقنية، ..." value={form.businessType} onChange={(e) => setForm({ ...form, businessType: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">المدينة</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">المدينة</label>
                   <select className="input-dark text-sm" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}>
                     {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">نوع الحزمة</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">نوع الحزمة</label>
                   <select className="input-dark text-sm" value={form.packageType} onChange={(e) => setForm({ ...form, packageType: e.target.value as PackageType })}>
                     <option value="صغيرة">صغيرة</option>
                     <option value="متوسطة">متوسطة</option>
@@ -547,37 +553,28 @@ function ClientsContent() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">قيمة العقد (SAR)</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">قيمة العقد (SAR)</label>
                   <input className="input-dark text-sm" type="number" placeholder="0" value={form.contractValue} onChange={(e) => setForm({ ...form, contractValue: e.target.value })} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الحالة</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">الحالة</label>
                   <select className="input-dark text-sm" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ClientStatus })}>
                     {STATUSES.map((s) => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">مدير الحساب</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">مدير الحساب</label>
                   <input className="input-dark text-sm" placeholder="اسم المسؤول" value={form.accountManagerName} onChange={(e) => setForm({ ...form, accountManagerName: e.target.value })} />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-[#8ba3c7] mb-1.5">ملاحظات</label>
-                <textarea className="input-dark text-sm resize-none" rows={3} placeholder="ملاحظات إضافية..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                <label className="block text-xs text-[#8ba3c7] mb-1">ملاحظات</label>
+                <textarea className="input-dark text-sm resize-none" rows={2} placeholder="ملاحظات إضافية..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
-                {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                {saving ? "جارٍ الحفظ..." : editId ? "حفظ" : "إضافة"}
-              </button>
-              <button onClick={() => setShowModal(false)} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
-            </div>
-          </div>
-        </div>
-      )}
+      </WorkspaceCenterModal>
     </DashboardLayout>
   );
 }

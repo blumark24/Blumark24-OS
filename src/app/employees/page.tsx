@@ -12,8 +12,9 @@ import {
 } from "@/lib/org/orgUnits";
 import { assignEmployeeToOrgUnit } from "@/lib/org/structureDb";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
-import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
+import { WS_PAGE, WS_CARD } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
+import { WorkspaceCenterModal } from "@/components/ui/WorkspaceCenterModal";
 import { EmployeeMobileCard } from "@/components/employees/EmployeeMobileCard";
 import { EmployeeListRow } from "@/components/employees/EmployeeListRow";
 import { EmployeeDetailsSheet } from "@/components/employees/EmployeeDetailsSheet";
@@ -814,20 +815,22 @@ function EmployeesContent() {
         );
       })()}
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className={cn(WS_GLASS_MODAL, "max-w-lg")}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white font-heading font-bold text-lg">
-                {editId ? "تعديل بيانات الموظف" : "إضافة موظف جديد"}
-              </h3>
-              <button onClick={closeModal} className="text-[#8ba3c7] hover:text-white">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-4">
+      {/* Add / edit modal — centered glass */}
+      <WorkspaceCenterModal
+        open={showModal}
+        onClose={closeModal}
+        title={editId ? "تعديل بيانات الموظف" : "إضافة موظف جديد"}
+        footer={
+          <div className="flex gap-3">
+            <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
+              {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              {saving ? "جارٍ الحفظ..." : editId ? "حفظ التعديلات" : "إضافة الموظف"}
+            </button>
+            <button onClick={closeModal} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
+          </div>
+        }
+      >
+            <div className="space-y-3">
               {editId && (
                 <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2">
                   <span className="text-[11px] text-[#8ba3c7]">حالة الحساب</span>
@@ -841,14 +844,14 @@ function EmployeesContent() {
                   )}
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الاسم الكامل *</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">الاسم الكامل *</label>
                   <input className="input-dark text-sm" placeholder="الاسم" value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">البريد الإلكتروني *</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">البريد الإلكتروني *</label>
                   <input
                     className="input-dark text-sm"
                     type="email"
@@ -868,7 +871,7 @@ function EmployeesContent() {
 
               {!editId && (
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">كلمة المرور *</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">كلمة المرور *</label>
                   <div className="relative">
                     <input
                       className="input-dark text-sm pl-10"
@@ -889,22 +892,22 @@ function EmployeesContent() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">رقم الهاتف</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">رقم الهاتف</label>
                   <input className="input-dark text-sm" placeholder="05XXXXXXXX" value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الراتب (SAR)</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">الراتب (SAR)</label>
                   <input className="input-dark text-sm" type="number" placeholder="0" value={form.salary}
                     onChange={(e) => setForm({ ...form, salary: e.target.value })} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الوحدة التنظيمية (اختياري)</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">الوحدة التنظيمية (اختياري)</label>
                   {orgLoading ? (
                     <div className="input-dark text-sm text-[#8ba3c7] px-3 py-2.5 rounded-xl">
                       جارٍ تحميل وحدات الهيكل...
@@ -952,7 +955,7 @@ function EmployeesContent() {
               </div>
 
               <div>
-                <label className="block text-xs text-[#8ba3c7] mb-1.5">الحالة</label>
+                <label className="block text-xs text-[#8ba3c7] mb-1">الحالة</label>
                 <select className="input-dark text-sm" value={form.status}
                   onChange={(e) => setForm({ ...form, status: e.target.value as "نشط" | "غير_نشط" })}>
                   <option value="نشط">نشط</option>
@@ -966,17 +969,7 @@ function EmployeesContent() {
                 {formError}
               </div>
             )}
-
-            <div className="flex gap-3 mt-6">
-              <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
-                {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                {saving ? "جارٍ الحفظ..." : editId ? "حفظ التعديلات" : "إضافة الموظف"}
-              </button>
-              <button onClick={closeModal} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
-            </div>
-          </div>
-        </div>
-      )}
+      </WorkspaceCenterModal>
     </DashboardLayout>
   );
 }
