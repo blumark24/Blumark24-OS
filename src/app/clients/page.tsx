@@ -4,7 +4,7 @@ import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import { CITIES, formatCurrency, cn } from "@/lib/utils";
-import { UserCircle, Plus, Search, Phone, MapPin, Package, Edit2, Trash2, X } from "lucide-react";
+import { UserCircle, Plus, Search, Phone, MapPin, Package, Edit2, Trash2, X, Building2, ChevronLeft, List, LayoutGrid } from "lucide-react";
 import type { ClientStatus, PackageType } from "@/types";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +13,8 @@ import { useToast } from "@/contexts/ToastContext";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { WS_PAGE, WS_CARD } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty, GlassPanel } from "@/components/ui/workspaceUi";
+import { MobileHeroCard } from "@/components/ui/MobileHeroCard";
+import { WorkspaceCenterModal } from "@/components/ui/WorkspaceCenterModal";
 import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; class: string; color: string }> = {
@@ -39,6 +41,9 @@ function ClientsContent() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "الكل">("الكل");
   const [cityFilter, setCityFilter] = useState("الكل");
+  // Mobile-only (< lg) directory display mode — desktop table is untouched.
+  const [mobileView, setMobileView] = useState<"list" | "cards">("list");
+  const [detailsId, setDetailsId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editId,   setEditId]   = useState<string | null>(null);
   const [saving,   setSaving]   = useState(false);
@@ -69,6 +74,7 @@ function ClientsContent() {
   const PKG_COLORS = ["#22d3ee", "#a855f7", "#ff7a3d"];
 
   const totalRevenue = clients.filter((c) => c.status === "نشط").reduce((s, c) => s + c.contractValue, 0);
+  const detailsClient = detailsId ? clients.find((c) => c.id === detailsId) ?? null : null;
 
   const openAdd = () => {
     setEditId(null);
@@ -127,16 +133,36 @@ function ClientsContent() {
   return (
     <DashboardLayout>
       <div className={WS_PAGE}>
-        <PageHero title="إدارة العملاء (CRM)" subtitle="إدارة علاقات العملاء والعقود">
-          {canManageClients && (
-            <button onClick={openAdd} className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto min-h-11 touch-manipulation">
-              <Plus size={16} />
-              عميل جديد
-            </button>
-          )}
-        </PageHero>
+        {/* Mobile premium hero (< sm) — matches Employees reference */}
+        <MobileHeroCard
+          icon={Building2}
+          title="إدارة العملاء (CRM)"
+          subtitle="إدارة علاقات العملاء والعقود"
+          metrics={[
+            { label: "إجمالي العملاء", value: clients.length, accent: "white" },
+            { label: "النشطون", value: clients.filter((c) => c.status === "نشط").length, accent: "emerald" },
+            { label: "المحتملون", value: clients.filter((c) => c.status === "محتمل").length, accent: "amber" },
+            { label: "العقود", value: formatCurrency(totalRevenue), accent: "sky" },
+          ]}
+          ctaLabel="عميل جديد"
+          onCta={openAdd}
+          showCta={canManageClients}
+        />
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-4 min-w-0">
+        {/* Desktop/tablet hero (sm+) — unchanged */}
+        <div className="hidden sm:block">
+          <PageHero title="إدارة العملاء (CRM)" subtitle="إدارة علاقات العملاء والعقود">
+            {canManageClients && (
+              <button onClick={openAdd} className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto min-h-11 touch-manipulation">
+                <Plus size={16} />
+                عميل جديد
+              </button>
+            )}
+          </PageHero>
+        </div>
+
+        {/* Desktop/tablet KPIs + analytics (sm+) — no bulky KPI/charts on mobile */}
+        <div className="hidden sm:grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-4 min-w-0">
           <div className="lg:col-span-2 grid grid-cols-2 gap-3 sm:gap-4">
             <KpiStatCard label="إجمالي العملاء" value={String(clients.length)} icon={UserCircle} accent="cyan" showLive={false} showSparkline={false} />
             <KpiStatCard label="العملاء النشطون" value={String(clients.filter((c) => c.status === "نشط").length)} icon={UserCircle} accent="emerald" showLive={false} showSparkline={false} />
@@ -224,11 +250,68 @@ function ClientsContent() {
           <WorkspaceEmpty icon={UserCircle} title="لا يوجد عملاء مطابقون للبحث" subtitle="جرّب تغيير معايير البحث أو الفلاتر" accent="cyan" />
         )}
 
-        {/* Mobile cards (<lg). Same data + same handlers as the desktop table —
-            no business-logic change, just a layout that fits a 375 px viewport
-            without horizontal body scroll. */}
+        {/* Mobile directory (<lg). Smart list (default) ↔ cards toggle. Same data +
+            same handlers as the desktop table — presentation only. */}
         {!loading && filtered.length > 0 && (
           <div className="lg:hidden space-y-3">
+            {/* View toggle — قائمة ذكية / بطاقات */}
+            <div className="flex items-center gap-1 rounded-xl bg-[#0d1f3c]/60 border border-[#1e3a5f] p-1 w-fit">
+              <button
+                onClick={() => setMobileView("list")}
+                aria-pressed={mobileView === "list"}
+                className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all min-h-9", mobileView === "list" ? "bg-[#22d3ee] text-[#0a1628]" : "text-[#8ba3c7] hover:text-white hover:bg-white/[0.04]")}
+              >
+                <List size={14} />
+                قائمة ذكية
+              </button>
+              <button
+                onClick={() => setMobileView("cards")}
+                aria-pressed={mobileView === "cards"}
+                className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all min-h-9", mobileView === "cards" ? "bg-[#22d3ee] text-[#0a1628]" : "text-[#8ba3c7] hover:text-white hover:bg-white/[0.04]")}
+              >
+                <LayoutGrid size={14} />
+                بطاقات
+              </button>
+            </div>
+
+            {mobileView === "list" ? (
+              <div className="space-y-2">
+                {filtered.map((client) => (
+                  <button
+                    key={client.id}
+                    type="button"
+                    onClick={() => setDetailsId(client.id)}
+                    className="group w-full flex items-center gap-3 rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.55)] px-3 py-2.5 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-[6px] transition-all hover:border-cyan-400/25 hover:bg-[rgba(11,26,52,0.7)] active:scale-[0.99] min-h-14"
+                  >
+                    <div
+                      className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ring-1 ring-white/10"
+                      style={{ background: `linear-gradient(135deg,${STATUS_CONFIG[client.status].color},#0a1628)` }}
+                    >
+                      {client.name.slice(0, 2)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-white font-semibold text-[13px] truncate flex-1">{client.name}</span>
+                        <span className={cn("badge text-[9px] shrink-0", STATUS_CONFIG[client.status].class)}>{STATUS_CONFIG[client.status].label}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-[#8ba3c7] min-w-0">
+                        <span className="shrink-0" style={{ color: PKG_CONFIG[client.packageType].color }}>{PKG_CONFIG[client.packageType].label}</span>
+                        <span className="text-[#1e3a5f] shrink-0">·</span>
+                        <span className="truncate text-white/90 font-medium">{formatCurrency(client.contractValue)} SAR</span>
+                        {client.publicCode && (
+                          <>
+                            <span className="text-[#1e3a5f] shrink-0">·</span>
+                            <span className="font-mono text-[10px] text-[#6b87ab] shrink-0" dir="ltr">{client.publicCode}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronLeft size={16} className="text-[#8ba3c7] group-hover:text-cyan-300 transition-colors shrink-0" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+            <div className="space-y-3">
             {filtered.map((client) => (
               <div key={client.id} className={cn(WS_CARD, "p-4")}>
                 <div className="flex items-start justify-between gap-3 mb-2">
@@ -278,6 +361,8 @@ function ClientsContent() {
                 )}
               </div>
             ))}
+            </div>
+            )}
           </div>
         )}
 
@@ -346,40 +431,121 @@ function ClientsContent() {
         )}
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
-          <div className={cn(WS_CARD, "w-full max-w-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto")}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white font-heading font-bold text-lg">{editId ? "تعديل عميل" : "عميل جديد"}</h3>
-              <button onClick={() => setShowModal(false)} className="text-[#8ba3c7] hover:text-white"><X size={20} /></button>
+      {/* Client details — compact centered glass */}
+      {detailsClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm" onClick={() => setDetailsId(null)}>
+          <div className="relative w-[min(360px,calc(100vw-48px))] max-[380px]:w-[calc(100vw-36px)] max-h-[72vh] max-[380px]:max-h-[76vh] sm:max-w-[420px] sm:max-h-[80vh] overflow-y-auto rounded-[26px] border border-[rgba(34,211,238,0.18)] bg-[linear-gradient(155deg,rgba(13,25,48,0.97),rgba(7,15,32,0.98))] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.7),0_0_28px_rgba(34,211,238,0.05)] backdrop-blur-[20px] p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/25 to-transparent" />
+            <div className="flex items-start gap-3">
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ring-1 ring-white/10"
+                style={{ background: `linear-gradient(135deg,${STATUS_CONFIG[detailsClient.status].color},#0a1628)` }}
+              >
+                {detailsClient.name.slice(0, 2)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-white font-heading font-bold text-[15px] truncate">{detailsClient.name}</h3>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className={cn("badge text-[10px]", STATUS_CONFIG[detailsClient.status].class)}>{STATUS_CONFIG[detailsClient.status].label}</span>
+                  <span className="badge text-[10px]" style={{ background: `${PKG_CONFIG[detailsClient.packageType].color}20`, color: PKG_CONFIG[detailsClient.packageType].color }}>{PKG_CONFIG[detailsClient.packageType].label}</span>
+                  <PublicCodeBadge code={detailsClient.publicCode} />
+                </div>
+              </div>
+              <button onClick={() => setDetailsId(null)} className="text-[#8ba3c7] hover:text-white shrink-0" aria-label="إغلاق"><X size={18} /></button>
             </div>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-1 gap-1.5 text-[13px]">
+              <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
+                <span className="text-[#8ba3c7] text-[11px] flex items-center gap-1.5"><Phone size={12} />الهاتف</span>
+                <span className="text-white font-medium truncate" dir="ltr">{detailsClient.phone || "—"}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
+                  <span className="text-[#8ba3c7] text-[11px]">المدينة</span>
+                  <span className="text-white font-medium truncate">{detailsClient.city || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
+                  <span className="text-[#8ba3c7] text-[11px]">النشاط</span>
+                  <span className="text-white font-medium truncate">{detailsClient.businessType || "—"}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
+                <span className="text-[#8ba3c7] text-[11px]">قيمة العقد</span>
+                <span className="text-white font-medium truncate">{formatCurrency(detailsClient.contractValue)} SAR</span>
+              </div>
+              {detailsClient.accountManagerName && (
+                <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
+                  <span className="text-[#8ba3c7] text-[11px]">مدير الحساب</span>
+                  <span className="text-white font-medium truncate">{detailsClient.accountManagerName}</span>
+                </div>
+              )}
+            </div>
+
+            {canManageClients && (
+              <div className="flex gap-2 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => { const c = detailsClient; setDetailsId(null); openEdit(c); }}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2 text-xs text-[#8ba3c7] hover:text-cyan-300 transition-colors min-h-10"
+                >
+                  <Edit2 size={14} />
+                  تعديل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { const c = detailsClient; setDetailsId(null); handleDelete(c.id); }}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-10"
+                >
+                  <Trash2 size={14} />
+                  حذف
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Add / edit client — centered glass */}
+      <WorkspaceCenterModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={editId ? "تعديل عميل" : "عميل جديد"}
+        footer={
+          <div className="flex gap-3">
+            <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
+              {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              {saving ? "جارٍ الحفظ..." : editId ? "حفظ" : "إضافة"}
+            </button>
+            <button onClick={() => setShowModal(false)} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
+          </div>
+        }
+      >
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">اسم العميل</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">اسم العميل</label>
                   <input className="input-dark text-sm" placeholder="اسم الشركة أو العميل" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">رقم الهاتف</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">رقم الهاتف</label>
                   <input className="input-dark text-sm" placeholder="05XXXXXXXX" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">نوع النشاط</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">نوع النشاط</label>
                   <input className="input-dark text-sm" placeholder="مطعم، تقنية، ..." value={form.businessType} onChange={(e) => setForm({ ...form, businessType: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">المدينة</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">المدينة</label>
                   <select className="input-dark text-sm" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}>
                     {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">نوع الحزمة</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">نوع الحزمة</label>
                   <select className="input-dark text-sm" value={form.packageType} onChange={(e) => setForm({ ...form, packageType: e.target.value as PackageType })}>
                     <option value="صغيرة">صغيرة</option>
                     <option value="متوسطة">متوسطة</option>
@@ -387,37 +553,28 @@ function ClientsContent() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">قيمة العقد (SAR)</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">قيمة العقد (SAR)</label>
                   <input className="input-dark text-sm" type="number" placeholder="0" value={form.contractValue} onChange={(e) => setForm({ ...form, contractValue: e.target.value })} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الحالة</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">الحالة</label>
                   <select className="input-dark text-sm" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ClientStatus })}>
                     {STATUSES.map((s) => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">مدير الحساب</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">مدير الحساب</label>
                   <input className="input-dark text-sm" placeholder="اسم المسؤول" value={form.accountManagerName} onChange={(e) => setForm({ ...form, accountManagerName: e.target.value })} />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-[#8ba3c7] mb-1.5">ملاحظات</label>
-                <textarea className="input-dark text-sm resize-none" rows={3} placeholder="ملاحظات إضافية..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                <label className="block text-xs text-[#8ba3c7] mb-1">ملاحظات</label>
+                <textarea className="input-dark text-sm resize-none" rows={2} placeholder="ملاحظات إضافية..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
-                {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                {saving ? "جارٍ الحفظ..." : editId ? "حفظ" : "إضافة"}
-              </button>
-              <button onClick={() => setShowModal(false)} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
-            </div>
-          </div>
-        </div>
-      )}
+      </WorkspaceCenterModal>
     </DashboardLayout>
   );
 }

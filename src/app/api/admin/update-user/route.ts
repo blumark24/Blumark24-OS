@@ -68,17 +68,26 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
-  const { userId, role, department, isActive, name } = body as {
+  const { userId, role, department, isActive, name, jobTitle, phone, salary } = body as {
     userId: string;
     role?: string;
     department?: string;
     isActive?: boolean;
     name?: string;
+    jobTitle?: string;
+    phone?: string | null;
+    salary?: number | null;
   };
 
   const cleanDept     = typeof department === "string" ? department.slice(0, 100) : undefined;
   const cleanIsActive = typeof isActive === "boolean" ? isActive : undefined;
   const cleanName     = typeof name === "string" ? name.trim().slice(0, 100) : undefined;
+  // Organizational job-title tier (display label only; employees table only).
+  const cleanJobTitle = typeof jobTitle === "string" ? jobTitle.slice(0, 60) : undefined;
+  // Contact/compensation fields live on the employees record only (not profiles).
+  // `null` is an explicit clear; `undefined` means "leave unchanged".
+  const cleanPhone    = typeof phone === "string" ? phone.slice(0, 20) : phone === null ? null : undefined;
+  const cleanSalary   = typeof salary === "number" && salary >= 0 ? salary : salary === null ? null : undefined;
   let cleanRole = typeof role === "string" ? role : undefined;
 
   const targetCheck = await assertTargetUserInCallerOrg(admin, userId, provisioner);
@@ -94,7 +103,15 @@ export async function PATCH(req: NextRequest) {
     cleanRole = roleCheck;
   }
 
-  if (!cleanRole && !cleanDept && cleanIsActive === undefined && !cleanName) {
+  if (
+    !cleanRole &&
+    !cleanDept &&
+    cleanIsActive === undefined &&
+    !cleanName &&
+    cleanJobTitle === undefined &&
+    cleanPhone === undefined &&
+    cleanSalary === undefined
+  ) {
     return fail(400, "لا توجد حقول للتحديث", "step=validate: no updatable fields");
   }
 
@@ -106,7 +123,11 @@ export async function PATCH(req: NextRequest) {
   if (cleanName     !== undefined) profileUpdate.name       = cleanName;
 
   console.log(`${TAG} step=updateProfile | userId=${userId} fields=${JSON.stringify(profileUpdate)}`);
-  const { error: profileError } = await admin.from("profiles").update(profileUpdate).eq("id", userId);
+  let profileUpdateQuery = admin.from("profiles").update(profileUpdate).eq("id", userId);
+  if (targetCheck.targetOrgId) {
+    profileUpdateQuery = profileUpdateQuery.eq("organization_id", targetCheck.targetOrgId);
+  }
+  const { error: profileError } = await profileUpdateQuery;
   if (profileError) {
     return fail(500,
       `فشل تحديث الملف الشخصي: ${profileError.message}`,
@@ -127,12 +148,19 @@ export async function PATCH(req: NextRequest) {
   if (cleanName     !== undefined) employeeSync.name       = cleanName;
   if (cleanRole     !== undefined) employeeSync.role       = cleanRole;
   if (cleanDept     !== undefined) employeeSync.department = cleanDept;
+  if (cleanJobTitle !== undefined) employeeSync.job_title  = cleanJobTitle;
+  if (cleanPhone    !== undefined) employeeSync.phone      = cleanPhone;
+  if (cleanSalary   !== undefined) employeeSync.salary     = cleanSalary;
   if (cleanIsActive !== undefined) employeeSync.status     = cleanIsActive ? "نشط" : "غير_نشط";
   if (Object.keys(employeeSync).length > 0) {
-    const { error: empError } = await admin
+    let employeeUpdateQuery = admin
       .from("employees")
       .update(employeeSync)
       .eq("id", userId);
+    if (targetCheck.targetOrgId) {
+      employeeUpdateQuery = employeeUpdateQuery.eq("organization_id", targetCheck.targetOrgId);
+    }
+    const { error: empError } = await employeeUpdateQuery;
     if (empError) {
       console.warn(`${TAG} employees sync skipped (non-fatal): ${empError.message}`);
     } else {

@@ -169,6 +169,7 @@ export async function createAuthUser(data: {
   phone?: string | null;
   salary?: number | null;
   status?: string;
+  jobTitle?: string | null;
 }): Promise<{ id: string }> {
   const result = await adminInvoke("create", data as Record<string, unknown>);
   return result as { id: string };
@@ -183,6 +184,9 @@ export async function updateAuthUser(userId: string, data: {
   department?: string;
   isActive?: boolean;
   name?: string;
+  jobTitle?: string | null;
+  phone?: string | null;
+  salary?: number | null;
 }): Promise<void> {
   await adminInvoke("update", { userId, ...data });
 }
@@ -315,6 +319,17 @@ export async function getTenantWorkspaceSettings(
   return data as TenantWorkspaceSettings;
 }
 
+export async function getOrganizationName(organizationId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("name")
+    .eq("id", organizationId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const raw = typeof data?.name === "string" ? data.name.trim() : "";
+  return raw || null;
+}
+
 export async function upsertTenantWorkspaceSettings(
   organizationId: string,
   patch: Partial<TenantWorkspaceSettings>,
@@ -429,14 +444,20 @@ export async function getAllProfiles(): Promise<DBProfile[]> {
 }
 
 export async function updateProfileRole(userId: string, role: string): Promise<void> {
-  const { error } = await supabase.from("profiles").update({ role }).eq("id", userId);
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) throw new Error("تعذر تحديد المنشأة أو صلاحيات الوصول.");
+  const { error } = await supabase
+    .from("profiles")
+    .update({ role })
+    .eq("id", userId)
+    .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
 }
 
-// Self-service: a user updates ONLY their own basic profile fields. Never
-// touches role/organization_id/is_active/department (those are blocked by the
-// profiles_block_protected_updates trigger anyway). Always scoped to the
-// caller's own id so one user can never edit another's profile.
+// Self-service: a user updates ONLY their own basic profile fields. Always
+// scoped to the caller's own id, so one user can never edit another's profile.
+// Never touches role/organization_id/is_active (also blocked by the
+// profiles_block_protected_updates trigger).
 export async function updateMyProfile(
   userId: string,
   patch: { name?: string },
@@ -449,8 +470,40 @@ export async function updateMyProfile(
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Self-service update of the CURRENT user's own personal fields (name, phone).
+ * Routes through the self-scoped service-role endpoint — the only safe write
+ * path for a regular employee's phone (employees writes are RLS-blocked for
+ * non-owners). Never accepts a target id; the server uses the verified token.
+ */
+export async function updateMySelfProfile(
+  patch: { name?: string; phone?: string | null },
+): Promise<{ name?: string; phone?: string | null }> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) {
+    throw new Error("لم يتم تسجيل الدخول — يرجى تحديث الصفحة وإعادة المحاولة");
+  }
+  const headers: Record<string, string> = {
+    "Content-Type":  "application/json",
+    "Authorization": `Bearer ${token}`,
+  };
+  const result = await callApiRoute(
+    { path: "/api/profile/update-self", method: "PATCH" },
+    headers,
+    patch as Record<string, unknown>,
+  );
+  return result as { name?: string; phone?: string | null };
+}
+
 export async function toggleProfileStatus(userId: string, isActive: boolean): Promise<void> {
-  const { error } = await supabase.from("profiles").update({ is_active: isActive }).eq("id", userId);
+  const orgId = await resolveCurrentOrgId();
+  if (!orgId) throw new Error("تعذر تحديد المنشأة أو صلاحيات الوصول.");
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_active: isActive })
+    .eq("id", userId)
+    .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
 }
 

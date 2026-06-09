@@ -29,16 +29,18 @@ import { supabase } from "@/lib/supabase";
 import {
   getSystemSettings,
   setSystemSetting,
+  getOrganizationName,
   getTenantWorkspaceSettings,
   upsertTenantWorkspaceSettings,
   updateMyProfile,
 } from "@/lib/db";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
-import { uploadOrganizationLogo } from "@/lib/tenant/uploadOrgLogo";
 import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
 import { useAutomations } from "@/hooks/useData";
 import { withTimeout } from "@/lib/asyncHelpers";
+import { uploadOrgLogo } from "@/lib/tenant/uploadOrgLogo";
+import { notifyTenantCompanyChanged } from "@/hooks/useTenantCompanyName";
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -67,18 +69,17 @@ const RULE_TRIGGERS: Record<string, string> = {
 const TENANT_COMPANY_DEFAULTS = {
   name: "",
   logo_url: "",
-  description: "",
-  activity_type: "",
-  city: "",
+  tagline: "",
   email: "",
   phone: "",
   website: "",
+  city: "",
+  activity_type: "",
   address: "",
   commercial_register: "",
   tax_number: "",
-  // legacy key kept so existing data is preserved on save; not shown in the UI
-  tagline: "",
 };
+const TENANT_SETTINGS_DENIED_MESSAGE = "لا تملك صلاحية تعديل بيانات المنشأة.";
 
 // Add user redirect banner (real user creation happens in /employees)
 function AddUserBanner({ onClose }: { onClose: () => void }) {
@@ -393,39 +394,6 @@ function PersonalProfileSection() {
   );
 }
 
-// ─── Company readiness hints (read-only, derived from company_info) ──────────
-function CompanyReadinessCard({ companyForm }: { companyForm: Record<string, string> }) {
-  const checks = [
-    { ok: !!companyForm.logo_url,      label: "شعار المنشأة" },
-    { ok: !!companyForm.name,          label: "اسم المنشأة" },
-    { ok: !!companyForm.activity_type, label: "نوع النشاط" },
-    { ok: !!companyForm.city,          label: "المدينة" },
-    { ok: !!companyForm.email,         label: "البريد الإلكتروني" },
-    { ok: !!companyForm.phone,         label: "رقم الهاتف" },
-  ];
-  const missing = checks.filter((c) => !c.ok);
-  return (
-    <div className="glass-card p-5">
-      <h3 className="text-white font-medium text-sm mb-3 flex items-center gap-2">
-        <Check size={14} className="text-[#22d3ee]" />
-        اكتمال بيانات المنشأة
-      </h3>
-      {missing.length === 0 ? (
-        <p className="text-emerald-400 text-sm">كل البيانات الأساسية مكتملة ✓</p>
-      ) : (
-        <ul className="space-y-1.5">
-          {missing.map((m) => (
-            <li key={m.label} className="flex items-center gap-2 text-[#8ba3c7] text-xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
-              {m.label} غير مُكتمل
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const toast = useToast();
   const { hasPermission } = usePermissions();
@@ -433,10 +401,15 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const { organizationId } = useTenantWorkspace();
   const router = useRouter();
   const forcedAccount = user?.forcePasswordChange === true;
+  const effectiveRole = user?.role ? mapAuthRoleToUserRole(user.role) : null;
+  const isTenantSettingsScope =
+    !!organizationId &&
+    (hasPermission("manage_tenant_settings") || effectiveRole === "super_admin");
+  const canEditTenantSettings = effectiveRole === "organization_manager";
   const tenantMode =
     !accountOnly &&
-    hasPermission("manage_tenant_settings") &&
-    !hasPermission("manage_settings");
+    !!organizationId &&
+    isTenantSettingsScope;
 
   const [activeTab,  setActiveTab]  = useState(accountOnly ? "account" : "general");
 
@@ -450,12 +423,10 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const [showConfirmPw,setShowConfirmPw]= useState(false);
   const [saved,      setSaved]      = useState(false);
   const [saving,     setSaving]     = useState(false);
-  const [companyForm, setCompanyForm] = useState({ ...TENANT_COMPANY_DEFAULTS });
   const [logoUploading, setLogoUploading] = useState(false);
+  const [logoBroken, setLogoBroken] = useState(false);
+  const [companyForm, setCompanyForm] = useState({ ...TENANT_COMPANY_DEFAULTS });
   const logoInputRef = useRef<HTMLInputElement>(null);
-  // organization_manager (manage_tenant_settings) or platform admin (manage_settings)
-  // may change the logo. finance_manager/employee never reach the general tab.
-  const canEditCompany = hasPermission("manage_tenant_settings") || hasPermission("manage_settings");
   const [darkMode,     setDarkMode]     = useState(true);
   const [accentColor,  setAccentColor]  = useState("#22d3ee");
   const [language,     setLanguage]     = useState("العربية");
@@ -470,15 +441,17 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   useEffect(() => {
     const load = async () => {
       try {
-        // Account-only viewers (finance_manager / employee): best-effort read
-        // of their OWN org company info for the read-only identity card.
-        // Never reads global settings; silent on failure (may lack read).
+        // Account-only viewers (finance_manager / employee): best-effort read of
+        // their OWN org company info for the read-only identity card. Never global.
         if (accountOnly) {
           if (organizationId) {
             try {
               const row = await getTenantWorkspaceSettings(organizationId);
               if (row?.company_info && typeof row.company_info === "object") {
-                setCompanyForm((prev) => ({ ...prev, ...(row.company_info as Partial<typeof companyForm>) }));
+                setCompanyForm((prev) => ({ ...prev, ...(row.company_info as typeof companyForm) }));
+              } else {
+                const organizationName = await getOrganizationName(organizationId);
+                if (organizationName) setCompanyForm((prev) => ({ ...prev, name: organizationName }));
               }
             } catch { /* viewer may lack read access — show fallback */ }
           }
@@ -487,8 +460,17 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
 
         if (tenantMode && organizationId) {
           const row = await getTenantWorkspaceSettings(organizationId);
+          let hasSavedCompanyName = false;
           if (row?.company_info && typeof row.company_info === "object") {
+            const info = row.company_info as typeof companyForm;
+            hasSavedCompanyName = typeof info.name === "string" && info.name.trim().length > 0;
             setCompanyForm((prev) => ({ ...prev, ...(row.company_info as typeof companyForm) }));
+          }
+          if (!hasSavedCompanyName) {
+            const organizationName = await getOrganizationName(organizationId);
+            if (organizationName) {
+              setCompanyForm((prev) => ({ ...prev, name: organizationName }));
+            }
           }
           if (row?.notifications && typeof row.notifications === "object") {
             setNotifs((prev) => ({ ...prev, ...(row.notifications as typeof notifs) }));
@@ -504,17 +486,20 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
 
         const s = await getSystemSettings();
         if (s.company_info) {
-          setCompanyForm((prev) => ({ ...prev, ...(s.company_info as Partial<typeof companyForm>) }));
+          setCompanyForm((prev) => ({ ...prev, ...(s.company_info as typeof companyForm) }));
         } else if (!tenantMode) {
           setCompanyForm({
-            ...TENANT_COMPANY_DEFAULTS,
             name: "Blumark24",
+            logo_url: "",
             tagline: "نظام إدارة الأعمال بالذكاء الاصطناعي",
-            description: "نظام إدارة الأعمال بالذكاء الاصطناعي",
             email: "info@blumark24.com",
             phone: "0550000000",
             website: "blumark24.com",
             city: "جدة",
+            activity_type: "",
+            address: "",
+            commercial_register: "",
+            tax_number: "",
           });
         }
         if (s.notifications) setNotifs(s.notifications as typeof notifs);
@@ -544,6 +529,11 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   useEffect(() => {
     if (forcedAccount) setActiveTab("account");
   }, [forcedAccount]);
+
+  // Reset the broken-image flag whenever the logo URL changes (e.g. new upload).
+  useEffect(() => {
+    setLogoBroken(false);
+  }, [companyForm.logo_url]);
 
   // Apply theme to DOM whenever appearance state changes
   useEffect(() => {
@@ -602,58 +592,39 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
     }
   };
 
-  const renderCompanyField = (label: string, key: keyof typeof companyForm) => (
-    <div key={key}>
-      <label className="block text-xs text-[#8ba3c7] mb-1.5">{label}</label>
-      <input
-        className="input-dark text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-        value={companyForm[key] ?? ""}
-        disabled={!canEditCompany}
-        onChange={(e) => setCompanyForm({ ...companyForm, [key]: e.target.value })}
-      />
-    </div>
-  );
+  const preserveSavedLogoUrl = async (nextCompanyInfo: typeof companyForm) => {
+    if (!organizationId) return nextCompanyInfo;
+    const nextLogoUrl = nextCompanyInfo.logo_url.trim();
+    if (nextLogoUrl) return nextCompanyInfo;
 
-  const handleLogoSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-selecting the same file
-    if (!file) return;
-    if (!organizationId) {
-      toast.error("تعذر تحديد منشأتك — أعد تسجيل الدخول");
-      return;
-    }
-    setLogoUploading(true);
-    try {
-      const url = await withTimeout(
-        uploadOrganizationLogo(organizationId, file),
-        20_000,
-        "انتهت مهلة رفع الشعار — تحقق من الاتصال",
-      );
-      setCompanyForm((prev) => ({ ...prev, logo_url: url }));
-      toast.success("تم رفع الشعار، اضغط حفظ التغييرات لتثبيته.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "تعذر رفع الشعار");
-    } finally {
-      setLogoUploading(false);
-    }
+    const row = await getTenantWorkspaceSettings(organizationId);
+    const savedCompanyInfo = (row?.company_info ?? {}) as { logo_url?: unknown };
+    const savedLogoUrl = typeof savedCompanyInfo.logo_url === "string" ? savedCompanyInfo.logo_url.trim() : "";
+    return savedLogoUrl ? { ...nextCompanyInfo, logo_url: savedLogoUrl } : nextCompanyInfo;
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
       if (tenantMode) {
+        if (!canEditTenantSettings) {
+          throw new Error(TENANT_SETTINGS_DENIED_MESSAGE);
+        }
         if (!organizationId) {
           throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول");
         }
+        const companyInfo = await preserveSavedLogoUrl(companyForm);
         await withTimeout(
           upsertTenantWorkspaceSettings(organizationId, {
-            company_info: companyForm,
+            company_info: companyInfo,
             notifications: notifs,
             appearance: { darkMode, accentColor, language },
           }),
           12_000,
           "انتهت مهلة حفظ الإعدادات — تحقق من الاتصال",
         );
+        setCompanyForm(companyInfo);
+        notifyTenantCompanyChanged();
       } else {
         await withTimeout(
           Promise.all([
@@ -676,6 +647,57 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
       setSaving(false);
     }
   };
+
+  const handleLogoFileChange = async (file: File | null) => {
+    if (!file) return;
+    if (!tenantMode || !canEditTenantSettings || !organizationId) {
+      toast.error(TENANT_SETTINGS_DENIED_MESSAGE);
+      return;
+    }
+
+    setLogoUploading(true);
+    try {
+      const uploaded = await withTimeout(
+        uploadOrgLogo(organizationId, file),
+        20_000,
+        "انتهت مهلة رفع الشعار — تحقق من الاتصال",
+      );
+      // Auto-save: update the form immediately for instant preview, then persist
+      // logo_url into tenant_workspace_settings.company_info for THIS org —
+      // merging existing company_info values so nothing else is overwritten.
+      const nextCompany = { ...companyForm, logo_url: uploaded.publicUrl };
+      setCompanyForm(nextCompany);
+      try {
+        await withTimeout(
+          upsertTenantWorkspaceSettings(organizationId, { company_info: nextCompany }),
+          12_000,
+          "تم رفع الشعار لكن تعذر حفظه في إعدادات المنشأة.",
+        );
+        notifyTenantCompanyChanged();
+      } catch {
+        toast.error("تم رفع الشعار لكن تعذر حفظه في إعدادات المنشأة.");
+        return;
+      }
+      toast.success("تم رفع الشعار وحفظه بنجاح.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "تعذر رفع الشعار");
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const companyFieldsDisabled = tenantMode && !canEditTenantSettings;
+  const renderCompanyField = (label: string, key: keyof typeof companyForm) => (
+    <div key={key}>
+      <label className="block text-xs text-[#8ba3c7] mb-1.5">{label}</label>
+      <input
+        className="input-dark text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+        value={companyForm[key] ?? ""}
+        disabled={companyFieldsDisabled}
+        onChange={(e) => setCompanyForm({ ...companyForm, [key]: e.target.value })}
+      />
+    </div>
+  );
 
   const toggleRule = async (id: string, currentEnabled: boolean) => {
     try {
@@ -710,7 +732,12 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
             </p>
           </div>
           {activeTab !== "permissions" && activeTab !== "account" && (
-            <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2 disabled:opacity-50">
+            <button
+              onClick={handleSave}
+              disabled={saving || (tenantMode && !canEditTenantSettings)}
+              title={tenantMode && !canEditTenantSettings ? TENANT_SETTINGS_DENIED_MESSAGE : undefined}
+              className="btn-primary flex items-center gap-2 disabled:opacity-50"
+            >
               {saving
                 ? <Loader2 size={16} className="animate-spin" />
                 : saved ? <Check size={16} className="text-emerald-400" /> : <Save size={16} />
@@ -719,6 +746,13 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
             </button>
           )}
         </div>
+
+        {tenantMode && !canEditTenantSettings && (
+          <div className="glass-card p-4 mb-4 flex items-center gap-2 text-sm text-amber-300 border border-amber-500/20">
+            <AlertTriangle size={16} />
+            {TENANT_SETTINGS_DENIED_MESSAGE}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Tabs */}
@@ -749,23 +783,21 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
             {/* ── General ── */}
             {activeTab === "general" && (
               <div className="space-y-4">
-                {!canEditCompany && (
-                  <div className="glass-card p-4 flex items-center gap-2 text-amber-300 text-sm">
-                    <AlertTriangle size={16} className="flex-shrink-0" />
-                    لا تملك صلاحية تعديل بيانات المنشأة.
-                  </div>
-                )}
-
                 {/* A) هوية المنشأة */}
                 <div className="glass-card p-6 space-y-4">
                   <h3 className="text-white font-medium text-lg">هوية المنشأة</h3>
 
-                  {/* Logo — upload only, no URL field */}
+                  {/* Logo — preview + upload only (no URL field) */}
                   <div className="flex items-center gap-4">
                     <div className="w-16 h-16 rounded-2xl overflow-hidden border border-[#1e3a5f] bg-[#0d1f3c]/60 flex items-center justify-center flex-shrink-0">
-                      {companyForm.logo_url ? (
+                      {companyForm.logo_url && !logoBroken ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={companyForm.logo_url} alt="شعار المنشأة" className="w-full h-full object-contain" />
+                        <img
+                          src={companyForm.logo_url}
+                          alt="شعار المنشأة"
+                          className="w-full h-full object-contain"
+                          onError={() => setLogoBroken(true)}
+                        />
                       ) : companyForm.name ? (
                         <span className="text-[#22d3ee] text-lg font-bold">{companyForm.name.slice(0, 2)}</span>
                       ) : (
@@ -775,7 +807,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                     <div className="space-y-1.5">
                       <div className="text-white text-sm font-medium">شعار المنشأة</div>
                       <div className="text-[#8ba3c7] text-xs">PNG أو JPEG أو WebP — بحد أقصى 2 ميغابايت</div>
-                      {canEditCompany && (
+                      {canEditTenantSettings && (
                         <button
                           type="button"
                           onClick={() => logoInputRef.current?.click()}
@@ -791,14 +823,17 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                         type="file"
                         accept="image/png,image/jpeg,image/webp"
                         className="hidden"
-                        onChange={handleLogoSelected}
+                        onChange={(e) => {
+                          void handleLogoFileChange(e.target.files?.[0] ?? null);
+                          e.currentTarget.value = "";
+                        }}
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {renderCompanyField("اسم المنشأة", "name")}
-                    {renderCompanyField("وصف قصير", "description")}
+                    {renderCompanyField("وصف قصير", "tagline")}
                     {renderCompanyField("نوع النشاط", "activity_type")}
                     {renderCompanyField("المدينة", "city")}
                   </div>
@@ -823,8 +858,6 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                     {renderCompanyField("الرقم الضريبي", "tax_number")}
                   </div>
                 </div>
-
-                <CompanyReadinessCard companyForm={companyForm} />
               </div>
             )}
 
@@ -836,7 +869,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                 <PersonalProfileSection />
 
                 {/* Read-only company identity for users who cannot edit it */}
-                {!canEditCompany && (
+                {!canEditTenantSettings && (
                   <div className="glass-card p-6 space-y-3">
                     <h3 className="text-white font-medium text-lg flex items-center gap-2">
                       <Building2 size={18} className="text-[#22d3ee]" />
@@ -860,7 +893,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                     </div>
                     <div className="text-amber-300/80 text-xs flex items-center gap-2">
                       <AlertTriangle size={12} className="flex-shrink-0" />
-                      لا تملك صلاحية تعديل بيانات المنشأة.
+                      {TENANT_SETTINGS_DENIED_MESSAGE}
                     </div>
                   </div>
                 )}
@@ -1029,6 +1062,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                     </div>
                     <button
                       onClick={() => setNotifs({ ...notifs, [n.key]: !notifs[n.key as keyof typeof notifs] })}
+                      disabled={tenantMode && !canEditTenantSettings}
                       className={`relative w-12 h-6 rounded-full transition-all ${notifs[n.key as keyof typeof notifs] ? "bg-[#22d3ee]" : "bg-[#1e3a5f]"}`}
                     >
                       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${notifs[n.key as keyof typeof notifs] ? "left-7" : "left-1"}`} />
@@ -1115,6 +1149,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                   <div className="flex gap-3">
                     {[{ label: "داكن", value: true, icon: "🌙" }, { label: "فاتح", value: false, icon: "☀️" }].map((m) => (
                       <button key={String(m.value)} onClick={() => setDarkMode(m.value)}
+                        disabled={tenantMode && !canEditTenantSettings}
                         className={`flex-1 p-4 rounded-2xl border transition-all flex items-center justify-center gap-2 ${darkMode === m.value ? "border-[#22d3ee] bg-[#22d3ee]/10 text-[#22d3ee]" : "border-[#1e3a5f] text-[#8ba3c7] hover:text-white"}`}>
                         <span className="text-2xl">{m.icon}</span>
                         <span className="font-medium">{m.label}</span>
@@ -1129,6 +1164,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                       <button
                         key={c}
                         onClick={() => setAccentColor(c)}
+                        disabled={tenantMode && !canEditTenantSettings}
                         className={`w-10 h-10 rounded-full border-2 transition-all ${accentColor === c ? "border-white scale-110 shadow-lg" : "border-transparent hover:border-white/50"}`}
                         style={{ background: c }}
                         title={l}
@@ -1143,6 +1179,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                       <button
                         key={lang}
                         onClick={() => setLanguage(lang)}
+                        disabled={tenantMode && !canEditTenantSettings}
                         className={`px-4 py-2 rounded-xl text-sm border transition-all ${language === lang ? "border-[#22d3ee] text-[#22d3ee] bg-[#22d3ee]/10" : "border-[#1e3a5f] text-[#8ba3c7] hover:text-white"}`}
                       >
                         {lang}

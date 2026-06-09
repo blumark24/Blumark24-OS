@@ -125,6 +125,8 @@ export async function POST(req: NextRequest) {
     ];
     const rawRole = typeof body.role === "string" ? body.role : "employee";
     let role = ARABIC_TO_ROLE[rawRole] ?? rawRole;
+    // Organizational job-title tier (display label only; not an auth role).
+    const jobTitle = typeof body.jobTitle === "string" ? body.jobTitle.slice(0, 60) : null;
     if (provisioner.isPlatformAdmin) {
       if (!PLATFORM_ROLES.includes(role)) {
         return NextResponse.json(
@@ -218,6 +220,7 @@ export async function POST(req: NextRequest) {
         phone,
         department,
         role,
+        ...(jobTitle ? { job_title: jobTitle } : {}),
         status,
         salary,
         join_date:       new Date().toISOString().split("T")[0],

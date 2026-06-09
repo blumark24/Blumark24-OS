@@ -2,63 +2,96 @@
 
 import { useEffect, useState } from "react";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
-import { getTenantWorkspaceSettings } from "@/lib/db";
+import { getOrganizationName, getTenantWorkspaceSettings } from "@/lib/db";
 
 /** Safe fallback shown when the current org has no saved company name. */
 const FALLBACK_NAME = "منشأتك";
+export const TENANT_COMPANY_CHANGED_EVENT = "blumark24:tenant-company-changed";
+
+export function notifyTenantCompanyChanged() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(TENANT_COMPANY_CHANGED_EVENT));
+}
 
 /**
- * Resolves the current organization's display name for tenant identity in the
- * customer workspace. Source of truth is the SAME tenant-scoped row that the
- * Settings → general "اسم الشركة" field writes:
- *   tenant_workspace_settings.company_info.name  (keyed by organization_id)
- * so a saved company name reflects on the dashboard after refresh.
- *
- * Scoped to the active organization_id from TenantWorkspaceContext — it never
- * reads another tenant's identity. When nothing is saved (or no org is
- * resolved) it returns a neutral fallback, never another customer's name.
+ * Resolves the current organization's display identity for the customer
+ * workspace. Source of truth is the tenant-scoped settings row:
+ * tenant_workspace_settings.company_info.name/logo_url keyed by organization_id.
  */
 export function useTenantCompanyName(): {
   name: string;
+  companyName: string | null;
+  organizationName: string | null;
   logoUrl: string | null;
   isFallback: boolean;
   loading: boolean;
 } {
   const { organizationId } = useTenantWorkspace();
-  const [name, setName] = useState<string | null>(null);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [company, setCompany] = useState<{
+    companyName: string | null;
+    organizationName: string | null;
+    logoUrl: string | null;
+  }>({
+    companyName: null,
+    organizationName: null,
+    logoUrl: null,
+  });
   const [loading, setLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setRefreshKey((key) => key + 1);
+    window.addEventListener(TENANT_COMPANY_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(TENANT_COMPANY_CHANGED_EVENT, refresh);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     if (!organizationId) {
-      setName(null);
-      setLogoUrl(null);
+      setCompany({ companyName: null, organizationName: null, logoUrl: null });
       return;
     }
+
     setLoading(true);
-    getTenantWorkspaceSettings(organizationId)
-      .then((row) => {
+    (async () => {
+      const row = await getTenantWorkspaceSettings(organizationId);
+      const info = (row?.company_info ?? {}) as { name?: unknown; logo_url?: unknown };
+      const savedName = typeof info.name === "string" ? info.name.trim() : "";
+      const savedLogoUrl = typeof info.logo_url === "string" ? info.logo_url.trim() : "";
+      const orgName = await getOrganizationName(organizationId);
+
+      return {
+        companyName: savedName || null,
+        organizationName: orgName || null,
+        logoUrl: savedLogoUrl || null,
+      };
+    })()
+      .then((resolvedCompany) => {
         if (cancelled) return;
-        const info = (row?.company_info ?? {}) as { name?: unknown; logo_url?: unknown };
-        const raw = typeof info.name === "string" ? info.name.trim() : "";
-        const logo = typeof info.logo_url === "string" ? info.logo_url.trim() : "";
-        setName(raw || null);
-        setLogoUrl(logo || null);
+        setCompany(resolvedCompany);
       })
       .catch(() => {
         if (!cancelled) {
-          setName(null);
-          setLogoUrl(null);
+          setCompany({ companyName: null, organizationName: null, logoUrl: null });
         }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
-  }, [organizationId]);
+  }, [organizationId, refreshKey]);
 
-  return { name: name ?? FALLBACK_NAME, logoUrl, isFallback: !name, loading };
+  const resolvedName = company.companyName ?? company.organizationName;
+
+  return {
+    name: resolvedName ?? FALLBACK_NAME,
+    companyName: company.companyName,
+    organizationName: company.organizationName,
+    logoUrl: company.logoUrl,
+    isFallback: !resolvedName,
+    loading,
+  };
 }

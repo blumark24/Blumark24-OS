@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   getBoardMembers,
@@ -174,6 +174,7 @@ function employeeFromDB(row: Record<string, unknown>): Employee {
     avatar:         row.avatar          as string | undefined,
     salary:         row.salary          as number | undefined,
     publicCode:     (row.employee_code  as string | undefined) || undefined,
+    jobTitle:       (row.job_title       as string | undefined) || undefined,
   };
 }
 
@@ -208,6 +209,7 @@ function employeeUpdateToDB(changes: Partial<Employee>): Record<string, unknown>
   if (changes.completedTasks !== undefined) map.completed_tasks = changes.completedTasks;
   if (changes.avatar         !== undefined) map.avatar          = changes.avatar;
   if (changes.salary         !== undefined) map.salary          = changes.salary;
+  if (changes.jobTitle       !== undefined) map.job_title       = changes.jobTitle;
   return map;
 }
 
@@ -537,6 +539,24 @@ export function useEmployees() {
   }, [refetch]);
 
   return { ...result, insert, update, remove };
+}
+
+// ─── Org profile-id set (employee ↔ profile linkage) ──────────────────────────
+// Returns the set of profiles.id visible to the caller. The profiles SELECT
+// RLS policy is org-scoped (organization_id = current_org_id()), so this set
+// contains ONLY profiles inside the caller's own organization. An employee is
+// "linked" when employees.id is present here; cross-tenant rows can never leak
+// in, and matching is strictly by id (never by email).
+async function fetchOrgProfileIds(): Promise<string[]> {
+  const { data, error } = await supabase.from("profiles").select("id");
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as { id: string }[]).map((r) => r.id);
+}
+
+export function useOrgProfileIds() {
+  const { data, loading, error, refetch } = useAsyncData<string[]>(fetchOrgProfileIds, []);
+  const ids = useMemo(() => new Set(data), [data]);
+  return { ids, loading, error, refetch };
 }
 
 // ─── Projects ─────────────────────────────────────────────────────────────────
