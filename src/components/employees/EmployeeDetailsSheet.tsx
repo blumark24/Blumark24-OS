@@ -83,10 +83,10 @@ export function EmployeeDetailsSheet({
       onClick={onClose}
     >
       <div
-        className="relative w-[calc(100vw-32px)] max-w-[420px] max-h-[84vh] overflow-y-auto rounded-[24px] border border-[rgba(34,211,238,0.20)] bg-[linear-gradient(155deg,rgba(13,25,48,0.97),rgba(7,15,32,0.98))] shadow-[0_30px_80px_-28px_rgba(0,0,0,0.75),0_0_46px_rgba(34,211,238,0.07)] backdrop-blur-[18px] p-5 space-y-4"
+        className="relative w-[min(360px,calc(100vw-48px))] max-[380px]:w-[calc(100vw-36px)] max-h-[72vh] max-[380px]:max-h-[76vh] sm:max-w-[420px] sm:max-h-[80vh] overflow-y-auto rounded-[26px] border border-[rgba(34,211,238,0.18)] bg-[linear-gradient(155deg,rgba(13,25,48,0.97),rgba(7,15,32,0.98))] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.7),0_0_28px_rgba(34,211,238,0.05)] backdrop-blur-[20px] p-4 space-y-3.5"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/30 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/25 to-transparent" />
         {/* Header */}
         <div className="flex items-start gap-3">
           <div
