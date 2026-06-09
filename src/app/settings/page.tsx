@@ -37,6 +37,7 @@ import {
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { formatTenantDepartment, getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
+import { SmartProfileModal } from "@/components/settings/SmartProfileModal";
 import { useAutomations } from "@/hooks/useData";
 import { withTimeout } from "@/lib/asyncHelpers";
 import { uploadOrgLogo } from "@/lib/tenant/uploadOrgLogo";
@@ -427,6 +428,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const [logoBroken, setLogoBroken] = useState(false);
   const [companyForm, setCompanyForm] = useState({ ...TENANT_COMPANY_DEFAULTS });
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [showProfile, setShowProfile] = useState(false);
   const [darkMode,     setDarkMode]     = useState(true);
   const [accentColor,  setAccentColor]  = useState("#22d3ee");
   const [language,     setLanguage]     = useState("العربية");
@@ -783,6 +785,25 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
             {/* ── General ── */}
             {activeTab === "general" && (
               <div className="space-y-4">
+                {/* الملف الشخصي — opens the smart profile modal */}
+                <button
+                  type="button"
+                  onClick={() => setShowProfile(true)}
+                  className="glass-card w-full p-4 flex items-center gap-3 text-right transition-all hover:border-cyan-400/25 active:scale-[0.99]"
+                >
+                  <span
+                    className="w-11 h-11 rounded-xl flex items-center justify-center text-white flex-shrink-0 ring-1 ring-white/10"
+                    style={{ background: "linear-gradient(135deg,#22d3ee,#1e6fd9)" }}
+                  >
+                    <User size={20} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-white font-medium text-sm">الملف الشخصي</div>
+                    <div className="text-[#8ba3c7] text-xs truncate">بياناتك وحسابك داخل المنشأة</div>
+                  </div>
+                  <ExternalLink size={15} className="text-[#8ba3c7] shrink-0" />
+                </button>
+
                 {/* A) هوية المنشأة */}
                 <div className="glass-card p-6 space-y-4">
                   <h3 className="text-white font-medium text-lg">هوية المنشأة</h3>
@@ -1205,6 +1226,8 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
           </div>
         </div>
       </div>
+
+      <SmartProfileModal open={showProfile} onClose={() => setShowProfile(false)} />
     </DashboardLayout>
   );
 }

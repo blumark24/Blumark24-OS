@@ -26,6 +26,7 @@ import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 import { withTimeout } from "@/lib/asyncHelpers";
+import { SmartProfileModal } from "@/components/settings/SmartProfileModal";
 
 // Header global-search timeout — a slow Supabase must never hang the dropdown.
 const SEARCH_TIMEOUT = 8_000;
@@ -135,6 +136,7 @@ function ProfilePanelContent({
   loggingOut,
   onLogout,
   onNavigate,
+  onOpenProfile,
   onClose,
 }: {
   user: NonNullable<ProfileDropdownProps["user"]>;
@@ -143,6 +145,7 @@ function ProfilePanelContent({
   loggingOut: boolean;
   onLogout: () => void;
   onNavigate: (href: string) => void;
+  onOpenProfile: () => void;
   onClose: () => void;
 }) {
   const { display: departmentInfo } = useProfileOrgDepartment();
@@ -200,7 +203,7 @@ function ProfilePanelContent({
       {/* Actions */}
       <div className="p-2 space-y-0.5">
         <button
-          onClick={() => { onNavigate("/profile"); onClose(); }}
+          onClick={() => { onOpenProfile(); onClose(); }}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-[#8ba3c7] hover:text-white hover:bg-white/[0.05] transition-all text-right"
         >
           <span className="grid h-8 w-8 place-items-center rounded-lg border border-white/[0.08] bg-cyan-500/10">
@@ -340,11 +343,12 @@ interface ProfileDropdownProps {
   loggingOut: boolean;
   onLogout: () => void;
   onNavigate: (href: string) => void;
+  onOpenProfile: () => void;
   open: boolean;
   onToggle: () => void;
 }
 
-function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, open, onToggle }: ProfileDropdownProps) {
+function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, onOpenProfile, open, onToggle }: ProfileDropdownProps) {
   const isMobile = useIsMobile();
   const { logoUrl: tenantLogoUrl } = useTenantCompanyName();
   if (!user) return null;
@@ -388,6 +392,7 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
             loggingOut={loggingOut}
             onLogout={onLogout}
             onNavigate={onNavigate}
+            onOpenProfile={onOpenProfile}
             onClose={onToggle}
           />
         </GlassPopover>
@@ -409,6 +414,7 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
           loggingOut={loggingOut}
           onLogout={onLogout}
           onNavigate={onNavigate}
+          onOpenProfile={onOpenProfile}
           onClose={onToggle}
         />
       </CommandFloatingOverlay>
@@ -438,6 +444,8 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
   const [openNew,     setOpenNew]     = useState(false);
   const [openSearch,  setOpenSearch]  = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
+  // Smart Profile Center modal — the single profile experience (no /profile page).
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   // search
@@ -504,6 +512,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
   }, [router]);
 
   return (
+    <>
     <header
       ref={headerRef}
       className="sticky top-0 z-30 flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-[#1e3a5f]"
@@ -733,6 +742,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
           loggingOut={loggingOut}
           onLogout={handleLogout}
           onNavigate={goTo}
+          onOpenProfile={() => setShowProfileModal(true)}
           open={openProfile}
           onToggle={() => {
             setOpenProfile(!openProfile);
@@ -741,5 +751,8 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
         />
       </div>
     </header>
+
+    <SmartProfileModal open={showProfileModal} onClose={() => setShowProfileModal(false)} />
+    </>
   );
 }
