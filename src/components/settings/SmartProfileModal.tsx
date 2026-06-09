@@ -179,33 +179,6 @@ export function SmartProfileModal({ open, onClose }: { open: boolean; onClose: (
                 تم تعطيل حسابك داخل هذه المنشأة. يرجى التواصل مع مدير المنشأة.
               </p>
             </div>
-          ) : editing ? (
-            <>
-              <div>
-                <label className="block text-xs text-[#8ba3c7] mb-1">الاسم</label>
-                <input
-                  className="input-dark text-sm"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  placeholder="الاسم الكامل"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-[#8ba3c7] mb-1">رقم الهاتف</label>
-                <input
-                  className="input-dark text-sm"
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
-                  placeholder="05XXXXXXXX"
-                  inputMode="tel"
-                  dir="ltr"
-                  style={{ textAlign: "right" }}
-                />
-              </div>
-              <p className="text-[11px] text-[#8ba3c7] leading-relaxed">
-                يمكنك تعديل اسمك ورقم هاتفك فقط. تُدار بقية البيانات (الدور الإداري، الارتباط التنظيمي، الحالة) من قِبل مدير المنشأة.
-              </p>
-            </>
           ) : (
             <>
               {/* Company / workspace identity */}
@@ -258,14 +231,44 @@ export function SmartProfileModal({ open, onClose }: { open: boolean; onClose: (
                 </div>
               </div>
 
-              {/* بياناتي */}
+              {/* بياناتي — inline edit swaps only these rows for inputs */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-[11px] text-cyan-300/80 px-1">
                   <BadgeCheck size={12} /> بياناتي
                 </div>
-                <InfoRow icon={User} label="الاسم" value={user?.name ?? FALLBACK} muted={!user?.name} />
-                <InfoRow icon={Mail} label="البريد" value={user?.email ?? FALLBACK} ltr muted={!user?.email} />
-                <InfoRow icon={Phone} label="الهاتف" value={phone || FALLBACK} ltr muted={!phone} />
+                {editing ? (
+                  <>
+                    <div>
+                      <label className="block text-[11px] text-[#8ba3c7] mb-1 px-1">الاسم</label>
+                      <input
+                        className="input-dark text-sm"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        placeholder="الاسم الكامل"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-[#8ba3c7] mb-1 px-1">الهاتف</label>
+                      <input
+                        className="input-dark text-sm"
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        placeholder="05XXXXXXXX"
+                        inputMode="tel"
+                        dir="ltr"
+                        style={{ textAlign: "right" }}
+                      />
+                    </div>
+                    {/* email stays read-only even in edit mode */}
+                    <InfoRow icon={Mail} label="البريد" value={user?.email ?? FALLBACK} ltr muted={!user?.email} />
+                  </>
+                ) : (
+                  <>
+                    <InfoRow icon={User} label="الاسم" value={user?.name ?? FALLBACK} muted={!user?.name} />
+                    <InfoRow icon={Mail} label="البريد" value={user?.email ?? FALLBACK} ltr muted={!user?.email} />
+                    <InfoRow icon={Phone} label="الهاتف" value={phone || FALLBACK} ltr muted={!phone} />
+                  </>
+                )}
               </div>
 
               {/* بيانات العمل — كلها للقراءة فقط، يحددها مدير المنشأة */}
@@ -279,6 +282,12 @@ export function SmartProfileModal({ open, onClose }: { open: boolean; onClose: (
                 <InfoRow icon={UserCog} label="المدير المباشر" value={FALLBACK} muted />
                 <InfoRow icon={CalendarDays} label="تاريخ الانضمام" value={joinDate || FALLBACK} ltr muted={!joinDate} />
               </div>
+
+              {editing && (
+                <p className="text-[11px] text-[#8ba3c7] leading-relaxed">
+                  يمكنك تعديل اسمك ورقم هاتفك فقط. تُدار بيانات العمل (الدور الإداري، المسمى الوظيفي، الارتباط التنظيمي، الحالة) من قِبل مدير المنشأة.
+                </p>
+              )}
             </>
           )}
         </div>
