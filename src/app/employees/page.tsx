@@ -830,7 +830,7 @@ function EmployeesContent() {
           </div>
         }
       >
-            <div className="space-y-4">
+            <div className="space-y-3">
               {editId && (
                 <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2">
                   <span className="text-[11px] text-[#8ba3c7]">حالة الحساب</span>
@@ -844,14 +844,14 @@ function EmployeesContent() {
                   )}
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الاسم الكامل *</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">الاسم الكامل *</label>
                   <input className="input-dark text-sm" placeholder="الاسم" value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">البريد الإلكتروني *</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">البريد الإلكتروني *</label>
                   <input
                     className="input-dark text-sm"
                     type="email"
@@ -871,7 +871,7 @@ function EmployeesContent() {
 
               {!editId && (
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">كلمة المرور *</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">كلمة المرور *</label>
                   <div className="relative">
                     <input
                       className="input-dark text-sm pl-10"
@@ -892,22 +892,22 @@ function EmployeesContent() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">رقم الهاتف</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">رقم الهاتف</label>
                   <input className="input-dark text-sm" placeholder="05XXXXXXXX" value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الراتب (SAR)</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">الراتب (SAR)</label>
                   <input className="input-dark text-sm" type="number" placeholder="0" value={form.salary}
                     onChange={(e) => setForm({ ...form, salary: e.target.value })} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-[#8ba3c7] mb-1.5">الوحدة التنظيمية (اختياري)</label>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">الوحدة التنظيمية (اختياري)</label>
                   {orgLoading ? (
                     <div className="input-dark text-sm text-[#8ba3c7] px-3 py-2.5 rounded-xl">
                       جارٍ تحميل وحدات الهيكل...
@@ -955,7 +955,7 @@ function EmployeesContent() {
               </div>
 
               <div>
-                <label className="block text-xs text-[#8ba3c7] mb-1.5">الحالة</label>
+                <label className="block text-xs text-[#8ba3c7] mb-1">الحالة</label>
                 <select className="input-dark text-sm" value={form.status}
                   onChange={(e) => setForm({ ...form, status: e.target.value as "نشط" | "غير_نشط" })}>
                   <option value="نشط">نشط</option>
