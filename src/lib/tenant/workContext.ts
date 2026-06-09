@@ -71,11 +71,17 @@ export async function resolveMyWorkContext(
   const roleLabel = role ? getTenantRoleLabel(role) : null;
 
   // Own employees row — org-scoped record carrying job title, status, join date.
+  // organization_id is fetched here so it can be used as an app-layer org guard
+  // on downstream reads (defense-in-depth on top of RLS).
   const { data: emp } = await supabase
     .from("employees")
-    .select("job_title, join_date, status")
+    .select("job_title, join_date, status, organization_id")
     .eq("id", userId)
     .maybeSingle();
+
+  // No org context → nothing meaningful to show; degrade to empty-state.
+  const callerOrgId = emp?.organization_id as string | null | undefined;
+  if (!callerOrgId) return EMPTY_WORK_CONTEXT;
 
   // Own org-structure link — department + direct manager (RLS: same org only).
   const { data: rel } = await supabase
@@ -90,6 +96,7 @@ export async function resolveMyWorkContext(
       .from("departments")
       .select("name")
       .eq("id", rel.department_id)
+      .eq("organization_id", callerOrgId)
       .maybeSingle();
     orgLink = cleanText(dept?.name);
   }
@@ -100,6 +107,7 @@ export async function resolveMyWorkContext(
       .from("employees")
       .select("name")
       .eq("id", rel.manager_id)
+      .eq("organization_id", callerOrgId)
       .maybeSingle();
     directManager = cleanText(mgr?.name);
   }
