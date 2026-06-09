@@ -89,21 +89,21 @@ export default function MobileBottomNav() {
 
       <div
         className="lg:hidden fixed inset-x-0 bottom-0 z-40 pointer-events-none flex justify-center px-4"
-        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 5px)" }}
         dir="rtl"
       >
         <div className="relative w-full max-w-sm pointer-events-auto">
-          {/* Center FAB — elegant glowing orb above the dock */}
-          <div className="absolute left-1/2 -translate-x-1/2 -top-6 z-[2]">
+          {/* Center FAB — elegant glowing orb, slightly embedded into the dock */}
+          <div className="absolute left-1/2 -translate-x-1/2 -top-5 z-[2]">
             <button
               type="button"
               onClick={() => setQuickOpen((v) => !v)}
               className={cn(
-                "relative flex h-14 w-14 items-center justify-center rounded-full",
+                "relative flex h-[3.375rem] w-[3.375rem] items-center justify-center rounded-full",
                 "bg-gradient-to-br from-[#3B82F6] to-[#22D3EE] text-white",
                 "ring-1 ring-white/20",
-                "shadow-[0_10px_30px_-10px_rgba(34,211,238,0.6)]",
-                "transition-transform active:scale-95",
+                "shadow-[0_8px_24px_-10px_rgba(34,211,238,0.55)]",
+                "transition-transform duration-200 ease-out active:scale-95 motion-reduce:transition-none",
                 quickOpen && "rotate-45 scale-105",
               )}
               aria-label={quickOpen ? "إغلاق الإنشاء السريع" : "إنشاء جديد"}
@@ -131,10 +131,10 @@ export default function MobileBottomNav() {
           {/* Floating Apple-style glass dock */}
           <nav
             className={cn(
-              "grid grid-cols-5 items-center gap-0 rounded-[2rem] border border-white/[0.08]",
+              "grid grid-cols-5 items-center gap-0 rounded-[1.85rem] border border-white/[0.08]",
               "bg-[rgba(4,12,28,0.72)] backdrop-blur-2xl",
-              "shadow-[0_12px_36px_-14px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.06)]",
-              "px-2 h-[4.25rem]",
+              "shadow-[0_10px_30px_-14px_rgba(0,0,0,0.55),0_0_22px_-14px_rgba(34,211,238,0.45),inset_0_1px_0_rgba(255,255,255,0.06)]",
+              "px-2 h-16",
             )}
             aria-label="التنقل السريع"
           >
@@ -147,19 +147,24 @@ export default function MobileBottomNav() {
                   key={route.id}
                   href={route.href}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition-all min-h-[44px] touch-manipulation",
-                    active
-                      ? "text-[#22d3ee]"
-                      : "text-white/50 hover:text-white/80",
+                    "flex flex-col items-center justify-center gap-0.5 rounded-xl min-h-[44px] touch-manipulation",
+                    "transition-transform duration-200 ease-out active:scale-[0.96] motion-reduce:transition-none",
+                    active ? "text-[#22d3ee]" : "text-white/50 hover:text-white/80",
                   )}
                 >
-                  <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
+                  <span
+                    className={cn(
+                      "flex items-center justify-center rounded-full px-3 py-0.5 transition-all duration-200 ease-out motion-reduce:transition-none",
+                      active
+                        ? "bg-cyan-400/10 shadow-[0_0_14px_-3px_rgba(34,211,238,0.55)]"
+                        : "bg-transparent",
+                    )}
+                  >
+                    <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
+                  </span>
                   <span className="text-[9.5px] font-medium leading-none truncate max-w-[3.25rem] text-center leading-tight">
                     {label}
                   </span>
-                  {active && (
-                    <span className="w-1 h-1 rounded-full bg-[#22d3ee] shadow-[0_0_8px_#22d3ee]" />
-                  )}
                 </Link>
               );
             })}
@@ -176,19 +181,24 @@ export default function MobileBottomNav() {
                   key={route.id}
                   href={route.href}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition-all min-h-[44px] touch-manipulation",
-                    active
-                      ? "text-[#22d3ee]"
-                      : "text-white/50 hover:text-white/80",
+                    "flex flex-col items-center justify-center gap-0.5 rounded-xl min-h-[44px] touch-manipulation",
+                    "transition-transform duration-200 ease-out active:scale-[0.96] motion-reduce:transition-none",
+                    active ? "text-[#22d3ee]" : "text-white/50 hover:text-white/80",
                   )}
                 >
-                  <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
+                  <span
+                    className={cn(
+                      "flex items-center justify-center rounded-full px-3 py-0.5 transition-all duration-200 ease-out motion-reduce:transition-none",
+                      active
+                        ? "bg-cyan-400/10 shadow-[0_0_14px_-3px_rgba(34,211,238,0.55)]"
+                        : "bg-transparent",
+                    )}
+                  >
+                    <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
+                  </span>
                   <span className="text-[9.5px] font-medium leading-none truncate max-w-[3.25rem] text-center leading-tight">
                     {label}
                   </span>
-                  {active && (
-                    <span className="w-1 h-1 rounded-full bg-[#22d3ee] shadow-[0_0_8px_#22d3ee]" />
-                  )}
                 </Link>
               );
             })}
@@ -201,4 +211,4 @@ export default function MobileBottomNav() {
 
 /** Bottom inset so charts/content clear the floating dock + FAB (mobile only). */
 export const MOBILE_BOTTOM_NAV_INSET =
-  "pb-[calc(8rem+env(safe-area-inset-bottom,0px))] lg:pb-0";
+  "pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] lg:pb-0";
