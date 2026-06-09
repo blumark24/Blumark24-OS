@@ -511,6 +511,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
   }, [router]);
 
   return (
+    <>
     <header
       ref={headerRef}
       className="sticky top-0 z-30 flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-[#1e3a5f]"
@@ -748,7 +749,8 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
           }}
         />
       </div>
-      <SmartProfileModal open={showProfileModal} onClose={() => setShowProfileModal(false)} />
     </header>
+    <SmartProfileModal open={showProfileModal} onClose={() => setShowProfileModal(false)} />
+    </>
   );
 }
