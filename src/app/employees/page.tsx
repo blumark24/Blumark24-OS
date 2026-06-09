@@ -12,8 +12,9 @@ import {
 } from "@/lib/org/orgUnits";
 import { assignEmployeeToOrgUnit } from "@/lib/org/structureDb";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
-import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
+import { WS_PAGE, WS_CARD } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
+import { WorkspaceCenterModal } from "@/components/ui/WorkspaceCenterModal";
 import { EmployeeMobileCard } from "@/components/employees/EmployeeMobileCard";
 import { EmployeeListRow } from "@/components/employees/EmployeeListRow";
 import { EmployeeDetailsSheet } from "@/components/employees/EmployeeDetailsSheet";
@@ -814,19 +815,21 @@ function EmployeesContent() {
         );
       })()}
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className={cn(WS_GLASS_MODAL, "max-w-lg")}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white font-heading font-bold text-lg">
-                {editId ? "تعديل بيانات الموظف" : "إضافة موظف جديد"}
-              </h3>
-              <button onClick={closeModal} className="text-[#8ba3c7] hover:text-white">
-                <X size={20} />
-              </button>
-            </div>
-
+      {/* Add / edit modal — centered glass */}
+      <WorkspaceCenterModal
+        open={showModal}
+        onClose={closeModal}
+        title={editId ? "تعديل بيانات الموظف" : "إضافة موظف جديد"}
+        footer={
+          <div className="flex gap-3">
+            <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
+              {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              {saving ? "جارٍ الحفظ..." : editId ? "حفظ التعديلات" : "إضافة الموظف"}
+            </button>
+            <button onClick={closeModal} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
+          </div>
+        }
+      >
             <div className="space-y-4">
               {editId && (
                 <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2">
@@ -966,17 +969,7 @@ function EmployeesContent() {
                 {formError}
               </div>
             )}
-
-            <div className="flex gap-3 mt-6">
-              <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
-                {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                {saving ? "جارٍ الحفظ..." : editId ? "حفظ التعديلات" : "إضافة الموظف"}
-              </button>
-              <button onClick={closeModal} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
-            </div>
-          </div>
-        </div>
-      )}
+      </WorkspaceCenterModal>
     </DashboardLayout>
   );
 }

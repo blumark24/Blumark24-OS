@@ -13,6 +13,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { WS_PAGE, WS_CARD } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty, GlassPanel } from "@/components/ui/workspaceUi";
+import { WorkspaceCenterModal } from "@/components/ui/WorkspaceCenterModal";
 import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; class: string; color: string }> = {
@@ -346,14 +347,21 @@ function ClientsContent() {
         )}
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
-          <div className={cn(WS_CARD, "w-full max-w-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto")}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white font-heading font-bold text-lg">{editId ? "تعديل عميل" : "عميل جديد"}</h3>
-              <button onClick={() => setShowModal(false)} className="text-[#8ba3c7] hover:text-white"><X size={20} /></button>
-            </div>
+      {/* Add / edit modal — centered glass */}
+      <WorkspaceCenterModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={editId ? "تعديل عميل" : "عميل جديد"}
+        footer={
+          <div className="flex gap-3">
+            <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
+              {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              {saving ? "جارٍ الحفظ..." : editId ? "حفظ" : "إضافة"}
+            </button>
+            <button onClick={() => setShowModal(false)} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
+          </div>
+        }
+      >
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -405,19 +413,10 @@ function ClientsContent() {
               </div>
               <div>
                 <label className="block text-xs text-[#8ba3c7] mb-1.5">ملاحظات</label>
-                <textarea className="input-dark text-sm resize-none" rows={3} placeholder="ملاحظات إضافية..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                <textarea className="input-dark text-sm resize-none" rows={2} placeholder="ملاحظات إضافية..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
-                {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                {saving ? "جارٍ الحفظ..." : editId ? "حفظ" : "إضافة"}
-              </button>
-              <button onClick={() => setShowModal(false)} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
-            </div>
-          </div>
-        </div>
-      )}
+      </WorkspaceCenterModal>
     </DashboardLayout>
   );
 }

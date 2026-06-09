@@ -6,8 +6,9 @@ import PageGuard from "@/components/ui/PageGuard";
 import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X } from "lucide-react";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { cn } from "@/lib/utils";
-import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
+import { WS_PAGE, WS_CARD } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
+import { WorkspaceCenterModal } from "@/components/ui/WorkspaceCenterModal";
 import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import { useTasks, useClients, useEmployees } from "@/hooks/useData";
 import { usePermissions } from "@/contexts/PermissionsContext";
@@ -319,16 +320,20 @@ function TasksContent() {
         )}
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm">
-          <div className="flex min-h-[100dvh] items-end justify-center p-2 sm:items-center sm:p-4">
-            <div className={cn(WS_GLASS_MODAL, "max-w-2xl rounded-t-2xl sm:rounded-2xl pb-[max(env(safe-area-inset-bottom),1rem)] shadow-[0_30px_80px_-45px_rgba(34,211,238,0.55)]")}>
-              <div className="mb-5 flex items-center justify-between">
-                <h3 className="text-lg font-heading font-bold text-white">{editTask ? "تعديل المهمة" : "إضافة مهمة جديدة"}</h3>
-                <button onClick={() => { setShowModal(false); resetForm(); }} className="rounded-md p-1 text-[#8ba3c7] transition-colors hover:text-white">
-                  <X size={20} />
-                </button>
-              </div>
+      <WorkspaceCenterModal
+        open={showModal}
+        onClose={() => { setShowModal(false); resetForm(); }}
+        title={editTask ? "تعديل المهمة" : "إضافة مهمة جديدة"}
+        footer={
+          <div className="flex flex-col-reverse gap-3 sm:flex-row">
+            <button onClick={() => { setShowModal(false); resetForm(); }} disabled={saving} className="btn-secondary min-h-11 flex-1">إلغاء</button>
+            <button onClick={handleSave} disabled={saving} className="btn-primary min-h-11 flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
+              {saving && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
+              {saving ? "جارٍ الحفظ..." : editTask ? "حفظ التعديلات" : "إضافة المهمة"}
+            </button>
+          </div>
+        }
+      >
               <div className="space-y-4">
                 <div>
                   <label className="mb-1.5 block text-xs text-[#8ba3c7]">عنوان المهمة</label>
@@ -336,7 +341,7 @@ function TasksContent() {
                 </div>
                 <div>
                   <label className="mb-1.5 block text-xs text-[#8ba3c7]">الوصف</label>
-                  <textarea className="input-dark min-h-24 resize-none text-sm" rows={3} placeholder="وصف تفصيلي للمهمة" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                  <textarea className="input-dark min-h-20 resize-none text-sm" rows={2} placeholder="وصف تفصيلي للمهمة" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
@@ -373,17 +378,7 @@ function TasksContent() {
                   </select>
                 </div>
               </div>
-              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">
-                <button onClick={() => { setShowModal(false); resetForm(); }} disabled={saving} className="btn-secondary min-h-11 flex-1">إلغاء</button>
-                <button onClick={handleSave} disabled={saving} className="btn-primary min-h-11 flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
-                  {saving && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
-                  {saving ? "جارٍ الحفظ..." : editTask ? "حفظ التعديلات" : "إضافة المهمة"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      </WorkspaceCenterModal>
     </DashboardLayout>
   );
 }
