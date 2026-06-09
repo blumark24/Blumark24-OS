@@ -484,34 +484,75 @@ function EmployeesContent() {
   return (
     <DashboardLayout>
       <div className={cn(WS_PAGE, "min-w-0 max-w-full overflow-x-hidden")}>
-        <PageHero title="إدارة الموظفين" subtitle="إدارة بيانات فريق العمل">
+        {/* ── Mobile premium hero (< sm) — Virtual Office inspired ──
+            Dark navy glass, AI grid texture, electric-blue glow, a holographic
+            team orb, and an integrated إجمالي / نشط / مراجعة summary. Compact. */}
+        <section className="sm:hidden relative overflow-hidden rounded-[22px] border border-[rgba(34,211,238,0.18)] p-4 shadow-[0_0_60px_rgba(34,211,238,0.05)]"
+          style={{ background: "linear-gradient(135deg, rgba(6,15,30,0.98) 0%, rgba(18,36,68,0.96) 58%, rgba(50,16,80,0.16) 100%)" }}>
+          {/* AI grid texture */}
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.22]"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(34,211,238,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.10) 1px, transparent 1px)",
+              backgroundSize: "26px 26px",
+              maskImage: "radial-gradient(120% 90% at 85% -10%, #000 35%, transparent 75%)",
+              WebkitMaskImage: "radial-gradient(120% 90% at 85% -10%, #000 35%, transparent 75%)",
+            }}
+          />
+          {/* Electric-blue glow blob */}
+          <div className="pointer-events-none absolute -top-16 -left-16 h-40 w-40 rounded-full bg-cyan-500/12 blur-3xl" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/25 to-transparent" />
+
+          <div className="relative z-10 flex items-start gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[rgba(34,211,238,0.28)] bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.16),transparent_34%),linear-gradient(135deg,rgba(34,211,238,0.22),rgba(30,111,217,0.14))] shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_8px_22px_rgba(34,211,238,0.10)]">
+              <Users size={20} className="text-cyan-200" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-white font-heading font-bold text-lg leading-tight truncate">إدارة الموظفين</h1>
+              <p className="text-[#8ba3c7] text-[12px] mt-0.5 truncate">إدارة بيانات فريق العمل</p>
+            </div>
+          </div>
+
+          {/* Integrated metric chips — dark glass, compact */}
+          <div className="relative z-10 mt-3.5 grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-[rgba(148,163,184,0.12)] bg-[rgba(8,18,38,0.55)] px-2 py-2 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+              <div className="text-white font-bold text-base leading-none tabular-nums">{stats.total}</div>
+              <div className="text-[#8ba3c7] text-[10px] mt-1">إجمالي</div>
+            </div>
+            <div className="rounded-xl border border-emerald-400/15 bg-[rgba(8,18,38,0.55)] px-2 py-2 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+              <div className="text-emerald-400 font-bold text-base leading-none tabular-nums">{statusCounts.active}</div>
+              <div className="text-[#8ba3c7] text-[10px] mt-1">نشط</div>
+            </div>
+            <div className="rounded-xl border border-amber-400/15 bg-[rgba(8,18,38,0.55)] px-2 py-2 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+              <div className="text-amber-300 font-bold text-base leading-none tabular-nums">{statusCounts.review}</div>
+              <div className="text-[#8ba3c7] text-[10px] mt-1">مراجعة</div>
+            </div>
+          </div>
+
           {canManageEmployees && (
-            <button onClick={openAdd} className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation">
+            <button
+              onClick={openAdd}
+              className="relative z-10 mt-3.5 w-full flex items-center justify-center gap-2 min-h-11 rounded-xl text-sm font-semibold text-[#04121f] touch-manipulation bg-gradient-to-l from-cyan-400 to-sky-500 shadow-[0_8px_24px_rgba(34,211,238,0.22)] active:scale-[0.99] transition-transform"
+            >
               <Plus size={16} />
               إضافة موظف
             </button>
           )}
-        </PageHero>
+        </section>
 
-        {/* Mobile: premium compact summary header (< sm) — total / active / review.
-            Dark glass with a subtle cyan glow; no tall vertical KPI cards. */}
-        <div className="sm:hidden relative overflow-hidden rounded-2xl border border-[#1e3a5f] bg-gradient-to-br from-[#0d1f3c]/80 to-[#0a1628]/80">
-          <div className="pointer-events-none absolute -top-10 -left-10 h-24 w-24 rounded-full bg-cyan-500/10 blur-2xl" />
-          <div className="relative grid grid-cols-3 divide-x divide-x-reverse divide-[#1e3a5f]/70">
-            <div className="flex flex-col items-center justify-center py-3">
-              <span className="text-white font-bold text-lg leading-none">{stats.total}</span>
-              <span className="text-[#8ba3c7] text-[11px] mt-1">إجمالي</span>
-            </div>
-            <div className="flex flex-col items-center justify-center py-3">
-              <span className="text-emerald-400 font-bold text-lg leading-none">{statusCounts.active}</span>
-              <span className="text-[#8ba3c7] text-[11px] mt-1">نشط</span>
-            </div>
-            <div className="flex flex-col items-center justify-center py-3">
-              <span className="text-amber-300 font-bold text-lg leading-none">{statusCounts.review}</span>
-              <span className="text-[#8ba3c7] text-[11px] mt-1">مراجعة</span>
-            </div>
-          </div>
+        {/* Desktop/tablet hero (sm+) — unchanged */}
+        <div className="hidden sm:block">
+          <PageHero title="إدارة الموظفين" subtitle="إدارة بيانات فريق العمل">
+            {canManageEmployees && (
+              <button onClick={openAdd} className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation">
+                <Plus size={16} />
+                إضافة موظف
+              </button>
+            )}
+          </PageHero>
         </div>
+
         {/* Desktop/tablet: full KPI cards (sm+) */}
         <div className="hidden sm:grid sm:grid-cols-3 gap-4 min-w-0">
           <KpiStatCard label="إجمالي الموظفين" value={String(stats.total)} icon={Users} accent="cyan" showLive={false} showSparkline={false} />

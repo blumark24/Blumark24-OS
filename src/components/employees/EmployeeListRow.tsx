@@ -33,7 +33,7 @@ export function EmployeeListRow({
     <button
       type="button"
       onClick={onDetails}
-      className="group w-full flex items-center gap-3 rounded-xl border border-[#1e3a5f]/70 bg-[#0d1f3c]/40 px-3 py-2.5 text-right transition-all hover:border-cyan-400/30 hover:bg-[#0d1f3c]/70 active:scale-[0.99] min-h-14"
+      className="group w-full flex items-center gap-3 rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.55)] px-3 py-2.5 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-[6px] transition-all hover:border-cyan-400/25 hover:bg-[rgba(11,26,52,0.7)] active:scale-[0.99] min-h-14"
     >
       <div
         className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ring-1 ring-white/10"
