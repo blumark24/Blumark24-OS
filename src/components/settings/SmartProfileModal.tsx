@@ -3,34 +3,20 @@
 import { useEffect, useState } from "react";
 import {
   X, Pencil, User, Mail, Phone, ShieldCheck, Briefcase, Building2,
-  Network, UserCog, CalendarDays, Hash, UserX, BadgeCheck, Layers,
+  Network, UserCog, CalendarDays, Hash, UserX, BadgeCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
-import { getTenantRoleLabel, TENANT_JOB_TITLES } from "@/lib/tenant/tenantDisplay";
+import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import type { UserRole } from "@/contexts/PermissionsContext";
 import { supabase } from "@/lib/supabase";
 import { updateMySelfProfile } from "@/lib/db";
 import { withTimeout } from "@/lib/asyncHelpers";
 
 const FALLBACK = "غير محدد";
-
-// Read-only display label for the organizational level, derived from the
-// existing job-title tier (employees.job_title → TENANT_JOB_TITLES.level).
-// Assigned by the organization manager — never editable here.
-const ORG_LEVEL_LABELS: Record<string, string> = {
-  agency: "مستوى وكالة",
-  management: "مستوى إدارة",
-  department: "مستوى قسم",
-};
-function orgLevelLabel(jobTitle: string): string {
-  const tier = TENANT_JOB_TITLES.find((t) => t.value === jobTitle);
-  if (!tier) return FALLBACK;
-  return tier.level ? ORG_LEVEL_LABELS[tier.level] : "مستوى تنفيذي";
-}
 
 /** Compact read-only info row inside the modal. */
 function InfoRow({
@@ -115,7 +101,6 @@ export function SmartProfileModal({ open, onClose }: { open: boolean; onClose: (
 
   const roleLabel = user?.role ? getTenantRoleLabel(user.role as UserRole) : FALLBACK;
   const department = departmentDisplay.isEmpty ? FALLBACK : departmentDisplay.text;
-  const orgLevel = orgLevelLabel(jobTitle);
   const userInitials = user?.name?.slice(0, 2) ?? "م";
   const companyInitials = companyName?.slice(0, 2) ?? "";
   const isActive = user?.is_active !== false;
@@ -290,7 +275,6 @@ export function SmartProfileModal({ open, onClose }: { open: boolean; onClose: (
                 </div>
                 <InfoRow icon={ShieldCheck} label="الدور الإداري" value={roleLabel} />
                 <InfoRow icon={Briefcase} label="المسمى الوظيفي" value={jobTitle || FALLBACK} muted={!jobTitle} />
-                <InfoRow icon={Layers} label="المستوى التنظيمي" value={orgLevel} muted={orgLevel === FALLBACK} />
                 <InfoRow icon={Network} label="الجهة المرتبط بها" value={department} muted={department === FALLBACK} />
                 <InfoRow icon={UserCog} label="المدير المباشر" value={FALLBACK} muted />
                 <InfoRow icon={CalendarDays} label="تاريخ الانضمام" value={joinDate || FALLBACK} ltr muted={!joinDate} />
