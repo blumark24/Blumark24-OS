@@ -15,11 +15,13 @@ import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
 import { EmployeeMobileCard } from "@/components/employees/EmployeeMobileCard";
+import { EmployeeListRow } from "@/components/employees/EmployeeListRow";
+import { EmployeeDetailsSheet } from "@/components/employees/EmployeeDetailsSheet";
 import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Users, Plus, Search, Star, Edit2, UserMinus, UserCheck, Unlink, X, Eye, EyeOff } from "lucide-react";
+import { Users, Plus, Search, Star, Edit2, UserMinus, UserCheck, Unlink, X, Eye, EyeOff, List, LayoutGrid } from "lucide-react";
 import {
   usePermissions,
   TENANT_ROLES,
@@ -103,6 +105,12 @@ function EmployeesContent() {
   // Status filter — defaults to "active" so soft-removed ("حذف من الفريق")
   // employees behave like an archive and don't clutter the active team list.
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "review" | "all">("active");
+  // Mobile-only directory display mode. "list" = premium compact names list
+  // (default, fastest to scan); "cards" = compact detail cards. Desktop table is
+  // unaffected. Toggling never touches filters or counts.
+  const [mobileView, setMobileView] = useState<"list" | "cards">("list");
+  // Employee whose details sheet is open (opened from a list row). null = closed.
+  const [detailsId, setDetailsId] = useState<string | null>(null);
   const [showModal,  setShowModal]  = useState(false);
   const [editId,     setEditId]     = useState<string | null>(null);
   const [saving,     setSaving]     = useState(false);
@@ -485,19 +493,23 @@ function EmployeesContent() {
           )}
         </PageHero>
 
-        {/* Mobile: compact horizontal stat chips (< sm) */}
-        <div className="sm:hidden flex items-center gap-2 overflow-x-auto min-w-0">
-          <div className="flex items-center gap-1.5 rounded-xl border border-[#1e3a5f] bg-[#0d1f3c]/60 px-3 py-2 shrink-0">
-            <span className="text-[#8ba3c7] text-[11px]">الإجمالي</span>
-            <span className="text-white font-bold text-sm">{stats.total}</span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 shrink-0">
-            <span className="text-[#8ba3c7] text-[11px]">النشطون</span>
-            <span className="text-emerald-400 font-bold text-sm">{stats.active}</span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2 shrink-0">
-            <span className="text-[#8ba3c7] text-[11px]">الأقسام</span>
-            <span className="text-sky-300 font-bold text-sm">{stats.depts}</span>
+        {/* Mobile: premium compact summary header (< sm) — total / active / review.
+            Dark glass with a subtle cyan glow; no tall vertical KPI cards. */}
+        <div className="sm:hidden relative overflow-hidden rounded-2xl border border-[#1e3a5f] bg-gradient-to-br from-[#0d1f3c]/80 to-[#0a1628]/80">
+          <div className="pointer-events-none absolute -top-10 -left-10 h-24 w-24 rounded-full bg-cyan-500/10 blur-2xl" />
+          <div className="relative grid grid-cols-3 divide-x divide-x-reverse divide-[#1e3a5f]/70">
+            <div className="flex flex-col items-center justify-center py-3">
+              <span className="text-white font-bold text-lg leading-none">{stats.total}</span>
+              <span className="text-[#8ba3c7] text-[11px] mt-1">إجمالي</span>
+            </div>
+            <div className="flex flex-col items-center justify-center py-3">
+              <span className="text-emerald-400 font-bold text-lg leading-none">{statusCounts.active}</span>
+              <span className="text-[#8ba3c7] text-[11px] mt-1">نشط</span>
+            </div>
+            <div className="flex flex-col items-center justify-center py-3">
+              <span className="text-amber-300 font-bold text-lg leading-none">{statusCounts.review}</span>
+              <span className="text-[#8ba3c7] text-[11px] mt-1">مراجعة</span>
+            </div>
           </div>
         </div>
         {/* Desktop/tablet: full KPI cards (sm+) */}
@@ -596,24 +608,71 @@ function EmployeesContent() {
 
         {!loading && employees.length > 0 && (
           <>
-            {/* Mobile: premium employee cards */}
+            {/* Mobile/tablet: smart directory (list ↔ cards). Hidden on desktop. */}
             <div className="lg:hidden space-y-3 min-w-0">
-              {filtered.map((emp) => (
-                <EmployeeMobileCard
-                  key={emp.id}
-                  emp={emp}
-                  canManage={canManageEmployees}
-                  busy={rowBusyId === emp.id}
-                  needsLink={needsLinkEmployee(emp.id)}
-                  departmentColorFn={deptColorFor}
-                  onEdit={() => openEdit(emp)}
-                  onDeactivate={() => handleDeactivate(emp)}
-                  onReactivate={() => handleReactivate(emp)}
-                />
-              ))}
-              {filtered.length === 0 && (
+              {/* View toggle — قائمة ذكية / بطاقات */}
+              <div className="flex items-center gap-1 rounded-xl bg-[#0d1f3c]/60 border border-[#1e3a5f] p-1 w-fit">
+                <button
+                  type="button"
+                  onClick={() => setMobileView("list")}
+                  aria-pressed={mobileView === "list"}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all min-h-9",
+                    mobileView === "list"
+                      ? "bg-[#22d3ee] text-[#0a1628]"
+                      : "text-[#8ba3c7] hover:text-white hover:bg-white/[0.04]",
+                  )}
+                >
+                  <List size={14} />
+                  قائمة ذكية
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileView("cards")}
+                  aria-pressed={mobileView === "cards"}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all min-h-9",
+                    mobileView === "cards"
+                      ? "bg-[#22d3ee] text-[#0a1628]"
+                      : "text-[#8ba3c7] hover:text-white hover:bg-white/[0.04]",
+                  )}
+                >
+                  <LayoutGrid size={14} />
+                  بطاقات
+                </button>
+              </div>
+
+              {filtered.length === 0 ? (
                 <div className={cn(WS_CARD, "py-10 text-center text-[#8ba3c7] text-sm")}>
                   {emptyMessage}
+                </div>
+              ) : mobileView === "list" ? (
+                <div className="space-y-2 min-w-0">
+                  {filtered.map((emp) => (
+                    <EmployeeListRow
+                      key={emp.id}
+                      emp={emp}
+                      needsLink={needsLinkEmployee(emp.id)}
+                      departmentColorFn={deptColorFor}
+                      onDetails={() => setDetailsId(emp.id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3 min-w-0">
+                  {filtered.map((emp) => (
+                    <EmployeeMobileCard
+                      key={emp.id}
+                      emp={emp}
+                      canManage={canManageEmployees}
+                      busy={rowBusyId === emp.id}
+                      needsLink={needsLinkEmployee(emp.id)}
+                      departmentColorFn={deptColorFor}
+                      onEdit={() => openEdit(emp)}
+                      onDeactivate={() => handleDeactivate(emp)}
+                      onReactivate={() => handleReactivate(emp)}
+                    />
+                  ))}
                 </div>
               )}
             </div>
@@ -735,6 +794,25 @@ function EmployeesContent() {
           </>
         )}
       </div>
+
+      {/* Mobile details sheet — opened from a "قائمة ذكية" row */}
+      {detailsId && (() => {
+        const emp = employees.find((e) => e.id === detailsId);
+        if (!emp) return null;
+        return (
+          <EmployeeDetailsSheet
+            emp={emp}
+            canManage={canManageEmployees}
+            needsLink={needsLinkEmployee(emp.id)}
+            busy={rowBusyId === emp.id}
+            departmentColorFn={deptColorFor}
+            onClose={() => setDetailsId(null)}
+            onEdit={() => { setDetailsId(null); openEdit(emp); }}
+            onDeactivate={() => { setDetailsId(null); handleDeactivate(emp); }}
+            onReactivate={() => { setDetailsId(null); handleReactivate(emp); }}
+          />
+        );
+      })()}
 
       {/* Modal */}
       {showModal && (
