@@ -3,15 +3,13 @@
 import { useEffect, useState } from "react";
 import {
   X, Pencil, User, Mail, Phone, ShieldCheck, Briefcase, Building2,
-  Network, CalendarDays, Hash, UserX, BadgeCheck,
+  Network, CalendarDays, Hash, UserX, BadgeCheck, UserCog, Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
-import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
-import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
-import type { UserRole } from "@/contexts/PermissionsContext";
+import { useMyWorkContext } from "@/hooks/useMyWorkContext";
 import { supabase } from "@/lib/supabase";
 import { updateMySelfProfile } from "@/lib/db";
 import { withTimeout } from "@/lib/asyncHelpers";
@@ -60,13 +58,13 @@ function InfoRow({
 export function SmartProfileModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { user, refreshCurrentUser } = useAuth();
   const { name: companyName, logoUrl } = useTenantCompanyName();
-  const { display: departmentDisplay } = useProfileOrgDepartment();
+  // Real, org-scoped work context (role, job title, org link, direct manager,
+  // join date, status) — resolved from production tables, never mocked.
+  const { context: work } = useMyWorkContext(open);
   const toast = useToast();
 
   const [phone, setPhone] = useState("");
   const [publicCode, setPublicCode] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
-  const [joinDate, setJoinDate] = useState("");
   const [logoBroken, setLogoBroken] = useState(false);
 
   const [editing, setEditing] = useState(false);
@@ -74,21 +72,20 @@ export function SmartProfileModal({ open, onClose }: { open: boolean; onClose: (
   const [editPhone, setEditPhone] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Load the caller's own employee row (RLS returns only the user's own record).
+  // Load the caller's own personal-identity fields (phone is self-editable;
+  // employee_code is a read-only badge). RLS returns only the user's own row.
   useEffect(() => {
     let active = true;
     if (!open || !user?.id) return;
     (async () => {
       const { data } = await supabase
         .from("employees")
-        .select("phone, employee_code, job_title, join_date")
+        .select("phone, employee_code")
         .eq("id", user.id)
         .maybeSingle();
       if (!active || !data) return;
       setPhone(data.phone ? String(data.phone) : "");
       setPublicCode(data.employee_code ? String(data.employee_code) : "");
-      setJobTitle(data.job_title ? String(data.job_title) : "");
-      setJoinDate(data.join_date ? String(data.join_date) : "");
     })();
     return () => { active = false; };
   }, [open, user?.id]);
@@ -99,18 +96,20 @@ export function SmartProfileModal({ open, onClose }: { open: boolean; onClose: (
 
   if (!open) return null;
 
-  const roleLabel = user?.role ? getTenantRoleLabel(user.role as UserRole) : FALLBACK;
-  const department = departmentDisplay.isEmpty ? FALLBACK : departmentDisplay.text;
-  // Work rows are sourced from real data only (employees row + org-structure
-  // relation). We render just the rows that have a value; when none exist a
-  // compact empty-state replaces a stack of "غير محدد". المدير المباشر has no
-  // data source yet, so it is omitted until one is available — never faked.
+  const roleLabel = work.roleLabel ?? FALLBACK;
+  const statusLabel =
+    work.status === "active" ? "نشط" : work.status === "inactive" ? "غير نشط" : null;
+  // Work rows are sourced from real, org-scoped data only (employees row +
+  // employee_relations → departments + direct manager). We render just the rows
+  // that have a value; when none exist a compact empty-state replaces a stack of
+  // "غير محدد". Nothing here is faked — missing fields are simply omitted.
   const workDetails: { icon: React.ElementType; label: string; value: string; ltr?: boolean }[] = [
-    { icon: Briefcase, label: "المسمى الوظيفي", value: jobTitle },
-    { icon: Network, label: "الجهة المرتبط بها", value: department === FALLBACK ? "" : department },
-    { icon: CalendarDays, label: "تاريخ الانضمام", value: joinDate, ltr: true },
+    { icon: Briefcase, label: "المسمى الوظيفي", value: work.jobTitle ?? "" },
+    { icon: Network, label: "الجهة المرتبط بها", value: work.orgLink ?? "" },
+    { icon: UserCog, label: "المدير المباشر", value: work.directManager ?? "" },
+    { icon: CalendarDays, label: "تاريخ الانضمام", value: work.joinDate ?? "", ltr: true },
   ].filter((r) => r.value);
-  const hasWorkDetails = workDetails.length > 0;
+  const hasWorkDetails = work.hasWorkData;
   const userInitials = user?.name?.slice(0, 2) ?? "م";
   const companyInitials = companyName?.slice(0, 2) ?? "";
   const isActive = user?.is_active !== false;
@@ -286,8 +285,11 @@ export function SmartProfileModal({ open, onClose }: { open: boolean; onClose: (
                 <div className="flex items-center gap-1.5 text-[11px] text-cyan-300/80 px-1">
                   <Briefcase size={12} /> بيانات العمل
                 </div>
-                {/* Administrative role is shown whenever available */}
+                {/* Administrative role + status are shown whenever available */}
                 <InfoRow icon={ShieldCheck} label="الدور الإداري" value={roleLabel} muted={roleLabel === FALLBACK} />
+                {statusLabel && (
+                  <InfoRow icon={Activity} label="الحالة" value={statusLabel} />
+                )}
                 {hasWorkDetails ? (
                   workDetails.map((row) => (
                     <InfoRow key={row.label} icon={row.icon} label={row.label} value={row.value} ltr={row.ltr} />
