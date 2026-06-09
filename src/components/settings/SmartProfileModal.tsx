@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   X, Pencil, User, Mail, Phone, ShieldCheck, Briefcase, Building2,
-  Network, UserCog, CalendarDays, Hash, UserX, BadgeCheck,
+  Network, CalendarDays, Hash, UserX, BadgeCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -101,6 +101,16 @@ export function SmartProfileModal({ open, onClose }: { open: boolean; onClose: (
 
   const roleLabel = user?.role ? getTenantRoleLabel(user.role as UserRole) : FALLBACK;
   const department = departmentDisplay.isEmpty ? FALLBACK : departmentDisplay.text;
+  // Work rows are sourced from real data only (employees row + org-structure
+  // relation). We render just the rows that have a value; when none exist a
+  // compact empty-state replaces a stack of "غير محدد". المدير المباشر has no
+  // data source yet, so it is omitted until one is available — never faked.
+  const workDetails: { icon: React.ElementType; label: string; value: string; ltr?: boolean }[] = [
+    { icon: Briefcase, label: "المسمى الوظيفي", value: jobTitle },
+    { icon: Network, label: "الجهة المرتبط بها", value: department === FALLBACK ? "" : department },
+    { icon: CalendarDays, label: "تاريخ الانضمام", value: joinDate, ltr: true },
+  ].filter((r) => r.value);
+  const hasWorkDetails = workDetails.length > 0;
   const userInitials = user?.name?.slice(0, 2) ?? "م";
   const companyInitials = companyName?.slice(0, 2) ?? "";
   const isActive = user?.is_active !== false;
@@ -271,16 +281,28 @@ export function SmartProfileModal({ open, onClose }: { open: boolean; onClose: (
                 )}
               </div>
 
-              {/* بيانات العمل — كلها للقراءة فقط، يحددها مدير المنشأة */}
+              {/* بيانات العمل — للقراءة فقط، يحددها مدير المنشأة */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-[11px] text-cyan-300/80 px-1">
                   <Briefcase size={12} /> بيانات العمل
                 </div>
-                <InfoRow icon={ShieldCheck} label="الدور الإداري" value={roleLabel} />
-                <InfoRow icon={Briefcase} label="المسمى الوظيفي" value={jobTitle || FALLBACK} muted={!jobTitle} />
-                <InfoRow icon={Network} label="الجهة المرتبط بها" value={department} muted={department === FALLBACK} />
-                <InfoRow icon={UserCog} label="المدير المباشر" value={FALLBACK} muted />
-                <InfoRow icon={CalendarDays} label="تاريخ الانضمام" value={joinDate || FALLBACK} ltr muted={!joinDate} />
+                {/* Administrative role is shown whenever available */}
+                <InfoRow icon={ShieldCheck} label="الدور الإداري" value={roleLabel} muted={roleLabel === FALLBACK} />
+                {hasWorkDetails ? (
+                  workDetails.map((row) => (
+                    <InfoRow key={row.label} icon={row.icon} label={row.label} value={row.value} ltr={row.ltr} />
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-amber-400/15 bg-amber-500/[0.05] p-3 text-center space-y-1.5">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/25 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
+                      يتطلب استكمال
+                    </span>
+                    <div className="text-white text-[13px] font-medium">بيانات العمل لم تُستكمل بعد</div>
+                    <p className="text-[#8ba3c7] text-[11px] leading-relaxed">
+                      تُدار هذه البيانات من قسم الموظفين والهيكل الإداري بواسطة مدير المنشأة.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {editing && (
