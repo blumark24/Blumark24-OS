@@ -3,11 +3,12 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
-import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X } from "lucide-react";
+import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X, LayoutGrid, ChevronLeft, Search, Edit2, Trash2 } from "lucide-react";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { cn } from "@/lib/utils";
 import { WS_PAGE, WS_CARD, WS_GLASS_MODAL } from "@/components/ui/workspaceVisual";
 import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
+import { MobileHeroCard } from "@/components/ui/MobileHeroCard";
 import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import { useTasks, useClients, useEmployees } from "@/hooks/useData";
 import { usePermissions } from "@/contexts/PermissionsContext";
@@ -40,6 +41,11 @@ function TasksContent() {
   const toast = useToast();
   const canManageTasks = hasPermission("manage_tasks");
   const [view, setView] = useState<ViewMode>("kanban");
+  // Mobile-only (< sm) directory state — desktop kanban/list are untouched.
+  const [mobileView, setMobileView] = useState<"list" | "cards">("list");
+  const [mSearch, setMSearch] = useState("");
+  const [mStatus, setMStatus] = useState<TaskStatus | "الكل">("الكل");
+  const [detailsId, setDetailsId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editTask, setEditTask] = useState<typeof tasks[0] | null>(null);
@@ -146,27 +152,58 @@ function TasksContent() {
     late: tasks.filter((t) => t.status === "متأخرة" || (t.status !== "مكتملة" && new Date(t.dueDate) < new Date())).length,
   };
 
+  const statusMeta = (s: TaskStatus) =>
+    STATUS_COLUMNS.find((c) => c.key === s) ?? { key: s, label: s, color: "#8ba3c7" };
+
+  // Mobile-only filtered list (the desktop kanban/list views are unfiltered as before).
+  const mobileTasks = tasks.filter((t) => {
+    const q = mSearch.trim();
+    return (mStatus === "الكل" || t.status === mStatus)
+      && (!q || t.title.includes(q) || (t.assigneeName ?? "").includes(q) || (t.clientName ?? "").includes(q));
+  });
+  const detailsTask = detailsId ? tasks.find((t) => t.id === detailsId) ?? null : null;
+
   return (
     <DashboardLayout>
       <div className={WS_PAGE}>
-        <PageHero title="إدارة المهام" subtitle="تتبع وإدارة مهام الفريق">
-          <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.04] p-1">
-            <button onClick={() => setView("kanban")} aria-label="عرض كانبان" className={cn("rounded-lg p-2.5 min-h-[44px] min-w-[44px] transition-all touch-manipulation", view === "kanban" ? "bg-[#22d3ee] text-[#0a1628] shadow-[0_0_24px_rgba(34,211,238,0.45)]" : "text-[#8ba3c7] hover:text-white")}>
-              <Columns size={16} />
-            </button>
-            <button onClick={() => setView("list")} aria-label="عرض قائمة" className={cn("rounded-lg p-2.5 min-h-[44px] min-w-[44px] transition-all touch-manipulation", view === "list" ? "bg-[#22d3ee] text-[#0a1628] shadow-[0_0_24px_rgba(34,211,238,0.45)]" : "text-[#8ba3c7] hover:text-white")}>
-              <List size={16} />
-            </button>
-          </div>
-          {canManageTasks && (
-            <button onClick={openAdd} className="btn-primary min-h-11 px-4 flex items-center gap-2 whitespace-nowrap touch-manipulation">
-              <Plus size={16} />
-              مهمة جديدة
-            </button>
-          )}
-        </PageHero>
+        {/* Mobile premium hero (< sm) — matches Employees reference */}
+        <MobileHeroCard
+          icon={CheckSquare}
+          title="إدارة المهام"
+          subtitle="تتبع وإدارة مهام الفريق"
+          metrics={[
+            { label: "إجمالي", value: stats.total, accent: "white" },
+            { label: "قيد التنفيذ", value: stats.inProgress, accent: "amber" },
+            { label: "متأخرة", value: stats.late, accent: "rose" },
+            { label: "مكتملة", value: stats.completed, accent: "emerald" },
+          ]}
+          ctaLabel="مهمة جديدة"
+          onCta={openAdd}
+          showCta={canManageTasks}
+        />
 
-        <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 min-w-0">
+        {/* Desktop/tablet hero (sm+) — unchanged */}
+        <div className="hidden sm:block">
+          <PageHero title="إدارة المهام" subtitle="تتبع وإدارة مهام الفريق">
+            <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.04] p-1">
+              <button onClick={() => setView("kanban")} aria-label="عرض كانبان" className={cn("rounded-lg p-2.5 min-h-[44px] min-w-[44px] transition-all touch-manipulation", view === "kanban" ? "bg-[#22d3ee] text-[#0a1628] shadow-[0_0_24px_rgba(34,211,238,0.45)]" : "text-[#8ba3c7] hover:text-white")}>
+                <Columns size={16} />
+              </button>
+              <button onClick={() => setView("list")} aria-label="عرض قائمة" className={cn("rounded-lg p-2.5 min-h-[44px] min-w-[44px] transition-all touch-manipulation", view === "list" ? "bg-[#22d3ee] text-[#0a1628] shadow-[0_0_24px_rgba(34,211,238,0.45)]" : "text-[#8ba3c7] hover:text-white")}>
+                <List size={16} />
+              </button>
+            </div>
+            {canManageTasks && (
+              <button onClick={openAdd} className="btn-primary min-h-11 px-4 flex items-center gap-2 whitespace-nowrap touch-manipulation">
+                <Plus size={16} />
+                مهمة جديدة
+              </button>
+            )}
+          </PageHero>
+        </div>
+
+        {/* Desktop/tablet KPI cards (sm+) — no bulky KPI on mobile */}
+        <section className="hidden sm:grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 min-w-0">
           <KpiStatCard label="إجمالي المهام" value={String(stats.total)} icon={CheckSquare} accent="cyan" showLive={false} showSparkline={false} />
           <KpiStatCard label="مكتملة" value={String(stats.completed)} icon={CheckSquare} accent="emerald" showLive={false} showSparkline={false} />
           <KpiStatCard label="قيد التنفيذ" value={String(stats.inProgress)} icon={Clock} accent="amber" showLive={false} showSparkline={false} />
@@ -193,7 +230,7 @@ function TasksContent() {
         )}
 
         {!loading && tasks.length > 0 && view === "kanban" && (
-          <section className="overflow-x-auto pb-2">
+          <section className="hidden sm:block overflow-x-auto pb-2">
             <div className="flex min-w-max gap-3 sm:gap-4 lg:gap-5 px-0.5">
               {STATUS_COLUMNS.map((col) => {
                 const colTasks = tasks.filter((t) => t.status === col.key);
@@ -255,7 +292,7 @@ function TasksContent() {
         )}
 
         {!loading && tasks.length > 0 && view === "list" && (
-          <section className={cn(WS_CARD, "overflow-hidden p-0")}>
+          <section className={cn(WS_CARD, "hidden sm:block overflow-hidden p-0")}>
             <div className="block md:hidden space-y-2 p-3">
               {tasks.map((task) => (
                 <article key={task.id} className="rounded-xl border border-[#2a4c79] bg-[#0f2344]/80 p-3">
@@ -317,7 +354,183 @@ function TasksContent() {
             </div>
           </section>
         )}
+
+        {/* ── Mobile smart directory (< sm) ── */}
+        {!loading && tasks.length > 0 && (
+          <div className="sm:hidden space-y-3">
+            {/* Search */}
+            <div className="relative">
+              <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba3c7]" />
+              <input
+                className="input-dark pr-9 py-2 text-sm w-full"
+                placeholder="بحث عن مهمة..."
+                value={mSearch}
+                onChange={(e) => setMSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Status filter chips */}
+            <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {(["الكل", ...STATUS_COLUMNS.map((c) => c.key)] as (TaskStatus | "الكل")[]).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setMStatus(s)}
+                  className={cn(
+                    "flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all",
+                    mStatus === s ? "bg-[#22d3ee] text-[#0a1628]" : "bg-[#1a3356]/50 text-[#8ba3c7] hover:text-white",
+                  )}
+                >
+                  {s === "الكل" ? "الكل" : statusMeta(s as TaskStatus).label}
+                </button>
+              ))}
+            </div>
+
+            {/* View toggle — قائمة ذكية / بطاقات */}
+            <div className="flex items-center gap-1 rounded-xl bg-[#0d1f3c]/60 border border-[#1e3a5f] p-1 w-fit">
+              <button
+                onClick={() => setMobileView("list")}
+                aria-pressed={mobileView === "list"}
+                className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all min-h-9", mobileView === "list" ? "bg-[#22d3ee] text-[#0a1628]" : "text-[#8ba3c7] hover:text-white hover:bg-white/[0.04]")}
+              >
+                <List size={14} />
+                قائمة ذكية
+              </button>
+              <button
+                onClick={() => setMobileView("cards")}
+                aria-pressed={mobileView === "cards"}
+                className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all min-h-9", mobileView === "cards" ? "bg-[#22d3ee] text-[#0a1628]" : "text-[#8ba3c7] hover:text-white hover:bg-white/[0.04]")}
+              >
+                <LayoutGrid size={14} />
+                بطاقات
+              </button>
+            </div>
+
+            {mobileTasks.length === 0 ? (
+              <div className={cn(WS_CARD, "py-10 text-center text-[#8ba3c7] text-sm")}>لا توجد مهام مطابقة</div>
+            ) : mobileView === "list" ? (
+              <div className="space-y-2">
+                {mobileTasks.map((task) => {
+                  const meta = statusMeta(task.status);
+                  const overdue = isOverdue(task.dueDate, task.status);
+                  return (
+                    <button
+                      key={task.id}
+                      type="button"
+                      onClick={() => setDetailsId(task.id)}
+                      className="group w-full flex items-center gap-3 rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.55)] px-3 py-2.5 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-[6px] transition-all hover:border-cyan-400/25 hover:bg-[rgba(11,26,52,0.7)] active:scale-[0.99] min-h-14"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-white font-semibold text-[13px] truncate flex-1">{task.title}</span>
+                          <span className="badge text-[9px] shrink-0" style={{ background: `${meta.color}20`, color: meta.color }}>{meta.label}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-[#8ba3c7] min-w-0">
+                          <span className={cn("badge text-[9px] shrink-0", PRIORITY_CONFIG[task.priority].class)}>{PRIORITY_CONFIG[task.priority].label}</span>
+                          <span className="text-[#1e3a5f] shrink-0">·</span>
+                          <span className={cn("shrink-0 flex items-center gap-0.5", overdue && "text-red-300")}>
+                            {overdue && <AlertTriangle size={10} />}{task.dueDate}
+                          </span>
+                          {task.assigneeName && (
+                            <>
+                              <span className="text-[#1e3a5f] shrink-0">·</span>
+                              <span className="truncate">{task.assigneeName}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {task.assigneeName && (
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1e6fd9] text-[11px] font-bold text-white">
+                          {task.assigneeName.slice(0, 1)}
+                        </div>
+                      )}
+                      <ChevronLeft size={16} className="text-[#8ba3c7] group-hover:text-cyan-300 transition-colors shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {mobileTasks.map((task) => (
+                  <article key={task.id} className={cn(WS_CARD, "p-3.5 space-y-2")}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-semibold text-white line-clamp-2">{task.title}</h4>
+                        <div className="mt-1"><PublicCodeBadge code={task.publicCode} /></div>
+                      </div>
+                      <span className={cn("badge shrink-0 text-xs", PRIORITY_CONFIG[task.priority].class)}>{PRIORITY_CONFIG[task.priority].label}</span>
+                    </div>
+                    {task.description && <p className="text-xs text-[#8ba3c7] line-clamp-2">{task.description}</p>}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#8ba3c7]">
+                      <span className="badge text-[10px]" style={{ background: `${statusMeta(task.status).color}20`, color: statusMeta(task.status).color }}>{statusMeta(task.status).label}</span>
+                      {task.assigneeName && <span className="truncate">المُكلَّف: {task.assigneeName}</span>}
+                      <span className={cn("flex items-center gap-1", isOverdue(task.dueDate, task.status) ? "text-red-300" : "")}>{isOverdue(task.dueDate, task.status) && <AlertTriangle size={11} />}{task.dueDate}</span>
+                    </div>
+                    <select className="w-full rounded-lg border border-[#2f4f82] bg-[#0d1f3c] px-2.5 py-2 text-xs text-[#8ba3c7] outline-none" value={task.status} onChange={(e) => moveTask(task.id, e.target.value as TaskStatus)}>
+                      {STATUS_COLUMNS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                    </select>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Mobile task details sheet */}
+      {detailsTask && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setDetailsId(null)}>
+          <div className="glass-card w-full sm:max-w-md max-h-[88vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-white font-heading font-bold text-base leading-snug">{detailsTask.title}</h3>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className="badge text-[10px]" style={{ background: `${statusMeta(detailsTask.status).color}20`, color: statusMeta(detailsTask.status).color }}>{statusMeta(detailsTask.status).label}</span>
+                  <span className={cn("badge text-[10px]", PRIORITY_CONFIG[detailsTask.priority].class)}>{PRIORITY_CONFIG[detailsTask.priority].label}</span>
+                  <PublicCodeBadge code={detailsTask.publicCode} />
+                </div>
+              </div>
+              <button onClick={() => setDetailsId(null)} className="text-[#8ba3c7] hover:text-white shrink-0" aria-label="إغلاق"><X size={20} /></button>
+            </div>
+            {detailsTask.description && <p className="text-[13px] text-[#8ba3c7] leading-relaxed">{detailsTask.description}</p>}
+            <div className="grid grid-cols-1 gap-2 text-[13px]">
+              <div className="flex items-center justify-between rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2.5">
+                <span className="text-[#8ba3c7] text-[11px]">المُكلَّف</span>
+                <span className="text-white font-medium truncate">{detailsTask.assigneeName || "—"}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2.5">
+                <span className="text-[#8ba3c7] text-[11px]">العميل</span>
+                <span className="text-white font-medium truncate">{detailsTask.clientName || "—"}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2.5">
+                <span className="text-[#8ba3c7] text-[11px]">الموعد النهائي</span>
+                <span className={cn("font-medium flex items-center gap-1", isOverdue(detailsTask.dueDate, detailsTask.status) ? "text-red-300" : "text-white")}>
+                  {isOverdue(detailsTask.dueDate, detailsTask.status) && <AlertTriangle size={12} />}{detailsTask.dueDate}
+                </span>
+              </div>
+            </div>
+            {canManageTasks && (
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => { const t = detailsTask; setDetailsId(null); openEdit(t); }}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2.5 text-xs text-[#8ba3c7] hover:text-cyan-300 transition-colors min-h-11"
+                >
+                  <Edit2 size={14} />
+                  تعديل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { const t = detailsTask; setDetailsId(null); handleDeleteTask(t.id, t.title); }}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 py-2.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-11"
+                >
+                  <Trash2 size={14} />
+                  حذف
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm">
