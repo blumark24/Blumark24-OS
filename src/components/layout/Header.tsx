@@ -10,6 +10,7 @@ import {
   LogOut, User, Building2, ShieldCheck, Bot, X,
 } from "lucide-react";
 import OfficialBlumarkLogo from "@/components/brand/OfficialBlumarkLogo";
+import { SmartProfileModal } from "@/components/settings/SmartProfileModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -136,6 +137,7 @@ function ProfilePanelContent({
   onLogout,
   onNavigate,
   onClose,
+  onOpenProfile,
 }: {
   user: NonNullable<ProfileDropdownProps["user"]>;
   userRole: string | null;
@@ -144,6 +146,7 @@ function ProfilePanelContent({
   onLogout: () => void;
   onNavigate: (href: string) => void;
   onClose: () => void;
+  onOpenProfile: () => void;
 }) {
   const { display: departmentInfo } = useProfileOrgDepartment();
   const isActive = user.is_active !== false;
@@ -200,7 +203,7 @@ function ProfilePanelContent({
       {/* Actions */}
       <div className="p-2 space-y-0.5">
         <button
-          onClick={() => { onNavigate("/profile"); onClose(); }}
+          onClick={() => { onOpenProfile(); onClose(); }}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-[#8ba3c7] hover:text-white hover:bg-white/[0.05] transition-all text-right"
         >
           <span className="grid h-8 w-8 place-items-center rounded-lg border border-white/[0.08] bg-cyan-500/10">
@@ -340,11 +343,12 @@ interface ProfileDropdownProps {
   loggingOut: boolean;
   onLogout: () => void;
   onNavigate: (href: string) => void;
+  onOpenProfile: () => void;
   open: boolean;
   onToggle: () => void;
 }
 
-function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, open, onToggle }: ProfileDropdownProps) {
+function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, onOpenProfile, open, onToggle }: ProfileDropdownProps) {
   const isMobile = useIsMobile();
   const { logoUrl: tenantLogoUrl } = useTenantCompanyName();
   if (!user) return null;
@@ -389,6 +393,7 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
             onLogout={onLogout}
             onNavigate={onNavigate}
             onClose={onToggle}
+            onOpenProfile={onOpenProfile}
           />
         </GlassPopover>
       )}
@@ -410,6 +415,7 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, ope
           onLogout={onLogout}
           onNavigate={onNavigate}
           onClose={onToggle}
+          onOpenProfile={onOpenProfile}
         />
       </CommandFloatingOverlay>
     </div>
@@ -433,11 +439,12 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
   const { messages, unread: unreadMsg, markRead: markMsgRead, markAllRead: markAllMsgRead } = useMessages();
 
   // dropdown open state
-  const [openNotif,   setOpenNotif]   = useState(false);
-  const [openMsg,     setOpenMsg]     = useState(false);
-  const [openNew,     setOpenNew]     = useState(false);
-  const [openSearch,  setOpenSearch]  = useState(false);
-  const [openProfile, setOpenProfile] = useState(false);
+  const [openNotif,        setOpenNotif]        = useState(false);
+  const [openMsg,          setOpenMsg]          = useState(false);
+  const [openNew,          setOpenNew]          = useState(false);
+  const [openSearch,       setOpenSearch]       = useState(false);
+  const [openProfile,      setOpenProfile]      = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   // search
@@ -733,6 +740,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
           loggingOut={loggingOut}
           onLogout={handleLogout}
           onNavigate={goTo}
+          onOpenProfile={() => { setShowProfileModal(true); setOpenProfile(false); }}
           open={openProfile}
           onToggle={() => {
             setOpenProfile(!openProfile);
@@ -740,6 +748,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
           }}
         />
       </div>
+      <SmartProfileModal open={showProfileModal} onClose={() => setShowProfileModal(false)} />
     </header>
   );
 }

@@ -41,6 +41,7 @@ import { useAutomations } from "@/hooks/useData";
 import { withTimeout } from "@/lib/asyncHelpers";
 import { uploadOrgLogo } from "@/lib/tenant/uploadOrgLogo";
 import { notifyTenantCompanyChanged } from "@/hooks/useTenantCompanyName";
+import { SmartProfileModal } from "@/components/settings/SmartProfileModal";
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -398,6 +399,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const toast = useToast();
   const { hasPermission } = usePermissions();
   const { user, clearForcePasswordChange } = useAuth();
+  const [showProfile, setShowProfile] = useState(false);
   const { organizationId } = useTenantWorkspace();
   const router = useRouter();
   const forcedAccount = user?.forcePasswordChange === true;
@@ -783,6 +785,23 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
             {/* ── General ── */}
             {activeTab === "general" && (
               <div className="space-y-4">
+                {/* Profile entry */}
+                <button
+                  type="button"
+                  onClick={() => setShowProfile(true)}
+                  className="w-full flex items-center gap-3 glass-card p-4 hover:border-cyan-400/20 hover:bg-white/[0.02] transition-all text-right"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-xl shrink-0"
+                    style={{ background: "linear-gradient(135deg,#22d3ee,#1e6fd9)" }}>
+                    <User size={18} className="text-white" />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-white">الملف الشخصي</div>
+                    <div className="text-[11px] text-[#8ba3c7] mt-0.5">بياناتك وحسابك داخل المنشأة</div>
+                  </div>
+                  <ExternalLink size={15} className="text-[#8ba3c7] shrink-0" />
+                </button>
+
                 {/* A) هوية المنشأة */}
                 <div className="glass-card p-6 space-y-4">
                   <h3 className="text-white font-medium text-lg">هوية المنشأة</h3>
@@ -1205,6 +1224,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
           </div>
         </div>
       </div>
+      <SmartProfileModal open={showProfile} onClose={() => setShowProfile(false)} />
     </DashboardLayout>
   );
 }
