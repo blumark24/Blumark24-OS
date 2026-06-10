@@ -12,7 +12,9 @@ import {
   Activity, Calendar, BrainCircuit, MessageSquare, AlertTriangle,
 } from "lucide-react";
 import type { SceneRoom } from "./VirtualOfficeReferenceScene";
-import type { MappingSource, PreviewOrgUnit } from "./VirtualOfficeDesign";
+import type { MappingSource, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
+
+type MobilePresencePerson = PresencePerson;
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -108,6 +110,7 @@ function Chip({ room, selected, onClick, position }: {
 
 function SelectedRoomCard({
   room,
+  people = [],
   mappingUnit,
   mappingSource,
   mappingError,
@@ -117,6 +120,7 @@ function SelectedRoomCard({
   onClearSaved,
 }: {
   room: MobileSelectedRoom;
+  people?: MobilePresencePerson[];
   mappingUnit: PreviewOrgUnit | null;
   mappingSource: MappingSource | null;
   mappingError: string | null;
@@ -125,6 +129,9 @@ function SelectedRoomCard({
   onClearPreview: () => void;
   onClearSaved: () => void;
 }) {
+  const MOBILE_PRESENCE_NOTE = "الحالة المعروضة للمعاينة التشغيلية فقط.";
+  const visiblePeople = people.slice(0, 2);
+  const extraPeople = Math.max(0, people.length - visiblePeople.length);
   const hp = hpStyle(room.healthPct);
   const lbl = hpLabel(room.healthPct);
   return (
@@ -169,6 +176,38 @@ function SelectedRoomCard({
             <div style={{ fontSize: 9, color: "#4a6a8a", marginTop: 2 }}>{label}</div>
           </div>
         ))}
+      </div>
+
+      {/* الموجودون في الغرفة — compact presence (preview only) */}
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+          <p style={{ fontSize: 10, color: "#4a6a8a", margin: 0 }}>الموجودون في الغرفة{people.length > 0 ? ` (${people.length})` : ""}</p>
+          {people.length > 0 && <span style={{ fontSize: 8.5, color: "#5a7a9a" }}>{MOBILE_PRESENCE_NOTE}</span>}
+        </div>
+        {people.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {visiblePeople.map((p) => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 7, borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", padding: "5px 8px" }}>
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: p.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>{p.initials}</div>
+                  <span aria-hidden style={{ position: "absolute", bottom: -1, insetInlineEnd: -1, width: 7, height: 7, borderRadius: "50%", background: p.statusColor, border: "2px solid rgba(6,14,28,0.92)" }} />
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 10.5, color: "#c0d4ee", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                  {p.roleOrUnit && <div style={{ fontSize: 8.5, color: "#5a7a9a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.roleOrUnit}</div>}
+                </div>
+                <span style={{ flexShrink: 0, fontSize: 8.5, fontWeight: 600, color: p.statusColor, background: `${p.statusColor}1a`, border: `1px solid ${p.statusColor}33`, padding: "1px 6px", borderRadius: 999 }}>{p.statusLabel}</span>
+              </div>
+            ))}
+            {extraPeople > 0 && (
+              <span style={{ fontSize: 9.5, color: "#4a6a8a" }}>+{extraPeople} آخرون</span>
+            )}
+          </div>
+        ) : (
+          <div style={{ borderRadius: 8, border: "1px dashed rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.02)", padding: "8px 10px", fontSize: 10, color: "#6b87ab", textAlign: "center" }}>
+            لا يوجد أعضاء مرتبطون بهذه الغرفة حاليًا.
+          </div>
+        )}
       </div>
 
       {mappingUnit && mappingSource && (
@@ -345,6 +384,7 @@ function MobileBottomSections({
 export interface MobileExecutiveOfficeSceneProps {
   rooms: SceneRoom[];
   selectedRoom: MobileSelectedRoom | null;
+  people?: MobilePresencePerson[];
   onRoomClick: (room: SceneRoom) => void;
   mappingUnit: PreviewOrgUnit | null;
   mappingSource: MappingSource | null;
@@ -359,7 +399,7 @@ export interface MobileExecutiveOfficeSceneProps {
 }
 
 export default function MobileExecutiveOfficeScene({
-  rooms, selectedRoom, onRoomClick,
+  rooms, selectedRoom, people, onRoomClick,
   mappingUnit, mappingSource, mappingError, isDeletingSaved,
   onOpenMapping, onClearPreview, onClearSaved,
   activity, meetings, alerts,
@@ -419,6 +459,7 @@ export default function MobileExecutiveOfficeScene({
       {selectedRoom ? (
         <SelectedRoomCard
           room={selectedRoom}
+          people={people}
           mappingUnit={mappingUnit}
           mappingSource={mappingSource}
           mappingError={mappingError}
