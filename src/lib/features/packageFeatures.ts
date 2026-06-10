@@ -182,10 +182,10 @@ export const WORKSPACE_ROUTES: WorkspaceRouteDef[] = [
     iconName: "Network",
   },
   {
-    // TODO: Gate virtual office by plan/features in a future PR.
+    // Gating deferred to VIRTUAL-OFFICE-PLAN-GATING-1.
     id: "virtual_office",
     href: "/virtual-office",
-    feature: "org",
+    feature: null,
     permission: "view_dashboard",
     audience: "shared",
     iconName: "Building2",
