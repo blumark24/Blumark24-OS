@@ -46,6 +46,15 @@ const PLAN_VISUAL: Record<
     badge: "bg-amber-500/15 text-amber-200 border-amber-400/35",
     chainClass: "text-amber-50",
   },
+  enterprise: {
+    icon: Crown,
+    gradient:
+      "linear-gradient(145deg, rgba(16,185,129,0.26) 0%, rgba(5,150,105,0.12) 48%, rgba(10,22,40,0.5) 100%)",
+    border: "border-emerald-400/40",
+    orb: "rgba(16,185,129,0.38)",
+    badge: "bg-emerald-500/15 text-emerald-200 border-emerald-400/35",
+    chainClass: "text-emerald-50",
+  },
 };
 
 function PlanCard({

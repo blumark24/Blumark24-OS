@@ -65,9 +65,10 @@ export type ExecutiveReadingModel = {
 };
 
 const ORG_LABELS_BY_PLAN: Record<PlanSlug, string[]> = {
-  basic: ["مجلس الإدارة", "رئيس قسم"],
-  growth: ["مجلس الإدارة", "مدير إدارة", "رئيس قسم"],
-  advanced: ["مجلس الإدارة", "مدير وكالة", "مدير إدارة", "رئيس قسم"],
+  basic:      ["مجلس الإدارة", "رئيس قسم"],
+  growth:     ["مجلس الإدارة", "مدير إدارة", "رئيس قسم"],
+  advanced:   ["مجلس الإدارة", "مدير وكالة", "مدير إدارة", "رئيس قسم"],
+  enterprise: ["مجلس الإدارة", "مدير وكالة", "مدير إدارة", "رئيس قسم"],
 };
 
 export function buildExecutiveNowAction(
