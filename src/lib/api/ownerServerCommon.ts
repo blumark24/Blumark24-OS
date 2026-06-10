@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isOwnerEmail } from "@/lib/owner";
+import { ensureEmployeeRow } from "@/lib/api/ensureEmployee";
 
 export const CLIENT_MANAGER_ROLE = "organization_manager";
 
@@ -69,7 +70,18 @@ export async function upsertLinkedProfile(
   if (res.error?.message?.toLowerCase().includes("force_password_change")) {
     res = await admin.from("profiles").upsert(base, { onConflict: "id" });
   }
-  return { error: res.error ? res.error.message : null };
+  if (res.error) {
+    return { error: res.error.message };
+  }
+  // Tenant identity invariant: every provisioned manager must also have a
+  // matching employees row (same id + organization_id) from day one — otherwise
+  // their profile phone / work context cannot be saved. Idempotent; never
+  // touches owner-panel UI or subscription/package logic.
+  const ensured = await ensureEmployeeRow(admin, args.userId);
+  if (!ensured.ok) {
+    return { error: ensured.error };
+  }
+  return { error: null };
 }
 
 export async function findAuthUserIdByEmail(
