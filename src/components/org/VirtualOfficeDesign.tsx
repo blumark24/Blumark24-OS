@@ -11,8 +11,9 @@ import {
   ArrowRight, RefreshCw, BrainCircuit, Users, CheckCircle2,
   AlertCircle, Clock, Activity, Calendar, Sparkles, Heart,
   AlertTriangle, Zap, LayoutGrid, X, Building2, Shield,
-  Layers, MapPin,
+  Layers, MapPin, Crown, ChevronDown,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import type { OrgStructureSnapshot } from "@/lib/org/types";
 import type { Employee, Task } from "@/types";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
@@ -1177,10 +1178,116 @@ function AIAlertsPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+// ─── Board / Executive office (EXECUTIVE-OFFICE-9-ROOMS-FOUNDATION-2) ────────────
+// The 9th office: the center Board / Executive Management office. Rendered as a
+// dedicated OFF-MAP panel/card (no map hotspot/coordinate changes). It is never
+// a persisted department mapping — purely an executive summary built from the
+// existing in-memory snapshot/employees/tasks. No DB, no API, no AI calls.
+function BoardExecutiveOffice({
+  orgName,
+  managerName,
+  totalUnits,
+  totalEmployees,
+  avgHealth,
+  overdueTasks,
+}: {
+  orgName: string;
+  managerName: string | null;
+  totalUnits: number;
+  totalEmployees: number;
+  avgHealth: number;
+  overdueTasks: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const accent = "#a855f7";
+  const managerInitials = managerName ? nameInitials(managerName) : "؟";
+  const metrics = [
+    { label: "صحة المكتب", value: `${avgHealth}%`, color: "#10b981" },
+    { label: "الوحدات", value: totalUnits, color: "#22d3ee" },
+    { label: "الموظفون", value: totalEmployees, color: "#3b82f6" },
+    { label: "المهام المتأخرة", value: overdueTasks, color: "#ef4444" },
+  ];
+
+  return (
+    <section style={{ borderRadius: 18, border: `1px solid ${accent}40`, background: "linear-gradient(150deg, rgba(28,8,58,0.92), rgba(10,6,26,0.96))", overflow: "hidden", boxShadow: `0 0 36px ${accent}12` }}>
+      {/* Card / toggle */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "transparent", border: "none", cursor: "pointer", textAlign: "start" }}
+      >
+        <span style={{ width: 42, height: 42, borderRadius: 13, display: "grid", placeItems: "center", flexShrink: 0, background: `radial-gradient(circle at 30% 20%, rgba(255,255,255,0.16), transparent 40%), linear-gradient(135deg, ${accent}33, ${accent}14)`, border: `1px solid ${accent}55` }}>
+          <Crown size={20} color="#d8b4fe" />
+        </span>
+        <span style={{ minWidth: 0, flex: 1 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>مكتب مجلس الإدارة</span>
+            <span style={{ fontSize: 9.5, fontWeight: 700, color: "#d8b4fe", background: `${accent}1c`, border: `1px solid ${accent}3a`, padding: "1px 8px", borderRadius: 999 }}>المكتب التنفيذي</span>
+          </span>
+          <span style={{ display: "block", fontSize: 11, color: "#9d8bc0", marginTop: 2 }}>مكتب مدير المنشأة · {orgName}</span>
+        </span>
+        <ChevronDown size={18} color="#9d8bc0" style={{ flexShrink: 0, transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "none" }} />
+      </button>
+
+      {/* Panel */}
+      {open && (
+        <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Manager */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, borderRadius: 12, border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.03)", padding: "10px 12px" }}>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: accent, display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{managerInitials}</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 9.5, color: "#9d8bc0" }}>مدير المنشأة</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#ede9fe", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{managerName ?? "مدير المنشأة"}</div>
+            </div>
+          </div>
+
+          {/* Executive metrics */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+            {metrics.map((m) => (
+              <div key={m.label} style={{ borderRadius: 11, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(255,255,255,0.03)", padding: "9px 12px", textAlign: "center" }}>
+                <div style={{ fontSize: 19, fontWeight: 800, color: m.color, lineHeight: 1 }}>{m.value}</div>
+                <div style={{ fontSize: 10, color: "#9d8bc0", marginTop: 3 }}>{m.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Alerts summary */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 11, border: overdueTasks > 0 ? "1px solid rgba(239,68,68,0.22)" : "1px solid rgba(16,185,129,0.20)", background: overdueTasks > 0 ? "rgba(239,68,68,0.06)" : "rgba(16,185,129,0.05)", padding: "9px 12px" }}>
+            <AlertCircle size={14} color={overdueTasks > 0 ? "#f87171" : "#34d399"} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 11.5, color: overdueTasks > 0 ? "#fecaca" : "#a7f3d0" }}>
+              {overdueTasks > 0 ? `${overdueTasks} مهمة متأخرة تحتاج متابعة على مستوى المنشأة` : "لا توجد مهام متأخرة على مستوى المنشأة"}
+            </span>
+          </div>
+
+          {/* Future AI agent placeholder — visual only, no logic/API */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, borderRadius: 12, border: "1px dashed rgba(139,92,246,0.30)", background: "rgba(139,92,246,0.06)", padding: "10px 12px" }}>
+            <span style={{ width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", flexShrink: 0, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)" }}>
+              <BrainCircuit size={15} color="#c4b5fd" />
+            </span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#ddd6fe" }}>غرفة المساعد الذكي</span>
+                <span style={{ fontSize: 8.5, fontWeight: 700, color: "#c4b5fd", background: "rgba(139,92,246,0.14)", border: "1px solid rgba(139,92,246,0.3)", padding: "1px 7px", borderRadius: 999 }}>قريبًا</span>
+              </div>
+              <div style={{ fontSize: 10.5, color: "#9d8bc0", marginTop: 2 }}>قريبًا: وكيل ذكاء اصطناعي خاص بهذه المنشأة</div>
+            </div>
+          </div>
+
+          <p style={{ margin: 0, fontSize: 9.5, color: "#6b5a8a", textAlign: "center" }}>
+            عرض تنفيذي للقراءة فقط — لا يتم حفظ أي ربط لمكتب مجلس الإدارة.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function VirtualOfficeDesign({
   snapshot, employees, tasks, orgName, orgCode,
   onBackToOrg, onRefresh, isRefreshing = false,
 }: VirtualOfficeDesignProps) {
+  const { user } = useAuth();
   const [selectedRoom, setSelectedRoom] = useState<OfficeRoom | null>(null);
   const [mappingModalRoom, setMappingModalRoom] = useState<OfficeRoom | null>(null);
   const [previewMappings, setPreviewMappings] = useState<Record<string, PreviewOrgUnit>>({});
@@ -1358,6 +1465,13 @@ export default function VirtualOfficeDesign({
 
   const isEmpty = safeDepts.length === 0 && !isDemo;
 
+  // Board/Executive office summary inputs (in-memory only; no persistence).
+  // The signed-in organization manager is shown when available; otherwise a
+  // safe role fallback is used inside the panel.
+  const boardManagerName =
+    user && user.role === "organization_manager" ? (user.name ?? null) : null;
+  const boardTotalEmployees = isDemo ? 24 : safeEmps.length;
+
   // Compact mobile feed (max 2 each) — derived, no fetches.
   const mobileActivity = useMemo(() => {
     const fromTasks = safeTasks
@@ -1452,6 +1566,16 @@ export default function VirtualOfficeDesign({
       <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
         {kpis.map((k) => <KpiCard key={k.label} label={k.label} value={k.value} sub={k.sub} Icon={k.Icon} iconBg={k.iconBg} />)}
       </div>
+
+      {/* ── Board / Executive office (9th office — off-map, no coordinate change) ── */}
+      <BoardExecutiveOffice
+        orgName={orgName}
+        managerName={boardManagerName}
+        totalUnits={deptCount}
+        totalEmployees={boardTotalEmployees}
+        avgHealth={avgHealth}
+        overdueTasks={isDemo ? 6 : overdueTasks}
+      />
 
       {/* ── Empty State ── */}
       {isEmpty ? (
