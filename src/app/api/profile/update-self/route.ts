@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { ensureEmployeeRow } from "@/lib/api/ensureEmployee";
 
 /**
  * Self-service profile update — the ONLY write path a regular employee has for
@@ -102,6 +103,15 @@ export async function PATCH(req: NextRequest) {
       return fail(500, `فشل تحديث الاسم: ${pErr.message}`, `step=updateProfile: ${pErr.message}`);
     }
     await admin.auth.admin.updateUserById(callerId, { user_metadata: { name: cleanName } });
+  }
+
+  // Guarantee the identity invariant BEFORE writing phone: owner-provisioned
+  // managers historically had a profile but no employees row, which is exactly
+  // why their phone could not be saved (the update matched 0 rows). This is
+  // self-scoped — callerId comes only from the verified token.
+  const ensured = await ensureEmployeeRow(admin, callerId);
+  if (!ensured.ok) {
+    return fail(ensured.status, ensured.error, ensured.debug);
   }
 
   // employees: name + phone. Scoped to the caller's own id AND organization, so

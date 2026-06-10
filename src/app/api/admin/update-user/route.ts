@@ -6,6 +6,7 @@ import {
   authorizeUserProvisioner,
   sanitizeRoleForProvisioner,
 } from "@/lib/api/tenantUserAdmin";
+import { ensureEmployeeRow } from "@/lib/api/ensureEmployee";
 
 const TAG = "[update-user]";
 
@@ -141,9 +142,16 @@ export async function PATCH(req: NextRequest) {
     await admin.auth.admin.updateUserById(userId, { user_metadata: { name: cleanName } });
   }
 
+  // Guarantee the target has an employees row BEFORE syncing, so the sync can
+  // never silently no-op against a missing row. The target was already verified
+  // to be in the caller's organization (assertTargetUserInCallerOrg above).
+  const ensured = await ensureEmployeeRow(admin, userId);
+  if (!ensured.ok) {
+    return fail(ensured.status, ensured.error, ensured.debug);
+  }
+
   // Sync the same fields to the employees table so the employees list
   // stays consistent with the profiles table after a Settings-panel edit.
-  // Non-fatal: employee row may not exist for board members / admin-only accounts.
   const employeeSync: Record<string, unknown> = {};
   if (cleanName     !== undefined) employeeSync.name       = cleanName;
   if (cleanRole     !== undefined) employeeSync.role       = cleanRole;
