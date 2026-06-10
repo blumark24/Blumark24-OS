@@ -55,6 +55,7 @@ type FormState = {
   password:   string;
   phone:      string;
   departmentId: string;
+  managerId:  string;
   role:       UserRole;
   jobTitle:   string;
   status:     "نشط" | "غير_نشط";
@@ -101,6 +102,10 @@ function EmployeesContent() {
     );
   };
 
+  // Current direct-manager link for an employee (employee_relations.manager_id).
+  const resolveManagerId = (employeeId: string) =>
+    orgSnapshot?.relations.find((r) => r.employee_id === employeeId)?.manager_id ?? "";
+
   const [search,     setSearch]     = useState("");
   const [deptFilter, setDeptFilter] = useState("الكل");
   // Status filter — defaults to "active" so soft-removed ("حذف من الفريق")
@@ -126,7 +131,7 @@ function EmployeesContent() {
   const showFormError = (m: string) => { setFormError(m); toast.error(m); };
   const [form, setForm] = useState<FormState>({
     name: "", email: "", password: "", phone: "", departmentId: defaultDeptId,
-    role: "employee", jobTitle: DEFAULT_TENANT_JOB_TITLE, status: "نشط", salary: "",
+    managerId: "", role: "employee", jobTitle: DEFAULT_TENANT_JOB_TITLE, status: "نشط", salary: "",
   });
 
   // Safety net: if saving is stuck (network issue, unhandled error, etc.)
@@ -178,7 +183,7 @@ function EmployeesContent() {
     setEditId(null);
     setLegacyDeptHint(null);
     setFormError(null);
-    setForm({ name: "", email: "", password: "", phone: "", departmentId: defaultDeptId, role: "employee", jobTitle: DEFAULT_TENANT_JOB_TITLE, status: "نشط", salary: "" });
+    setForm({ name: "", email: "", password: "", phone: "", departmentId: defaultDeptId, managerId: "", role: "employee", jobTitle: DEFAULT_TENANT_JOB_TITLE, status: "نشط", salary: "" });
     setShowPass(false);
     setShowModal(true);
   };
@@ -194,6 +199,7 @@ function EmployeesContent() {
       password:   "",
       phone:      emp.phone || "",
       departmentId: resolvedId,
+      managerId:  resolveManagerId(emp.id),
       role:       emp.role as UserRole,
       jobTitle:   emp.jobTitle || DEFAULT_TENANT_JOB_TITLE,
       // Normalize legacy/unknown status to a canonical value for the editor.
@@ -268,7 +274,7 @@ function EmployeesContent() {
               department_id: form.departmentId,
               team_id: null,
               position_id: null,
-              manager_id: null,
+              manager_id: form.managerId || null,
             });
           } catch (assignErr) {
             console.warn("[employees] org-unit assignment (edit) failed:", assignErr);
@@ -374,7 +380,7 @@ function EmployeesContent() {
               department_id: form.departmentId,
               team_id: null,
               position_id: null,
-              manager_id: null,
+              manager_id: form.managerId || null,
             });
           } catch (assignErr) {
             assignWarning = assignErr instanceof Error ? assignErr.message : String(assignErr);
@@ -952,6 +958,26 @@ function EmployeesContent() {
                     onChange={(v) => setForm({ ...form, jobTitle: v })}
                   />
                 </div>
+              </div>
+
+              {/* Direct manager (المدير المباشر) — optional, same org only.
+                  Candidates are the org's own employees, excluding this person. */}
+              <div>
+                <PremiumRolePicker
+                  label="المدير المباشر (اختياري)"
+                  value={form.managerId}
+                  placeholder="— بدون مدير مباشر —"
+                  options={[
+                    { value: "", label: "— بدون مدير مباشر —" },
+                    ...employees
+                      .filter((e) => e.id !== editId)
+                      .map((e) => ({
+                        value: e.id,
+                        label: e.jobTitle ? `${e.name} · ${e.jobTitle}` : e.name,
+                      })),
+                  ]}
+                  onChange={(v) => setForm({ ...form, managerId: v })}
+                />
               </div>
 
               <div>
