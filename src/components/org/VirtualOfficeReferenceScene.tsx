@@ -21,7 +21,8 @@ export interface SceneRoom {
   name: string;
   accentColor: string;
   employeeCount: number;
-  avatars: Array<{ initials: string; color: string }>;
+  // statusColor is an optional presence dot (EXECUTIVE-OFFICE-PRESENCE-1).
+  avatars: Array<{ initials: string; color: string; statusColor?: string }>;
   openTasks: number;
   overdueTasks: number;
   healthPct: number;
@@ -80,25 +81,36 @@ function hpStyle(pct: number) {
 function AvatarRow({ room, size = 24 }: { room: SceneRoom; size?: number }) {
   const items =
     room.avatars.length > 0
-      ? room.avatars.slice(0, 3).map((a, i) => ({ key: `a${i}`, bg: a.color, label: a.initials }))
+      ? room.avatars.slice(0, 3).map((a, i) => ({ key: `a${i}`, bg: a.color, label: a.initials, dot: a.statusColor }))
       : room.isDemo && room.employeeCount > 0
         ? Array.from({ length: Math.min(room.employeeCount, 3) }).map((_, i) => ({
             key: `d${i}`,
             bg: AVATAR_COLORS[(i * 3) % AVATAR_COLORS.length] ?? "#22d3ee",
             label: DEMO_LETTERS[i] ?? "م",
+            dot: undefined as string | undefined,
           }))
         : [];
   const extra = Math.max(0, room.employeeCount - 3);
   if (items.length === 0) return null;
+  const dotSize = size <= 24 ? 7 : 9;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
       {items.map((a) => (
-        <div key={a.key} style={{
-          width: size, height: size, borderRadius: "50%", flexShrink: 0,
-          background: a.bg, border: "2px solid rgba(0,0,0,0.35)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: size <= 24 ? 9 : 11, fontWeight: 700, color: "#fff",
-        }}>{a.label}</div>
+        <div key={a.key} style={{ position: "relative", flexShrink: 0, width: size, height: size }}>
+          <div style={{
+            width: size, height: size, borderRadius: "50%",
+            background: a.bg, border: "2px solid rgba(0,0,0,0.35)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: size <= 24 ? 9 : 11, fontWeight: 700, color: "#fff",
+          }}>{a.label}</div>
+          {a.dot && (
+            <span aria-hidden style={{
+              position: "absolute", bottom: -1, insetInlineEnd: -1,
+              width: dotSize, height: dotSize, borderRadius: "50%",
+              background: a.dot, border: "2px solid rgba(4,10,22,0.85)",
+            }} />
+          )}
+        </div>
       ))}
       {extra > 0 && <span style={{ fontSize: 9, color: "#8ba3c7" }}>+{extra}</span>}
     </div>

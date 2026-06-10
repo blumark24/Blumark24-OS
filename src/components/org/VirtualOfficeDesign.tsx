@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { OrgStructureSnapshot } from "@/lib/org/types";
 import type { Employee, Task } from "@/types";
+import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { supabase } from "@/lib/supabaseClient";
 import type {
   ExecutiveOfficeFixedRoomKey,
@@ -157,6 +158,102 @@ function hpLabel(pct: number): string {
   if (pct >= 70) return "جيد";
   if (pct >= 55) return "متوسط";
   return "يحتاج متابعة";
+}
+
+// ─── Presence (EXECUTIVE-OFFICE-PRESENCE-1) ─────────────────────────────────────
+// Visual presence ONLY. Status is DETERMINISTIC (derived from a stable seed) —
+// never random, never persisted, never realtime. No DB/network involved.
+export type PresenceStatus = "available" | "busy" | "meeting" | "offline";
+
+const PRESENCE_LABEL: Record<PresenceStatus, string> = {
+  available: "متاح",
+  busy: "مشغول",
+  meeting: "في اجتماع",
+  offline: "غير متاح",
+};
+const PRESENCE_COLOR: Record<PresenceStatus, string> = {
+  available: "#10b981",
+  busy: "#f59e0b",
+  meeting: "#a855f7",
+  offline: "#6b7a8f",
+};
+export const PRESENCE_NOTE = "الحالة المعروضة للمعاينة التشغيلية فقط.";
+const PRESENCE_FALLBACK_LETTERS = ["م", "ف", "ع", "س", "ر"];
+
+function presenceStatusFor(seed: string): PresenceStatus {
+  const h = hashStr(seed || "؟") % 10;
+  if (h <= 4) return "available"; // ~50%
+  if (h <= 6) return "busy";      // ~20%
+  if (h <= 8) return "meeting";   // ~20%
+  return "offline";               // ~10%
+}
+
+export interface PresencePerson {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  status: PresenceStatus;
+  statusLabel: string;
+  statusColor: string;
+  roleOrUnit: string | null;
+}
+
+// Resolves the people shown for a room, honouring mapping priority via the
+// already-resolved mappingUnit (saved > preview > auto). Falls back to the
+// room's own department relations when no mapping unit is provided. Read-only.
+function resolveRoomPeople(
+  room: OfficeRoom,
+  mappingUnit: PreviewOrgUnit | null,
+  snapshot: OrgStructureSnapshot | null,
+  employees: Employee[],
+): PresencePerson[] {
+  if (room.isDemo) return [];
+  const rels = Array.isArray(snapshot?.relations) ? snapshot!.relations : [];
+  const empById = new Map((Array.isArray(employees) ? employees : []).map((e) => [e.id, e]));
+
+  let employeeIds: string[];
+  if (mappingUnit) {
+    const sep = mappingUnit.id.indexOf(":");
+    const kind = sep >= 0 ? mappingUnit.id.slice(0, sep) : "department";
+    const rawId = sep >= 0 ? mappingUnit.id.slice(sep + 1) : mappingUnit.id;
+    employeeIds = rels
+      .filter((r) => (kind === "team" ? r?.team_id === rawId : r?.department_id === rawId))
+      .map((r) => r.employee_id)
+      .filter((x): x is string => typeof x === "string");
+  } else {
+    employeeIds = rels
+      .filter((r) => r?.department_id === room.deptId)
+      .map((r) => r.employee_id)
+      .filter((x): x is string => typeof x === "string");
+  }
+
+  const seen = new Set<string>();
+  const people: PresencePerson[] = [];
+  for (const id of employeeIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const emp = empById.get(id);
+    if (!emp) continue;
+    const rawName = (emp.name ?? emp.email ?? "").trim();
+    const name = rawName || `عضو ${people.length + 1}`;
+    const initials = rawName
+      ? nameInitials(name)
+      : PRESENCE_FALLBACK_LETTERS[people.length % PRESENCE_FALLBACK_LETTERS.length] ?? "م";
+    const status = presenceStatusFor(emp.id || name);
+    const roleLabel = emp.role ? getTenantRoleLabel(emp.role) : null;
+    people.push({
+      id,
+      name,
+      initials,
+      color: avatarColor(name),
+      status,
+      statusLabel: PRESENCE_LABEL[status],
+      statusColor: PRESENCE_COLOR[status],
+      roleOrUnit: roleLabel || mappingUnit?.name || null,
+    });
+  }
+  return people;
 }
 
 // Smart keyword-based slot assignment
@@ -720,7 +817,9 @@ function RoomDetailPanel({
   const roomRelIds = new Set(
     rels.filter((r) => r?.department_id === room.deptId).map((r) => r.employee_id).filter(Boolean),
   );
-  const roomEmps = safeEmps.filter((e) => roomRelIds.has(e.id));
+
+  // Presence: people resolved with mapping priority (saved > preview > auto).
+  const presencePeople = resolveRoomPeople(room, mappingUnit, snapshot, safeEmps);
 
   // Tasks for room employees
   const roomTasks = safeTsks.filter((t) => t?.assigneeId && roomRelIds.has(t.assigneeId));
@@ -824,26 +923,41 @@ function RoomDetailPanel({
           </div>
         )}
 
-        {/* Employees */}
-        {(roomEmps.length > 0 || room.isDemo) && (
-          <div style={{ gridColumn: "1 / -1" }}>
-            <p style={{ fontSize: 10, color: "#4a6a8a", margin: "0 0 6px" }}>الموظفون ({room.employeeCount})</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {(roomEmps.length > 0 ? roomEmps.slice(0, 6) : Array.from({ length: Math.min(room.employeeCount, 4) })).map((emp, i) => {
-                const name = typeof emp === "object" && emp !== null ? ((emp as Employee).name ?? (emp as Employee).email ?? "موظف") : `موظف ${i + 1}`;
-                return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", padding: "5px 8px" }}>
-                    <div style={{ width: 22, height: 22, borderRadius: "50%", background: avatarColor(name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>
-                      {nameInitials(name)}
-                    </div>
-                    <span style={{ fontSize: 11, color: "#b0c8e0" }}>{name}</span>
-                  </div>
-                );
-              })}
-              {room.employeeCount > 6 && <span style={{ fontSize: 10, color: "#4a6a8a", alignSelf: "center" }}>+{room.employeeCount - 6} آخرون</span>}
-            </div>
+        {/* الموجودون في الغرفة — presence list (mapping-aware, preview-only) */}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "0 0 6px" }}>
+            <p style={{ fontSize: 10, color: "#4a6a8a", margin: 0 }}>الموجودون في الغرفة{presencePeople.length > 0 ? ` (${presencePeople.length})` : ""}</p>
+            {presencePeople.length > 0 && (
+              <span style={{ fontSize: 9, color: "#5a7a9a" }}>{PRESENCE_NOTE}</span>
+            )}
           </div>
-        )}
+          {presencePeople.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {presencePeople.slice(0, 8).map((p) => (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", padding: "6px 9px" }}>
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    <div style={{ width: 26, height: 26, borderRadius: "50%", background: p.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#fff" }}>
+                      {p.initials}
+                    </div>
+                    <span style={{ position: "absolute", bottom: -1, insetInlineEnd: -1, width: 9, height: 9, borderRadius: "50%", background: p.statusColor, border: "2px solid rgba(6,14,28,0.95)" }} aria-hidden />
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 12, color: "#c0d4ee", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                    {p.roleOrUnit && <div style={{ fontSize: 9.5, color: "#5a7a9a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.roleOrUnit}</div>}
+                  </div>
+                  <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 600, color: p.statusColor, background: `${p.statusColor}1a`, border: `1px solid ${p.statusColor}33`, padding: "2px 7px", borderRadius: 999 }}>{p.statusLabel}</span>
+                </div>
+              ))}
+              {presencePeople.length > 8 && (
+                <span style={{ fontSize: 10, color: "#4a6a8a" }}>+{presencePeople.length - 8} آخرون</span>
+              )}
+            </div>
+          ) : (
+            <div style={{ borderRadius: 8, border: "1px dashed rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.02)", padding: "10px 12px", fontSize: 11, color: "#6b87ab", textAlign: "center" }}>
+              لا يوجد أعضاء مرتبطون بهذه الغرفة حاليًا.
+            </div>
+          )}
+        </div>
 
         {/* Teams */}
         {room.teams.length > 0 && (
@@ -1089,6 +1203,23 @@ export default function VirtualOfficeDesign({
     [snapshot, safeTasks],
   );
 
+  // Presence overlay: replace each real room's avatars/count with mapping-aware
+  // presence people (saved > preview > auto). Demo/placeholder rooms and rooms
+  // with no resolvable people are left exactly as-is (no regression).
+  const roomsWithPresence = useMemo(() => {
+    return rooms.map((room) => {
+      if (room.isDemo) return room;
+      const { unit } = resolveRoomMapping({ room, units: previewOrgUnits, savedMappings, previewMappings });
+      const people = resolveRoomPeople(room, unit, snapshot, safeEmps);
+      if (people.length === 0) return room;
+      return {
+        ...room,
+        employeeCount: people.length,
+        avatars: people.slice(0, 3).map((p) => ({ initials: p.initials, color: p.color, statusColor: p.statusColor })),
+      };
+    });
+  }, [rooms, previewOrgUnits, savedMappings, previewMappings, snapshot, safeEmps]);
+
   useEffect(() => {
     let alive = true;
 
@@ -1277,6 +1408,11 @@ export default function VirtualOfficeDesign({
       })
     : { unit: null, source: null as MappingSource | null };
 
+  const selectedPeople = useMemo(
+    () => (selectedRoom ? resolveRoomPeople(selectedRoom, selectedMapping.unit, snapshot, safeEmps) : []),
+    [selectedRoom, selectedMapping.unit, snapshot, safeEmps],
+  );
+
   const modalSaveError = mappingModalRoom ? mappingErrorByRoom[mappingModalRoom.id] ?? null : null;
   const selectedMappingError = selectedRoom ? mappingErrorByRoom[selectedRoom.id] ?? null : null;
 
@@ -1334,7 +1470,7 @@ export default function VirtualOfficeDesign({
           {/* ── Desktop scene (sm+) ── */}
           <div className="hidden sm:block space-y-5">
             <VirtualOfficeReferenceScene
-              rooms={rooms}
+              rooms={roomsWithPresence}
               selectedRoomId={selectedRoom?.id ?? null}
               onRoomClick={(r) => setSelectedRoom(prev => prev?.id === r.id ? null : r as OfficeRoom)}
             />
@@ -1367,8 +1503,9 @@ export default function VirtualOfficeDesign({
             style={{ paddingBottom: "calc(120px + env(safe-area-inset-bottom))" }}
           >
             <MobileExecutiveOfficeScene
-              rooms={rooms}
+              rooms={roomsWithPresence}
               selectedRoom={selectedRoom}
+              people={selectedPeople}
               onRoomClick={(r) => setSelectedRoom(prev => prev?.id === r.id ? null : r as OfficeRoom)}
               mappingUnit={selectedMapping.unit}
               mappingSource={selectedMapping.source}
