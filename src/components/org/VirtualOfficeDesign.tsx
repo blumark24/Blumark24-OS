@@ -8,10 +8,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, RefreshCw, BrainCircuit, Users, CheckCircle2,
+  ArrowRight, RefreshCw, BrainCircuit, Users,
   AlertCircle, Clock, Activity, Calendar, Sparkles, Heart,
   AlertTriangle, Zap, LayoutGrid, X, Building2, Shield,
-  Layers, MapPin, Crown, ChevronDown,
+  Layers, MapPin, Crown, ChevronDown, DoorOpen, Archive, Settings2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { OrgStructureSnapshot } from "@/lib/org/types";
@@ -833,6 +833,11 @@ function RoomDetailPanel({
   const ICON_MAP: Record<string, React.ElementType> = { agency: Shield, management: Layers, department: Building2 };
   const TypeIcon = ICON_MAP[room.level] ?? Building2;
 
+  // Local UI-only state. "opened" is a visual preview toggle (no persistence,
+  // no access keys, no DB). "advancedOpen" collapses the mapping controls.
+  const [opened, setOpened] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
   return (
     <div style={{
       borderRadius: 18, border: `1px solid ${room.accentColor}30`,
@@ -861,7 +866,26 @@ function RoomDetailPanel({
       </div>
 
       <div style={{ padding: "12px 18px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        {/* Stats */}
+        {/* Primary action — فتح المكتب (visual preview only, no persistence) */}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <button
+            type="button"
+            onClick={() => setOpened((v) => !v)}
+            style={{
+              width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "11px 14px", borderRadius: 12,
+              border: opened ? `1px solid ${room.accentColor}66` : `1px solid ${room.accentColor}40`,
+              background: opened ? `${room.accentColor}1f` : `${room.accentColor}12`,
+              color: "#fff", fontSize: 13.5, fontWeight: 800, cursor: "pointer",
+              transition: "all 0.18s ease",
+            }}
+          >
+            <DoorOpen size={16} color={room.accentColor} />
+            {opened ? "المكتب مفتوح — عرض ما بداخله" : "افتح المكتب"}
+          </button>
+        </div>
+
+        {/* Tasks summary (stats) */}
         <div style={{ gridColumn: "1 / -1", display: "flex", gap: 10, flexWrap: "wrap" }}>
           {[
             { label: "الموظفون", value: room.employeeCount, color: "#22d3ee" },
@@ -889,45 +913,10 @@ function RoomDetailPanel({
           </div>
         )}
 
-        {mappingUnit && mappingSource && (
-          <div style={{ gridColumn: "1 / -1", borderRadius: 14, border: mappingSource === "saved" ? "1px solid rgba(34,211,238,0.28)" : mappingSource === "preview" ? "1px solid rgba(16,185,129,0.26)" : "1px solid rgba(168,85,247,0.22)", background: mappingSource === "saved" ? "rgba(34,211,238,0.08)" : mappingSource === "preview" ? "rgba(16,185,129,0.08)" : "rgba(168,85,247,0.07)", padding: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <div>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 800, color: mappingSource === "saved" ? "#67e8f9" : mappingSource === "preview" ? "#86efac" : "#d8b4fe", background: mappingSource === "saved" ? "rgba(34,211,238,0.12)" : mappingSource === "preview" ? "rgba(16,185,129,0.12)" : "rgba(168,85,247,0.12)", border: mappingSource === "saved" ? "1px solid rgba(34,211,238,0.25)" : mappingSource === "preview" ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(168,85,247,0.24)", padding: "2px 8px", borderRadius: 999 }}>
-                  <MapPin size={11} />
-                  {mappingSource === "saved" ? "ربط محفوظ" : mappingSource === "preview" ? "ربط تجريبي" : "ربط تلقائي من الهيكل"}
-                </span>
-                <p style={{ margin: "7px 0 0", color: mappingSource === "saved" ? "#cffafe" : mappingSource === "preview" ? "#d1fae5" : "#ede9fe", fontSize: 13, fontWeight: 750 }}>{mappingUnit.name}</p>
-                {mappingSource === "preview" && (
-                  <p style={{ margin: "3px 0 0", color: "#7aa6a0", fontSize: 11 }}>
-                    هذا التخصيص للمعاينة فقط ولن يتم حفظه.
-                  </p>
-                )}
-              </div>
-              {mappingSource === "preview" && (
-                <button type="button" onClick={onClearPreview} style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#b0c8e0", borderRadius: 10, padding: "7px 10px", fontSize: 11, cursor: "pointer" }}>
-                  إلغاء المعاينة
-                </button>
-              )}
-              {mappingSource === "saved" && (
-                <button type="button" onClick={onClearSaved} disabled={isDeletingSaved} style={{ border: "1px solid rgba(239,68,68,0.24)", background: "rgba(239,68,68,0.08)", color: "#fecaca", borderRadius: 10, padding: "7px 10px", fontSize: 11, cursor: isDeletingSaved ? "wait" : "pointer", opacity: isDeletingSaved ? 0.65 : 1 }}>
-                  {isDeletingSaved ? "جارٍ الإلغاء..." : "إلغاء الربط المحفوظ"}
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {mappingError && (
-          <div style={{ gridColumn: "1 / -1", borderRadius: 12, border: "1px solid rgba(239,68,68,0.22)", background: "rgba(239,68,68,0.07)", color: "#fecaca", fontSize: 11, lineHeight: 1.6, padding: "8px 10px" }}>
-            {mappingError}
-          </div>
-        )}
-
-        {/* الموجودون في الغرفة — presence list (mapping-aware, preview-only) */}
+        {/* الموجودون في المكتب — presence list (mapping-aware, preview-only) */}
         <div style={{ gridColumn: "1 / -1" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "0 0 6px" }}>
-            <p style={{ fontSize: 10, color: "#4a6a8a", margin: 0 }}>الموجودون في الغرفة{presencePeople.length > 0 ? ` (${presencePeople.length})` : ""}</p>
+            <p style={{ fontSize: 10, color: "#4a6a8a", margin: 0 }}>الموجودون في المكتب{presencePeople.length > 0 ? ` (${presencePeople.length})` : ""}</p>
             {presencePeople.length > 0 && (
               <span style={{ fontSize: 9, color: "#5a7a9a" }}>{PRESENCE_NOTE}</span>
             )}
@@ -955,10 +944,30 @@ function RoomDetailPanel({
             </div>
           ) : (
             <div style={{ borderRadius: 8, border: "1px dashed rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.02)", padding: "10px 12px", fontSize: 11, color: "#6b87ab", textAlign: "center" }}>
-              لا يوجد أعضاء مرتبطون بهذه الغرفة حاليًا.
+              لا يوجد أعضاء مرتبطون بهذا المكتب حاليًا.
             </div>
           )}
         </div>
+
+        {/* Office previews — visual placeholders only (no logic/persistence) */}
+        {opened && (
+          <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ borderRadius: 10, border: "1px solid rgba(34,211,238,0.16)", background: "rgba(34,211,238,0.05)", padding: "10px 11px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Calendar size={13} color="#22d3ee" />
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: "#cfeffd" }}>قاعة الاجتماعات</span>
+              </div>
+              <div style={{ fontSize: 10, color: "#6b87ab", marginTop: 4 }}>معاينة — لا يوجد اجتماع مجدول حاليًا</div>
+            </div>
+            <div style={{ borderRadius: 10, border: "1px solid rgba(148,163,184,0.16)", background: "rgba(255,255,255,0.03)", padding: "10px 11px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Archive size={13} color="#8ba3c7" />
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: "#c0d4ee" }}>خزانة المكتب</span>
+              </div>
+              <div style={{ fontSize: 10, color: "#6b87ab", marginTop: 4 }}>معاينة — مستندات المكتب قريبًا</div>
+            </div>
+          </div>
+        )}
 
         {/* Teams */}
         {room.teams.length > 0 && (
@@ -988,28 +997,85 @@ function RoomDetailPanel({
           </div>
         )}
 
-        {/* TODO: EXECUTIVE-OFFICE-MAPPING-2 — enable this button so managers can */}
-        {/* map this fixed room to a department / management / team. */}
-        {/* TODO: mapping persistence requires DB/RLS review before implementation. */}
-        <div style={{ gridColumn: "1 / -1", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 10, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        {/* إدارة المكتب — advanced controls collapsed behind one button.
+            Mapping save/preview/delete logic is unchanged; only its visibility
+            is gated here to reduce noise. */}
+        <div style={{ gridColumn: "1 / -1", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 10, marginTop: 4 }}>
           <button
             type="button"
-            onClick={onOpenMapping}
+            onClick={() => setAdvancedOpen((v) => !v)}
+            aria-expanded={advancedOpen}
             style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "7px 12px", borderRadius: 10,
-              border: "1px solid rgba(139,92,246,0.36)",
-              background: "rgba(139,92,246,0.10)",
-              color: "#d8b4fe",
-              fontSize: 11, fontWeight: 700, cursor: "pointer",
+              width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+              padding: "8px 12px", borderRadius: 10,
+              border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)",
+              color: "#b0c8e0", fontSize: 12, fontWeight: 700, cursor: "pointer",
             }}
           >
-            <Layers size={12} />
-            تخصيص الربط
+            <Settings2 size={13} />
+            إدارة المكتب
+            <ChevronDown size={14} style={{ transition: "transform 0.2s ease", transform: advancedOpen ? "rotate(180deg)" : "none" }} />
           </button>
-          <span style={{ fontSize: 10, color: "#2a4060" }}>
-            محفوظ / تجريبي / تلقائي حسب أولوية الربط
-          </span>
+
+          {advancedOpen && (
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+              {mappingUnit && mappingSource && (
+                <div style={{ borderRadius: 14, border: mappingSource === "saved" ? "1px solid rgba(34,211,238,0.28)" : mappingSource === "preview" ? "1px solid rgba(16,185,129,0.26)" : "1px solid rgba(168,85,247,0.22)", background: mappingSource === "saved" ? "rgba(34,211,238,0.08)" : mappingSource === "preview" ? "rgba(16,185,129,0.08)" : "rgba(168,85,247,0.07)", padding: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <div>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 800, color: mappingSource === "saved" ? "#67e8f9" : mappingSource === "preview" ? "#86efac" : "#d8b4fe", background: mappingSource === "saved" ? "rgba(34,211,238,0.12)" : mappingSource === "preview" ? "rgba(16,185,129,0.12)" : "rgba(168,85,247,0.12)", border: mappingSource === "saved" ? "1px solid rgba(34,211,238,0.25)" : mappingSource === "preview" ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(168,85,247,0.24)", padding: "2px 8px", borderRadius: 999 }}>
+                        <MapPin size={11} />
+                        {mappingSource === "saved" ? "ربط محفوظ" : mappingSource === "preview" ? "ربط تجريبي" : "ربط تلقائي من الهيكل"}
+                      </span>
+                      <p style={{ margin: "7px 0 0", color: mappingSource === "saved" ? "#cffafe" : mappingSource === "preview" ? "#d1fae5" : "#ede9fe", fontSize: 13, fontWeight: 750 }}>{mappingUnit.name}</p>
+                      {mappingSource === "preview" && (
+                        <p style={{ margin: "3px 0 0", color: "#7aa6a0", fontSize: 11 }}>
+                          هذا التخصيص للمعاينة فقط ولن يتم حفظه.
+                        </p>
+                      )}
+                    </div>
+                    {mappingSource === "preview" && (
+                      <button type="button" onClick={onClearPreview} style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#b0c8e0", borderRadius: 10, padding: "7px 10px", fontSize: 11, cursor: "pointer" }}>
+                        إلغاء المعاينة
+                      </button>
+                    )}
+                    {mappingSource === "saved" && (
+                      <button type="button" onClick={onClearSaved} disabled={isDeletingSaved} style={{ border: "1px solid rgba(239,68,68,0.24)", background: "rgba(239,68,68,0.08)", color: "#fecaca", borderRadius: 10, padding: "7px 10px", fontSize: 11, cursor: isDeletingSaved ? "wait" : "pointer", opacity: isDeletingSaved ? 0.65 : 1 }}>
+                        {isDeletingSaved ? "جارٍ الإلغاء..." : "إلغاء الربط المحفوظ"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {mappingError && (
+                <div style={{ borderRadius: 12, border: "1px solid rgba(239,68,68,0.22)", background: "rgba(239,68,68,0.07)", color: "#fecaca", fontSize: 11, lineHeight: 1.6, padding: "8px 10px" }}>
+                  {mappingError}
+                </div>
+              )}
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={onOpenMapping}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "7px 12px", borderRadius: 10,
+                    border: "1px solid rgba(139,92,246,0.36)",
+                    background: "rgba(139,92,246,0.10)",
+                    color: "#d8b4fe",
+                    fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  }}
+                >
+                  <Layers size={12} />
+                  تخصيص ربط المكتب
+                </button>
+                <span style={{ fontSize: 10, color: "#2a4060" }}>
+                  محفوظ / تجريبي / تلقائي حسب أولوية الربط
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1205,7 +1271,7 @@ function BoardExecutiveOffice({
     { label: "صحة المكتب", value: `${avgHealth}%`, color: "#10b981" },
     { label: "الوحدات", value: totalUnits, color: "#22d3ee" },
     { label: "الموظفون", value: totalEmployees, color: "#3b82f6" },
-    { label: "المهام المتأخرة", value: overdueTasks, color: "#ef4444" },
+    { label: "التنبيهات", value: overdueTasks, color: "#ef4444" },
   ];
 
   return (
@@ -1225,7 +1291,7 @@ function BoardExecutiveOffice({
             <span style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>مكتب مجلس الإدارة</span>
             <span style={{ fontSize: 9.5, fontWeight: 700, color: "#d8b4fe", background: `${accent}1c`, border: `1px solid ${accent}3a`, padding: "1px 8px", borderRadius: 999 }}>المكتب التنفيذي</span>
           </span>
-          <span style={{ display: "block", fontSize: 11, color: "#9d8bc0", marginTop: 2 }}>مكتب مدير المنشأة · {orgName}</span>
+          <span style={{ display: "block", fontSize: 11, color: "#9d8bc0", marginTop: 2 }}>مركز قيادة المنشأة · {orgName}</span>
         </span>
         <ChevronDown size={18} color="#9d8bc0" style={{ flexShrink: 0, transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "none" }} />
       </button>
@@ -1443,7 +1509,6 @@ export default function VirtualOfficeDesign({
     }
   }, [clearPreviewForRoom, clearRoomMappingError]);
 
-  const openTasks    = safeTasks.filter((t) => t?.status !== "مكتملة").length;
   const overdueTasks = safeTasks.filter((t) => t?.status === "متأخرة").length;
   const activeEmps   = safeRels.length;
   const deptCount    = isDemo ? DEMO_DEF.length : safeDepts.length;
@@ -1455,12 +1520,9 @@ export default function VirtualOfficeDesign({
 
   const kpis = [
     { label: "صحة المكتب",       value: `${avgHealth}%`, sub: hpLabel(avgHealth),                          Icon: Heart,        iconBg: "rgba(16,185,129,0.28)" },
-    { label: "الأقسام",          value: deptCount,        sub: undefined,                                   Icon: LayoutGrid,   iconBg: "rgba(34,211,238,0.25)" },
+    { label: "الوحدات",          value: deptCount,        sub: undefined,                                   Icon: LayoutGrid,   iconBg: "rgba(34,211,238,0.25)" },
     { label: "الموظفون النشطون", value: isDemo ? 18 : activeEmps, sub: `من ${isDemo ? 24 : safeEmps.length}`, Icon: Users, iconBg: "rgba(59,130,246,0.25)" },
-    { label: "اجتماعات اليوم",  value: isDemo ? 5 : 0,   sub: isDemo ? "اجتماعات" : undefined,            Icon: Calendar,     iconBg: "rgba(139,92,246,0.25)" },
-    { label: "المهام المفتوحة",  value: isDemo ? 46 : openTasks,    sub: "مهمة",                           Icon: CheckCircle2, iconBg: "rgba(16,185,129,0.25)" },
     { label: "المهام المتأخرة",  value: isDemo ? 6  : overdueTasks, sub: "مهمة",                           Icon: AlertCircle,  iconBg: "rgba(245,158,11,0.28)" },
-    { label: "تنبيهات AI",       value: isDemo ? 4  : Math.max(overdueTasks, 0), sub: "تنبيه",             Icon: BrainCircuit, iconBg: "rgba(139,92,246,0.28)" },
   ];
 
   const isEmpty = safeDepts.length === 0 && !isDemo;
@@ -1562,11 +1624,6 @@ export default function VirtualOfficeDesign({
       {/* ── Workspace Identity Strip ── */}
       <WorkspaceIdentityStrip orgName={orgName} orgCode={orgCode} snapshot={snapshot} employees={safeEmps} />
 
-      {/* ── KPI Row ── */}
-      <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
-        {kpis.map((k) => <KpiCard key={k.label} label={k.label} value={k.value} sub={k.sub} Icon={k.Icon} iconBg={k.iconBg} />)}
-      </div>
-
       {/* ── Board / Executive office (9th office — off-map, no coordinate change) ── */}
       <BoardExecutiveOffice
         orgName={orgName}
@@ -1593,6 +1650,15 @@ export default function VirtualOfficeDesign({
         <>
           {/* ── Desktop scene (sm+) ── */}
           <div className="hidden sm:block space-y-5">
+            {/* Section clarity: the 8 map rooms are the operational offices,
+                distinct from the off-map Board/Executive office above. */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <LayoutGrid size={15} color="#22d3ee" />
+                <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>المكاتب التشغيلية</span>
+              </div>
+              <span style={{ fontSize: 11, color: "#5a7a9a" }}>اختر مكتبًا من المخطط ثم اضغط «افتح المكتب».</span>
+            </div>
             <VirtualOfficeReferenceScene
               rooms={roomsWithPresence}
               selectedRoomId={selectedRoom?.id ?? null}
@@ -1645,6 +1711,11 @@ export default function VirtualOfficeDesign({
           </div>
         </>
       )}
+
+      {/* ── KPI summary (below the map — keeps the office image central) ── */}
+      <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
+        {kpis.map((k) => <KpiCard key={k.label} label={k.label} value={k.value} sub={k.sub} Icon={k.Icon} iconBg={k.iconBg} />)}
+      </div>
 
       <p style={{ fontSize: 10, color: "#1e3050", textAlign: "center", paddingBottom: 8 }}>
         محاكاة للقراءة فقط · لا تغييرات في البيانات · مبني من الهيكل الإداري
