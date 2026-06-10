@@ -10,6 +10,7 @@ import Image from "next/image";
 import {
   Layers, Users, CheckCircle2, AlertCircle,
   Activity, Calendar, BrainCircuit, MessageSquare, AlertTriangle,
+  Settings2, ChevronDown,
 } from "lucide-react";
 import type { SceneRoom } from "./VirtualOfficeReferenceScene";
 import type { MappingSource, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
@@ -132,6 +133,7 @@ function SelectedRoomCard({
   const MOBILE_PRESENCE_NOTE = "الحالة المعروضة للمعاينة التشغيلية فقط.";
   const visiblePeople = people.slice(0, 2);
   const extraPeople = Math.max(0, people.length - visiblePeople.length);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const hp = hpStyle(room.healthPct);
   const lbl = hpLabel(room.healthPct);
   return (
@@ -178,10 +180,10 @@ function SelectedRoomCard({
         ))}
       </div>
 
-      {/* الموجودون في الغرفة — compact presence (preview only) */}
+      {/* الموجودون في المكتب — compact presence (preview only) */}
       <div style={{ marginBottom: 10 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-          <p style={{ fontSize: 10, color: "#4a6a8a", margin: 0 }}>الموجودون في الغرفة{people.length > 0 ? ` (${people.length})` : ""}</p>
+          <p style={{ fontSize: 10, color: "#4a6a8a", margin: 0 }}>الموجودون في المكتب{people.length > 0 ? ` (${people.length})` : ""}</p>
           {people.length > 0 && <span style={{ fontSize: 8.5, color: "#5a7a9a" }}>{MOBILE_PRESENCE_NOTE}</span>}
         </div>
         {people.length > 0 ? (
@@ -205,12 +207,29 @@ function SelectedRoomCard({
           </div>
         ) : (
           <div style={{ borderRadius: 8, border: "1px dashed rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.02)", padding: "8px 10px", fontSize: 10, color: "#6b87ab", textAlign: "center" }}>
-            لا يوجد أعضاء مرتبطون بهذه الغرفة حاليًا.
+            لا يوجد أعضاء مرتبطون بهذا المكتب حاليًا.
           </div>
         )}
       </div>
 
-      {mappingUnit && mappingSource && (
+      {/* إدارة المكتب — advanced mapping controls collapsed behind one button */}
+      <button
+        type="button"
+        onClick={() => setAdvancedOpen((v) => !v)}
+        aria-expanded={advancedOpen}
+        style={{
+          width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+          padding: "8px 12px", borderRadius: 10, marginBottom: advancedOpen ? 10 : 0,
+          border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)",
+          color: "#b0c8e0", fontSize: 11, fontWeight: 700, cursor: "pointer",
+        }}
+      >
+        <Settings2 size={12} />
+        إدارة المكتب
+        <ChevronDown size={13} style={{ transition: "transform 0.2s ease", transform: advancedOpen ? "rotate(180deg)" : "none" }} />
+      </button>
+
+      {advancedOpen && mappingUnit && mappingSource && (
         <div style={{
           borderRadius: 12,
           border: mappingSource === "saved" ? "1px solid rgba(34,211,238,0.25)" : mappingSource === "preview" ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(168,85,247,0.22)",
@@ -247,28 +266,30 @@ function SelectedRoomCard({
         </div>
       )}
 
-      {mappingError && (
+      {advancedOpen && mappingError && (
         <div style={{ borderRadius: 10, border: "1px solid rgba(239,68,68,0.22)", background: "rgba(239,68,68,0.07)", color: "#fecaca", fontSize: 10, lineHeight: 1.5, padding: "7px 9px", marginBottom: 10 }}>
           {mappingError}
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={onOpenMapping}
-        style={{
-          width: "100%",
-          display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-          padding: "8px 12px", borderRadius: 10,
-          border: "1px solid rgba(139,92,246,0.36)",
-          background: "rgba(139,92,246,0.10)",
-          color: "#d8b4fe",
-          fontSize: 11, fontWeight: 700, cursor: "pointer",
-        }}
-      >
-        <Layers size={12} />
-        تخصيص الربط
-      </button>
+      {advancedOpen && (
+        <button
+          type="button"
+          onClick={onOpenMapping}
+          style={{
+            width: "100%",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+            padding: "8px 12px", borderRadius: 10,
+            border: "1px solid rgba(139,92,246,0.36)",
+            background: "rgba(139,92,246,0.10)",
+            color: "#d8b4fe",
+            fontSize: 11, fontWeight: 700, cursor: "pointer",
+          }}
+        >
+          <Layers size={12} />
+          تخصيص ربط المكتب
+        </button>
+      )}
     </div>
   );
 }
