@@ -9,6 +9,8 @@ import {
   Check, Zap, ExternalLink, Clock, ToggleLeft, ToggleRight,
   Plus, Pencil, UserX, UserCheck, X, Key, Loader2,
   Lock, Eye, EyeOff, AlertTriangle, Upload, User,
+  MapPin, Phone, Mail, Globe, FileText, Hash, ShieldCheck,
+  Sparkles, CheckCircle2, Image as ImageIcon, Briefcase, Info,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -689,17 +691,52 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   };
 
   const companyFieldsDisabled = tenantMode && !canEditTenantSettings;
-  const renderCompanyField = (label: string, key: keyof typeof companyForm) => (
-    <div key={key}>
-      <label className="block text-xs text-[#8ba3c7] mb-1.5">{label}</label>
-      <input
-        className="input-dark text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-        value={companyForm[key] ?? ""}
-        disabled={companyFieldsDisabled}
-        onChange={(e) => setCompanyForm({ ...companyForm, [key]: e.target.value })}
-      />
-    </div>
+  const renderCompanyField = (
+    label: string,
+    key: keyof typeof companyForm,
+    opts?: { icon?: React.ElementType; placeholder?: string; ltr?: boolean; inputMode?: "text" | "tel" | "email" | "url" },
+  ) => {
+    const Icon = opts?.icon;
+    return (
+      <div key={key}>
+        <label className="flex items-center gap-1.5 text-xs text-[#8ba3c7] mb-1.5">
+          {Icon && <Icon size={13} className="text-cyan-300/80 shrink-0" />}
+          {label}
+        </label>
+        <input
+          className="input-dark text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          value={companyForm[key] ?? ""}
+          placeholder={opts?.placeholder}
+          inputMode={opts?.inputMode}
+          dir={opts?.ltr ? "ltr" : undefined}
+          style={opts?.ltr ? { textAlign: "right" } : undefined}
+          disabled={companyFieldsDisabled}
+          onChange={(e) => setCompanyForm({ ...companyForm, [key]: e.target.value })}
+        />
+      </div>
+    );
+  };
+
+  // Organization-settings completion (UI-only; derived from company_info).
+  // Employee/hierarchy data is intentionally NOT counted here — this page is
+  // strictly the tenant's own organization identity.
+  const ORG_COMPLETION_FIELDS: { key: keyof typeof companyForm; label: string }[] = [
+    { key: "name", label: "اسم المنشأة" },
+    { key: "activity_type", label: "نوع النشاط" },
+    { key: "city", label: "المدينة" },
+    { key: "address", label: "العنوان" },
+    { key: "email", label: "البريد الرسمي" },
+    { key: "phone", label: "رقم التواصل" },
+    { key: "website", label: "الموقع الإلكتروني" },
+    { key: "commercial_register", label: "السجل التجاري" },
+    { key: "tax_number", label: "الرقم الضريبي" },
+    { key: "logo_url", label: "الشعار" },
+  ];
+  const orgMissingFields = ORG_COMPLETION_FIELDS.filter(
+    (f) => !String(companyForm[f.key] ?? "").trim(),
   );
+  const orgFilledCount = ORG_COMPLETION_FIELDS.length - orgMissingFields.length;
+  const orgCompletion = Math.round((orgFilledCount / ORG_COMPLETION_FIELDS.length) * 100);
 
   const toggleRule = async (id: string, currentEnabled: boolean) => {
     try {
@@ -733,7 +770,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
               {tenantMode ? "إعدادات منشأتك ضمن باقة الاشتراك" : "إدارة إعدادات النظام والتفضيلات"}
             </p>
           </div>
-          {activeTab !== "permissions" && activeTab !== "account" && (
+          {activeTab !== "permissions" && activeTab !== "account" && activeTab !== "general" && (
             <button
               onClick={handleSave}
               disabled={saving || (tenantMode && !canEditTenantSettings)}
@@ -782,35 +819,93 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
           {/* Content */}
           <div className="lg:col-span-3 space-y-4">
 
-            {/* ── General ── */}
+            {/* ── General (premium organization settings) ── */}
             {activeTab === "general" && (
               <div className="space-y-4">
-                {/* الملف الشخصي — opens the smart profile modal */}
-                <button
-                  type="button"
-                  onClick={() => setShowProfile(true)}
-                  className="glass-card w-full p-4 flex items-center gap-3 text-right transition-all hover:border-cyan-400/25 active:scale-[0.99]"
-                >
-                  <span
-                    className="w-11 h-11 rounded-xl flex items-center justify-center text-white flex-shrink-0 ring-1 ring-white/10"
-                    style={{ background: "linear-gradient(135deg,#22d3ee,#1e6fd9)" }}
-                  >
-                    <User size={20} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-white font-medium text-sm">الملف الشخصي</div>
-                    <div className="text-[#8ba3c7] text-xs truncate">بياناتك وحسابك داخل المنشأة</div>
+                {/* 1) Premium section header */}
+                <div className="glass-card relative overflow-hidden p-5 sm:p-6">
+                  <div className="pointer-events-none absolute -top-16 -left-16 h-40 w-40 rounded-full bg-cyan-500/10 blur-3xl" />
+                  <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <span
+                        className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-white ring-1 ring-white/10"
+                        style={{ background: "linear-gradient(135deg,#22d3ee,#1e6fd9)" }}
+                      >
+                        <Building2 size={22} />
+                      </span>
+                      <div className="min-w-0">
+                        <h2 className="text-white font-heading font-bold text-lg sm:text-xl">الإعدادات العامة للمنشأة</h2>
+                        <p className="text-[#8ba3c7] text-xs sm:text-sm mt-1 leading-relaxed max-w-md">
+                          هذه البيانات تُعرّف مساحة عمل منشأتك داخل Blumark24 OS وتظهر لفريقك وعملائك.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/25 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-medium text-cyan-200">
+                        <ShieldCheck size={12} />
+                        مدير المنشأة فقط
+                      </span>
+                      {saving ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-[#8ba3c7]">
+                          <Loader2 size={12} className="animate-spin" /> جارٍ الحفظ
+                        </span>
+                      ) : saved ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-300">
+                          <CheckCircle2 size={12} /> تم الحفظ
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
-                  <ExternalLink size={15} className="text-[#8ba3c7] shrink-0" />
-                </button>
+                  {/* Scope clarity: org settings vs employees/hierarchy */}
+                  <div className="relative mt-4 flex items-start gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+                    <Info size={14} className="text-cyan-300/80 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-[#8ba3c7] leading-relaxed">
+                      تخص هذه الصفحة بيانات <span className="text-white/90">المنشأة</span> فقط. تُدار بيانات
+                      <span className="text-white/90"> الموظفين والهيكل الإداري</span> من قسم الموظفين، ولا تتأثر بما يُحفظ هنا.
+                    </p>
+                  </div>
+                </div>
 
-                {/* A) هوية المنشأة */}
-                <div className="glass-card p-6 space-y-4">
-                  <h3 className="text-white font-medium text-lg">هوية المنشأة</h3>
+                {/* 2) Smart completion */}
+                <div className="glass-card p-5 sm:p-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={16} className="text-cyan-300" />
+                      <h3 className="text-white font-medium text-sm sm:text-base">اكتمال بيانات المنشأة</h3>
+                    </div>
+                    <span className="text-cyan-200 font-heading font-bold text-lg tabular-nums">{orgCompletion}%</span>
+                  </div>
+                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-sky-500 transition-all duration-500"
+                      style={{ width: `${orgCompletion}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 text-[11px] text-[#8ba3c7]">
+                    {orgFilledCount} من {ORG_COMPLETION_FIELDS.length} حقول مكتملة
+                  </div>
+                  {orgMissingFields.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {orgMissingFields.map((f) => (
+                        <span
+                          key={String(f.key)}
+                          className="inline-flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-500/[0.07] px-2 py-0.5 text-[10px] text-amber-200/90"
+                        >
+                          {f.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-                  {/* Logo — preview + upload only (no URL field) */}
+                {/* 3) Logo & brand */}
+                <div className="glass-card p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon size={16} className="text-cyan-300" />
+                    <h3 className="text-white font-medium text-sm sm:text-base">الشعار والهوية البصرية</h3>
+                  </div>
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden border border-[#1e3a5f] bg-[#0d1f3c]/60 flex items-center justify-center flex-shrink-0">
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden border border-[#1e3a5f] bg-[#0d1f3c]/60 flex items-center justify-center flex-shrink-0">
                       {companyForm.logo_url && !logoBroken ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -820,14 +915,16 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                           onError={() => setLogoBroken(true)}
                         />
                       ) : companyForm.name ? (
-                        <span className="text-[#22d3ee] text-lg font-bold">{companyForm.name.slice(0, 2)}</span>
+                        <span className="text-[#22d3ee] text-xl font-bold">{companyForm.name.slice(0, 2)}</span>
                       ) : (
-                        <Building2 size={24} className="text-[#22d3ee]" />
+                        <Building2 size={26} className="text-[#22d3ee]" />
                       )}
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 min-w-0">
                       <div className="text-white text-sm font-medium">شعار المنشأة</div>
-                      <div className="text-[#8ba3c7] text-xs">PNG أو JPEG أو WebP — بحد أقصى 2 ميغابايت</div>
+                      <div className="text-[#8ba3c7] text-xs leading-relaxed">
+                        PNG أو JPEG أو WebP — بحد أقصى 2 ميغابايت. يُفضّل صورة مربعة بخلفية شفافة (مثل 512×512).
+                      </div>
                       {canEditTenantSettings && (
                         <button
                           type="button"
@@ -851,33 +948,92 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                       />
                     </div>
                   </div>
+                </div>
 
+                {/* 4) Organization identity */}
+                <div className="glass-card p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Building2 size={16} className="text-cyan-300" />
+                    <h3 className="text-white font-medium text-sm sm:text-base">هوية المنشأة</h3>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {renderCompanyField("اسم المنشأة", "name")}
-                    {renderCompanyField("وصف قصير", "tagline")}
-                    {renderCompanyField("نوع النشاط", "activity_type")}
-                    {renderCompanyField("المدينة", "city")}
+                    {renderCompanyField("اسم المنشأة", "name", { icon: Building2, placeholder: "اسم منشأتك الرسمي" })}
+                    {renderCompanyField("نوع النشاط", "activity_type", { icon: Briefcase, placeholder: "مثال: تسويق رقمي" })}
+                    {renderCompanyField("المدينة", "city", { icon: MapPin, placeholder: "مثال: الرياض" })}
+                    {renderCompanyField("العنوان", "address", { icon: MapPin, placeholder: "العنوان الوطني / الحي" })}
                   </div>
                 </div>
 
-                {/* B) بيانات التواصل */}
-                <div className="glass-card p-6 space-y-4">
-                  <h3 className="text-white font-medium text-lg">بيانات التواصل</h3>
+                {/* 5) Official contact */}
+                <div className="glass-card p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Phone size={16} className="text-cyan-300" />
+                    <h3 className="text-white font-medium text-sm sm:text-base">بيانات التواصل الرسمية</h3>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {renderCompanyField("البريد الرسمي", "email")}
-                    {renderCompanyField("رقم التواصل", "phone")}
-                    {renderCompanyField("الموقع الإلكتروني", "website")}
-                    {renderCompanyField("العنوان", "address")}
+                    {renderCompanyField("البريد الرسمي", "email", { icon: Mail, ltr: true, inputMode: "email", placeholder: "info@company.com" })}
+                    {renderCompanyField("رقم التواصل", "phone", { icon: Phone, ltr: true, inputMode: "tel", placeholder: "9665XXXXXXXX" })}
+                    <div className="sm:col-span-2">
+                      {renderCompanyField("الموقع الإلكتروني", "website", { icon: Globe, ltr: true, inputMode: "url", placeholder: "https://company.com" })}
+                    </div>
                   </div>
                 </div>
 
-                {/* C) بيانات إضافية */}
-                <div className="glass-card p-6 space-y-4">
-                  <h3 className="text-white font-medium text-lg">بيانات إضافية</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {renderCompanyField("السجل التجاري", "commercial_register")}
-                    {renderCompanyField("الرقم الضريبي", "tax_number")}
+                {/* 6) Legal & registration */}
+                <div className="glass-card p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <FileText size={16} className="text-cyan-300" />
+                    <h3 className="text-white font-medium text-sm sm:text-base">البيانات القانونية والتسجيل</h3>
                   </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {renderCompanyField("السجل التجاري", "commercial_register", { icon: FileText, ltr: true, placeholder: "رقم السجل التجاري" })}
+                    {renderCompanyField("الرقم الضريبي", "tax_number", { icon: Hash, ltr: true, placeholder: "الرقم الضريبي (VAT)" })}
+                  </div>
+                </div>
+
+                {/* 7) Save area */}
+                <div className="glass-card p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sticky bottom-4 z-10">
+                  {tenantMode && !canEditTenantSettings ? (
+                    <div className="flex items-center gap-2 text-xs text-amber-300">
+                      <AlertTriangle size={14} className="shrink-0" />
+                      {TENANT_SETTINGS_DENIED_MESSAGE}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs text-[#8ba3c7]">
+                      <Info size={14} className="text-cyan-300/80 shrink-0" />
+                      تُحفظ هذه البيانات في إعدادات منشأتك فقط.
+                    </div>
+                  )}
+                  <button
+                    onClick={handleSave}
+                    disabled={saving || (tenantMode && !canEditTenantSettings)}
+                    title={tenantMode && !canEditTenantSettings ? TENANT_SETTINGS_DENIED_MESSAGE : undefined}
+                    className="btn-primary flex items-center justify-center gap-2 disabled:opacity-50 sm:min-w-[180px]"
+                  >
+                    {saving
+                      ? <Loader2 size={16} className="animate-spin" />
+                      : saved ? <Check size={16} className="text-emerald-400" /> : <Save size={16} />}
+                    {saving ? "جارٍ الحفظ..." : saved ? "تم الحفظ!" : "حفظ إعدادات المنشأة"}
+                  </button>
+                </div>
+
+                {/* Personal account shortcut — clearly separated from org settings */}
+                <div className="pt-1">
+                  <div className="text-[11px] text-[#6b87ab] mb-2 px-1">حسابك الشخصي</div>
+                  <button
+                    type="button"
+                    onClick={() => setShowProfile(true)}
+                    className="glass-card w-full p-4 flex items-center gap-3 text-right transition-all hover:border-cyan-400/25 active:scale-[0.99]"
+                  >
+                    <span className="w-10 h-10 rounded-xl flex items-center justify-center text-cyan-300 flex-shrink-0 border border-white/[0.08] bg-cyan-500/10">
+                      <User size={18} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-white font-medium text-sm">الملف الشخصي</div>
+                      <div className="text-[#8ba3c7] text-xs truncate">بياناتك وحسابك داخل المنشأة (منفصلة عن بيانات المنشأة)</div>
+                    </div>
+                    <ExternalLink size={15} className="text-[#8ba3c7] shrink-0" />
+                  </button>
                 </div>
               </div>
             )}
