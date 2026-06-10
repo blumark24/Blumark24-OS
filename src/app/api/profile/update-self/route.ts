@@ -105,23 +105,49 @@ export async function PATCH(req: NextRequest) {
   }
 
   // employees: name + phone. Scoped to the caller's own id AND organization, so
-  // a same-email row in another tenant can never be reached. Non-fatal: owners
-  // or broken/unlinked accounts may not have a matching employees row.
+  // a same-email row in another tenant can never be reached. phone lives ONLY
+  // here (profiles has no phone column), so a phone change MUST verify a row was
+  // actually written — otherwise the UI would show a false success and the value
+  // would appear to "revert" to غير محدد on the next read.
+  let persistedPhone: string | null | undefined = undefined;
   const employeeSync: Record<string, unknown> = {};
   if (cleanName !== undefined) employeeSync.name = cleanName;
   if (cleanPhone !== undefined) employeeSync.phone = cleanPhone;
   if (Object.keys(employeeSync).length > 0) {
     let q = admin.from("employees").update(employeeSync).eq("id", callerId);
     if (callerOrgId) q = q.eq("organization_id", callerOrgId);
-    const { error: eErr } = await q;
+    // .select() returns the rows actually updated, so we can both detect a
+    // no-op (0 rows) and read back the value that was truly persisted.
+    const { data: updatedRows, error: eErr } = await q.select("phone");
+
     if (eErr) {
-      console.warn(`${TAG} employees sync skipped (non-fatal): ${eErr.message}`);
+      // A phone change has no fallback store — surface the failure rather than
+      // claim success. A name-only change is already safe in profiles, so it
+      // stays non-fatal there.
+      if (cleanPhone !== undefined) {
+        return fail(500, `تعذّر حفظ رقم الهاتف: ${eErr.message}`, `step=updateEmployee: ${eErr.message}`);
+      }
+      console.warn(`${TAG} employees name sync skipped (non-fatal): ${eErr.message}`);
+    } else if (!updatedRows || updatedRows.length === 0) {
+      // No employees row matched (missing row or org mismatch). The phone could
+      // not be stored, so never report a silent success for a phone change.
+      if (cleanPhone !== undefined) {
+        return fail(
+          404,
+          "تعذّر حفظ رقم الهاتف — لا يوجد سجل موظف مرتبط بحسابك في هذه المنشأة. يرجى التواصل مع مدير المنشأة.",
+          "step=updateEmployee: 0 rows affected",
+        );
+      }
+    } else {
+      persistedPhone = (updatedRows[0]?.phone as string | null) ?? null;
     }
   }
 
   return NextResponse.json({
     success: true,
     name: cleanName,
-    phone: cleanPhone,
+    // Echo the value actually stored in the employees row (not the requested
+    // value) so the client always reflects ground truth. undefined = unchanged.
+    phone: cleanPhone === undefined ? undefined : persistedPhone ?? null,
   });
 }

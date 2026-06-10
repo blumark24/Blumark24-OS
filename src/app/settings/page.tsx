@@ -864,10 +864,10 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
                 <div className="glass-card p-6 space-y-4">
                   <h3 className="text-white font-medium text-lg">بيانات التواصل</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {renderCompanyField("البريد الإلكتروني", "email")}
-                    {renderCompanyField("رقم الهاتف", "phone")}
+                    {renderCompanyField("البريد الرسمي", "email")}
+                    {renderCompanyField("رقم التواصل", "phone")}
                     {renderCompanyField("الموقع الإلكتروني", "website")}
-                    {renderCompanyField("العنوان المختصر", "address")}
+                    {renderCompanyField("العنوان", "address")}
                   </div>
                 </div>
 
