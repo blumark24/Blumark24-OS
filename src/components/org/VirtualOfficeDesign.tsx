@@ -837,6 +837,9 @@ function RoomDetailPanel({
   // no access keys, no DB). "advancedOpen" collapses the mapping controls.
   const [opened, setOpened] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  // Smart office cabinet (read-only). Collapsible so the panel stays compact.
+  const [cabinetOpen, setCabinetOpen] = useState(false);
+  const presentCount = presencePeople.filter((p) => p.status === "available").length;
 
   return (
     <div style={{
@@ -949,9 +952,10 @@ function RoomDetailPanel({
           )}
         </div>
 
-        {/* Office previews — visual placeholders only (no logic/persistence) */}
+        {/* Office previews — read-only, derived from existing data only */}
         {opened && (
-          <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: 8 }}>
+            {/* قاعة الاجتماعات — preview */}
             <div style={{ borderRadius: 10, border: "1px solid rgba(34,211,238,0.16)", background: "rgba(34,211,238,0.05)", padding: "10px 11px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Calendar size={13} color="#22d3ee" />
@@ -959,12 +963,57 @@ function RoomDetailPanel({
               </div>
               <div style={{ fontSize: 10, color: "#6b87ab", marginTop: 4 }}>معاينة — لا يوجد اجتماع مجدول حاليًا</div>
             </div>
-            <div style={{ borderRadius: 10, border: "1px solid rgba(148,163,184,0.16)", background: "rgba(255,255,255,0.03)", padding: "10px 11px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Archive size={13} color="#8ba3c7" />
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: "#c0d4ee" }}>خزانة المكتب</span>
-              </div>
-              <div style={{ fontSize: 10, color: "#6b87ab", marginTop: 4 }}>معاينة — مستندات المكتب قريبًا</div>
+
+            {/* خزانة المكتب — smart read-only cabinet (collapsible, compact) */}
+            <div style={{ borderRadius: 10, border: "1px solid rgba(148,163,184,0.16)", background: "rgba(255,255,255,0.03)", overflow: "hidden" }}>
+              <button
+                type="button"
+                onClick={() => setCabinetOpen((v) => !v)}
+                aria-expanded={cabinetOpen}
+                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 11px", background: "transparent", border: "none", cursor: "pointer", textAlign: "start" }}
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                  <Archive size={13} color="#8ba3c7" />
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "#c0d4ee" }}>خزانة المكتب</span>
+                  <span style={{ fontSize: 9.5, color: "#5a7a9a" }}>ملخص تشغيلي</span>
+                </span>
+                <ChevronDown size={14} color="#8ba3c7" style={{ flexShrink: 0, transition: "transform 0.2s ease", transform: cabinetOpen ? "rotate(180deg)" : "none" }} />
+              </button>
+
+              {cabinetOpen && (
+                <div style={{ padding: "0 11px 11px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  {/* Office identity */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    <span style={{ fontSize: 9.5, color: "#cfd9ea", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", padding: "2px 8px", borderRadius: 999 }}>{room.name}</span>
+                    {mappingUnit?.name && (
+                      <span style={{ fontSize: 9.5, color: "#86efac", background: "rgba(16,185,129,0.10)", border: "1px solid rgba(16,185,129,0.22)", padding: "2px 8px", borderRadius: 999 }}>{mappingUnit.name}</span>
+                    )}
+                    {(mappingUnit?.typeLabel || room.type) && (
+                      <span style={{ fontSize: 9.5, color: "#8ba3c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", padding: "2px 8px", borderRadius: 999 }}>{mappingUnit?.typeLabel || room.type}</span>
+                    )}
+                  </div>
+
+                  {/* Cabinet item rows — read-only summaries from existing data */}
+                  {[
+                    { Icon: Users,    color: "#22d3ee", label: "ملف الفريق",     value: `${room.employeeCount} عضو · ${presentCount} متاح` },
+                    { Icon: Activity, color: "#10b981", label: "ملف المهام",     value: `${openTasks.length || room.openTasks} مفتوحة · ${overdueTasks.length || room.overdueTasks} متأخرة` },
+                    { Icon: Heart,    color: hp >= 85 ? "#10b981" : hp >= 70 ? "#f59e0b" : "#ef4444", label: "ملف المؤشرات", value: hp > 0 ? `صحة المكتب ${hp}%` : "غير متاح" },
+                    { Icon: Calendar, color: "#a855f7", label: "ملف الاجتماعات", value: "لا اجتماع مجدول حاليًا" },
+                  ].map(({ Icon, color, label, value }) => (
+                    <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", padding: "7px 9px" }}>
+                      <span style={{ width: 24, height: 24, borderRadius: 7, display: "grid", placeItems: "center", flexShrink: 0, background: `${color}1a`, border: `1px solid ${color}33` }}>
+                        <Icon size={12} color={color} />
+                      </span>
+                      <span style={{ fontSize: 11, color: "#c0d4ee", fontWeight: 600, flexShrink: 0 }}>{label}</span>
+                      <span style={{ fontSize: 10, color: "#7e96b4", marginInlineStart: "auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</span>
+                    </div>
+                  ))}
+
+                  <p style={{ margin: 0, fontSize: 9, color: "#5a6f8a", lineHeight: 1.6 }}>
+                    الخزانة تعرض ملخصًا تشغيليًا من بيانات المكتب الحالية. حفظ الملفات والمرفقات سيضاف لاحقًا.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
