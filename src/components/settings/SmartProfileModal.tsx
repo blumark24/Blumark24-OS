@@ -126,12 +126,14 @@ export function SmartProfileModal({ open, onClose }: { open: boolean; onClose: (
     if (!trimmedName) { toast.error("الاسم مطلوب"); return; }
     setSaving(true);
     try {
-      await withTimeout(
+      const result = await withTimeout(
         updateMySelfProfile({ name: trimmedName, phone: editPhone.trim() || null }),
         12_000,
         "انتهت مهلة حفظ الملف الشخصي — تحقق من اتصالك بالإنترنت",
       );
-      setPhone(editPhone.trim());
+      // Reflect the phone value the SERVER actually persisted (employees row),
+      // not just the local input — so a silent revert can never happen.
+      setPhone(result.phone != null ? String(result.phone) : "");
       await refreshCurrentUser();
       toast.success("تم تحديث ملفك الشخصي بنجاح");
       setEditing(false);
