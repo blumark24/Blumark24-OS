@@ -1,7 +1,7 @@
 import type { Permission } from "@/contexts/PermissionsContext";
 
 /** Subscription plan slugs (matches `plans.slug` in owner center). */
-export type PlanSlug = "basic" | "growth" | "advanced";
+export type PlanSlug = "basic" | "growth" | "advanced" | "enterprise";
 
 /** Logical workspace modules gated by plan. */
 export type WorkspaceFeature =
@@ -43,29 +43,65 @@ export interface WorkspaceRouteDef {
 
 /** Seed defaults for migration 020 / owner UI — not used at tenant runtime. */
 export const PLAN_FEATURES: Record<PlanSlug, WorkspaceFeature[]> = {
-  basic: ["dashboard", "tasks", "clients", "org", "ai", "reports"],
+  basic: ["dashboard", "tasks", "clients", "employees", "reports"],
   growth: [
     "dashboard",
     "tasks",
     "clients",
-    "org",
-    "ai",
-    "reports",
     "employees",
-    "strategy",
+    "reports",
+    "org",
+    "finance",
   ],
   advanced: [
     "dashboard",
     "tasks",
     "clients",
-    "org",
-    "ai",
-    "reports",
     "employees",
-    "strategy",
+    "reports",
+    "org",
     "finance",
+    "strategy",
     "automation",
   ],
+  enterprise: [
+    "dashboard",
+    "tasks",
+    "clients",
+    "employees",
+    "reports",
+    "org",
+    "finance",
+    "strategy",
+    "automation",
+    "ai",
+  ],
+};
+
+// ─── Pricing (OS-PACKAGES-STRATEGY-LOCK-1) ────────────────────────────────────
+// Base prices are canonical. Launch offer (50% for first 6 months) must be
+// applied as a coupon/discount — never stored as the base price.
+// Enterprise price is null (custom contract).
+
+export const PLAN_BASE_PRICE_SAR: Record<PlanSlug, number | null> = {
+  basic: 299,
+  growth: 599,
+  advanced: 999,
+  enterprise: null,
+};
+
+export const PLAN_LAUNCH_PRICE_SAR: Record<PlanSlug, number | null> = {
+  basic: 149,
+  growth: 299,
+  advanced: 499,
+  enterprise: null,
+};
+
+export const PLAN_MAX_USERS: Record<PlanSlug, number | null> = {
+  basic: 5,
+  growth: 15,
+  advanced: 40,
+  enterprise: null,
 };
 
 export const ALL_WORKSPACE_FEATURES: WorkspaceFeature[] = [
@@ -82,9 +118,10 @@ export const ALL_WORKSPACE_FEATURES: WorkspaceFeature[] = [
 ];
 
 export const PLAN_LABELS_AR: Record<PlanSlug, string> = {
-  basic: "بسيط",
+  basic: "أساسي",
   growth: "نمو",
   advanced: "متقدم",
+  enterprise: "مؤسسي",
 };
 
 /** Tenant sidebar order */
@@ -233,7 +270,7 @@ const ROUTE_LABELS_AR: Record<WorkspaceRouteId, string> = {
 
 export function normalizePlanSlug(slug: string | null | undefined): PlanSlug {
   const s = String(slug ?? "").trim().toLowerCase();
-  if (s === "growth" || s === "advanced") return s;
+  if (s === "growth" || s === "advanced" || s === "enterprise") return s;
   return "basic";
 }
 

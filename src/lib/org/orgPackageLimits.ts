@@ -9,9 +9,10 @@ export const PLAN_STRUCTURE_CAPS: Record<
   PlanSlug,
   Record<StructureLevel, number>
 > = {
-  basic: { agency: 0, management: 0, department: 3 },
-  growth: { agency: 0, management: 5, department: 15 },
-  advanced: { agency: 5, management: 20, department: 50 },
+  basic:      { agency: 0,   management: 0,  department: 3  },
+  growth:     { agency: 0,   management: 5,  department: 15 },
+  advanced:   { agency: 5,   management: 20, department: 50 },
+  enterprise: { agency: 999, management: 999, department: 999 },
 };
 
 export interface OrgPlanLimits {
@@ -48,6 +49,13 @@ const PLAN_META: Record<
     accent: "#f59e0b",
     maxTeams: 400,
     maxPositions: 500,
+  },
+  enterprise: {
+    planLabelAr: "مؤسسي",
+    tierClass: "org-tier-enterprise",
+    accent: "#10b981",
+    maxTeams: 9999,
+    maxPositions: 9999,
   },
 };
 
