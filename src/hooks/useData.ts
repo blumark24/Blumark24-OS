@@ -15,6 +15,13 @@ import { withTimeout, withSoftTimeout } from "@/lib/asyncHelpers";
 import type { Client, Task, Transaction, Employee, Project, Activity, StrategyPhase } from "@/types";
 import type { BoardMember } from "@/lib/db";
 
+/** Defense-in-depth org filter alongside RLS (Phase 3). */
+async function resolveScopedOrgId(): Promise<string | null> {
+  const { data, error } = await supabase.rpc("current_org_id");
+  if (error || !data) return null;
+  return data as string;
+}
+
 // Timeout constants (ms)
 const DB_WRITE_TIMEOUT  = 12_000; // INSERT/UPDATE/DELETE operations
 const DB_READ_TIMEOUT   = 15_000; // SELECT / initial fetch
@@ -286,10 +293,10 @@ function useAsyncData<T>(fetcher: () => Promise<T>, fallback: T) {
 // ─── Clients ──────────────────────────────────────────────────────────────────
 
 async function fetchClients(): Promise<Client[]> {
-  const { data, error } = await supabase
-    .from("clients")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const orgId = await resolveScopedOrgId();
+  let query = supabase.from("clients").select("*").order("created_at", { ascending: false });
+  if (orgId) query = query.eq("organization_id", orgId);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(clientFromDB);
 }
@@ -349,10 +356,10 @@ export function useClients() {
 // ─── Tasks ────────────────────────────────────────────────────────────────────
 
 async function fetchTasks(): Promise<Task[]> {
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const orgId = await resolveScopedOrgId();
+  let query = supabase.from("tasks").select("*").order("created_at", { ascending: false });
+  if (orgId) query = query.eq("organization_id", orgId);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(taskFromDB);
 }
@@ -416,10 +423,10 @@ export function useTasks() {
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
 async function fetchTransactions(): Promise<Transaction[]> {
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const orgId = await resolveScopedOrgId();
+  let query = supabase.from("transactions").select("*").order("created_at", { ascending: false });
+  if (orgId) query = query.eq("organization_id", orgId);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []) as Transaction[];
 }
@@ -488,10 +495,10 @@ export function useTransactions() {
 // ─── Employees ────────────────────────────────────────────────────────────────
 
 async function fetchEmployees(): Promise<Employee[]> {
-  const { data, error } = await supabase
-    .from("employees")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const orgId = await resolveScopedOrgId();
+  let query = supabase.from("employees").select("*").order("created_at", { ascending: false });
+  if (orgId) query = query.eq("organization_id", orgId);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(employeeFromDB);
 }
@@ -562,10 +569,10 @@ export function useOrgProfileIds() {
 // ─── Projects ─────────────────────────────────────────────────────────────────
 
 async function fetchProjects(): Promise<Project[]> {
-  const { data, error } = await supabase
-    .from("projects")
-    .select("*")
-    .order("deadline", { ascending: true });
+  const orgId = await resolveScopedOrgId();
+  let query = supabase.from("projects").select("*").order("deadline", { ascending: true });
+  if (orgId) query = query.eq("organization_id", orgId);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(projectFromDB);
 }
@@ -577,11 +584,10 @@ export function useProjects() {
 // ─── Activities ───────────────────────────────────────────────────────────────
 
 async function fetchActivities(): Promise<Activity[]> {
-  const { data, error } = await supabase
-    .from("activities")
-    .select("*")
-    .order("timestamp", { ascending: false })
-    .limit(10);
+  const orgId = await resolveScopedOrgId();
+  let query = supabase.from("activities").select("*").order("timestamp", { ascending: false }).limit(10);
+  if (orgId) query = query.eq("organization_id", orgId);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(activityFromDB);
 }
@@ -695,18 +701,16 @@ function strategyPhaseUpdateToDB(changes: Partial<StrategyPhase>): Record<string
 }
 
 async function fetchStrategyPhases(): Promise<StrategyPhase[]> {
-  // Try ordering by sort_order; fall back to id if column doesn't exist yet
-  const { data, error } = await supabase
-    .from("strategy_phases")
-    .select("*")
-    .order("sort_order", { ascending: true });
+  const orgId = await resolveScopedOrgId();
+  let query = supabase.from("strategy_phases").select("*").order("sort_order", { ascending: true });
+  if (orgId) query = query.eq("organization_id", orgId);
+  const { data, error } = await query;
 
   if (error) {
     if (error.message.includes("sort_order")) {
-      const { data: fallback, error: fallbackError } = await supabase
-        .from("strategy_phases")
-        .select("*")
-        .order("id", { ascending: true });
+      let fallbackQuery = supabase.from("strategy_phases").select("*").order("id", { ascending: true });
+      if (orgId) fallbackQuery = fallbackQuery.eq("organization_id", orgId);
+      const { data: fallback, error: fallbackError } = await fallbackQuery;
       if (fallbackError) throw new Error(fallbackError.message);
       return ((fallback ?? []) as Record<string, unknown>[]).map(strategyPhaseFromDB);
     }
@@ -817,10 +821,10 @@ function automationFromDB(row: Record<string, unknown>): AutomationRecord {
 }
 
 async function fetchAutomations(): Promise<AutomationRecord[]> {
-  const { data, error } = await supabase
-    .from("automations")
-    .select("*")
-    .order("id");
+  const orgId = await resolveScopedOrgId();
+  let query = supabase.from("automations").select("*").order("id");
+  if (orgId) query = query.eq("organization_id", orgId);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(automationFromDB);
 }
@@ -881,11 +885,10 @@ export interface AutomationLog {
 }
 
 async function fetchAutomationLogs(): Promise<AutomationLog[]> {
-  const { data, error } = await supabase
-    .from("automation_logs")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(30);
+  const orgId = await resolveScopedOrgId();
+  let query = supabase.from("automation_logs").select("*").order("created_at", { ascending: false }).limit(30);
+  if (orgId) query = query.eq("organization_id", orgId);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
     id:        row.id         as string,
