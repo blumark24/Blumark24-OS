@@ -82,7 +82,7 @@ const PLANS: PlanDef[] = [
       "SLA حسب الاتفاق",
       "تكاملات مستقبلية",
     ],
-    cta: "تواصل معنا",
+    cta: "تواصل مع الفريق",
   },
 ];
 
@@ -472,7 +472,7 @@ function PlanCard({
           </>
         ) : (
           <>
-            <div className="text-[10.5px] text-white/35 mb-1 uppercase tracking-widest">عرض الإطلاق</div>
+            <div className="text-[10.5px] text-white/35 mb-1 uppercase tracking-widest">سعر إطلاق لمدة 6 أشهر</div>
             <div className="flex items-baseline gap-2">
               <span className="text-[28px] font-bold text-white leading-none">
                 {launchPrice?.toLocaleString("en-US")}
@@ -564,7 +564,7 @@ export default function PricingSection() {
             <p className="text-[12.5px] leading-relaxed" style={{ color: "rgba(255,255,255,0.68)" }}>
               <span className="font-semibold text-[#22D3EE]">عرض الإطلاق</span>
               {" — "}
-              خصم 50% على باقات Blumark24 OS حتى 30-12-2025، ولمدة 6 أشهر من تاريخ الاشتراك.
+              خصم 50% على باقات Blumark24 OS حتى 30-12-2026، ولمدة 6 أشهر من تاريخ الاشتراك.
             </p>
           </div>
 
