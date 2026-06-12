@@ -564,7 +564,7 @@ export default function PricingSection() {
             <p className="text-[12.5px] leading-relaxed" style={{ color: "rgba(255,255,255,0.68)" }}>
               <span className="font-semibold text-[#22D3EE]">عرض الإطلاق</span>
               {" — "}
-              خصم 50% على باقات Blumark24 OS حتى 30-12-2026، ولمدة 6 أشهر من تاريخ الاشتراك.
+              خصم 50% على باقات Blumark24 OS حتى 30-12-2026، .
             </p>
           </div>
 
