@@ -12,17 +12,19 @@ import {
   Activity, Calendar, BrainCircuit, MessageSquare, AlertTriangle,
   Settings2, ChevronDown,
 } from "lucide-react";
-import type { SceneRoom } from "./VirtualOfficeReferenceScene";
-import { formatOfficeNumber } from "./VirtualOfficeReferenceScene";
+import {
+  formatOfficeNumber,
+  type SceneRoom,
+} from "./VirtualOfficeReferenceScene";
+import type { MappingSource, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
+
+type MobilePresencePerson = PresencePerson;
 
 // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
 const OFFICE_LABEL_PREFIX = "مكتب";
 const UNASSIGNED_LABEL = "غير مخصص";
 const UNASSIGNED_HINT_LONG = "اربط هذا المكتب بإدارة أو قسم من الهيكل الإداري لتفعيل المكتب التنفيذي الذكي.";
 const officeLabel = (n: number) => `${OFFICE_LABEL_PREFIX} ${formatOfficeNumber(n)}`;
-import type { MappingSource, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
-
-type MobilePresencePerson = PresencePerson;
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";

@@ -27,23 +27,13 @@ import VirtualOfficeReferenceScene, { type SceneRoom, formatOfficeNumber } from 
 import MobileExecutiveOfficeScene from "./MobileExecutiveOfficeScene";
 
 // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
-// Map office display rooms in the visual map. The Board / Executive panel
-// (BoardExecutiveOffice) is the 9th office — مكتب 09 — but is rendered as a
-// separate panel, not as a scene room.
-const TOTAL_MAP_OFFICES = 8;
+// The Board / Executive panel (BoardExecutiveOffice) is the 9th office —
+// مكتب 09 — but is rendered as a separate panel, not as a scene room.
 const BOARD_OFFICE_NUMBER = 9;
 const OFFICE_LABEL_PREFIX = "مكتب";
 const officeLabel = (n: number) => `${OFFICE_LABEL_PREFIX} ${formatOfficeNumber(n)}`;
 const UNASSIGNED_LABEL = "غير مخصص";
-const UNASSIGNED_HINT_SHORT = "اربط هذا المكتب بوحدة من الهيكل الإداري.";
 const UNASSIGNED_HINT_LONG  = "اربط هذا المكتب بإدارة أو قسم من الهيكل الإداري لتفعيل المكتب التنفيذي الذكي.";
-
-// Office number (1..8) for a given fixed key, mirroring ROOM_KEYS_BY_SLOT order.
-// 0 is returned for unknown keys (badge then hides).
-function officeNumberForKey(key: ExecutiveOfficeFixedRoomKey | string): number {
-  const idx = (ROOM_KEYS_BY_SLOT as readonly string[]).indexOf(key as string);
-  return idx >= 0 ? idx + 1 : 0;
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -310,34 +300,56 @@ function buildOfficeRooms(
   const safeEmp = Array.isArray(employees) ? employees : [];
   const safeTsk = Array.isArray(tasks)     ? tasks     : [];
 
-  if (depts.length === 0) {
-    return {
-      isDemo: true,
-      // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
-      // Empty-org default: do NOT show fake department names. Each office
-      // gets a stable number ("مكتب 01"...) and zeroed metrics so the manager
-      // sees clean empty offices to assign.
-      rooms: DEMO_DEF.map((d, i) => ({
-        id: `demo-${i}`, fixedRoomKey: ROOM_KEYS_BY_SLOT[i] ?? "sales", deptId: `demo-${i}`,
-        name: officeLabel(i + 1),
-        accentColor: ACCENT_CYCLE[i % ACCENT_CYCLE.length] ?? "#22d3ee",
-        employeeCount: 0, avatars: [],
-        openTasks: 0, overdueTasks: 0, healthPct: 0,
-        isCenter: d.center, isAI: d.ai, isDemo: true,
-        deptCode: null, type: d.center ? "قاعة اجتماعات" : d.ai ? "غرفة AI" : "مساحة عمل",
-        level: d.center ? "management" : d.ai ? "department" : "department",
-        teamCount: 0, teams: [], managerName: null,
-        officeNumber: i + 1,
-        isUnassigned: true,
-      })),
-    };
-  }
+  // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1 — slot-stable layout.
+  // Always return an array of length 8 in fixed slot order:
+  //   index 0 → مكتب 01 (sales),  index 1 → مكتب 02 (executive), …
+  //   index 4 → مكتب 05 (meetings, center), index 7 → مكتب 08 (ai)
+  // - Real departments are placed at the slot returned by assignSlot.
+  //   The first dept to claim a slot wins; later collisions fall through to
+  //   the next free slot. usedSlots prevents any duplicate office number.
+  // - Any remaining slot is filled with an unassigned numbered placeholder.
+  // - isCenter / isAI are derived from the SLOT (not the dept), so the visual
+  //   composition matches the floor plan even when the dept is unrelated.
 
   const empById  = new Map(safeEmp.map((e) => [e.id, e]));
   const usedSlots = new Set<number>();
+  const slotArr: (OfficeRoom | null)[] = Array(8).fill(null);
 
-  const rooms: OfficeRoom[] = depts.slice(0, 8).map((dept, deptIndex) => {
-    if (!dept) return null;
+  function makePlaceholder(slot: number): OfficeRoom {
+    const def = DEMO_DEF[slot];
+    return {
+      id: `pad-${slot}`,
+      fixedRoomKey: ROOM_KEYS_BY_SLOT[slot] ?? "sales",
+      deptId: `pad-${slot}`,
+      name: officeLabel(slot + 1),
+      accentColor: ACCENT_CYCLE[slot % ACCENT_CYCLE.length] ?? "#22d3ee",
+      employeeCount: 0, avatars: [],
+      openTasks: 0, overdueTasks: 0, healthPct: 0,
+      isCenter: slot === 4,
+      isAI:     slot === 7,
+      isDemo: true,
+      deptCode: null,
+      type:  slot === 4 ? "قاعة اجتماعات" : slot === 7 ? "غرفة AI" : "مساحة عمل",
+      level: slot === 4 ? "management"     : "department",
+      teamCount: 0, teams: [], managerName: null,
+      officeNumber: slot + 1,
+      isUnassigned: true,
+      // keep def around so we don't have to remove it (consistency with prior shape)
+      ...(def ? {} : {}),
+    };
+  }
+
+  // Empty-org default: 8 stable numbered empty offices.
+  if (depts.length === 0) {
+    return {
+      isDemo: true,
+      rooms: Array.from({ length: 8 }, (_, i) => makePlaceholder(i)),
+    };
+  }
+
+  // Place real depts.
+  for (const dept of depts.slice(0, 8)) {
+    if (!dept) continue;
     const deptRels    = rels.filter((r) => r?.department_id === dept.id);
     const empIds      = new Set(deptRels.map((r) => r.employee_id).filter((x): x is string => typeof x === "string"));
     const deptEmps    = Array.from(empIds).map((id) => empById.get(id)).filter((e): e is Employee => e != null);
@@ -348,53 +360,41 @@ function buildOfficeRooms(
     const overdue     = deptTasks.filter((t) => t?.status === "متأخرة").length;
     const name        = dept.name ?? "—";
     const level       = typeof dept.structure_level === "string" ? dept.structure_level : "department";
-    const isCenter    = level === "management";
-    const isAI        = name.includes("ذكاء") || name.toUpperCase().includes("AI");
+    const deptIsCenter = level === "management";
+    const deptIsAI     = name.includes("ذكاء") || name.toUpperCase().includes("AI");
     const manager     = dept.manager_id ? (empById.get(dept.manager_id)?.name ?? null) : null;
-    const slotIdx     = assignSlot(name, level, isCenter, isAI, usedSlots);
-    if (slotIdx >= 0) usedSlots.add(slotIdx);
-    const accentIdx   = slotIdx >= 0 ? slotIdx : (hashStr(dept.id) % ACCENT_CYCLE.length);
-    const finalSlotIdx = slotIdx >= 0 ? slotIdx : deptIndex;
-    const fixedRoomKey = ROOM_KEYS_BY_SLOT[finalSlotIdx] ?? "sales";
-    return {
-      id: dept.id, fixedRoomKey, deptId: dept.id,
+
+    const slotIdx = assignSlot(name, level, deptIsCenter, deptIsAI, usedSlots);
+    if (slotIdx < 0) continue;            // no free slot — skip (cap at 8).
+    if (usedSlots.has(slotIdx)) continue; // belt-and-braces against duplicate.
+    usedSlots.add(slotIdx);
+
+    slotArr[slotIdx] = {
+      id: dept.id,
+      fixedRoomKey: ROOM_KEYS_BY_SLOT[slotIdx] ?? "sales",
+      deptId: dept.id,
       name,
-      accentColor: ACCENT_CYCLE[accentIdx % ACCENT_CYCLE.length] ?? "#22d3ee",
+      accentColor: ACCENT_CYCLE[slotIdx % ACCENT_CYCLE.length] ?? "#22d3ee",
       employeeCount: deptRels.length,
       avatars: deptEmps.slice(0, 3).map((e) => ({ initials: nameInitials(e.name ?? e.email ?? "؟"), color: avatarColor(e.name ?? e.email ?? "؟") })),
       openTasks: open, overdueTasks: overdue,
       healthPct: computeHp(open, overdue, deptRels.length),
-      isCenter, isAI, isDemo: false,
+      // isCenter / isAI follow the SLOT for visual consistency.
+      isCenter: slotIdx === 4,
+      isAI:     slotIdx === 7,
+      isDemo: false,
       deptCode: dept.department_code ?? dept.publicCode ?? null,
       type: LEVEL_LABELS[level] ?? "مساحة عمل",
       level,
       teamCount: deptTeams.length, teams: teamCards,
       managerName: manager,
-      officeNumber: finalSlotIdx + 1,
+      officeNumber: slotIdx + 1,
       isUnassigned: false,
     };
-  }).filter((r) => r !== null) as OfficeRoom[];
-
-  // Pad with visual placeholders if fewer than 8 depts. These are NOT fake
-  // departments — they're stable numbered empty offices.
-  while (rooms.length < 8) {
-    const i   = rooms.length;
-    const def = DEMO_DEF[i];
-    if (!def) break;
-    rooms.push({
-      id: `pad-${i}`, fixedRoomKey: ROOM_KEYS_BY_SLOT[i] ?? "sales", deptId: `pad-${i}`,
-      name: officeLabel(i + 1),
-      accentColor: ACCENT_CYCLE[i % ACCENT_CYCLE.length] ?? "#22d3ee",
-      employeeCount: 0, avatars: [],
-      openTasks: 0, overdueTasks: 0, healthPct: 0,
-      isCenter: def.center, isAI: def.ai, isDemo: true,
-      deptCode: null, type: def.center ? "قاعة اجتماعات" : def.ai ? "غرفة AI" : "مساحة عمل",
-      level: def.center ? "management" : "department",
-      teamCount: 0, teams: [], managerName: null,
-      officeNumber: i + 1,
-      isUnassigned: true,
-    });
   }
+
+  // Fill any unfilled slot with a stable numbered empty office.
+  const rooms: OfficeRoom[] = slotArr.map((r, i) => r ?? makePlaceholder(i));
 
   return { rooms, isDemo: false };
 }
