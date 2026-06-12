@@ -562,18 +562,16 @@ export default function PricingSection() {
           {/* Launch offer strip */}
           <div className="mt-8 mx-auto max-w-xl rounded-2xl border border-[#22D3EE]/15 bg-[rgba(34,211,238,0.04)] backdrop-blur-md px-5 py-3.5 text-center">
             <p className="text-[12.5px] leading-relaxed" style={{ color: "rgba(255,255,255,0.68)" }}>
-              <span className="font-semibold text-[#22D3EE]">عرض الإطلاق</span>
-              {" — "}
-              خصم 50% على باقات Blumark24 OS حتى 30-12-2026، .
-            </p>
-          </div>
+              
 
-          {/* Plan cards */}
-          <div className="mt-10 sm:mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-start">
-            {PLANS.map((plan) => (
-              <PlanCard key={plan.key} plan={plan} onRequest={openModal} />
-            ))}
-          </div>
+             {/* Launch offer strip */}
+<div className="mt-8 mx-auto max-w-xl rounded-2xl border border-[#22D3EE]/15 bg-[rgba(34,211,238,0.04)] backdrop-blur-md px-5 py-3.5 text-center">
+  <p className="text-[12.5px] leading-relaxed" style={{ color: "rgba(255,255,255,0.68)" }}>
+    <span className="font-semibold text-[#22D3EE]">عرض الإطلاق</span>
+    {" — "}
+    استفد من خصم 50% على باقات Blumark24 OS حتى 30-12-2026.
+  </p>
+</div>
 
           {/* Payment notice */}
           <p
