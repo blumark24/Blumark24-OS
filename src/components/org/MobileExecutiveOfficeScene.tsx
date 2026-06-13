@@ -23,7 +23,8 @@ type MobilePresencePerson = PresencePerson;
 // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
 const OFFICE_LABEL_PREFIX = "مكتب";
 const UNASSIGNED_LABEL = "غير مخصص";
-const UNASSIGNED_HINT_LONG = "اربط هذا المكتب بإدارة أو قسم من الهيكل الإداري لتفعيل المكتب التنفيذي الذكي.";
+const UNASSIGNED_HINT_LONG = "اربط هذا المكتب بإدارة أو قسم من الهيكل الإداري لتفعيل التوأم الرقمي.";
+const UNAVAILABLE_LABEL = "غير متاح";
 const officeLabel = (n: number) => `${OFFICE_LABEL_PREFIX} ${formatOfficeNumber(n)}`;
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
@@ -67,6 +68,13 @@ function hpLabel(pct: number): string {
   if (pct >= 70) return "جيد";
   if (pct >= 55) return "متوسط";
   return "يحتاج متابعة";
+}
+
+function mappingSourceValue(source: MappingSource | null): string {
+  if (source === "saved") return "saved";
+  if (source === "preview") return "preview";
+  if (source === "auto") return "auto";
+  return UNAVAILABLE_LABEL;
 }
 
 // ─── Compact chip ─────────────────────────────────────────────────────────────
@@ -211,6 +219,62 @@ function SelectedRoomCard({
         )}
       </div>
 
+      <div style={{
+        borderRadius: 12,
+        border: "1px solid rgba(34,211,238,0.14)",
+        background: "linear-gradient(135deg, rgba(34,211,238,0.07), rgba(168,85,247,0.06))",
+        padding: "9px 10px",
+        marginBottom: 10,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 6 }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: "#cffafe" }}>لقطة التوأم الرقمي</span>
+          {room.officeNumber ? (
+            <span style={{ fontSize: 9, fontWeight: 800, color: "#cbd5e1", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 999, padding: "1px 6px" }}>
+              {officeLabel(room.officeNumber)}
+            </span>
+          ) : null}
+        </div>
+        {room.isUnassigned ? (
+          <div style={{ borderRadius: 9, border: "1px dashed rgba(245,158,11,0.26)", background: "rgba(245,158,11,0.06)", padding: "8px 9px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 10, fontWeight: 800, color: "#fde68a" }}>
+              <span>{UNASSIGNED_LABEL}</span>
+              <span>غير مخصص</span>
+            </div>
+            <p style={{ fontSize: 10, color: "#d8c7a3", margin: "5px 0 0", lineHeight: 1.45 }}>
+              {UNASSIGNED_HINT_LONG}
+            </p>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 9, color: "#6b87ab" }}>الوحدة المرتبطة</p>
+                <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "#fff", fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {mappingUnit?.name ?? room.name}
+                </p>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                <span style={{ fontSize: 8.5, color: "#d8b4fe", border: "1px solid rgba(168,85,247,0.24)", borderRadius: 999, padding: "1px 6px" }}>{mappingUnit?.typeLabel ?? room.type ?? "وحدة"}</span>
+                <span style={{ fontSize: 8.5, color: "#67e8f9", border: "1px solid rgba(34,211,238,0.22)", borderRadius: 999, padding: "1px 6px" }}>{mappingSourceValue(mappingSource)}</span>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 5, marginTop: 8 }}>
+              {[
+                { label: "الأعضاء", value: mappingUnit?.employeeCount ?? room.employeeCount ?? UNAVAILABLE_LABEL },
+                { label: "المهام", value: mappingUnit?.taskCount ?? room.openTasks ?? UNAVAILABLE_LABEL },
+                { label: "الصحة", value: room.healthPct > 0 ? `${room.healthPct}%` : UNAVAILABLE_LABEL },
+              ].map((metric) => (
+                <div key={metric.label} style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.055)", background: "rgba(255,255,255,0.03)", padding: "6px 4px", textAlign: "center", minWidth: 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: metric.value === UNAVAILABLE_LABEL ? "#7a9ab8" : "#e0f2fe", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metric.value}</div>
+                  <div style={{ fontSize: 8.5, color: "#6b87ab", marginTop: 2 }}>{metric.label}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {!room.isUnassigned && (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 10 }}>
         {[
           { label: "موظف",  value: room.employeeCount,  Icon: Users,        color: "#22d3ee" },
@@ -229,6 +293,7 @@ function SelectedRoomCard({
           </div>
         ))}
       </div>
+      )}
 
       {/* الموجودون في المكتب — compact presence (preview only) */}
       <div style={{ marginBottom: 10 }}>

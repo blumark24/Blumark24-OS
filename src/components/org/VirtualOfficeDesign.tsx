@@ -33,7 +33,8 @@ const BOARD_OFFICE_NUMBER = 9;
 const OFFICE_LABEL_PREFIX = "مكتب";
 const officeLabel = (n: number) => `${OFFICE_LABEL_PREFIX} ${formatOfficeNumber(n)}`;
 const UNASSIGNED_LABEL = "غير مخصص";
-const UNASSIGNED_HINT_LONG  = "اربط هذا المكتب بإدارة أو قسم من الهيكل الإداري لتفعيل المكتب التنفيذي الذكي.";
+const UNASSIGNED_HINT_LONG = "اربط هذا المكتب بإدارة أو قسم من الهيكل الإداري لتفعيل التوأم الرقمي.";
+const UNAVAILABLE_LABEL = "غير متاح";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -508,6 +509,17 @@ function resolveRoomMapping(input: {
   return { unit: null, source: null };
 }
 
+function mappingSourceValue(source: MappingSource | null): string {
+  if (source === "saved") return "saved";
+  if (source === "preview") return "preview";
+  if (source === "auto") return "auto";
+  return UNAVAILABLE_LABEL;
+}
+
+function operationalMetric(value: number | null | undefined): string | number {
+  return typeof value === "number" ? value : UNAVAILABLE_LABEL;
+}
+
 async function getRoomMappingAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
@@ -814,6 +826,93 @@ function MappingPreviewModal({
 
 // ─── Room Detail Panel ────────────────────────────────────────────────────────
 
+function DigitalTwinSnapshot({
+  room,
+  mappingUnit,
+  mappingSource,
+  openTaskCount,
+  overdueTaskCount,
+  healthPct,
+}: {
+  room: OfficeRoom;
+  mappingUnit: PreviewOrgUnit | null;
+  mappingSource: MappingSource | null;
+  openTaskCount: number | null;
+  overdueTaskCount: number | null;
+  healthPct: number | null;
+}) {
+  const sourceValue = mappingSourceValue(mappingSource);
+  const linkedName = mappingUnit?.name ?? (room.isUnassigned ? null : room.name);
+  const linkedType = mappingUnit?.typeLabel ?? (room.isUnassigned ? null : room.type || "وحدة");
+  const metrics = [
+    { label: "الأعضاء", value: operationalMetric(mappingUnit?.employeeCount ?? room.employeeCount) },
+    { label: "المهام", value: operationalMetric(mappingUnit?.taskCount ?? openTaskCount) },
+    { label: "المتأخرة", value: operationalMetric(overdueTaskCount) },
+    { label: "الصحة", value: typeof healthPct === "number" && healthPct > 0 ? `${healthPct}%` : UNAVAILABLE_LABEL },
+  ];
+
+  return (
+    <div style={{
+      gridColumn: "1 / -1",
+      borderRadius: 14,
+      border: "1px solid rgba(34,211,238,0.16)",
+      background: "linear-gradient(135deg, rgba(34,211,238,0.08), rgba(168,85,247,0.07))",
+      padding: "11px 12px",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 800, color: "#cffafe" }}>
+          <BrainCircuit size={13} color="#67e8f9" />
+          لقطة التوأم الرقمي
+        </span>
+        {room.officeNumber ? (
+          <span style={{ fontSize: 10, fontWeight: 800, color: "#cbd5e1", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.05)", borderRadius: 999, padding: "2px 8px" }}>
+            {officeLabel(room.officeNumber)}
+          </span>
+        ) : null}
+      </div>
+
+      {room.isUnassigned ? (
+        <div style={{ borderRadius: 11, border: "1px dashed rgba(245,158,11,0.28)", background: "rgba(245,158,11,0.07)", padding: "10px 11px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: "#fde68a" }}>{UNASSIGNED_LABEL}</span>
+            <span style={{ fontSize: 10, color: "#fbbf24" }}>غير مخصص</span>
+          </div>
+          <p style={{ margin: "6px 0 0", fontSize: 11.5, lineHeight: 1.6, color: "#d8c7a3" }}>
+            {UNASSIGNED_HINT_LONG}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 8, alignItems: "center", marginBottom: 8 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 9.5, color: "#7a9ab8", marginBottom: 2 }}>الوحدة المرتبطة</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {linkedName ?? UNAVAILABLE_LABEL}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <span style={{ fontSize: 9.5, fontWeight: 700, color: "#d8b4fe", background: "rgba(168,85,247,0.13)", border: "1px solid rgba(168,85,247,0.28)", borderRadius: 999, padding: "2px 7px" }}>
+                {linkedType ?? "وحدة"}
+              </span>
+              <span style={{ fontSize: 9.5, fontWeight: 800, color: "#67e8f9", background: "rgba(34,211,238,0.10)", border: "1px solid rgba(34,211,238,0.24)", borderRadius: 999, padding: "2px 7px" }}>
+                {sourceValue}
+              </span>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 7 }}>
+            {metrics.map((metric) => (
+              <div key={metric.label} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(255,255,255,0.035)", padding: "7px 6px", textAlign: "center", minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: metric.value === UNAVAILABLE_LABEL ? "#7a9ab8" : "#e0f2fe", lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metric.value}</div>
+                <div style={{ fontSize: 9.5, color: "#6b87ab", marginTop: 4 }}>{metric.label}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function RoomDetailPanel({
   room,
   snapshot,
@@ -930,6 +1029,15 @@ function RoomDetailPanel({
       </div>
 
       <div style={{ padding: "12px 18px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <DigitalTwinSnapshot
+          room={room}
+          mappingUnit={mappingUnit}
+          mappingSource={mappingSource}
+          openTaskCount={openTasks.length || room.openTasks}
+          overdueTaskCount={overdueTasks.length || room.overdueTasks}
+          healthPct={hp > 0 ? hp : null}
+        />
+
         {/* Primary action — فتح المكتب (visual preview only, no persistence) */}
         <div style={{ gridColumn: "1 / -1" }}>
           <button
@@ -950,6 +1058,7 @@ function RoomDetailPanel({
         </div>
 
         {/* Tasks summary (stats) */}
+        {!room.isUnassigned && (
         <div style={{ gridColumn: "1 / -1", display: "flex", gap: 10, flexWrap: "wrap" }}>
           {[
             { label: "الموظفون", value: room.employeeCount, color: "#22d3ee" },
@@ -963,6 +1072,7 @@ function RoomDetailPanel({
             </div>
           ))}
         </div>
+        )}
 
         {/* Manager */}
         {room.managerName && (
@@ -1366,26 +1476,23 @@ function AIAlertsPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
 function BoardExecutiveOffice({
   orgName,
   managerName,
-  totalUnits,
-  totalEmployees,
-  avgHealth,
-  overdueTasks,
+  linkedOfficeCount,
+  unassignedOfficeCount,
+  mappingCompletionPct,
 }: {
   orgName: string;
   managerName: string | null;
-  totalUnits: number;
-  totalEmployees: number;
-  avgHealth: number;
-  overdueTasks: number;
+  linkedOfficeCount: number;
+  unassignedOfficeCount: number;
+  mappingCompletionPct: number;
 }) {
   const [open, setOpen] = useState(false);
   const accent = "#a855f7";
   const managerInitials = managerName ? nameInitials(managerName) : "؟";
   const metrics = [
-    { label: "صحة المكتب", value: `${avgHealth}%`, color: "#10b981" },
-    { label: "الوحدات", value: totalUnits, color: "#22d3ee" },
-    { label: "الموظفون", value: totalEmployees, color: "#3b82f6" },
-    { label: "التنبيهات", value: overdueTasks, color: "#ef4444" },
+    { label: "عدد المكاتب المرتبطة", value: linkedOfficeCount, color: "#22d3ee" },
+    { label: "عدد المكاتب غير المخصصة", value: unassignedOfficeCount, color: "#f59e0b" },
+    { label: "نسبة اكتمال الربط", value: `${mappingCompletionPct}%`, color: "#10b981" },
   ];
 
   return (
@@ -1410,7 +1517,7 @@ function BoardExecutiveOffice({
               color: "#ede9fe", fontSize: 10.5, fontWeight: 800, lineHeight: 1,
               fontVariantNumeric: "tabular-nums",
             }}>{officeLabel(BOARD_OFFICE_NUMBER)}</span>
-            <span style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>مكتب مجلس الإدارة</span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>مجلس الإدارة / المكتب التنفيذي</span>
             <span style={{ fontSize: 9.5, fontWeight: 700, color: "#d8b4fe", background: `${accent}1c`, border: `1px solid ${accent}3a`, padding: "1px 8px", borderRadius: 999 }}>المكتب التنفيذي</span>
           </span>
           <span style={{ display: "block", fontSize: 11, color: "#9d8bc0", marginTop: 2 }}>مركز قيادة المنشأة · {orgName}</span>
@@ -1431,7 +1538,7 @@ function BoardExecutiveOffice({
           </div>
 
           {/* Executive metrics */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
             {metrics.map((m) => (
               <div key={m.label} style={{ borderRadius: 11, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(255,255,255,0.03)", padding: "9px 12px", textAlign: "center" }}>
                 <div style={{ fontSize: 19, fontWeight: 800, color: m.color, lineHeight: 1 }}>{m.value}</div>
@@ -1440,11 +1547,11 @@ function BoardExecutiveOffice({
             ))}
           </div>
 
-          {/* Alerts summary */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 11, border: overdueTasks > 0 ? "1px solid rgba(239,68,68,0.22)" : "1px solid rgba(16,185,129,0.20)", background: overdueTasks > 0 ? "rgba(239,68,68,0.06)" : "rgba(16,185,129,0.05)", padding: "9px 12px" }}>
-            <AlertCircle size={14} color={overdueTasks > 0 ? "#f87171" : "#34d399"} style={{ flexShrink: 0 }} />
-            <span style={{ fontSize: 11.5, color: overdueTasks > 0 ? "#fecaca" : "#a7f3d0" }}>
-              {overdueTasks > 0 ? `${overdueTasks} مهمة متأخرة تحتاج متابعة على مستوى المنشأة` : "لا توجد مهام متأخرة على مستوى المنشأة"}
+          {/* Executive snapshot note */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 11, border: "1px solid rgba(34,211,238,0.18)", background: "rgba(34,211,238,0.05)", padding: "9px 12px" }}>
+            <Activity size={14} color="#67e8f9" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 11.5, color: "#bae6fd" }}>
+              لقطة تنفيذية محسوبة من حالة ربط المكاتب الحالية فقط.
             </span>
           </div>
 
@@ -1670,7 +1777,11 @@ export default function VirtualOfficeDesign({
   // safe role fallback is used inside the panel.
   const boardManagerName =
     user && user.role === "organization_manager" ? (user.name ?? null) : null;
-  const boardTotalEmployees = isDemo ? 24 : safeEmps.length;
+  const linkedOfficeCount = roomsWithPresence.filter((room) => !room.isUnassigned).length;
+  const unassignedOfficeCount = roomsWithPresence.filter((room) => room.isUnassigned).length;
+  const mappingCompletionPct = roomsWithPresence.length > 0
+    ? Math.round((linkedOfficeCount / roomsWithPresence.length) * 100)
+    : 0;
 
   // Compact mobile feed (max 2 each) — derived, no fetches.
   const mobileActivity = useMemo(() => {
@@ -1766,10 +1877,9 @@ export default function VirtualOfficeDesign({
       <BoardExecutiveOffice
         orgName={orgName}
         managerName={boardManagerName}
-        totalUnits={deptCount}
-        totalEmployees={boardTotalEmployees}
-        avgHealth={avgHealth}
-        overdueTasks={isDemo ? 6 : overdueTasks}
+        linkedOfficeCount={linkedOfficeCount}
+        unassignedOfficeCount={unassignedOfficeCount}
+        mappingCompletionPct={mappingCompletionPct}
       />
 
       {/* ── Empty State ── */}
