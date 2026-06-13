@@ -12,10 +12,19 @@ import {
   Activity, Calendar, BrainCircuit, MessageSquare, AlertTriangle,
   Settings2, ChevronDown,
 } from "lucide-react";
-import type { SceneRoom } from "./VirtualOfficeReferenceScene";
+import {
+  formatOfficeNumber,
+  type SceneRoom,
+} from "./VirtualOfficeReferenceScene";
 import type { MappingSource, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
 
 type MobilePresencePerson = PresencePerson;
+
+// EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
+const OFFICE_LABEL_PREFIX = "مكتب";
+const UNASSIGNED_LABEL = "غير مخصص";
+const UNASSIGNED_HINT_LONG = "اربط هذا المكتب بإدارة أو قسم من الهيكل الإداري لتفعيل المكتب التنفيذي الذكي.";
+const officeLabel = (n: number) => `${OFFICE_LABEL_PREFIX} ${formatOfficeNumber(n)}`;
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -91,11 +100,27 @@ function Chip({ room, selected, onClick, position }: {
         transition: "all 0.18s ease",
       }}
     >
-      <span style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: hp.color, boxShadow: `0 0 4px ${hp.color}` }} />
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", maxWidth: 64 }}>
-        {shortName(room.name)}
-      </span>
       {room.healthPct > 0 && (
+        <span style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: hp.color, boxShadow: `0 0 4px ${hp.color}` }} />
+      )}
+      {room.officeNumber ? (
+        <span style={{
+          fontSize: 7.5, fontWeight: 800,
+          color: "#cbd5e1",
+          background: "rgba(255,255,255,0.10)",
+          border: "1px solid rgba(148,163,184,0.30)",
+          padding: "0 4px", borderRadius: 4, lineHeight: 1.4,
+          fontVariantNumeric: "tabular-nums", flexShrink: 0,
+        }}>{formatOfficeNumber(room.officeNumber)}</span>
+      ) : null}
+      <span style={{
+        overflow: "hidden", textOverflow: "ellipsis", maxWidth: 64,
+        fontStyle: room.isUnassigned ? "italic" : "normal",
+        opacity: room.isUnassigned ? 0.85 : 1,
+      }}>
+        {room.isUnassigned ? UNASSIGNED_LABEL : shortName(room.name)}
+      </span>
+      {!room.isUnassigned && room.healthPct > 0 && (
         <span style={{
           fontSize: 7.5, fontWeight: 800, color: hp.color,
           padding: "0 3.5px", borderRadius: 999,
@@ -146,11 +171,36 @@ function SelectedRoomCard({
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
         <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{room.name}</p>
-          <p style={{ fontSize: 10, color: "#5a7a9a", margin: "3px 0 0" }}>
-            {room.type ?? "مساحة عمل"}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            {room.officeNumber ? (
+              <span style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                minWidth: 26, height: 18, padding: "0 6px",
+                borderRadius: 6,
+                background: "rgba(255,255,255,0.07)",
+                border: `1px solid ${room.accentColor}40`,
+                color: "#cbd5e1",
+                fontSize: 9.5, fontWeight: 800, lineHeight: 1,
+                fontVariantNumeric: "tabular-nums",
+              }}>{officeLabel(room.officeNumber)}</span>
+            ) : null}
+            <p style={{
+              fontSize: 13, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1.2,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              maxWidth: 170,
+              fontStyle: room.isUnassigned ? "italic" : "normal",
+              opacity: room.isUnassigned ? 0.85 : 1,
+            }}>{room.isUnassigned ? UNASSIGNED_LABEL : room.name}</p>
+          </div>
+          <p style={{ fontSize: 10, color: "#5a7a9a", margin: "4px 0 0" }}>
+            {room.isUnassigned ? UNASSIGNED_LABEL : (room.type ?? "مساحة عمل")}
             {room.deptCode ? <span style={{ fontFamily: "monospace", marginRight: 6 }}> · {room.deptCode}</span> : null}
           </p>
+          {room.isUnassigned && (
+            <p style={{ fontSize: 10.5, color: "#8ba3c7", margin: "6px 0 0", lineHeight: 1.5 }}>
+              {UNASSIGNED_HINT_LONG}
+            </p>
+          )}
         </div>
         {room.healthPct > 0 && (
           <span style={{

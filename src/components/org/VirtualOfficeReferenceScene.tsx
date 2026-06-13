@@ -29,6 +29,12 @@ export interface SceneRoom {
   isCenter: boolean;
   isAI: boolean;
   isDemo: boolean;
+  // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
+  // Stable office number (1..8) per fixed slot. Optional for backwards compat.
+  officeNumber?: number;
+  // True when no saved/preview/auto mapping is resolved AND there's no real
+  // department backing the room — i.e. show "غير مخصص" instead of a name.
+  isUnassigned?: boolean;
 }
 
 export interface VirtualOfficeReferenceSceneProps {
@@ -74,6 +80,31 @@ function hpStyle(pct: number) {
   if (pct >= 85) return { color: "#10b981", bg: "rgba(16,185,129,0.22)", border: "rgba(16,185,129,0.40)" };
   if (pct >= 70) return { color: "#f59e0b", bg: "rgba(245,158,11,0.22)",  border: "rgba(245,158,11,0.40)" };
   return             { color: "#ef4444", bg: "rgba(239,68,68,0.22)",    border: "rgba(239,68,68,0.40)"  };
+}
+
+export function formatOfficeNumber(n: number | undefined): string {
+  if (n == null) return "";
+  return n < 10 ? `0${n}` : String(n);
+}
+
+function NumberBadge({ n, accent = "#22d3ee" }: { n?: number; accent?: string }) {
+  if (n == null) return null;
+  return (
+    <span
+      aria-label={`مكتب ${formatOfficeNumber(n)}`}
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        minWidth: 18, height: 16, padding: "0 4px",
+        borderRadius: 5,
+        background: "rgba(255,255,255,0.07)",
+        border: `1px solid ${accent}40`,
+        color: "#cbd5e1",
+        fontSize: 9, fontWeight: 800, lineHeight: 1,
+        fontVariantNumeric: "tabular-nums",
+        flexShrink: 0,
+      }}
+    >{formatOfficeNumber(n)}</span>
+  );
 }
 
 // ─── Avatar row ───────────────────────────────────────────────────────────────
@@ -150,8 +181,11 @@ function RoomOverlay({ room, selected, onClick }: { room: SceneRoom; selected: b
             padding: "0 5px", borderRadius: 999, lineHeight: 1.45, flexShrink: 0,
           }}>{room.healthPct}%</span>
         )}
+        <NumberBadge n={room.officeNumber} accent={room.accentColor} />
         <span style={{
-          fontSize: 10, fontWeight: 600, color: "#e5edf8",
+          fontSize: 10, fontWeight: 600,
+          color: room.isUnassigned ? "#94a3b8" : "#e5edf8",
+          fontStyle: room.isUnassigned ? "italic" : "normal",
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           maxWidth: 120,
         }}>{room.name}</span>
@@ -190,15 +224,18 @@ function MeetingOverlay({ room, selected, onClick }: { room: SceneRoom; selected
       {/* Top compact name pill */}
       <div style={{
         position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)",
-        display: "inline-flex", alignItems: "center", gap: 4,
+        display: "inline-flex", alignItems: "center", gap: 5,
         background: selected ? "rgba(139,92,246,0.28)" : "rgba(20,6,48,0.72)",
         backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
         borderRadius: 999, padding: "2px 9px",
         border: selected ? "1px solid rgba(139,92,246,0.65)" : "1px solid rgba(139,92,246,0.40)",
         transition: "all 0.18s ease", maxWidth: "90%",
       }}>
+        <NumberBadge n={room.officeNumber} accent="#a855f7" />
         <span style={{
-          fontSize: 10, fontWeight: 700, color: "#ddd6fe",
+          fontSize: 10, fontWeight: 700,
+          color: room.isUnassigned ? "#c4b5fd" : "#ddd6fe",
+          fontStyle: room.isUnassigned ? "italic" : "normal",
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>{room.name}</span>
       </div>
@@ -269,8 +306,11 @@ function AIOverlay({ room, selected, onClick }: { room: SceneRoom; selected: boo
           background: hp.bg, border: `1px solid ${hp.border}`,
           padding: "0 5px", borderRadius: 999, lineHeight: 1.45, flexShrink: 0,
         }}>{pct}%</span>
+        <NumberBadge n={room.officeNumber} accent="#22d3ee" />
         <span style={{
-          fontSize: 10, fontWeight: 600, color: "#e5edf8",
+          fontSize: 10, fontWeight: 600,
+          color: room.isUnassigned ? "#94a3b8" : "#e5edf8",
+          fontStyle: room.isUnassigned ? "italic" : "normal",
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           maxWidth: 120,
         }}>{room.name}</span>

@@ -23,8 +23,17 @@ import type {
   ExecutiveOfficeRoomMapping,
   ExecutiveOfficeRoomMappingByRoom,
 } from "@/lib/tenant/executiveOfficeRoomMappings";
-import VirtualOfficeReferenceScene, { type SceneRoom } from "./VirtualOfficeReferenceScene";
+import VirtualOfficeReferenceScene, { type SceneRoom, formatOfficeNumber } from "./VirtualOfficeReferenceScene";
 import MobileExecutiveOfficeScene from "./MobileExecutiveOfficeScene";
+
+// EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
+// The Board / Executive panel (BoardExecutiveOffice) is the 9th office —
+// مكتب 09 — but is rendered as a separate panel, not as a scene room.
+const BOARD_OFFICE_NUMBER = 9;
+const OFFICE_LABEL_PREFIX = "مكتب";
+const officeLabel = (n: number) => `${OFFICE_LABEL_PREFIX} ${formatOfficeNumber(n)}`;
+const UNASSIGNED_LABEL = "غير مخصص";
+const UNASSIGNED_HINT_LONG  = "اربط هذا المكتب بإدارة أو قسم من الهيكل الإداري لتفعيل المكتب التنفيذي الذكي.";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -291,28 +300,56 @@ function buildOfficeRooms(
   const safeEmp = Array.isArray(employees) ? employees : [];
   const safeTsk = Array.isArray(tasks)     ? tasks     : [];
 
-  if (depts.length === 0) {
-    return {
-      isDemo: true,
-      rooms: DEMO_DEF.map((d, i) => ({
-        id: `demo-${i}`, fixedRoomKey: ROOM_KEYS_BY_SLOT[i] ?? "sales", deptId: `demo-${i}`,
-        name: d.name,
-        accentColor: ACCENT_CYCLE[i % ACCENT_CYCLE.length] ?? "#22d3ee",
-        employeeCount: d.emp, avatars: [],
-        openTasks: d.open, overdueTasks: d.overdue, healthPct: d.hp,
-        isCenter: d.center, isAI: d.ai, isDemo: true,
-        deptCode: null, type: d.center ? "قاعة اجتماعات" : d.ai ? "غرفة AI" : "مساحة عمل",
-        level: d.center ? "management" : d.ai ? "department" : "department",
-        teamCount: 0, teams: [], managerName: null,
-      })),
-    };
-  }
+  // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1 — slot-stable layout.
+  // Always return an array of length 8 in fixed slot order:
+  //   index 0 → مكتب 01 (sales),  index 1 → مكتب 02 (executive), …
+  //   index 4 → مكتب 05 (meetings, center), index 7 → مكتب 08 (ai)
+  // - Real departments are placed at the slot returned by assignSlot.
+  //   The first dept to claim a slot wins; later collisions fall through to
+  //   the next free slot. usedSlots prevents any duplicate office number.
+  // - Any remaining slot is filled with an unassigned numbered placeholder.
+  // - isCenter / isAI are derived from the SLOT (not the dept), so the visual
+  //   composition matches the floor plan even when the dept is unrelated.
 
   const empById  = new Map(safeEmp.map((e) => [e.id, e]));
   const usedSlots = new Set<number>();
+  const slotArr: (OfficeRoom | null)[] = Array(8).fill(null);
 
-  const rooms: OfficeRoom[] = depts.slice(0, 8).map((dept, deptIndex) => {
-    if (!dept) return null;
+  function makePlaceholder(slot: number): OfficeRoom {
+    const def = DEMO_DEF[slot];
+    return {
+      id: `pad-${slot}`,
+      fixedRoomKey: ROOM_KEYS_BY_SLOT[slot] ?? "sales",
+      deptId: `pad-${slot}`,
+      name: officeLabel(slot + 1),
+      accentColor: ACCENT_CYCLE[slot % ACCENT_CYCLE.length] ?? "#22d3ee",
+      employeeCount: 0, avatars: [],
+      openTasks: 0, overdueTasks: 0, healthPct: 0,
+      isCenter: slot === 4,
+      isAI:     slot === 7,
+      isDemo: true,
+      deptCode: null,
+      type:  slot === 4 ? "قاعة اجتماعات" : slot === 7 ? "غرفة AI" : "مساحة عمل",
+      level: slot === 4 ? "management"     : "department",
+      teamCount: 0, teams: [], managerName: null,
+      officeNumber: slot + 1,
+      isUnassigned: true,
+      // keep def around so we don't have to remove it (consistency with prior shape)
+      ...(def ? {} : {}),
+    };
+  }
+
+  // Empty-org default: 8 stable numbered empty offices.
+  if (depts.length === 0) {
+    return {
+      isDemo: true,
+      rooms: Array.from({ length: 8 }, (_, i) => makePlaceholder(i)),
+    };
+  }
+
+  // Place real depts.
+  for (const dept of depts.slice(0, 8)) {
+    if (!dept) continue;
     const deptRels    = rels.filter((r) => r?.department_id === dept.id);
     const empIds      = new Set(deptRels.map((r) => r.employee_id).filter((x): x is string => typeof x === "string"));
     const deptEmps    = Array.from(empIds).map((id) => empById.get(id)).filter((e): e is Employee => e != null);
@@ -323,47 +360,41 @@ function buildOfficeRooms(
     const overdue     = deptTasks.filter((t) => t?.status === "متأخرة").length;
     const name        = dept.name ?? "—";
     const level       = typeof dept.structure_level === "string" ? dept.structure_level : "department";
-    const isCenter    = level === "management";
-    const isAI        = name.includes("ذكاء") || name.toUpperCase().includes("AI");
+    const deptIsCenter = level === "management";
+    const deptIsAI     = name.includes("ذكاء") || name.toUpperCase().includes("AI");
     const manager     = dept.manager_id ? (empById.get(dept.manager_id)?.name ?? null) : null;
-    const slotIdx     = assignSlot(name, level, isCenter, isAI, usedSlots);
-    if (slotIdx >= 0) usedSlots.add(slotIdx);
-    const accentIdx   = slotIdx >= 0 ? slotIdx : (hashStr(dept.id) % ACCENT_CYCLE.length);
-    const fixedRoomKey = ROOM_KEYS_BY_SLOT[slotIdx >= 0 ? slotIdx : deptIndex] ?? "sales";
-    return {
-      id: dept.id, fixedRoomKey, deptId: dept.id,
+
+    const slotIdx = assignSlot(name, level, deptIsCenter, deptIsAI, usedSlots);
+    if (slotIdx < 0) continue;            // no free slot — skip (cap at 8).
+    if (usedSlots.has(slotIdx)) continue; // belt-and-braces against duplicate.
+    usedSlots.add(slotIdx);
+
+    slotArr[slotIdx] = {
+      id: dept.id,
+      fixedRoomKey: ROOM_KEYS_BY_SLOT[slotIdx] ?? "sales",
+      deptId: dept.id,
       name,
-      accentColor: ACCENT_CYCLE[accentIdx % ACCENT_CYCLE.length] ?? "#22d3ee",
+      accentColor: ACCENT_CYCLE[slotIdx % ACCENT_CYCLE.length] ?? "#22d3ee",
       employeeCount: deptRels.length,
       avatars: deptEmps.slice(0, 3).map((e) => ({ initials: nameInitials(e.name ?? e.email ?? "؟"), color: avatarColor(e.name ?? e.email ?? "؟") })),
       openTasks: open, overdueTasks: overdue,
       healthPct: computeHp(open, overdue, deptRels.length),
-      isCenter, isAI, isDemo: false,
+      // isCenter / isAI follow the SLOT for visual consistency.
+      isCenter: slotIdx === 4,
+      isAI:     slotIdx === 7,
+      isDemo: false,
       deptCode: dept.department_code ?? dept.publicCode ?? null,
       type: LEVEL_LABELS[level] ?? "مساحة عمل",
       level,
       teamCount: deptTeams.length, teams: teamCards,
       managerName: manager,
+      officeNumber: slotIdx + 1,
+      isUnassigned: false,
     };
-  }).filter((r) => r !== null) as OfficeRoom[];
-
-  // Pad with visual placeholders if fewer than 8 depts
-  while (rooms.length < 8) {
-    const i   = rooms.length;
-    const def = DEMO_DEF[i];
-    if (!def) break;
-    rooms.push({
-      id: `pad-${i}`, fixedRoomKey: ROOM_KEYS_BY_SLOT[i] ?? "sales", deptId: `pad-${i}`,
-      name: def.name,
-      accentColor: ACCENT_CYCLE[i % ACCENT_CYCLE.length] ?? "#22d3ee",
-      employeeCount: 0, avatars: [],
-      openTasks: 0, overdueTasks: 0, healthPct: 85,
-      isCenter: def.center, isAI: def.ai, isDemo: true,
-      deptCode: null, type: def.center ? "قاعة اجتماعات" : def.ai ? "غرفة AI" : "مساحة عمل",
-      level: def.center ? "management" : "department",
-      teamCount: 0, teams: [], managerName: null,
-    });
   }
+
+  // Fill any unfilled slot with a stable numbered empty office.
+  const rooms: OfficeRoom[] = slotArr.map((r, i) => r ?? makePlaceholder(i));
 
   return { rooms, isDemo: false };
 }
@@ -855,12 +886,42 @@ function RoomDetailPanel({
             <TypeIcon size={18} color={room.accentColor} />
           </div>
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1.2 }}>{room.name}</h3>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: room.accentColor, background: `${room.accentColor}18`, border: `1px solid ${room.accentColor}30`, padding: "1px 7px", borderRadius: 12 }}>{room.type}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              {room.officeNumber ? (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  minWidth: 28, height: 22, padding: "0 7px",
+                  borderRadius: 8,
+                  background: "rgba(255,255,255,0.07)",
+                  border: `1px solid ${room.accentColor}40`,
+                  color: "#cbd5e1",
+                  fontSize: 10.5, fontWeight: 800, lineHeight: 1,
+                  fontVariantNumeric: "tabular-nums",
+                }}>{officeLabel(room.officeNumber)}</span>
+              ) : null}
+              <h3 style={{
+                fontSize: 15, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1.2,
+                fontStyle: room.isUnassigned ? "italic" : "normal",
+                opacity: room.isUnassigned ? 0.85 : 1,
+              }}>{room.isUnassigned ? UNASSIGNED_LABEL : room.name}</h3>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
+              {!room.isUnassigned && (
+                <span style={{ fontSize: 10, fontWeight: 600, color: room.accentColor, background: `${room.accentColor}18`, border: `1px solid ${room.accentColor}30`, padding: "1px 7px", borderRadius: 12 }}>{room.type}</span>
+              )}
               {room.deptCode && <span style={{ fontSize: 10, color: "#4a6a8a", fontFamily: "monospace" }}>{room.deptCode}</span>}
               {hp > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: hpColor }}>{hp}% · {hpLabel(hp)}</span>}
+              {room.isUnassigned && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#fbbf24", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.30)", padding: "1px 8px", borderRadius: 12 }}>
+                  {UNASSIGNED_LABEL}
+                </span>
+              )}
             </div>
+            {room.isUnassigned && (
+              <p style={{ fontSize: 11, color: "#8ba3c7", margin: "8px 0 0", lineHeight: 1.55, maxWidth: 520 }}>
+                {UNASSIGNED_HINT_LONG}
+              </p>
+            )}
           </div>
         </div>
         <button type="button" onClick={onClose} style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)", cursor: "pointer", flexShrink: 0 }}>
@@ -1199,7 +1260,11 @@ function ActivityPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
 // ─── Meeting Rooms Panel ──────────────────────────────────────────────────────
 
 function MeetingRoomsPanel({ rooms }: { rooms: OfficeRoom[] }) {
-  const list = rooms.length > 0 ? rooms.slice(0, 3) : DEMO_DEF.slice(0, 3).map((d, i) => ({ id: `mr${i}`, name: d.name, employeeCount: d.emp }));
+  // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1: empty placeholders use numbered
+  // offices, not fake department names.
+  const list = rooms.length > 0
+    ? rooms.slice(0, 3)
+    : [0, 1, 2].map((i) => ({ id: `mr${i}`, name: officeLabel(i + 1), employeeCount: 0 }));
   return (
     <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(6,14,28,0.92)", overflow: "hidden", flex: 1 }}>
       <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1337,6 +1402,14 @@ function BoardExecutiveOffice({
         </span>
         <span style={{ minWidth: 0, flex: 1 }}>
           <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              minWidth: 28, height: 20, padding: "0 7px",
+              borderRadius: 7,
+              background: `${accent}1c`, border: `1px solid ${accent}4a`,
+              color: "#ede9fe", fontSize: 10.5, fontWeight: 800, lineHeight: 1,
+              fontVariantNumeric: "tabular-nums",
+            }}>{officeLabel(BOARD_OFFICE_NUMBER)}</span>
             <span style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>مكتب مجلس الإدارة</span>
             <span style={{ fontSize: 9.5, fontWeight: 700, color: "#d8b4fe", background: `${accent}1c`, border: `1px solid ${accent}3a`, padding: "1px 8px", borderRadius: 999 }}>المكتب التنفيذي</span>
           </span>
@@ -1428,14 +1501,30 @@ export default function VirtualOfficeDesign({
   // Presence overlay: replace each real room's avatars/count with mapping-aware
   // presence people (saved > preview > auto). Demo/placeholder rooms and rooms
   // with no resolvable people are left exactly as-is (no regression).
+  //
+  // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1: also fold in the resolved
+  // display name. If a mapping resolves (saved/preview/auto) we surface the
+  // unit name; otherwise placeholder rooms keep "مكتب XX" + isUnassigned so
+  // the manager sees clean empty offices, never fake departments.
   const roomsWithPresence = useMemo(() => {
     return rooms.map((room) => {
-      if (room.isDemo) return room;
       const { unit } = resolveRoomMapping({ room, units: previewOrgUnits, savedMappings, previewMappings });
-      const people = resolveRoomPeople(room, unit, snapshot, safeEmps);
-      if (people.length === 0) return room;
-      return {
+      const hasMapping = Boolean(unit);
+      const isUnassigned = !hasMapping && room.isDemo === true;
+      const displayName = unit?.name ?? (isUnassigned ? UNASSIGNED_LABEL : room.name);
+
+      const base: OfficeRoom = {
         ...room,
+        name: displayName,
+        isUnassigned,
+      };
+
+      if (room.isDemo) return base;
+
+      const people = resolveRoomPeople(room, unit, snapshot, safeEmps);
+      if (people.length === 0) return base;
+      return {
+        ...base,
         employeeCount: people.length,
         avatars: people.slice(0, 3).map((p) => ({ initials: p.initials, color: p.color, statusColor: p.statusColor })),
       };
