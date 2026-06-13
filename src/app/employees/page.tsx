@@ -436,7 +436,7 @@ function EmployeesContent() {
         12_000,
         "انتهت مهلة العملية — تحقق من اتصالك بالإنترنت",
       );
-      setData((prev) => prev.map((e) => (e.id === emp.id ? { ...e, status: "غير_نشط" } : e)));
+      setData((prev) => prev.filter((e) => e.id !== emp.id));
       toast.success(`تم إزالة ${emp.name} من الفريق (تعطيل بدون حذف)`);
       await withSoftTimeout(refetch(), 6_000);
     } catch (err) {
