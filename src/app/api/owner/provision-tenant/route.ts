@@ -31,7 +31,10 @@ type ProvisionStep =
 
 interface PartialState {
   organizationId?: string;
-  customerCode?: string | null;
+  // OWNER-PROVISION-TENANT-CODE-FIX-1: tracks `organizations.organization_code`
+  // (the post-migration-033 public code). Production no longer has the legacy
+  // `customer_code` column, so we read `organization_code` instead.
+  organizationCode?: string | null;
   subscriptionId?: string | null;
   authUserId?: string;
   failedStep?: ProvisionStep;
@@ -83,7 +86,7 @@ async function createOrganizationRow(
     status: OrgStatus;
   },
 ): Promise<
-  | { ok: true; id: string; customerCode: string | null }
+  | { ok: true; id: string; organizationCode: string | null }
   | { ok: false; error: string; code?: "duplicate_slug" }
 > {
   const { data, error } = await admin
@@ -95,7 +98,11 @@ async function createOrganizationRow(
       plan_id: input.planId,
       status: input.status,
     })
-    .select("id, customer_code")
+    // OWNER-PROVISION-TENANT-CODE-FIX-1: was `id, customer_code`. Production
+    // lacks the legacy `customer_code` column (PostgREST 42703), so we read
+    // the post-migration-033 `organization_code` instead. The trigger
+    // `b24_assign_organization_code()` populates this on insert.
+    .select("id, organization_code")
     .single();
 
   if (error) {
@@ -108,7 +115,7 @@ async function createOrganizationRow(
   return {
     ok: true,
     id: data.id as string,
-    customerCode: (data.customer_code as string | null) ?? null,
+    organizationCode: (data.organization_code as string | null) ?? null,
   };
 }
 
@@ -317,7 +324,7 @@ export async function POST(req: NextRequest) {
     }
 
     partial.organizationId = orgRes.id;
-    partial.customerCode = orgRes.customerCode;
+    partial.organizationCode = orgRes.organizationCode;
 
     let subscriptionId: string | null = null;
     if (planId) {
@@ -340,7 +347,7 @@ export async function POST(req: NextRequest) {
             owner_email: ownerEmail,
             plan_id: planId,
             organization_id: orgRes.id,
-            customer_code: orgRes.customerCode,
+            organization_code: orgRes.organizationCode,
           },
         });
         return NextResponse.json(
@@ -349,7 +356,12 @@ export async function POST(req: NextRequest) {
             error: subRes.error,
             partial: true,
             organizationId: orgRes.id,
-            customerCode: orgRes.customerCode,
+            // OWNER-PROVISION-TENANT-CODE-FIX-1: emit all three keys so
+            // existing client mappings (`organizationCode ?? organization_code
+            // ?? customerCode`) keep working without changes.
+            organizationCode: orgRes.organizationCode,
+            organization_code: orgRes.organizationCode,
+            customerCode: orgRes.organizationCode,
             failedStep: "create_subscription",
           },
           { status: 500 },
@@ -372,7 +384,7 @@ export async function POST(req: NextRequest) {
           error: wsRes.error,
           organization_id: orgRes.id,
           subscription_id: subscriptionId,
-          customer_code: orgRes.customerCode,
+          organization_code: orgRes.organizationCode,
         },
       });
       return NextResponse.json(
@@ -381,7 +393,9 @@ export async function POST(req: NextRequest) {
           error: wsRes.error ?? "تعذّر إنشاء إعدادات مساحة العمل",
           partial: true,
           organizationId: orgRes.id,
-          customerCode: orgRes.customerCode,
+          organizationCode: orgRes.organizationCode,
+          organization_code: orgRes.organizationCode,
+          customerCode: orgRes.organizationCode,
           subscriptionId,
           failedStep: "tenant_workspace_settings",
         },
@@ -407,7 +421,7 @@ export async function POST(req: NextRequest) {
           error: authRes.error,
           organization_id: orgRes.id,
           subscription_id: subscriptionId,
-          customer_code: orgRes.customerCode,
+          organization_code: orgRes.organizationCode,
         },
       });
       return NextResponse.json(
@@ -416,7 +430,9 @@ export async function POST(req: NextRequest) {
           error: authRes.error,
           partial: true,
           organizationId: orgRes.id,
-          customerCode: orgRes.customerCode,
+          organizationCode: orgRes.organizationCode,
+          organization_code: orgRes.organizationCode,
+          customerCode: orgRes.organizationCode,
           subscriptionId,
           failedStep: "create_auth_user",
         },
@@ -450,7 +466,7 @@ export async function POST(req: NextRequest) {
           subscription_id: subscriptionId,
           auth_user_id: authRes.userId,
           adopted: authRes.adopted,
-          customer_code: orgRes.customerCode,
+          organization_code: orgRes.organizationCode,
           auth_rolled_back: !authRes.adopted,
         },
       });
@@ -460,7 +476,9 @@ export async function POST(req: NextRequest) {
           error: `فشل ربط الحساب بالمنشأة: ${linkRes.error}`,
           partial: true,
           organizationId: orgRes.id,
-          customerCode: orgRes.customerCode,
+          organizationCode: orgRes.organizationCode,
+          organization_code: orgRes.organizationCode,
+          customerCode: orgRes.organizationCode,
           subscriptionId,
           failedStep: "link_profile",
           authRolledBack: !authRes.adopted,
@@ -482,7 +500,7 @@ export async function POST(req: NextRequest) {
         status,
         billing_cycle: billingCycle,
         organization_id: orgRes.id,
-        customer_code: orgRes.customerCode,
+        organization_code: orgRes.organizationCode,
         subscription_id: subscriptionId,
         auth_user_id: authRes.userId,
         adopted: authRes.adopted,
@@ -493,8 +511,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       organizationId: orgRes.id,
-      customerCode: orgRes.customerCode,
-      organization_code: orgRes.customerCode,
+      // OWNER-PROVISION-TENANT-CODE-FIX-1: emit all three keys for backward
+      // compatibility with cached clients. Source is always the same
+      // `organization_code` value.
+      organizationCode: orgRes.organizationCode,
+      organization_code: orgRes.organizationCode,
+      customerCode: orgRes.organizationCode,
       subscriptionId,
       authUserId: authRes.userId,
       email: ownerEmail,
@@ -509,6 +531,11 @@ export async function POST(req: NextRequest) {
         error: msg || "خطأ غير متوقع",
         partial: Boolean(partial.organizationId),
         ...partial,
+        // OWNER-PROVISION-TENANT-CODE-FIX-1: backward-compatible alias for
+        // older clients that still read `customerCode`. Sourced from the same
+        // `organization_code` value tracked in PartialState.
+        customerCode: partial.organizationCode ?? null,
+        organization_code: partial.organizationCode ?? null,
       },
       { status: 500 },
     );
