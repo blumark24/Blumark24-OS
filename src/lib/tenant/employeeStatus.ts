@@ -9,6 +9,7 @@
 
 export const EMP_STATUS_ACTIVE = "نشط" as const;
 export const EMP_STATUS_INACTIVE = "غير_نشط" as const;
+export const ACTIVE_EMPLOYEE_STATUS_VALUES = [EMP_STATUS_ACTIVE, "active"] as const;
 
 /**
  * True when an employee should be treated as active for display + actions.

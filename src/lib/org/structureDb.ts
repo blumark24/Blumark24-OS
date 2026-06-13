@@ -12,6 +12,7 @@ import type {
   TeamInput,
 } from "./types";
 import { isBoardReservedName } from "./orgUnits";
+import { ACTIVE_EMPLOYEE_STATUS_VALUES } from "@/lib/tenant/employeeStatus";
 
 async function resolveOrgId(): Promise<string> {
   const { data, error } = await supabase.rpc("current_org_id");
@@ -20,17 +21,25 @@ async function resolveOrgId(): Promise<string> {
 }
 
 export async function fetchOrgStructure(): Promise<OrgStructureSnapshot> {
-  const [deptRes, teamRes, posRes, relRes] = await Promise.all([
+  const [deptRes, teamRes, posRes, relRes, activeEmpRes] = await Promise.all([
     supabase.from("departments").select("*").order("sort_order"),
     supabase.from("teams").select("*").order("sort_order"),
     supabase.from("positions").select("*").order("sort_order"),
     supabase.from("employee_relations").select("*"),
+    supabase.from("employees").select("id").in("status", [...ACTIVE_EMPLOYEE_STATUS_VALUES]),
   ]);
 
   if (deptRes.error) throw new Error(deptRes.error.message);
   if (teamRes.error) throw new Error(teamRes.error.message);
   if (posRes.error) throw new Error(posRes.error.message);
   if (relRes.error) throw new Error(relRes.error.message);
+  if (activeEmpRes.error) throw new Error(activeEmpRes.error.message);
+
+  const activeEmployeeIds = new Set(
+    ((activeEmpRes.data ?? []) as { id: string }[])
+      .map((row) => row.id)
+      .filter((id): id is string => typeof id === "string"),
+  );
 
   const departments = ((deptRes.data ?? []) as Record<string, unknown>[]).map((row) => {
     const level = row.structure_level;
@@ -53,7 +62,9 @@ export async function fetchOrgStructure(): Promise<OrgStructureSnapshot> {
     departments,
     teams: (teamRes.data ?? []) as Team[],
     positions: (posRes.data ?? []) as Position[],
-    relations: (relRes.data ?? []) as EmployeeRelation[],
+    relations: ((relRes.data ?? []) as EmployeeRelation[]).filter((rel) =>
+      activeEmployeeIds.has(rel.employee_id),
+    ),
   };
 }
 

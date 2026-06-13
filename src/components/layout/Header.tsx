@@ -23,6 +23,7 @@ import { CommandFloatingOverlay, CommandPopover } from "@/components/ui/CommandO
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { QuickActionsList } from "@/components/layout/QuickActionsMenu";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
+import { ACTIVE_EMPLOYEE_STATUS_VALUES } from "@/lib/tenant/employeeStatus";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 import { withTimeout } from "@/lib/asyncHelpers";
@@ -54,7 +55,7 @@ async function searchSupabase(q: string): Promise<SearchResult[]> {
       Promise.all([
         supabase.from("clients").select("id, name, city").or(`name.ilike.${lq},phone.ilike.${lq}`).limit(3),
         supabase.from("tasks").select("id, title, assignee_name").ilike("title", lq).limit(3),
-        supabase.from("employees").select("id, name, department").or(`name.ilike.${lq},email.ilike.${lq}`).limit(2),
+        supabase.from("employees").select("id, name, department").in("status", [...ACTIVE_EMPLOYEE_STATUS_VALUES]).or(`name.ilike.${lq},email.ilike.${lq}`).limit(2),
       ]),
       SEARCH_TIMEOUT,
     );
