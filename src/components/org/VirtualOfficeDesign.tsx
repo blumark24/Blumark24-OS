@@ -1578,6 +1578,150 @@ function BoardExecutiveOffice({
   );
 }
 
+type OfficeControlEntry = {
+  room: OfficeRoom;
+  mappingUnit: PreviewOrgUnit | null;
+  mappingSource: MappingSource | null;
+};
+
+function OfficeControlPanel({
+  entries,
+  linkedOfficeCount,
+  unassignedOfficeCount,
+  mappingCompletionPct,
+  deletingRoomKey,
+  onSelectRoom,
+  onOpenMapping,
+  onClearPreview,
+  onClearSaved,
+}: {
+  entries: OfficeControlEntry[];
+  linkedOfficeCount: number;
+  unassignedOfficeCount: number;
+  mappingCompletionPct: number;
+  deletingRoomKey: ExecutiveOfficeFixedRoomKey | null;
+  onSelectRoom: (room: OfficeRoom) => void;
+  onOpenMapping: (room: OfficeRoom) => void;
+  onClearPreview: (room: OfficeRoom) => void;
+  onClearSaved: (room: OfficeRoom) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const boardAccent = "#a855f7";
+  const boardMetrics = [
+    { label: "عدد المكاتب المرتبطة", value: linkedOfficeCount, color: "#22d3ee" },
+    { label: "عدد المكاتب غير المخصصة", value: unassignedOfficeCount, color: "#f59e0b" },
+    { label: "نسبة اكتمال الربط", value: `${mappingCompletionPct}%`, color: "#10b981" },
+  ];
+
+  return (
+    <section style={{ borderRadius: 18, border: "1px solid rgba(34,211,238,0.18)", background: "rgba(6,14,28,0.88)", overflow: "hidden", boxShadow: "0 18px 42px rgba(0,0,0,0.25)" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "13px 16px", border: "none", background: "linear-gradient(135deg, rgba(34,211,238,0.10), rgba(168,85,247,0.08))", cursor: "pointer", textAlign: "start" }}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+          <span style={{ width: 32, height: 32, borderRadius: 11, display: "grid", placeItems: "center", background: "rgba(34,211,238,0.12)", border: "1px solid rgba(34,211,238,0.24)", flexShrink: 0 }}>
+            <Settings2 size={16} color="#67e8f9" />
+          </span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: "block", fontSize: 14, fontWeight: 850, color: "#fff" }}>إدارة المكاتب</span>
+            <span style={{ display: "block", fontSize: 10.5, color: "#7a9ab8", marginTop: 2 }}>تحكم آمن في ربط المكاتب 01-09 باستخدام تدفق الربط الحالي</span>
+          </span>
+        </span>
+        <ChevronDown size={18} color="#8ba3c7" style={{ flexShrink: 0, transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "none" }} />
+      </button>
+
+      {open && (
+        <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 10 }}>
+          {entries.map(({ room, mappingUnit, mappingSource }) => {
+            const mapped = Boolean(mappingUnit);
+            const isDeleting = deletingRoomKey === room.fixedRoomKey;
+            const canClear = mappingSource === "saved" || mappingSource === "preview";
+            return (
+              <article key={room.id} style={{ borderRadius: 13, border: mapped ? `1px solid ${room.accentColor}30` : "1px solid rgba(245,158,11,0.20)", background: mapped ? "rgba(255,255,255,0.035)" : "rgba(245,158,11,0.055)", padding: 11, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 10, fontWeight: 900, color: "#cbd5e1", background: "rgba(255,255,255,0.06)", border: `1px solid ${room.accentColor}35`, borderRadius: 8, padding: "2px 7px" }}>
+                        {room.officeNumber ? officeLabel(room.officeNumber) : "مكتب"}
+                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: mapped ? "#86efac" : "#fbbf24", background: mapped ? "rgba(16,185,129,0.10)" : "rgba(245,158,11,0.10)", border: mapped ? "1px solid rgba(16,185,129,0.22)" : "1px solid rgba(245,158,11,0.24)", borderRadius: 999, padding: "2px 7px" }}>
+                        {mapped ? "مرتبط" : "غير مخصص"}
+                      </span>
+                    </div>
+                    <p style={{ margin: "7px 0 0", fontSize: 12.5, fontWeight: 800, color: mapped ? "#fff" : "#fde68a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {mapped ? mappingUnit!.name : UNASSIGNED_LABEL}
+                    </p>
+                    {mapped ? (
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 5 }}>
+                        <span style={{ fontSize: 9.5, color: "#d8b4fe", border: "1px solid rgba(168,85,247,0.22)", background: "rgba(168,85,247,0.07)", borderRadius: 999, padding: "1px 7px" }}>{mappingUnit?.typeLabel ?? "وحدة"}</span>
+                        {mappingSource && <span style={{ fontSize: 9.5, color: "#67e8f9", border: "1px solid rgba(34,211,238,0.22)", background: "rgba(34,211,238,0.07)", borderRadius: 999, padding: "1px 7px" }}>{mappingSourceValue(mappingSource)}</span>}
+                      </div>
+                    ) : (
+                      <p style={{ margin: "5px 0 0", fontSize: 10.5, lineHeight: 1.55, color: "#d8c7a3" }}>
+                        اختر إدارة أو قسم من الهيكل الإداري لربط هذا المكتب.
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onSelectRoom(room)}
+                    style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7", borderRadius: 9, padding: "5px 7px", fontSize: 9.5, cursor: "pointer", flexShrink: 0 }}
+                  >
+                    عرض
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenMapping(room)}
+                    style={{ border: "1px solid rgba(139,92,246,0.30)", background: "rgba(139,92,246,0.09)", color: "#d8b4fe", borderRadius: 9, padding: "6px 9px", fontSize: 10, fontWeight: 800, cursor: "pointer" }}
+                  >
+                    {mapped ? "تغيير الربط" : "ربط المكتب"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (mappingSource === "saved") onClearSaved(room);
+                      if (mappingSource === "preview") onClearPreview(room);
+                    }}
+                    disabled={!canClear || isDeleting}
+                    title={mappingSource === "auto" ? "الربط التلقائي لا يُحذف، ويمكن تغييره بربط محفوظ أو تجريبي." : undefined}
+                    style={{ border: "1px solid rgba(239,68,68,0.22)", background: "rgba(239,68,68,0.07)", color: canClear ? "#fecaca" : "rgba(254,202,202,0.42)", borderRadius: 9, padding: "6px 9px", fontSize: 10, fontWeight: 800, cursor: !canClear || isDeleting ? "not-allowed" : "pointer", opacity: isDeleting ? 0.7 : 1 }}
+                  >
+                    {isDeleting ? "جارٍ الحذف..." : "حذف الربط"}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+
+          <article style={{ borderRadius: 13, border: `1px solid ${boardAccent}35`, background: "linear-gradient(135deg, rgba(168,85,247,0.12), rgba(34,211,238,0.05))", padding: 11, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 10, fontWeight: 900, color: "#ede9fe", background: `${boardAccent}1c`, border: `1px solid ${boardAccent}40`, borderRadius: 8, padding: "2px 7px" }}>
+                {officeLabel(BOARD_OFFICE_NUMBER)}
+              </span>
+              <span style={{ fontSize: 12.5, fontWeight: 850, color: "#fff" }}>مجلس الإدارة / المكتب التنفيذي</span>
+              <span style={{ fontSize: 9.5, color: "#d8b4fe", border: `1px solid ${boardAccent}30`, background: `${boardAccent}12`, borderRadius: 999, padding: "1px 7px" }}>قراءة فقط</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7 }}>
+              {boardMetrics.map((metric) => (
+                <div key={metric.label} style={{ borderRadius: 9, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(255,255,255,0.03)", padding: "7px 6px", textAlign: "center", minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: metric.color, lineHeight: 1 }}>{metric.value}</div>
+                  <div style={{ fontSize: 9, color: "#9d8bc0", marginTop: 4 }}>{metric.label}</div>
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function VirtualOfficeDesign({
   snapshot, employees, tasks, orgName, orgCode,
   onBackToOrg, onRefresh, isRefreshing = false,
@@ -1782,6 +1926,22 @@ export default function VirtualOfficeDesign({
   const mappingCompletionPct = roomsWithPresence.length > 0
     ? Math.round((linkedOfficeCount / roomsWithPresence.length) * 100)
     : 0;
+  const officeControlEntries = useMemo<OfficeControlEntry[]>(
+    () => roomsWithPresence.map((room) => {
+      const mapping = resolveRoomMapping({
+        room,
+        units: previewOrgUnits,
+        savedMappings,
+        previewMappings,
+      });
+      return {
+        room,
+        mappingUnit: mapping.unit,
+        mappingSource: mapping.source,
+      };
+    }),
+    [roomsWithPresence, previewOrgUnits, savedMappings, previewMappings],
+  );
 
   // Compact mobile feed (max 2 each) — derived, no fetches.
   const mobileActivity = useMemo(() => {
@@ -1872,6 +2032,22 @@ export default function VirtualOfficeDesign({
 
       {/* ── Workspace Identity Strip ── */}
       <WorkspaceIdentityStrip orgName={orgName} orgCode={orgCode} snapshot={snapshot} employees={safeEmps} />
+
+      <OfficeControlPanel
+        entries={officeControlEntries}
+        linkedOfficeCount={linkedOfficeCount}
+        unassignedOfficeCount={unassignedOfficeCount}
+        mappingCompletionPct={mappingCompletionPct}
+        deletingRoomKey={deletingRoomKey}
+        onSelectRoom={(room) => setSelectedRoom(room)}
+        onOpenMapping={(room) => {
+          clearRoomMappingError(room);
+          setSelectedRoom(room);
+          setMappingModalRoom(room);
+        }}
+        onClearPreview={(room) => clearPreviewForRoom(room)}
+        onClearSaved={(room) => void handleDeleteSavedMapping(room)}
+      />
 
       {/* ── Board / Executive office (9th office — off-map, no coordinate change) ── */}
       <BoardExecutiveOffice
