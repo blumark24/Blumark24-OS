@@ -21,7 +21,9 @@ export async function PATCH(req: NextRequest) {
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
-  console.log(`${TAG} start | URL=${!!SUPABASE_URL} SERVICE_KEY=${!!SERVICE_KEY} (len=${SERVICE_KEY.length})`);
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`${TAG} start | URL=${!!SUPABASE_URL} SERVICE_KEY=${!!SERVICE_KEY}`);
+  }
 
   if (!SUPABASE_URL) {
     return fail(500, "NEXT_PUBLIC_SUPABASE_URL غير مضبوط", "step=env: NEXT_PUBLIC_SUPABASE_URL is empty");
@@ -48,7 +50,6 @@ export async function PATCH(req: NextRequest) {
     return fail(authResult.status, authResult.error, authResult.debug ?? "step=auth");
   }
   const provisioner = authResult.auth;
-  console.log(`${TAG} step=auth ok | caller=${provisioner.callerEmail}`);
 
   let body: Record<string, unknown>;
   try {
@@ -122,7 +123,6 @@ export async function PATCH(req: NextRequest) {
   if (cleanIsActive !== undefined) profileUpdate.is_active  = cleanIsActive;
   if (cleanName     !== undefined) profileUpdate.name       = cleanName;
 
-  console.log(`${TAG} step=updateProfile | userId=${userId} fields=${JSON.stringify(profileUpdate)}`);
   let profileUpdateQuery = admin.from("profiles").update(profileUpdate).eq("id", userId);
   if (targetCheck.targetOrgId) {
     profileUpdateQuery = profileUpdateQuery.eq("organization_id", targetCheck.targetOrgId);
@@ -134,10 +134,7 @@ export async function PATCH(req: NextRequest) {
       `step=updateProfile: ${profileError.message}`,
     );
   }
-  console.log(`${TAG} step=updateProfile ok`);
-
   if (cleanName !== undefined) {
-    console.log(`${TAG} step=updateAuthMeta | userId=${userId} name=${cleanName}`);
     await admin.auth.admin.updateUserById(userId, { user_metadata: { name: cleanName } });
   }
 
@@ -168,6 +165,5 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  console.log(`${TAG} SUCCESS | userId=${userId}`);
   return ok({ success: true });
 }

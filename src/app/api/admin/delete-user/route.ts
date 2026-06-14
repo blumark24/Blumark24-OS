@@ -5,6 +5,7 @@ import {
   assertTargetUserInCallerOrg,
   authorizeUserProvisioner,
 } from "@/lib/api/tenantUserAdmin";
+import { isOwnerEmail } from "@/lib/owner";
 
 const TAG = "[delete-user]";
 
@@ -19,8 +20,6 @@ function fail(status: number, error: string, debug: string) {
 export async function DELETE(req: NextRequest) {
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-
-  console.log(`${TAG} start | URL=${!!SUPABASE_URL} SERVICE_KEY=${!!SERVICE_KEY} (len=${SERVICE_KEY.length})`);
 
   if (!SUPABASE_URL) {
     return fail(500, "NEXT_PUBLIC_SUPABASE_URL غير مضبوط", "step=env: NEXT_PUBLIC_SUPABASE_URL is empty");
@@ -47,7 +46,6 @@ export async function DELETE(req: NextRequest) {
     return fail(authResult.status, authResult.error, authResult.debug ?? "step=auth");
   }
   const provisioner = authResult.auth;
-  console.log(`${TAG} step=auth ok | caller=${provisioner.callerEmail}`);
 
   let body: Record<string, unknown>;
   try {
@@ -70,16 +68,79 @@ export async function DELETE(req: NextRequest) {
     return fail(targetCheck.status, targetCheck.error, targetCheck.debug ?? "step=org-scope");
   }
 
-  console.log(`${TAG} step=deleteUser | userId=${userId}`);
+  // ── Hard-delete guard ────────────────────────────────────────────────────
+  // Hard delete (removing from auth.users entirely) is destructive and breaks
+  // all historical records linked to this userId. It is restricted to platform
+  // owner or super_admin ONLY, and requires an explicit { hardDelete: true }
+  // flag in the request body. Default behaviour is always a soft deactivation.
+  const requestedHardDelete = body.hardDelete === true;
+  const callerCanHardDelete =
+    isOwnerEmail(provisioner.callerEmail) || provisioner.callerRole === "super_admin";
 
-  const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
-  if (deleteError) {
-    const msg = deleteError.message.toLowerCase().includes("not found")
-      ? "المستخدم غير موجود في نظام المصادقة"
-      : `فشل حذف المستخدم: ${deleteError.message}`;
-    return fail(400, msg, `step=deleteUser: ${deleteError.message}`);
+  if (requestedHardDelete && !callerCanHardDelete) {
+    return fail(
+      403,
+      "الحذف الكامل متاح لمالك المنصة أو المدير الأعلى فقط.",
+      "step=hard-delete-guard: caller lacks permission",
+    );
   }
 
-  console.log(`${TAG} SUCCESS | userId=${userId}`);
-  return ok({ success: true });
+  if (requestedHardDelete && callerCanHardDelete) {
+    // Before hard delete, verify no open tasks are assigned to this user.
+    const { data: openTasks } = await admin
+      .from("tasks")
+      .select("id")
+      .eq("assignee_id", userId)
+      .not("status", "eq", "مكتملة")
+      .limit(1);
+
+    if (openTasks && openTasks.length > 0) {
+      return fail(
+        409,
+        "لا يمكن الحذف الكامل — يوجد مهام مفتوحة مرتبطة بهذا الموظف. أعد تعيين المهام أولاً.",
+        "step=hard-delete-guard: open tasks found",
+      );
+    }
+
+    const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
+    if (deleteError) {
+      const msg = deleteError.message.toLowerCase().includes("not found")
+        ? "المستخدم غير موجود في نظام المصادقة"
+        : `فشل الحذف الكامل: ${deleteError.message}`;
+      return fail(400, msg, `step=hardDelete: ${deleteError.message}`);
+    }
+
+    return ok({ success: true, mode: "hard_delete" });
+  }
+
+  // ── Default: soft deactivation ───────────────────────────────────────────
+  // Sets profiles.is_active=false and employees.status="غير_نشط".
+  // The auth user and all historical records (tasks, audit logs) are preserved.
+  const orgFilter = targetCheck.targetOrgId;
+
+  let profileQuery = admin
+    .from("profiles")
+    .update({ is_active: false })
+    .eq("id", userId);
+  if (orgFilter) profileQuery = profileQuery.eq("organization_id", orgFilter);
+
+  const { error: profileError } = await profileQuery;
+  if (profileError) {
+    return fail(500, `فشل تعطيل الملف الشخصي: ${profileError.message}`, `step=softDelete.profile: ${profileError.message}`);
+  }
+
+  // Non-fatal: employee row may not exist for some account types.
+  let empQuery = admin
+    .from("employees")
+    .update({ status: "غير_نشط" })
+    .eq("id", userId);
+  if (orgFilter) empQuery = empQuery.eq("organization_id", orgFilter);
+  const { error: empError } = await empQuery;
+  if (empError) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`${TAG} employees soft-deactivate skipped (non-fatal): ${empError.message}`);
+    }
+  }
+
+  return ok({ success: true, mode: "soft_delete" });
 }

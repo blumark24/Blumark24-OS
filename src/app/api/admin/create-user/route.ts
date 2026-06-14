@@ -8,13 +8,26 @@ import {
   authorizeUserProvisioner,
   sanitizeRoleForProvisioner,
 } from "@/lib/api/tenantUserAdmin";
+import { checkRateLimit, resolveIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// 10 user creations per caller per hour — prevents runaway provisioning.
+const RATE_LIMIT = 10;
+const RATE_WINDOW_MS = 60 * 60_000;
+
 export async function POST(req: NextRequest) {
   try {
-    console.log("[create-user] start");
+    // ── 0. rate limit by IP before any heavy work ─────────────────────────
+    const ip = resolveIp(req);
+    const rl = checkRateLimit(`create-user:ip:${ip}`, RATE_LIMIT, RATE_WINDOW_MS);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { success: false, error: "تجاوزت الحد المسموح من العمليات. حاول لاحقاً." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetInMs / 1000)) } },
+      );
+    }
 
     // ── 1. env (read inside handler) ──────────────────────────────────────
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -30,7 +43,6 @@ export async function POST(req: NextRequest) {
         { status: 500 },
       );
     }
-    console.log(`[create-user] env loaded URL=${!!SUPABASE_URL} KEY=${!!SERVICE_KEY}`);
 
     // ── 2. service-role admin client (the ONLY client used) ───────────────
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
@@ -69,13 +81,14 @@ export async function POST(req: NextRequest) {
     const callerEmail = provisioner.callerEmail;
     const callerId = provisioner.callerId;
     const callerOrgId = provisioner.callerOrgId;
-    console.log(
-      `[create-user] caller verified email=${callerEmail} platform=${provisioner.isPlatformAdmin} orgManager=${provisioner.isOrgManager}`,
-    );
+    if (process.env.NODE_ENV !== "production") {
+      console.log(
+        `[create-user] caller verified email=${callerEmail} platform=${provisioner.isPlatformAdmin} orgManager=${provisioner.isOrgManager}`,
+      );
+    }
 
     // ── 4. parse body (await; outer catch handles malformed JSON) ─────────
     const body = (await req.json()) as Record<string, unknown>;
-    console.log("[create-user] request parsed");
 
     // ── 5. inline clean + validate ────────────────────────────────────────
     const rawEmail = typeof body.email === "string" ? body.email : "";
@@ -153,7 +166,6 @@ export async function POST(req: NextRequest) {
     const status     = body.status === "غير_نشط" ? "غير_نشط" : "نشط";
 
     // ── 6. create auth user (await) ───────────────────────────────────────
-    console.log(`[create-user] creating auth user email=${email} role=${role}`);
     const createResp = await admin.auth.admin.createUser({
       email,
       password,
@@ -180,7 +192,6 @@ export async function POST(req: NextRequest) {
       );
     }
     const userId = createResp.data.user.id;
-    console.log(`[create-user] auth create success userId=${userId}`);
 
     // ── 7. upsert profile (await; rollback auth user on failure) ──────────
     // Try with force_password_change first; fall back without it if the column
@@ -244,10 +255,7 @@ export async function POST(req: NextRequest) {
         { status: 500 },
       );
     }
-    console.log(`[create-user] db insert success userId=${userId}`);
-
     // ── 9. final success ──────────────────────────────────────────────────
-    console.log(`[create-user] SUCCESS email=${email} userId=${userId}`);
     return NextResponse.json({ success: true, id: userId, name });
 
   } catch (error: unknown) {

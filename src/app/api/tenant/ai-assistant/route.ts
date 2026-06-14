@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, resolveIp } from "@/lib/rateLimit";
 import {
   buildCodeOnlyAssistantReply,
   classifyContextLoadError,
@@ -7,6 +8,10 @@ import {
   type AssistantDiagnosticCode,
   type AssistantDiagnosticDetail,
 } from "@/lib/tenant/aiAssistantDiagnostics";
+
+// 30 requests per user per minute for the tenant assistant.
+const RATE_LIMIT = 30;
+const RATE_WINDOW_MS = 60_000;
 import {
   buildLocalContextFallback,
   buildTenantAiSystemPrompt,
@@ -99,6 +104,30 @@ export async function POST(req: NextRequest) {
 
     organizationId = session.organizationId;
     userId = session.userId;
+
+    // Rate limit per user after session is confirmed.
+    const rateLimitKey = `tenant-ai:user:${userId ?? resolveIp(req)}`;
+    const rl = checkRateLimit(rateLimitKey, RATE_LIMIT, RATE_WINDOW_MS);
+    if (!rl.ok) {
+      logAssistantEvent("denied", {
+        code: "AI_CONTEXT_ERROR",
+        detail: "REQUEST_INVALID",
+        status: 429,
+        organizationId,
+        userId,
+      });
+      return respond(
+        {
+          code: "AI_CONTEXT_ERROR",
+          detail: "REQUEST_INVALID",
+          error: "RATE_LIMITED",
+          message: "تجاوزت الحد المسموح من الطلبات. حاول مجدداً بعد دقيقة.",
+          reply: "⚠️ تجاوزت الحد المسموح من الطلبات. حاول مجدداً بعد دقيقة.",
+          fallback: false,
+        },
+        429,
+      );
+    }
 
     let body: unknown;
     try {
