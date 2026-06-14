@@ -1498,12 +1498,14 @@ function BoardExecutiveOffice({
   linkedOfficeCount,
   unassignedOfficeCount,
   mappingCompletionPct,
+  executiveBrain,
 }: {
   orgName: string;
   managerName: string | null;
   linkedOfficeCount: number;
   unassignedOfficeCount: number;
   mappingCompletionPct: number;
+  executiveBrain: ExecutiveBrainSnapshot;
 }) {
   const [open, setOpen] = useState(false);
   const accent = "#a855f7";
@@ -1574,6 +1576,8 @@ function BoardExecutiveOffice({
             </span>
           </div>
 
+          <ExecutiveBrainPanel brain={executiveBrain} />
+
           {/* Future AI agent placeholder — visual only, no logic/API */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, borderRadius: 12, border: "1px dashed rgba(139,92,246,0.30)", background: "rgba(139,92,246,0.06)", padding: "10px 12px" }}>
             <span style={{ width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", flexShrink: 0, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)" }}>
@@ -1603,11 +1607,76 @@ type OfficeControlEntry = {
   mappingSource: MappingSource | null;
 };
 
+type ExecutiveBrainSnapshot = {
+  linkedOfficeCount: number;
+  unassignedOfficeCount: number;
+  mappingCompletionPct: number;
+  linkedOrgUnitCount: number;
+  structureStatus: string;
+  recommendation: string;
+};
+
+function ExecutiveBrainPanel({
+  brain,
+  compact = false,
+}: {
+  brain: ExecutiveBrainSnapshot;
+  compact?: boolean;
+}) {
+  const metrics = [
+    { label: "عدد المكاتب المرتبطة", value: brain.linkedOfficeCount, color: "#22d3ee" },
+    { label: "عدد المكاتب غير المخصصة", value: brain.unassignedOfficeCount, color: brain.unassignedOfficeCount > 0 ? "#f59e0b" : "#10b981" },
+    { label: "نسبة اكتمال الربط", value: `${brain.mappingCompletionPct}%`, color: "#10b981" },
+    { label: "عدد الإدارات/الأقسام المرتبطة بالمكاتب", value: brain.linkedOrgUnitCount, color: "#c4b5fd" },
+    { label: "آخر حالة للهيكل الإداري", value: brain.structureStatus, color: "#bae6fd" },
+  ];
+
+  return (
+    <div style={{ borderRadius: compact ? 11 : 13, border: "1px solid rgba(34,211,238,0.18)", background: "linear-gradient(135deg, rgba(34,211,238,0.075), rgba(168,85,247,0.07))", padding: compact ? 9 : 12, display: "flex", flexDirection: "column", gap: compact ? 8 : 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: "#e0f2fe", fontSize: compact ? 11.5 : 13, fontWeight: 900 }}>
+          <BrainCircuit size={compact ? 13 : 15} color="#67e8f9" />
+          العقل التنفيذي
+        </span>
+        <span style={{ fontSize: 9, color: "#93c5fd", border: "1px solid rgba(147,197,253,0.22)", background: "rgba(147,197,253,0.08)", borderRadius: 999, padding: "1px 7px" }}>
+          قراءة فقط
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: compact ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(130px, 1fr))", gap: 7 }}>
+        {metrics.map((metric) => (
+          <div key={metric.label} style={{ borderRadius: 9, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(255,255,255,0.035)", padding: "7px 6px", minWidth: 0 }}>
+            <div style={{ fontSize: compact ? 12 : 14, fontWeight: 900, color: metric.color, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metric.value}</div>
+            <div style={{ fontSize: 9, color: "#8ba3c7", marginTop: 4, lineHeight: 1.35 }}>{metric.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {brain.unassignedOfficeCount > 0 && (
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 7, borderRadius: 10, border: "1px solid rgba(245,158,11,0.22)", background: "rgba(245,158,11,0.08)", padding: "7px 8px" }}>
+          <AlertTriangle size={13} color="#fbbf24" style={{ flexShrink: 0, marginTop: 1 }} />
+          <span style={{ fontSize: compact ? 10 : 11, color: "#fde68a", lineHeight: 1.6 }}>
+            توجد مكاتب غير مخصصة وتحتاج إلى استكمال الربط.
+          </span>
+        </div>
+      )}
+
+      <p style={{ margin: 0, fontSize: compact ? 10 : 11.5, color: "#c8ddf0", lineHeight: 1.7 }}>
+        {brain.recommendation}
+      </p>
+      <p style={{ margin: 0, fontSize: 9, color: "#5a7a9a", lineHeight: 1.5 }}>
+        ملخص محسوب من بيانات الواجهة الحالية فقط، بدون ذكاء اصطناعي أو حفظ بيانات.
+      </p>
+    </div>
+  );
+}
+
 function OfficeControlPanel({
   entries,
   linkedOfficeCount,
   unassignedOfficeCount,
   mappingCompletionPct,
+  executiveBrain,
   deletingRoomKey,
   onSelectRoom,
   onOpenMapping,
@@ -1618,6 +1687,7 @@ function OfficeControlPanel({
   linkedOfficeCount: number;
   unassignedOfficeCount: number;
   mappingCompletionPct: number;
+  executiveBrain: ExecutiveBrainSnapshot;
   deletingRoomKey: ExecutiveOfficeFixedRoomKey | null;
   onSelectRoom: (room: OfficeRoom) => void;
   onOpenMapping: (room: OfficeRoom) => void;
@@ -1733,6 +1803,9 @@ function OfficeControlPanel({
                   <div style={{ fontSize: 9, color: "#9d8bc0", marginTop: 4 }}>{metric.label}</div>
                 </div>
               ))}
+            </div>
+            <div style={{ marginTop: 9 }}>
+              <ExecutiveBrainPanel brain={executiveBrain} compact />
             </div>
           </article>
         </div>
@@ -1972,6 +2045,33 @@ export default function VirtualOfficeDesign({
     }),
     [roomsWithPresence, previewOrgUnits, savedMappings, previewMappings],
   );
+  const executiveBrain = useMemo<ExecutiveBrainSnapshot>(() => {
+    const linkedOrgUnitIds = new Set(
+      officeControlEntries
+        .map((entry) => entry.mappingUnit)
+        .filter((unit): unit is PreviewOrgUnit => unit != null)
+        .map((unit) => `${unit.type}:${unit.id}`),
+    );
+    const structureItemCount =
+      safeDepts.length +
+      (Array.isArray(snapshot?.teams) ? snapshot!.teams.length : 0) +
+      (Array.isArray(snapshot?.positions) ? snapshot!.positions.length : 0) +
+      safeRels.length;
+    const recommendation = linkedOfficeCount === 0
+      ? "لم يتم ربط أي مكتب بعد. ابدأ بربط الإدارات الأساسية."
+      : unassignedOfficeCount > 0
+        ? "يوجد مكاتب غير مخصصة. يفضل إكمال الربط قبل اعتماد المكتب الافتراضي."
+        : "اكتمل ربط المكاتب التشغيلية. المكتب الافتراضي جاهز للمراجعة التنفيذية.";
+
+    return {
+      linkedOfficeCount,
+      unassignedOfficeCount,
+      mappingCompletionPct,
+      linkedOrgUnitCount: linkedOrgUnitIds.size,
+      structureStatus: structureItemCount > 0 ? "متاح من الهيكل الحالي" : UNAVAILABLE_LABEL,
+      recommendation,
+    };
+  }, [officeControlEntries, linkedOfficeCount, unassignedOfficeCount, mappingCompletionPct, safeDepts.length, safeRels.length, snapshot]);
 
   // Compact mobile feed (max 2 each) — derived, no fetches.
   const mobileActivity = useMemo(() => {
@@ -2077,6 +2177,7 @@ export default function VirtualOfficeDesign({
         linkedOfficeCount={linkedOfficeCount}
         unassignedOfficeCount={unassignedOfficeCount}
         mappingCompletionPct={mappingCompletionPct}
+        executiveBrain={executiveBrain}
         deletingRoomKey={deletingRoomKey}
         onSelectRoom={(room) => setSelectedRoom(room)}
         onOpenMapping={(room) => {
@@ -2095,6 +2196,7 @@ export default function VirtualOfficeDesign({
         linkedOfficeCount={linkedOfficeCount}
         unassignedOfficeCount={unassignedOfficeCount}
         mappingCompletionPct={mappingCompletionPct}
+        executiveBrain={executiveBrain}
       />
 
       {/* ── Empty State ── */}
