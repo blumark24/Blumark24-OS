@@ -7,20 +7,24 @@ import {
 } from "@/lib/api/tenantUserAdmin";
 
 const TAG = "[delete-user]";
+const IS_PROD = process.env.NODE_ENV === "production";
 
 function ok(data: Record<string, unknown>, status = 200) {
   return NextResponse.json(data, { status });
 }
 function fail(status: number, error: string, debug: string) {
-  console.error(`${TAG} HTTP ${status} | ${debug}`);
-  return NextResponse.json({ success: false, error, debug }, { status });
+  if (!IS_PROD) console.error(`${TAG} HTTP ${status} | ${debug}`);
+  return NextResponse.json(
+    { success: false, error, ...(IS_PROD ? {} : { debug }) },
+    { status },
+  );
 }
 
 export async function DELETE(req: NextRequest) {
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
-  console.log(`${TAG} start | URL=${!!SUPABASE_URL} SERVICE_KEY=${!!SERVICE_KEY} (len=${SERVICE_KEY.length})`);
+  if (!IS_PROD) console.log(`${TAG} start | URL=${!!SUPABASE_URL} SERVICE_KEY=${!!SERVICE_KEY} (len=${SERVICE_KEY.length})`);
 
   if (!SUPABASE_URL) {
     return fail(500, "NEXT_PUBLIC_SUPABASE_URL غير مضبوط", "step=env: NEXT_PUBLIC_SUPABASE_URL is empty");
@@ -47,7 +51,7 @@ export async function DELETE(req: NextRequest) {
     return fail(authResult.status, authResult.error, authResult.debug ?? "step=auth");
   }
   const provisioner = authResult.auth;
-  console.log(`${TAG} step=auth ok | caller=${provisioner.callerEmail}`);
+  if (!IS_PROD) console.log(`${TAG} step=auth ok | caller=${provisioner.callerEmail}`);
 
   let body: Record<string, unknown>;
   try {
@@ -70,7 +74,7 @@ export async function DELETE(req: NextRequest) {
     return fail(targetCheck.status, targetCheck.error, targetCheck.debug ?? "step=org-scope");
   }
 
-  console.log(`${TAG} step=deleteUser | userId=${userId}`);
+  if (!IS_PROD) console.log(`${TAG} step=deleteUser | userId=${userId}`);
 
   const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
   if (deleteError) {
@@ -80,6 +84,6 @@ export async function DELETE(req: NextRequest) {
     return fail(400, msg, `step=deleteUser: ${deleteError.message}`);
   }
 
-  console.log(`${TAG} SUCCESS | userId=${userId}`);
+  if (!IS_PROD) console.log(`${TAG} SUCCESS | userId=${userId}`);
   return ok({ success: true });
 }
