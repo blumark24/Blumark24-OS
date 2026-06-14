@@ -36,12 +36,14 @@ function shouldRunNow(schedule: string): boolean {
 
 export async function GET(req: NextRequest) {
   // Vercel Cron sends an Authorization header with CRON_SECRET
-  const cronSecret = process.env.CRON_SECRET ?? "";
-  if (cronSecret) {
-    const auth = req.headers.get("authorization") ?? "";
-    if (auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const cronSecret = (process.env.CRON_SECRET ?? "").trim();
+  if (!cronSecret) {
+    return NextResponse.json({ error: "cron not configured" }, { status: 500 });
+  }
+
+  const auth = req.headers.get("authorization") ?? "";
+  if (auth !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
