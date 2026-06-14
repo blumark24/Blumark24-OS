@@ -104,6 +104,46 @@ export async function PATCH(req: NextRequest) {
     cleanRole = roleCheck;
   }
 
+  // ── Guard 1: Self-removal / self-deactivation ──────────────────────────────
+  // A caller may not deactivate themselves or change their own role. This
+  // prevents a manager from accidentally locking themselves out.
+  if (provisioner.callerId === userId) {
+    const wouldDeactivate = cleanIsActive === false;
+    const wouldChangeRole = cleanRole !== undefined;
+    if (wouldDeactivate || wouldChangeRole) {
+      return fail(
+        403,
+        "لا يمكنك إزالة أو تعطيل حسابك من نفس المنشأة.",
+        "step=self-removal-guard: caller is the update target",
+      );
+    }
+  }
+
+  // ── Guard 2: Last active organization_manager ──────────────────────────────
+  // Prevent removing or downgrading the last remaining active manager in an
+  // organization, which would leave no one able to administer the tenant.
+  const targetIsManager = targetCheck.targetRole === "organization_manager";
+  const wouldLoseManagerStatus =
+    cleanIsActive === false ||
+    (cleanRole !== undefined && cleanRole !== "organization_manager");
+
+  if (targetIsManager && wouldLoseManagerStatus && targetCheck.targetOrgId) {
+    const { count, error: countErr } = await admin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", targetCheck.targetOrgId)
+      .eq("role", "organization_manager")
+      .eq("is_active", true);
+
+    if (!countErr && (count ?? 0) <= 1) {
+      return fail(
+        403,
+        "لا يمكن إزالة آخر مدير نشط في المنشأة. عيّن مديرًا آخر أولًا.",
+        "step=last-manager-guard: removing last active organization_manager",
+      );
+    }
+  }
+
   if (
     !cleanRole &&
     !cleanDept &&
@@ -170,10 +210,16 @@ export async function PATCH(req: NextRequest) {
     }
     const { error: empError } = await employeeUpdateQuery;
     if (empError) {
-      console.warn(`${TAG} employees sync skipped (non-fatal): ${empError.message}`);
-    } else {
-      console.log(`${TAG} step=syncEmployees ok`);
+      // Employee sync failure is now fatal. Profile was already updated above;
+      // retrying the request will re-apply the profile change (idempotent) and
+      // re-attempt the employee sync, restoring consistency.
+      return fail(
+        500,
+        "فشل مزامنة سجل الموظف — يُرجى المحاولة مجدداً.",
+        `step=syncEmployees: ${empError.message}`,
+      );
     }
+    console.log(`${TAG} step=syncEmployees ok`);
   }
 
   console.log(`${TAG} SUCCESS | userId=${userId}`);
