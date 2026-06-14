@@ -643,6 +643,7 @@ function MappingPreviewModal({
   room,
   units,
   currentUnit,
+  currentSource,
   previewUnit,
   saveError,
   isSaving,
@@ -653,6 +654,7 @@ function MappingPreviewModal({
   room: OfficeRoom;
   units: PreviewOrgUnit[];
   currentUnit: PreviewOrgUnit | null;
+  currentSource: MappingSource | null;
   previewUnit: PreviewOrgUnit | null;
   saveError: string | null;
   isSaving: boolean;
@@ -663,6 +665,8 @@ function MappingPreviewModal({
   const initialUnitId = previewUnit?.id ?? currentUnit?.id ?? units[0]?.id ?? "";
   const [selectedUnitId, setSelectedUnitId] = useState(initialUnitId);
   const selectedUnit = units.find((unit) => unit.id === selectedUnitId) ?? null;
+  const officeNumberLabel = room.officeNumber ? officeLabel(room.officeNumber) : "مكتب";
+  const currentSourceLabel = mappingSourceValue(currentSource);
 
   return (
     <div
@@ -698,11 +702,14 @@ function MappingPreviewModal({
       >
         <div style={{ padding: "18px 18px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, borderRadius: 999, border: "1px solid rgba(34,211,238,0.25)", background: "rgba(34,211,238,0.10)", color: "#67e8f9", fontSize: 11, fontWeight: 850, padding: "3px 9px", marginBottom: 8 }}>
+              {officeNumberLabel}
+            </span>
             <h2 id="mapping-preview-title" style={{ margin: 0, color: "#fff", fontSize: 20, fontWeight: 800 }}>
               تخصيص ربط الغرفة
             </h2>
             <p style={{ margin: "8px 0 0", color: "#8ba3c7", fontSize: 13, lineHeight: 1.7, maxWidth: 560 }}>
-              اختر وحدة من الهيكل الإداري لربطها بهذه الغرفة داخل المكتب التنفيذي.
+              اختر إدارة أو قسم من الهيكل الإداري لربطه بهذا المكتب.
             </p>
           </div>
           <button
@@ -718,14 +725,20 @@ function MappingPreviewModal({
         <div style={{ padding: "14px 18px", overflowY: "auto", minWidth: 0 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 14 }}>
             <div style={{ borderRadius: 14, border: "1px solid rgba(34,211,238,0.18)", background: "rgba(34,211,238,0.06)", padding: 12 }}>
-              <p style={{ margin: 0, fontSize: 10, color: "#5a7a9a" }}>الغرفة المحددة</p>
-              <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 700, color: "#dff7ff" }}>{room.name}</p>
+              <p style={{ margin: 0, fontSize: 10, color: "#5a7a9a" }}>المكتب المحدد</p>
+              <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 800, color: "#dff7ff" }}>{officeNumberLabel}</p>
+              <p style={{ margin: "3px 0 0", fontSize: 11, color: "#7a9ab8" }}>{room.name}</p>
             </div>
             <div style={{ borderRadius: 14, border: "1px solid rgba(168,85,247,0.18)", background: "rgba(168,85,247,0.06)", padding: 12 }}>
-              <p style={{ margin: 0, fontSize: 10, color: "#5a7a9a" }}>الربط التلقائي الحالي</p>
+              <p style={{ margin: 0, fontSize: 10, color: "#5a7a9a" }}>الربط الحالي</p>
               <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 700, color: currentUnit ? "#e9d5ff" : "#64748b" }}>
                 {currentUnit ? currentUnit.name : "غير متاح"}
               </p>
+              {currentUnit && (
+                <p style={{ margin: "3px 0 0", fontSize: 10, color: "#9d8bc0" }}>
+                  {currentUnit.typeLabel ?? "غير متاح"}{currentSourceLabel ? ` · ${currentSourceLabel}` : ""}
+                </p>
+              )}
             </div>
           </div>
 
@@ -781,7 +794,13 @@ function MappingPreviewModal({
 
               {selectedUnit && (
                 <div style={{ marginTop: 14, borderRadius: 14, border: "1px solid rgba(16,185,129,0.22)", background: "rgba(16,185,129,0.07)", padding: 12 }}>
-                  <p style={{ margin: 0, color: "#a7f3d0", fontSize: 13, fontWeight: 700 }}>
+                  <p style={{ margin: 0, color: "#6ee7b7", fontSize: 10, fontWeight: 850 }}>
+                    الوحدة المحددة للمعاينة أو الحفظ
+                  </p>
+                  <p style={{ margin: "5px 0 0", color: "#a7f3d0", fontSize: 13, fontWeight: 750 }}>
+                    {selectedUnit.name} · {selectedUnit.typeLabel ?? "غير متاح"}
+                  </p>
+                  <p style={{ margin: "7px 0 0", color: "#a7f3d0", fontSize: 13, fontWeight: 700 }}>
                     سيتم عرض {selectedUnit.name} داخل {room.name}
                   </p>
                   <p style={{ margin: "5px 0 0", color: "#6b87ab", fontSize: 11 }}>
@@ -1656,7 +1675,7 @@ function OfficeControlPanel({
                     </p>
                     {mapped ? (
                       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 5 }}>
-                        <span style={{ fontSize: 9.5, color: "#d8b4fe", border: "1px solid rgba(168,85,247,0.22)", background: "rgba(168,85,247,0.07)", borderRadius: 999, padding: "1px 7px" }}>{mappingUnit?.typeLabel ?? "وحدة"}</span>
+                        <span style={{ fontSize: 9.5, color: "#d8b4fe", border: "1px solid rgba(168,85,247,0.22)", background: "rgba(168,85,247,0.07)", borderRadius: 999, padding: "1px 7px" }}>{mappingUnit?.typeLabel ?? "غير متاح"}</span>
                         {mappingSource && <span style={{ fontSize: 9.5, color: "#67e8f9", border: "1px solid rgba(34,211,238,0.22)", background: "rgba(34,211,238,0.07)", borderRadius: 999, padding: "1px 7px" }}>{mappingSourceValue(mappingSource)}</span>}
                       </div>
                     ) : (
@@ -1898,6 +1917,17 @@ export default function VirtualOfficeDesign({
     }
   }, [clearPreviewForRoom, clearRoomMappingError]);
 
+  const confirmDeleteSavedMapping = useCallback((room: OfficeRoom) => {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm("هل تريد حذف ربط هذا المكتب؟ سيعود المكتب إلى حالة غير مخصص.")
+    ) {
+      return;
+    }
+
+    void handleDeleteSavedMapping(room);
+  }, [handleDeleteSavedMapping]);
+
   const overdueTasks = safeTasks.filter((t) => t?.status === "متأخرة").length;
   const activeEmps   = safeRels.length;
   const deptCount    = isDemo ? DEMO_DEF.length : safeDepts.length;
@@ -1998,6 +2028,15 @@ export default function VirtualOfficeDesign({
     [selectedRoom, selectedMapping.unit, snapshot, safeEmps],
   );
 
+  const modalCurrentMapping = mappingModalRoom
+    ? resolveRoomMapping({
+        room: mappingModalRoom,
+        units: previewOrgUnits,
+        savedMappings,
+        previewMappings,
+      })
+    : { unit: null, source: null as MappingSource | null };
+
   const modalSaveError = mappingModalRoom ? mappingErrorByRoom[mappingModalRoom.id] ?? null : null;
   const selectedMappingError = selectedRoom ? mappingErrorByRoom[selectedRoom.id] ?? null : null;
 
@@ -2046,7 +2085,7 @@ export default function VirtualOfficeDesign({
           setMappingModalRoom(room);
         }}
         onClearPreview={(room) => clearPreviewForRoom(room)}
-        onClearSaved={(room) => void handleDeleteSavedMapping(room)}
+        onClearSaved={(room) => confirmDeleteSavedMapping(room)}
       />
 
       {/* ── Board / Executive office (9th office — off-map, no coordinate change) ── */}
@@ -2100,7 +2139,7 @@ export default function VirtualOfficeDesign({
                 isDeletingSaved={deletingRoomKey === selectedRoom.fixedRoomKey}
                 onOpenMapping={() => setMappingModalRoom(selectedRoom)}
                 onClearPreview={() => clearPreviewForRoom(selectedRoom)}
-                onClearSaved={() => void handleDeleteSavedMapping(selectedRoom)}
+                onClearSaved={() => confirmDeleteSavedMapping(selectedRoom)}
                 onClose={() => setSelectedRoom(null)}
               />
             )}
@@ -2127,7 +2166,7 @@ export default function VirtualOfficeDesign({
               isDeletingSaved={selectedRoom ? deletingRoomKey === selectedRoom.fixedRoomKey : false}
               onOpenMapping={() => selectedRoom && setMappingModalRoom(selectedRoom)}
               onClearPreview={() => selectedRoom && clearPreviewForRoom(selectedRoom)}
-              onClearSaved={() => selectedRoom && void handleDeleteSavedMapping(selectedRoom)}
+              onClearSaved={() => selectedRoom && confirmDeleteSavedMapping(selectedRoom)}
               activity={mobileActivity}
               meetings={mobileMeetings}
               alerts={mobileAlerts}
@@ -2149,7 +2188,8 @@ export default function VirtualOfficeDesign({
           key={mappingModalRoom.id}
           room={mappingModalRoom}
           units={previewOrgUnits}
-          currentUnit={findAutoMappedUnit(mappingModalRoom, previewOrgUnits)}
+          currentUnit={modalCurrentMapping.unit}
+          currentSource={modalCurrentMapping.source}
           previewUnit={previewMappings[mappingModalRoom.id] ?? null}
           saveError={modalSaveError}
           isSaving={savingRoomKey === mappingModalRoom.fixedRoomKey}
