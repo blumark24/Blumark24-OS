@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
           success: false,
           error:
             "إعداد الخادم غير مكتمل — أضف NEXT_PUBLIC_SUPABASE_URL و SUPABASE_SERVICE_ROLE_KEY في Vercel Environment Variables",
-          debug: `urlSet=${!!SUPABASE_URL} keySet=${!!SERVICE_KEY}`,
+          ...(process.env.NODE_ENV !== "production" ? { debug: `urlSet=${!!SUPABASE_URL} keySet=${!!SERVICE_KEY}` } : {}),
         },
         { status: 500 },
       );
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           error:   "جلسة المستخدم غير صالحة أو انتهت",
-          debug:   tokenResp.error?.message ?? "no user",
+          ...(process.env.NODE_ENV !== "production" ? { debug: tokenResp.error?.message ?? "no user" } : {}),
         },
         { status: 401 },
       );
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     const authResult = await authorizeUserProvisioner(admin, token);
     if (!authResult.ok) {
       return NextResponse.json(
-        { success: false, error: authResult.error, debug: authResult.debug },
+        { success: false, error: authResult.error, ...(process.env.NODE_ENV !== "production" ? { debug: authResult.debug } : {}) },
         { status: authResult.status },
       );
     }
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
     if (provisioner.isPlatformAdmin) {
       if (!PLATFORM_ROLES.includes(role)) {
         return NextResponse.json(
-          { success: false, error: `الدور غير مقبول: ${rawRole}`, debug: `mapped=${role}` },
+          { success: false, error: `الدور غير مقبول: ${rawRole}`, ...(process.env.NODE_ENV !== "production" ? { debug: `mapped=${role}` } : {}) },
           { status: 400 },
         );
       }
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
     const roleCheck = sanitizeRoleForProvisioner(provisioner, role);
     if (typeof roleCheck !== "string") {
       return NextResponse.json(
-        { success: false, error: roleCheck.error, debug: roleCheck.debug },
+        { success: false, error: roleCheck.error, ...(process.env.NODE_ENV !== "production" ? { debug: roleCheck.debug } : {}) },
         { status: roleCheck.status },
       );
     }
@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
           error: dup
             ? `البريد الإلكتروني (${email}) مسجل مسبقاً`
             : `فشل إنشاء الحساب: ${msg}`,
-          debug: msg,
+          ...(process.env.NODE_ENV !== "production" ? { debug: msg } : {}),
         },
         { status: 400 },
       );
@@ -202,7 +202,9 @@ export async function POST(req: NextRequest) {
       { onConflict: "id" },
     );
     if (profUpsert.error?.message?.toLowerCase().includes("force_password_change")) {
-      console.warn("[create-user] force_password_change column missing — retrying without it");
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[create-user] force_password_change column missing — retrying without it");
+      }
       profUpsert = await admin.from("profiles").upsert(
         { id: userId, email, name, role, department, is_active: true, ...orgStamp },
         { onConflict: "id" },
@@ -216,7 +218,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           error:   `فشل إنشاء الملف الشخصي: ${profUpsert.error.message}`,
-          debug:   profUpsert.error.message,
+          ...(process.env.NODE_ENV !== "production" ? { debug: profUpsert.error.message } : {}),
         },
         { status: 500 },
       );
@@ -250,7 +252,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           error:   `فشل إنشاء سجل الموظف: ${empUpsert.error.message}`,
-          debug:   empUpsert.error.message,
+          ...(process.env.NODE_ENV !== "production" ? { debug: empUpsert.error.message } : {}),
         },
         { status: 500 },
       );
@@ -267,7 +269,7 @@ export async function POST(req: NextRequest) {
         success: false,
         fatal:   true,
         error:   msg || "Unknown error",
-        stack:   String(stack),
+        ...(process.env.NODE_ENV !== "production" ? { stack: String(stack) } : {}),
       },
       { status: 500 },
     );

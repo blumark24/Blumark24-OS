@@ -14,7 +14,9 @@ function ok(data: Record<string, unknown>, status = 200) {
 }
 function fail(status: number, error: string, debug: string) {
   console.error(`${TAG} HTTP ${status} | ${debug}`);
-  return NextResponse.json({ success: false, error, debug }, { status });
+  const body: Record<string, unknown> = { success: false, error };
+  if (process.env.NODE_ENV !== "production") body.debug = debug;
+  return NextResponse.json(body, { status });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -159,8 +161,10 @@ export async function PATCH(req: NextRequest) {
     }
     const { error: empError } = await employeeUpdateQuery;
     if (empError) {
-      console.warn(`${TAG} employees sync skipped (non-fatal): ${empError.message}`);
-    } else {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(`${TAG} employees sync skipped (non-fatal): ${empError.message}`);
+      }
+    } else if (process.env.NODE_ENV !== "production") {
       console.log(`${TAG} step=syncEmployees ok`);
     }
   }
