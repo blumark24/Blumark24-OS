@@ -135,7 +135,14 @@ export async function PATCH(req: NextRequest) {
       .eq("role", "organization_manager")
       .eq("is_active", true);
 
-    if (!countErr && (count ?? 0) <= 1) {
+    if (countErr) {
+      return fail(
+        500,
+        "تعذّر التحقق من مديري المنشأة النشطين — حاول مجدداً.",
+        `step=last-manager-guard: count query failed: ${countErr.message}`,
+      );
+    }
+    if ((count ?? 0) <= 1) {
       return fail(
         403,
         "لا يمكن إزالة آخر مدير نشط في المنشأة. عيّن مديرًا آخر أولًا.",
@@ -156,12 +163,35 @@ export async function PATCH(req: NextRequest) {
     return fail(400, "لا توجد حقول للتحديث", "step=validate: no updatable fields");
   }
 
+  // Build both update payloads before any DB write so no write begins until
+  // all guards have passed and all inputs are fully validated.
+
   // profiles table does not have updated_at — build update map without it
   const profileUpdate: Record<string, unknown> = {};
   if (cleanRole     !== undefined) profileUpdate.role       = cleanRole;
   if (cleanDept     !== undefined) profileUpdate.department = cleanDept;
   if (cleanIsActive !== undefined) profileUpdate.is_active  = cleanIsActive;
   if (cleanName     !== undefined) profileUpdate.name       = cleanName;
+
+  const employeeSync: Record<string, unknown> = {};
+  if (cleanName     !== undefined) employeeSync.name       = cleanName;
+  if (cleanRole     !== undefined) employeeSync.role       = cleanRole;
+  if (cleanDept     !== undefined) employeeSync.department = cleanDept;
+  if (cleanJobTitle !== undefined) employeeSync.job_title  = cleanJobTitle;
+  if (cleanPhone    !== undefined) employeeSync.phone      = cleanPhone;
+  if (cleanSalary   !== undefined) employeeSync.salary     = cleanSalary;
+  if (cleanIsActive !== undefined) employeeSync.status     = cleanIsActive ? "نشط" : "غير_نشط";
+
+  // Guarantee the employee row exists BEFORE the profile update so the
+  // subsequent sync can never silently no-op against a missing row.
+  // Note: true atomicity across profiles + employees requires a DB RPC/
+  // migration and is intentionally out of scope for this PR. If the process
+  // fails between the profile write and the employee sync, retrying the
+  // request will re-apply the profile update (idempotent) and re-attempt sync.
+  const ensured = await ensureEmployeeRow(admin, userId);
+  if (!ensured.ok) {
+    return fail(ensured.status, ensured.error, ensured.debug);
+  }
 
   console.log(`${TAG} step=updateProfile | userId=${userId} fields=${JSON.stringify(profileUpdate)}`);
   let profileUpdateQuery = admin.from("profiles").update(profileUpdate).eq("id", userId);
@@ -182,24 +212,6 @@ export async function PATCH(req: NextRequest) {
     await admin.auth.admin.updateUserById(userId, { user_metadata: { name: cleanName } });
   }
 
-  // Guarantee the target has an employees row BEFORE syncing, so the sync can
-  // never silently no-op against a missing row. The target was already verified
-  // to be in the caller's organization (assertTargetUserInCallerOrg above).
-  const ensured = await ensureEmployeeRow(admin, userId);
-  if (!ensured.ok) {
-    return fail(ensured.status, ensured.error, ensured.debug);
-  }
-
-  // Sync the same fields to the employees table so the employees list
-  // stays consistent with the profiles table after a Settings-panel edit.
-  const employeeSync: Record<string, unknown> = {};
-  if (cleanName     !== undefined) employeeSync.name       = cleanName;
-  if (cleanRole     !== undefined) employeeSync.role       = cleanRole;
-  if (cleanDept     !== undefined) employeeSync.department = cleanDept;
-  if (cleanJobTitle !== undefined) employeeSync.job_title  = cleanJobTitle;
-  if (cleanPhone    !== undefined) employeeSync.phone      = cleanPhone;
-  if (cleanSalary   !== undefined) employeeSync.salary     = cleanSalary;
-  if (cleanIsActive !== undefined) employeeSync.status     = cleanIsActive ? "نشط" : "غير_نشط";
   if (Object.keys(employeeSync).length > 0) {
     let employeeUpdateQuery = admin
       .from("employees")
