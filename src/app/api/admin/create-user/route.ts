@@ -211,9 +211,13 @@ export async function POST(req: NextRequest) {
       );
     }
     if (profUpsert.error) {
-      console.error(`[create-user] profile upsert failed: ${profUpsert.error.message} — rolling back`);
+      if (process.env.NODE_ENV !== "production") {
+        console.error(`[create-user] profile upsert failed: ${profUpsert.error.message} — rolling back`);
+      }
       const rb = await admin.auth.admin.deleteUser(userId);
-      if (rb.error) console.error(`[create-user] rollback (post-profile) failed: ${rb.error.message}`);
+      if (rb.error && process.env.NODE_ENV !== "production") {
+        console.error(`[create-user] rollback (post-profile) failed: ${rb.error.message}`);
+      }
       return NextResponse.json(
         {
           success: false,
@@ -245,9 +249,13 @@ export async function POST(req: NextRequest) {
       { onConflict: "id" },
     );
     if (empUpsert.error) {
-      console.error(`[create-user] employees upsert failed: ${empUpsert.error.message} — rolling back`);
+      if (process.env.NODE_ENV !== "production") {
+        console.error(`[create-user] employees upsert failed: ${empUpsert.error.message} — rolling back`);
+      }
       const rb = await admin.auth.admin.deleteUser(userId);
-      if (rb.error) console.error(`[create-user] rollback (post-employees) failed: ${rb.error.message}`);
+      if (rb.error && process.env.NODE_ENV !== "production") {
+        console.error(`[create-user] rollback (post-employees) failed: ${rb.error.message}`);
+      }
       return NextResponse.json(
         {
           success: false,
@@ -263,12 +271,16 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     const msg   = error instanceof Error ? error.message     : String(error);
     const stack = error instanceof Error ? error.stack ?? "" : "";
-    console.error("[CREATE_USER_FATAL]", error);
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[CREATE_USER_FATAL]", error);
+    }
     return NextResponse.json(
       {
         success: false,
         fatal:   true,
-        error:   msg || "Unknown error",
+        error:   process.env.NODE_ENV === "production"
+          ? "حدث خطأ غير متوقع — يرجى المحاولة مجدداً"
+          : (msg || "Unknown error"),
         ...(process.env.NODE_ENV !== "production" ? { stack: String(stack) } : {}),
       },
       { status: 500 },
