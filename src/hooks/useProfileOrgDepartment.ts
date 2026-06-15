@@ -7,8 +7,8 @@ import { formatTenantDepartment } from "@/lib/tenant/tenantDisplay";
 
 /**
  * Resolves the department label shown in header/dashboard:
- * 1) profiles.department (HR field)
- * 2) else name from employee_relations → departments (org chart link)
+ * 1) name from employee_relations → departments (live org-structure, source of truth)
+ * 2) else profiles.department (legacy HR field, fallback only)
  */
 export function useProfileOrgDepartment() {
   const { user } = useAuth();
@@ -53,9 +53,9 @@ export function useProfileOrgDepartment() {
 
   const profileDept = user?.department;
   const effectiveRaw =
-    profileDept && profileDept.trim() && profileDept !== "—"
-      ? profileDept
-      : orgDeptName;
+    orgDeptName
+      ? orgDeptName
+      : (profileDept && profileDept.trim() && profileDept !== "—" ? profileDept : null);
 
   const display = formatTenantDepartment(effectiveRaw);
 
