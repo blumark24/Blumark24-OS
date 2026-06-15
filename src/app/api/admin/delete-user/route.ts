@@ -13,7 +13,9 @@ function ok(data: Record<string, unknown>, status = 200) {
   return NextResponse.json(data, { status });
 }
 function fail(status: number, error: string, debug: string) {
-  console.error(`${TAG} HTTP ${status} | ${debug}`);
+  if (process.env.NODE_ENV !== "production") {
+    console.error(`${TAG} HTTP ${status} | ${debug}`);
+  }
   const body: Record<string, unknown> = { success: false, error };
   if (process.env.NODE_ENV !== "production") body.debug = debug;
   return NextResponse.json(body, { status });
