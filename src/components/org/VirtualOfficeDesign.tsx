@@ -8,21 +8,33 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, RefreshCw, BrainCircuit, Users, CheckCircle2,
+  ArrowRight, RefreshCw, BrainCircuit, Users,
   AlertCircle, Clock, Activity, Calendar, Sparkles, Heart,
   AlertTriangle, Zap, LayoutGrid, X, Building2, Shield,
-  Layers, MapPin,
+  Layers, MapPin, Crown, ChevronDown, DoorOpen, Archive, Settings2,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import type { OrgStructureSnapshot } from "@/lib/org/types";
 import type { Employee, Task } from "@/types";
+import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { supabase } from "@/lib/supabaseClient";
 import type {
   ExecutiveOfficeFixedRoomKey,
   ExecutiveOfficeRoomMapping,
   ExecutiveOfficeRoomMappingByRoom,
 } from "@/lib/tenant/executiveOfficeRoomMappings";
-import VirtualOfficeReferenceScene, { type SceneRoom } from "./VirtualOfficeReferenceScene";
+import VirtualOfficeReferenceScene, { type SceneRoom, formatOfficeNumber } from "./VirtualOfficeReferenceScene";
 import MobileExecutiveOfficeScene from "./MobileExecutiveOfficeScene";
+
+// EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
+// The Board / Executive panel (BoardExecutiveOffice) is the 9th office —
+// مكتب 09 — but is rendered as a separate panel, not as a scene room.
+const BOARD_OFFICE_NUMBER = 9;
+const OFFICE_LABEL_PREFIX = "مكتب";
+const officeLabel = (n: number) => `${OFFICE_LABEL_PREFIX} ${formatOfficeNumber(n)}`;
+const UNASSIGNED_LABEL = "غير مخصص";
+const UNASSIGNED_HINT_LONG = "اربط هذا المكتب بإدارة أو قسم من الهيكل الإداري لتفعيل التوأم الرقمي.";
+const UNAVAILABLE_LABEL = "غير متاح";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -159,6 +171,102 @@ function hpLabel(pct: number): string {
   return "يحتاج متابعة";
 }
 
+// ─── Presence (EXECUTIVE-OFFICE-PRESENCE-1) ─────────────────────────────────────
+// Visual presence ONLY. Status is DETERMINISTIC (derived from a stable seed) —
+// never random, never persisted, never realtime. No DB/network involved.
+export type PresenceStatus = "available" | "busy" | "meeting" | "offline";
+
+const PRESENCE_LABEL: Record<PresenceStatus, string> = {
+  available: "متاح",
+  busy: "مشغول",
+  meeting: "في اجتماع",
+  offline: "غير متاح",
+};
+const PRESENCE_COLOR: Record<PresenceStatus, string> = {
+  available: "#10b981",
+  busy: "#f59e0b",
+  meeting: "#a855f7",
+  offline: "#6b7a8f",
+};
+export const PRESENCE_NOTE = "الحالة المعروضة للمعاينة التشغيلية فقط.";
+const PRESENCE_FALLBACK_LETTERS = ["م", "ف", "ع", "س", "ر"];
+
+function presenceStatusFor(seed: string): PresenceStatus {
+  const h = hashStr(seed || "؟") % 10;
+  if (h <= 4) return "available"; // ~50%
+  if (h <= 6) return "busy";      // ~20%
+  if (h <= 8) return "meeting";   // ~20%
+  return "offline";               // ~10%
+}
+
+export interface PresencePerson {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  status: PresenceStatus;
+  statusLabel: string;
+  statusColor: string;
+  roleOrUnit: string | null;
+}
+
+// Resolves the people shown for a room, honouring mapping priority via the
+// already-resolved mappingUnit (saved > preview > auto). Falls back to the
+// room's own department relations when no mapping unit is provided. Read-only.
+function resolveRoomPeople(
+  room: OfficeRoom,
+  mappingUnit: PreviewOrgUnit | null,
+  snapshot: OrgStructureSnapshot | null,
+  employees: Employee[],
+): PresencePerson[] {
+  if (room.isDemo) return [];
+  const rels = Array.isArray(snapshot?.relations) ? snapshot!.relations : [];
+  const empById = new Map((Array.isArray(employees) ? employees : []).map((e) => [e.id, e]));
+
+  let employeeIds: string[];
+  if (mappingUnit) {
+    const sep = mappingUnit.id.indexOf(":");
+    const kind = sep >= 0 ? mappingUnit.id.slice(0, sep) : "department";
+    const rawId = sep >= 0 ? mappingUnit.id.slice(sep + 1) : mappingUnit.id;
+    employeeIds = rels
+      .filter((r) => (kind === "team" ? r?.team_id === rawId : r?.department_id === rawId))
+      .map((r) => r.employee_id)
+      .filter((x): x is string => typeof x === "string");
+  } else {
+    employeeIds = rels
+      .filter((r) => r?.department_id === room.deptId)
+      .map((r) => r.employee_id)
+      .filter((x): x is string => typeof x === "string");
+  }
+
+  const seen = new Set<string>();
+  const people: PresencePerson[] = [];
+  for (const id of employeeIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const emp = empById.get(id);
+    if (!emp) continue;
+    const rawName = (emp.name ?? emp.email ?? "").trim();
+    const name = rawName || `عضو ${people.length + 1}`;
+    const initials = rawName
+      ? nameInitials(name)
+      : PRESENCE_FALLBACK_LETTERS[people.length % PRESENCE_FALLBACK_LETTERS.length] ?? "م";
+    const status = presenceStatusFor(emp.id || name);
+    const roleLabel = emp.role ? getTenantRoleLabel(emp.role) : null;
+    people.push({
+      id,
+      name,
+      initials,
+      color: avatarColor(name),
+      status,
+      statusLabel: PRESENCE_LABEL[status],
+      statusColor: PRESENCE_COLOR[status],
+      roleOrUnit: roleLabel || mappingUnit?.name || null,
+    });
+  }
+  return people;
+}
+
 // Smart keyword-based slot assignment
 function assignSlot(name: string, level: string, isCenter: boolean, isAI: boolean, usedSlots: Set<number>): number {
   if (isCenter || level === "management") {
@@ -193,28 +301,56 @@ function buildOfficeRooms(
   const safeEmp = Array.isArray(employees) ? employees : [];
   const safeTsk = Array.isArray(tasks)     ? tasks     : [];
 
-  if (depts.length === 0) {
-    return {
-      isDemo: true,
-      rooms: DEMO_DEF.map((d, i) => ({
-        id: `demo-${i}`, fixedRoomKey: ROOM_KEYS_BY_SLOT[i] ?? "sales", deptId: `demo-${i}`,
-        name: d.name,
-        accentColor: ACCENT_CYCLE[i % ACCENT_CYCLE.length] ?? "#22d3ee",
-        employeeCount: d.emp, avatars: [],
-        openTasks: d.open, overdueTasks: d.overdue, healthPct: d.hp,
-        isCenter: d.center, isAI: d.ai, isDemo: true,
-        deptCode: null, type: d.center ? "قاعة اجتماعات" : d.ai ? "غرفة AI" : "مساحة عمل",
-        level: d.center ? "management" : d.ai ? "department" : "department",
-        teamCount: 0, teams: [], managerName: null,
-      })),
-    };
-  }
+  // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1 — slot-stable layout.
+  // Always return an array of length 8 in fixed slot order:
+  //   index 0 → مكتب 01 (sales),  index 1 → مكتب 02 (executive), …
+  //   index 4 → مكتب 05 (meetings, center), index 7 → مكتب 08 (ai)
+  // - Real departments are placed at the slot returned by assignSlot.
+  //   The first dept to claim a slot wins; later collisions fall through to
+  //   the next free slot. usedSlots prevents any duplicate office number.
+  // - Any remaining slot is filled with an unassigned numbered placeholder.
+  // - isCenter / isAI are derived from the SLOT (not the dept), so the visual
+  //   composition matches the floor plan even when the dept is unrelated.
 
   const empById  = new Map(safeEmp.map((e) => [e.id, e]));
   const usedSlots = new Set<number>();
+  const slotArr: (OfficeRoom | null)[] = Array(8).fill(null);
 
-  const rooms: OfficeRoom[] = depts.slice(0, 8).map((dept, deptIndex) => {
-    if (!dept) return null;
+  function makePlaceholder(slot: number): OfficeRoom {
+    const def = DEMO_DEF[slot];
+    return {
+      id: `pad-${slot}`,
+      fixedRoomKey: ROOM_KEYS_BY_SLOT[slot] ?? "sales",
+      deptId: `pad-${slot}`,
+      name: officeLabel(slot + 1),
+      accentColor: ACCENT_CYCLE[slot % ACCENT_CYCLE.length] ?? "#22d3ee",
+      employeeCount: 0, avatars: [],
+      openTasks: 0, overdueTasks: 0, healthPct: 0,
+      isCenter: slot === 4,
+      isAI:     slot === 7,
+      isDemo: true,
+      deptCode: null,
+      type:  slot === 4 ? "قاعة اجتماعات" : slot === 7 ? "غرفة AI" : "مساحة عمل",
+      level: slot === 4 ? "management"     : "department",
+      teamCount: 0, teams: [], managerName: null,
+      officeNumber: slot + 1,
+      isUnassigned: true,
+      // keep def around so we don't have to remove it (consistency with prior shape)
+      ...(def ? {} : {}),
+    };
+  }
+
+  // Empty-org default: 8 stable numbered empty offices.
+  if (depts.length === 0) {
+    return {
+      isDemo: true,
+      rooms: Array.from({ length: 8 }, (_, i) => makePlaceholder(i)),
+    };
+  }
+
+  // Place real depts.
+  for (const dept of depts.slice(0, 8)) {
+    if (!dept) continue;
     const deptRels    = rels.filter((r) => r?.department_id === dept.id);
     const empIds      = new Set(deptRels.map((r) => r.employee_id).filter((x): x is string => typeof x === "string"));
     const deptEmps    = Array.from(empIds).map((id) => empById.get(id)).filter((e): e is Employee => e != null);
@@ -225,47 +361,41 @@ function buildOfficeRooms(
     const overdue     = deptTasks.filter((t) => t?.status === "متأخرة").length;
     const name        = dept.name ?? "—";
     const level       = typeof dept.structure_level === "string" ? dept.structure_level : "department";
-    const isCenter    = level === "management";
-    const isAI        = name.includes("ذكاء") || name.toUpperCase().includes("AI");
+    const deptIsCenter = level === "management";
+    const deptIsAI     = name.includes("ذكاء") || name.toUpperCase().includes("AI");
     const manager     = dept.manager_id ? (empById.get(dept.manager_id)?.name ?? null) : null;
-    const slotIdx     = assignSlot(name, level, isCenter, isAI, usedSlots);
-    if (slotIdx >= 0) usedSlots.add(slotIdx);
-    const accentIdx   = slotIdx >= 0 ? slotIdx : (hashStr(dept.id) % ACCENT_CYCLE.length);
-    const fixedRoomKey = ROOM_KEYS_BY_SLOT[slotIdx >= 0 ? slotIdx : deptIndex] ?? "sales";
-    return {
-      id: dept.id, fixedRoomKey, deptId: dept.id,
+
+    const slotIdx = assignSlot(name, level, deptIsCenter, deptIsAI, usedSlots);
+    if (slotIdx < 0) continue;            // no free slot — skip (cap at 8).
+    if (usedSlots.has(slotIdx)) continue; // belt-and-braces against duplicate.
+    usedSlots.add(slotIdx);
+
+    slotArr[slotIdx] = {
+      id: dept.id,
+      fixedRoomKey: ROOM_KEYS_BY_SLOT[slotIdx] ?? "sales",
+      deptId: dept.id,
       name,
-      accentColor: ACCENT_CYCLE[accentIdx % ACCENT_CYCLE.length] ?? "#22d3ee",
+      accentColor: ACCENT_CYCLE[slotIdx % ACCENT_CYCLE.length] ?? "#22d3ee",
       employeeCount: deptRels.length,
       avatars: deptEmps.slice(0, 3).map((e) => ({ initials: nameInitials(e.name ?? e.email ?? "؟"), color: avatarColor(e.name ?? e.email ?? "؟") })),
       openTasks: open, overdueTasks: overdue,
       healthPct: computeHp(open, overdue, deptRels.length),
-      isCenter, isAI, isDemo: false,
+      // isCenter / isAI follow the SLOT for visual consistency.
+      isCenter: slotIdx === 4,
+      isAI:     slotIdx === 7,
+      isDemo: false,
       deptCode: dept.department_code ?? dept.publicCode ?? null,
       type: LEVEL_LABELS[level] ?? "مساحة عمل",
       level,
       teamCount: deptTeams.length, teams: teamCards,
       managerName: manager,
+      officeNumber: slotIdx + 1,
+      isUnassigned: false,
     };
-  }).filter((r) => r !== null) as OfficeRoom[];
-
-  // Pad with visual placeholders if fewer than 8 depts
-  while (rooms.length < 8) {
-    const i   = rooms.length;
-    const def = DEMO_DEF[i];
-    if (!def) break;
-    rooms.push({
-      id: `pad-${i}`, fixedRoomKey: ROOM_KEYS_BY_SLOT[i] ?? "sales", deptId: `pad-${i}`,
-      name: def.name,
-      accentColor: ACCENT_CYCLE[i % ACCENT_CYCLE.length] ?? "#22d3ee",
-      employeeCount: 0, avatars: [],
-      openTasks: 0, overdueTasks: 0, healthPct: 85,
-      isCenter: def.center, isAI: def.ai, isDemo: true,
-      deptCode: null, type: def.center ? "قاعة اجتماعات" : def.ai ? "غرفة AI" : "مساحة عمل",
-      level: def.center ? "management" : "department",
-      teamCount: 0, teams: [], managerName: null,
-    });
   }
+
+  // Fill any unfilled slot with a stable numbered empty office.
+  const rooms: OfficeRoom[] = slotArr.map((r, i) => r ?? makePlaceholder(i));
 
   return { rooms, isDemo: false };
 }
@@ -377,6 +507,17 @@ function resolveRoomMapping(input: {
   if (autoUnit) return { unit: autoUnit, source: "auto" };
 
   return { unit: null, source: null };
+}
+
+function mappingSourceValue(source: MappingSource | null): string {
+  if (source === "saved") return "saved";
+  if (source === "preview") return "preview";
+  if (source === "auto") return "auto";
+  return UNAVAILABLE_LABEL;
+}
+
+function operationalMetric(value: number | null | undefined): string | number {
+  return typeof value === "number" ? value : UNAVAILABLE_LABEL;
 }
 
 async function getRoomMappingAccessToken(): Promise<string | null> {
@@ -502,6 +643,7 @@ function MappingPreviewModal({
   room,
   units,
   currentUnit,
+  currentSource,
   previewUnit,
   saveError,
   isSaving,
@@ -512,6 +654,7 @@ function MappingPreviewModal({
   room: OfficeRoom;
   units: PreviewOrgUnit[];
   currentUnit: PreviewOrgUnit | null;
+  currentSource: MappingSource | null;
   previewUnit: PreviewOrgUnit | null;
   saveError: string | null;
   isSaving: boolean;
@@ -522,6 +665,8 @@ function MappingPreviewModal({
   const initialUnitId = previewUnit?.id ?? currentUnit?.id ?? units[0]?.id ?? "";
   const [selectedUnitId, setSelectedUnitId] = useState(initialUnitId);
   const selectedUnit = units.find((unit) => unit.id === selectedUnitId) ?? null;
+  const officeNumberLabel = room.officeNumber ? officeLabel(room.officeNumber) : "مكتب";
+  const currentSourceLabel = mappingSourceValue(currentSource);
 
   return (
     <div
@@ -557,11 +702,14 @@ function MappingPreviewModal({
       >
         <div style={{ padding: "18px 18px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, borderRadius: 999, border: "1px solid rgba(34,211,238,0.25)", background: "rgba(34,211,238,0.10)", color: "#67e8f9", fontSize: 11, fontWeight: 850, padding: "3px 9px", marginBottom: 8 }}>
+              {officeNumberLabel}
+            </span>
             <h2 id="mapping-preview-title" style={{ margin: 0, color: "#fff", fontSize: 20, fontWeight: 800 }}>
               تخصيص ربط الغرفة
             </h2>
             <p style={{ margin: "8px 0 0", color: "#8ba3c7", fontSize: 13, lineHeight: 1.7, maxWidth: 560 }}>
-              اختر وحدة من الهيكل الإداري لربطها بهذه الغرفة داخل المكتب التنفيذي.
+              اختر إدارة أو قسم من الهيكل الإداري لربطه بهذا المكتب.
             </p>
           </div>
           <button
@@ -577,14 +725,20 @@ function MappingPreviewModal({
         <div style={{ padding: "14px 18px", overflowY: "auto", minWidth: 0 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 14 }}>
             <div style={{ borderRadius: 14, border: "1px solid rgba(34,211,238,0.18)", background: "rgba(34,211,238,0.06)", padding: 12 }}>
-              <p style={{ margin: 0, fontSize: 10, color: "#5a7a9a" }}>الغرفة المحددة</p>
-              <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 700, color: "#dff7ff" }}>{room.name}</p>
+              <p style={{ margin: 0, fontSize: 10, color: "#5a7a9a" }}>المكتب المحدد</p>
+              <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 800, color: "#dff7ff" }}>{officeNumberLabel}</p>
+              <p style={{ margin: "3px 0 0", fontSize: 11, color: "#7a9ab8" }}>{room.name}</p>
             </div>
             <div style={{ borderRadius: 14, border: "1px solid rgba(168,85,247,0.18)", background: "rgba(168,85,247,0.06)", padding: 12 }}>
-              <p style={{ margin: 0, fontSize: 10, color: "#5a7a9a" }}>الربط التلقائي الحالي</p>
+              <p style={{ margin: 0, fontSize: 10, color: "#5a7a9a" }}>الربط الحالي</p>
               <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 700, color: currentUnit ? "#e9d5ff" : "#64748b" }}>
                 {currentUnit ? currentUnit.name : "غير متاح"}
               </p>
+              {currentUnit && (
+                <p style={{ margin: "3px 0 0", fontSize: 10, color: "#9d8bc0" }}>
+                  {currentUnit.typeLabel ?? "غير متاح"}{currentSourceLabel ? ` · ${currentSourceLabel}` : ""}
+                </p>
+              )}
             </div>
           </div>
 
@@ -640,7 +794,13 @@ function MappingPreviewModal({
 
               {selectedUnit && (
                 <div style={{ marginTop: 14, borderRadius: 14, border: "1px solid rgba(16,185,129,0.22)", background: "rgba(16,185,129,0.07)", padding: 12 }}>
-                  <p style={{ margin: 0, color: "#a7f3d0", fontSize: 13, fontWeight: 700 }}>
+                  <p style={{ margin: 0, color: "#6ee7b7", fontSize: 10, fontWeight: 850 }}>
+                    الوحدة المحددة للمعاينة أو الحفظ
+                  </p>
+                  <p style={{ margin: "5px 0 0", color: "#a7f3d0", fontSize: 13, fontWeight: 750 }}>
+                    {selectedUnit.name} · {selectedUnit.typeLabel ?? "غير متاح"}
+                  </p>
+                  <p style={{ margin: "7px 0 0", color: "#a7f3d0", fontSize: 13, fontWeight: 700 }}>
                     سيتم عرض {selectedUnit.name} داخل {room.name}
                   </p>
                   <p style={{ margin: "5px 0 0", color: "#6b87ab", fontSize: 11 }}>
@@ -685,6 +845,93 @@ function MappingPreviewModal({
 
 // ─── Room Detail Panel ────────────────────────────────────────────────────────
 
+function DigitalTwinSnapshot({
+  room,
+  mappingUnit,
+  mappingSource,
+  openTaskCount,
+  overdueTaskCount,
+  healthPct,
+}: {
+  room: OfficeRoom;
+  mappingUnit: PreviewOrgUnit | null;
+  mappingSource: MappingSource | null;
+  openTaskCount: number | null;
+  overdueTaskCount: number | null;
+  healthPct: number | null;
+}) {
+  const sourceValue = mappingSourceValue(mappingSource);
+  const linkedName = mappingUnit?.name ?? (room.isUnassigned ? null : room.name);
+  const linkedType = mappingUnit?.typeLabel ?? (room.isUnassigned ? null : room.type || "وحدة");
+  const metrics = [
+    { label: "الأعضاء", value: operationalMetric(mappingUnit?.employeeCount ?? room.employeeCount) },
+    { label: "المهام", value: operationalMetric(mappingUnit?.taskCount ?? openTaskCount) },
+    { label: "المتأخرة", value: operationalMetric(overdueTaskCount) },
+    { label: "الصحة", value: typeof healthPct === "number" && healthPct > 0 ? `${healthPct}%` : UNAVAILABLE_LABEL },
+  ];
+
+  return (
+    <div style={{
+      gridColumn: "1 / -1",
+      borderRadius: 14,
+      border: "1px solid rgba(34,211,238,0.16)",
+      background: "linear-gradient(135deg, rgba(34,211,238,0.08), rgba(168,85,247,0.07))",
+      padding: "11px 12px",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 800, color: "#cffafe" }}>
+          <BrainCircuit size={13} color="#67e8f9" />
+          لقطة التوأم الرقمي
+        </span>
+        {room.officeNumber ? (
+          <span style={{ fontSize: 10, fontWeight: 800, color: "#cbd5e1", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.05)", borderRadius: 999, padding: "2px 8px" }}>
+            {officeLabel(room.officeNumber)}
+          </span>
+        ) : null}
+      </div>
+
+      {room.isUnassigned ? (
+        <div style={{ borderRadius: 11, border: "1px dashed rgba(245,158,11,0.28)", background: "rgba(245,158,11,0.07)", padding: "10px 11px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: "#fde68a" }}>{UNASSIGNED_LABEL}</span>
+            <span style={{ fontSize: 10, color: "#fbbf24" }}>غير مخصص</span>
+          </div>
+          <p style={{ margin: "6px 0 0", fontSize: 11.5, lineHeight: 1.6, color: "#d8c7a3" }}>
+            {UNASSIGNED_HINT_LONG}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 8, alignItems: "center", marginBottom: 8 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 9.5, color: "#7a9ab8", marginBottom: 2 }}>الوحدة المرتبطة</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {linkedName ?? UNAVAILABLE_LABEL}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <span style={{ fontSize: 9.5, fontWeight: 700, color: "#d8b4fe", background: "rgba(168,85,247,0.13)", border: "1px solid rgba(168,85,247,0.28)", borderRadius: 999, padding: "2px 7px" }}>
+                {linkedType ?? "وحدة"}
+              </span>
+              <span style={{ fontSize: 9.5, fontWeight: 800, color: "#67e8f9", background: "rgba(34,211,238,0.10)", border: "1px solid rgba(34,211,238,0.24)", borderRadius: 999, padding: "2px 7px" }}>
+                {sourceValue}
+              </span>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 7 }}>
+            {metrics.map((metric) => (
+              <div key={metric.label} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(255,255,255,0.035)", padding: "7px 6px", textAlign: "center", minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: metric.value === UNAVAILABLE_LABEL ? "#7a9ab8" : "#e0f2fe", lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metric.value}</div>
+                <div style={{ fontSize: 9.5, color: "#6b87ab", marginTop: 4 }}>{metric.label}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function RoomDetailPanel({
   room,
   snapshot,
@@ -720,7 +967,9 @@ function RoomDetailPanel({
   const roomRelIds = new Set(
     rels.filter((r) => r?.department_id === room.deptId).map((r) => r.employee_id).filter(Boolean),
   );
-  const roomEmps = safeEmps.filter((e) => roomRelIds.has(e.id));
+
+  // Presence: people resolved with mapping priority (saved > preview > auto).
+  const presencePeople = resolveRoomPeople(room, mappingUnit, snapshot, safeEmps);
 
   // Tasks for room employees
   const roomTasks = safeTsks.filter((t) => t?.assigneeId && roomRelIds.has(t.assigneeId));
@@ -732,6 +981,14 @@ function RoomDetailPanel({
 
   const ICON_MAP: Record<string, React.ElementType> = { agency: Shield, management: Layers, department: Building2 };
   const TypeIcon = ICON_MAP[room.level] ?? Building2;
+
+  // Local UI-only state. "opened" is a visual preview toggle (no persistence,
+  // no access keys, no DB). "advancedOpen" collapses the mapping controls.
+  const [opened, setOpened] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  // Smart office cabinet (read-only). Collapsible so the panel stays compact.
+  const [cabinetOpen, setCabinetOpen] = useState(false);
+  const presentCount = presencePeople.filter((p) => p.status === "available").length;
 
   return (
     <div style={{
@@ -747,12 +1004,42 @@ function RoomDetailPanel({
             <TypeIcon size={18} color={room.accentColor} />
           </div>
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1.2 }}>{room.name}</h3>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: room.accentColor, background: `${room.accentColor}18`, border: `1px solid ${room.accentColor}30`, padding: "1px 7px", borderRadius: 12 }}>{room.type}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              {room.officeNumber ? (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  minWidth: 28, height: 22, padding: "0 7px",
+                  borderRadius: 8,
+                  background: "rgba(255,255,255,0.07)",
+                  border: `1px solid ${room.accentColor}40`,
+                  color: "#cbd5e1",
+                  fontSize: 10.5, fontWeight: 800, lineHeight: 1,
+                  fontVariantNumeric: "tabular-nums",
+                }}>{officeLabel(room.officeNumber)}</span>
+              ) : null}
+              <h3 style={{
+                fontSize: 15, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1.2,
+                fontStyle: room.isUnassigned ? "italic" : "normal",
+                opacity: room.isUnassigned ? 0.85 : 1,
+              }}>{room.isUnassigned ? UNASSIGNED_LABEL : room.name}</h3>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
+              {!room.isUnassigned && (
+                <span style={{ fontSize: 10, fontWeight: 600, color: room.accentColor, background: `${room.accentColor}18`, border: `1px solid ${room.accentColor}30`, padding: "1px 7px", borderRadius: 12 }}>{room.type}</span>
+              )}
               {room.deptCode && <span style={{ fontSize: 10, color: "#4a6a8a", fontFamily: "monospace" }}>{room.deptCode}</span>}
               {hp > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: hpColor }}>{hp}% · {hpLabel(hp)}</span>}
+              {room.isUnassigned && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#fbbf24", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.30)", padding: "1px 8px", borderRadius: 12 }}>
+                  {UNASSIGNED_LABEL}
+                </span>
+              )}
             </div>
+            {room.isUnassigned && (
+              <p style={{ fontSize: 11, color: "#8ba3c7", margin: "8px 0 0", lineHeight: 1.55, maxWidth: 520 }}>
+                {UNASSIGNED_HINT_LONG}
+              </p>
+            )}
           </div>
         </div>
         <button type="button" onClick={onClose} style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)", cursor: "pointer", flexShrink: 0 }}>
@@ -761,7 +1048,36 @@ function RoomDetailPanel({
       </div>
 
       <div style={{ padding: "12px 18px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        {/* Stats */}
+        <DigitalTwinSnapshot
+          room={room}
+          mappingUnit={mappingUnit}
+          mappingSource={mappingSource}
+          openTaskCount={openTasks.length || room.openTasks}
+          overdueTaskCount={overdueTasks.length || room.overdueTasks}
+          healthPct={hp > 0 ? hp : null}
+        />
+
+        {/* Primary action — فتح المكتب (visual preview only, no persistence) */}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <button
+            type="button"
+            onClick={() => setOpened((v) => !v)}
+            style={{
+              width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "11px 14px", borderRadius: 12,
+              border: opened ? `1px solid ${room.accentColor}66` : `1px solid ${room.accentColor}40`,
+              background: opened ? `${room.accentColor}1f` : `${room.accentColor}12`,
+              color: "#fff", fontSize: 13.5, fontWeight: 800, cursor: "pointer",
+              transition: "all 0.18s ease",
+            }}
+          >
+            <DoorOpen size={16} color={room.accentColor} />
+            {opened ? "المكتب مفتوح — عرض ما بداخله" : "افتح المكتب"}
+          </button>
+        </div>
+
+        {/* Tasks summary (stats) */}
+        {!room.isUnassigned && (
         <div style={{ gridColumn: "1 / -1", display: "flex", gap: 10, flexWrap: "wrap" }}>
           {[
             { label: "الموظفون", value: room.employeeCount, color: "#22d3ee" },
@@ -775,6 +1091,7 @@ function RoomDetailPanel({
             </div>
           ))}
         </div>
+        )}
 
         {/* Manager */}
         {room.managerName && (
@@ -789,58 +1106,104 @@ function RoomDetailPanel({
           </div>
         )}
 
-        {mappingUnit && mappingSource && (
-          <div style={{ gridColumn: "1 / -1", borderRadius: 14, border: mappingSource === "saved" ? "1px solid rgba(34,211,238,0.28)" : mappingSource === "preview" ? "1px solid rgba(16,185,129,0.26)" : "1px solid rgba(168,85,247,0.22)", background: mappingSource === "saved" ? "rgba(34,211,238,0.08)" : mappingSource === "preview" ? "rgba(16,185,129,0.08)" : "rgba(168,85,247,0.07)", padding: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <div>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 800, color: mappingSource === "saved" ? "#67e8f9" : mappingSource === "preview" ? "#86efac" : "#d8b4fe", background: mappingSource === "saved" ? "rgba(34,211,238,0.12)" : mappingSource === "preview" ? "rgba(16,185,129,0.12)" : "rgba(168,85,247,0.12)", border: mappingSource === "saved" ? "1px solid rgba(34,211,238,0.25)" : mappingSource === "preview" ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(168,85,247,0.24)", padding: "2px 8px", borderRadius: 999 }}>
-                  <MapPin size={11} />
-                  {mappingSource === "saved" ? "ربط محفوظ" : mappingSource === "preview" ? "ربط تجريبي" : "ربط تلقائي من الهيكل"}
-                </span>
-                <p style={{ margin: "7px 0 0", color: mappingSource === "saved" ? "#cffafe" : mappingSource === "preview" ? "#d1fae5" : "#ede9fe", fontSize: 13, fontWeight: 750 }}>{mappingUnit.name}</p>
-                {mappingSource === "preview" && (
-                  <p style={{ margin: "3px 0 0", color: "#7aa6a0", fontSize: 11 }}>
-                    هذا التخصيص للمعاينة فقط ولن يتم حفظه.
-                  </p>
-                )}
-              </div>
-              {mappingSource === "preview" && (
-                <button type="button" onClick={onClearPreview} style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#b0c8e0", borderRadius: 10, padding: "7px 10px", fontSize: 11, cursor: "pointer" }}>
-                  إلغاء المعاينة
-                </button>
-              )}
-              {mappingSource === "saved" && (
-                <button type="button" onClick={onClearSaved} disabled={isDeletingSaved} style={{ border: "1px solid rgba(239,68,68,0.24)", background: "rgba(239,68,68,0.08)", color: "#fecaca", borderRadius: 10, padding: "7px 10px", fontSize: 11, cursor: isDeletingSaved ? "wait" : "pointer", opacity: isDeletingSaved ? 0.65 : 1 }}>
-                  {isDeletingSaved ? "جارٍ الإلغاء..." : "إلغاء الربط المحفوظ"}
-                </button>
+        {/* الموجودون في المكتب — presence list (mapping-aware, preview-only) */}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "0 0 6px" }}>
+            <p style={{ fontSize: 10, color: "#4a6a8a", margin: 0 }}>الموجودون في المكتب{presencePeople.length > 0 ? ` (${presencePeople.length})` : ""}</p>
+            {presencePeople.length > 0 && (
+              <span style={{ fontSize: 9, color: "#5a7a9a" }}>{PRESENCE_NOTE}</span>
+            )}
+          </div>
+          {presencePeople.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {presencePeople.slice(0, 8).map((p) => (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", padding: "6px 9px" }}>
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    <div style={{ width: 26, height: 26, borderRadius: "50%", background: p.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#fff" }}>
+                      {p.initials}
+                    </div>
+                    <span style={{ position: "absolute", bottom: -1, insetInlineEnd: -1, width: 9, height: 9, borderRadius: "50%", background: p.statusColor, border: "2px solid rgba(6,14,28,0.95)" }} aria-hidden />
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 12, color: "#c0d4ee", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                    {p.roleOrUnit && <div style={{ fontSize: 9.5, color: "#5a7a9a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.roleOrUnit}</div>}
+                  </div>
+                  <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 600, color: p.statusColor, background: `${p.statusColor}1a`, border: `1px solid ${p.statusColor}33`, padding: "2px 7px", borderRadius: 999 }}>{p.statusLabel}</span>
+                </div>
+              ))}
+              {presencePeople.length > 8 && (
+                <span style={{ fontSize: 10, color: "#4a6a8a" }}>+{presencePeople.length - 8} آخرون</span>
               )}
             </div>
-          </div>
-        )}
+          ) : (
+            <div style={{ borderRadius: 8, border: "1px dashed rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.02)", padding: "10px 12px", fontSize: 11, color: "#6b87ab", textAlign: "center" }}>
+              لا يوجد أعضاء مرتبطون بهذا المكتب حاليًا.
+            </div>
+          )}
+        </div>
 
-        {mappingError && (
-          <div style={{ gridColumn: "1 / -1", borderRadius: 12, border: "1px solid rgba(239,68,68,0.22)", background: "rgba(239,68,68,0.07)", color: "#fecaca", fontSize: 11, lineHeight: 1.6, padding: "8px 10px" }}>
-            {mappingError}
-          </div>
-        )}
+        {/* Office previews — read-only, derived from existing data only */}
+        {opened && (
+          <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: 8 }}>
+            {/* قاعة الاجتماعات — preview */}
+            <div style={{ borderRadius: 10, border: "1px solid rgba(34,211,238,0.16)", background: "rgba(34,211,238,0.05)", padding: "10px 11px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Calendar size={13} color="#22d3ee" />
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: "#cfeffd" }}>قاعة الاجتماعات</span>
+              </div>
+              <div style={{ fontSize: 10, color: "#6b87ab", marginTop: 4 }}>معاينة — لا يوجد اجتماع مجدول حاليًا</div>
+            </div>
 
-        {/* Employees */}
-        {(roomEmps.length > 0 || room.isDemo) && (
-          <div style={{ gridColumn: "1 / -1" }}>
-            <p style={{ fontSize: 10, color: "#4a6a8a", margin: "0 0 6px" }}>الموظفون ({room.employeeCount})</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {(roomEmps.length > 0 ? roomEmps.slice(0, 6) : Array.from({ length: Math.min(room.employeeCount, 4) })).map((emp, i) => {
-                const name = typeof emp === "object" && emp !== null ? ((emp as Employee).name ?? (emp as Employee).email ?? "موظف") : `موظف ${i + 1}`;
-                return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", padding: "5px 8px" }}>
-                    <div style={{ width: 22, height: 22, borderRadius: "50%", background: avatarColor(name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>
-                      {nameInitials(name)}
-                    </div>
-                    <span style={{ fontSize: 11, color: "#b0c8e0" }}>{name}</span>
+            {/* خزانة المكتب — smart read-only cabinet (collapsible, compact) */}
+            <div style={{ borderRadius: 10, border: "1px solid rgba(148,163,184,0.16)", background: "rgba(255,255,255,0.03)", overflow: "hidden" }}>
+              <button
+                type="button"
+                onClick={() => setCabinetOpen((v) => !v)}
+                aria-expanded={cabinetOpen}
+                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 11px", background: "transparent", border: "none", cursor: "pointer", textAlign: "start" }}
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                  <Archive size={13} color="#8ba3c7" />
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "#c0d4ee" }}>خزانة المكتب</span>
+                  <span style={{ fontSize: 9.5, color: "#5a7a9a" }}>ملخص تشغيلي</span>
+                </span>
+                <ChevronDown size={14} color="#8ba3c7" style={{ flexShrink: 0, transition: "transform 0.2s ease", transform: cabinetOpen ? "rotate(180deg)" : "none" }} />
+              </button>
+
+              {cabinetOpen && (
+                <div style={{ padding: "0 11px 11px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  {/* Office identity */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    <span style={{ fontSize: 9.5, color: "#cfd9ea", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", padding: "2px 8px", borderRadius: 999 }}>{room.name}</span>
+                    {mappingUnit?.name && (
+                      <span style={{ fontSize: 9.5, color: "#86efac", background: "rgba(16,185,129,0.10)", border: "1px solid rgba(16,185,129,0.22)", padding: "2px 8px", borderRadius: 999 }}>{mappingUnit.name}</span>
+                    )}
+                    {(mappingUnit?.typeLabel || room.type) && (
+                      <span style={{ fontSize: 9.5, color: "#8ba3c7", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", padding: "2px 8px", borderRadius: 999 }}>{mappingUnit?.typeLabel || room.type}</span>
+                    )}
                   </div>
-                );
-              })}
-              {room.employeeCount > 6 && <span style={{ fontSize: 10, color: "#4a6a8a", alignSelf: "center" }}>+{room.employeeCount - 6} آخرون</span>}
+
+                  {/* Cabinet item rows — read-only summaries from existing data */}
+                  {[
+                    { Icon: Users,    color: "#22d3ee", label: "ملف الفريق",     value: `${room.employeeCount} عضو · ${presentCount} متاح` },
+                    { Icon: Activity, color: "#10b981", label: "ملف المهام",     value: `${openTasks.length || room.openTasks} مفتوحة · ${overdueTasks.length || room.overdueTasks} متأخرة` },
+                    { Icon: Heart,    color: hp >= 85 ? "#10b981" : hp >= 70 ? "#f59e0b" : "#ef4444", label: "ملف المؤشرات", value: hp > 0 ? `صحة المكتب ${hp}%` : "غير متاح" },
+                    { Icon: Calendar, color: "#a855f7", label: "ملف الاجتماعات", value: "لا اجتماع مجدول حاليًا" },
+                  ].map(({ Icon, color, label, value }) => (
+                    <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", padding: "7px 9px" }}>
+                      <span style={{ width: 24, height: 24, borderRadius: 7, display: "grid", placeItems: "center", flexShrink: 0, background: `${color}1a`, border: `1px solid ${color}33` }}>
+                        <Icon size={12} color={color} />
+                      </span>
+                      <span style={{ fontSize: 11, color: "#c0d4ee", fontWeight: 600, flexShrink: 0 }}>{label}</span>
+                      <span style={{ fontSize: 10, color: "#7e96b4", marginInlineStart: "auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</span>
+                    </div>
+                  ))}
+
+                  <p style={{ margin: 0, fontSize: 9, color: "#5a6f8a", lineHeight: 1.6 }}>
+                    الخزانة تعرض ملخصًا تشغيليًا من بيانات المكتب الحالية. حفظ الملفات والمرفقات سيضاف لاحقًا.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -873,28 +1236,85 @@ function RoomDetailPanel({
           </div>
         )}
 
-        {/* TODO: EXECUTIVE-OFFICE-MAPPING-2 — enable this button so managers can */}
-        {/* map this fixed room to a department / management / team. */}
-        {/* TODO: mapping persistence requires DB/RLS review before implementation. */}
-        <div style={{ gridColumn: "1 / -1", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 10, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        {/* إدارة المكتب — advanced controls collapsed behind one button.
+            Mapping save/preview/delete logic is unchanged; only its visibility
+            is gated here to reduce noise. */}
+        <div style={{ gridColumn: "1 / -1", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 10, marginTop: 4 }}>
           <button
             type="button"
-            onClick={onOpenMapping}
+            onClick={() => setAdvancedOpen((v) => !v)}
+            aria-expanded={advancedOpen}
             style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "7px 12px", borderRadius: 10,
-              border: "1px solid rgba(139,92,246,0.36)",
-              background: "rgba(139,92,246,0.10)",
-              color: "#d8b4fe",
-              fontSize: 11, fontWeight: 700, cursor: "pointer",
+              width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+              padding: "8px 12px", borderRadius: 10,
+              border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)",
+              color: "#b0c8e0", fontSize: 12, fontWeight: 700, cursor: "pointer",
             }}
           >
-            <Layers size={12} />
-            تخصيص الربط
+            <Settings2 size={13} />
+            إدارة المكتب
+            <ChevronDown size={14} style={{ transition: "transform 0.2s ease", transform: advancedOpen ? "rotate(180deg)" : "none" }} />
           </button>
-          <span style={{ fontSize: 10, color: "#2a4060" }}>
-            محفوظ / تجريبي / تلقائي حسب أولوية الربط
-          </span>
+
+          {advancedOpen && (
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+              {mappingUnit && mappingSource && (
+                <div style={{ borderRadius: 14, border: mappingSource === "saved" ? "1px solid rgba(34,211,238,0.28)" : mappingSource === "preview" ? "1px solid rgba(16,185,129,0.26)" : "1px solid rgba(168,85,247,0.22)", background: mappingSource === "saved" ? "rgba(34,211,238,0.08)" : mappingSource === "preview" ? "rgba(16,185,129,0.08)" : "rgba(168,85,247,0.07)", padding: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <div>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 800, color: mappingSource === "saved" ? "#67e8f9" : mappingSource === "preview" ? "#86efac" : "#d8b4fe", background: mappingSource === "saved" ? "rgba(34,211,238,0.12)" : mappingSource === "preview" ? "rgba(16,185,129,0.12)" : "rgba(168,85,247,0.12)", border: mappingSource === "saved" ? "1px solid rgba(34,211,238,0.25)" : mappingSource === "preview" ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(168,85,247,0.24)", padding: "2px 8px", borderRadius: 999 }}>
+                        <MapPin size={11} />
+                        {mappingSource === "saved" ? "ربط محفوظ" : mappingSource === "preview" ? "ربط تجريبي" : "ربط تلقائي من الهيكل"}
+                      </span>
+                      <p style={{ margin: "7px 0 0", color: mappingSource === "saved" ? "#cffafe" : mappingSource === "preview" ? "#d1fae5" : "#ede9fe", fontSize: 13, fontWeight: 750 }}>{mappingUnit.name}</p>
+                      {mappingSource === "preview" && (
+                        <p style={{ margin: "3px 0 0", color: "#7aa6a0", fontSize: 11 }}>
+                          هذا التخصيص للمعاينة فقط ولن يتم حفظه.
+                        </p>
+                      )}
+                    </div>
+                    {mappingSource === "preview" && (
+                      <button type="button" onClick={onClearPreview} style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#b0c8e0", borderRadius: 10, padding: "7px 10px", fontSize: 11, cursor: "pointer" }}>
+                        إلغاء المعاينة
+                      </button>
+                    )}
+                    {mappingSource === "saved" && (
+                      <button type="button" onClick={onClearSaved} disabled={isDeletingSaved} style={{ border: "1px solid rgba(239,68,68,0.24)", background: "rgba(239,68,68,0.08)", color: "#fecaca", borderRadius: 10, padding: "7px 10px", fontSize: 11, cursor: isDeletingSaved ? "wait" : "pointer", opacity: isDeletingSaved ? 0.65 : 1 }}>
+                        {isDeletingSaved ? "جارٍ الإلغاء..." : "إلغاء الربط المحفوظ"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {mappingError && (
+                <div style={{ borderRadius: 12, border: "1px solid rgba(239,68,68,0.22)", background: "rgba(239,68,68,0.07)", color: "#fecaca", fontSize: 11, lineHeight: 1.6, padding: "8px 10px" }}>
+                  {mappingError}
+                </div>
+              )}
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={onOpenMapping}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "7px 12px", borderRadius: 10,
+                    border: "1px solid rgba(139,92,246,0.36)",
+                    background: "rgba(139,92,246,0.10)",
+                    color: "#d8b4fe",
+                    fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  }}
+                >
+                  <Layers size={12} />
+                  تخصيص ربط المكتب
+                </button>
+                <span style={{ fontSize: 10, color: "#2a4060" }}>
+                  محفوظ / تجريبي / تلقائي حسب أولوية الربط
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -969,7 +1389,11 @@ function ActivityPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
 // ─── Meeting Rooms Panel ──────────────────────────────────────────────────────
 
 function MeetingRoomsPanel({ rooms }: { rooms: OfficeRoom[] }) {
-  const list = rooms.length > 0 ? rooms.slice(0, 3) : DEMO_DEF.slice(0, 3).map((d, i) => ({ id: `mr${i}`, name: d.name, employeeCount: d.emp }));
+  // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1: empty placeholders use numbered
+  // offices, not fake department names.
+  const list = rooms.length > 0
+    ? rooms.slice(0, 3)
+    : [0, 1, 2].map((i) => ({ id: `mr${i}`, name: officeLabel(i + 1), employeeCount: 0 }));
   return (
     <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(6,14,28,0.92)", overflow: "hidden", flex: 1 }}>
       <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1063,10 +1487,338 @@ function AIAlertsPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+// ─── Board / Executive office (EXECUTIVE-OFFICE-9-ROOMS-FOUNDATION-2) ────────────
+// The 9th office: the center Board / Executive Management office. Rendered as a
+// dedicated OFF-MAP panel/card (no map hotspot/coordinate changes). It is never
+// a persisted department mapping — purely an executive summary built from the
+// existing in-memory snapshot/employees/tasks. No DB, no API, no AI calls.
+function BoardExecutiveOffice({
+  orgName,
+  managerName,
+  linkedOfficeCount,
+  unassignedOfficeCount,
+  mappingCompletionPct,
+  executiveBrain,
+}: {
+  orgName: string;
+  managerName: string | null;
+  linkedOfficeCount: number;
+  unassignedOfficeCount: number;
+  mappingCompletionPct: number;
+  executiveBrain: ExecutiveBrainSnapshot;
+}) {
+  const [open, setOpen] = useState(false);
+  const accent = "#a855f7";
+  const managerInitials = managerName ? nameInitials(managerName) : "؟";
+  const metrics = [
+    { label: "عدد المكاتب المرتبطة", value: linkedOfficeCount, color: "#22d3ee" },
+    { label: "عدد المكاتب غير المخصصة", value: unassignedOfficeCount, color: "#f59e0b" },
+    { label: "نسبة اكتمال الربط", value: `${mappingCompletionPct}%`, color: "#10b981" },
+  ];
+
+  return (
+    <section style={{ borderRadius: 18, border: `1px solid ${accent}40`, background: "linear-gradient(150deg, rgba(28,8,58,0.92), rgba(10,6,26,0.96))", overflow: "hidden", boxShadow: `0 0 36px ${accent}12` }}>
+      {/* Card / toggle */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "transparent", border: "none", cursor: "pointer", textAlign: "start" }}
+      >
+        <span style={{ width: 42, height: 42, borderRadius: 13, display: "grid", placeItems: "center", flexShrink: 0, background: `radial-gradient(circle at 30% 20%, rgba(255,255,255,0.16), transparent 40%), linear-gradient(135deg, ${accent}33, ${accent}14)`, border: `1px solid ${accent}55` }}>
+          <Crown size={20} color="#d8b4fe" />
+        </span>
+        <span style={{ minWidth: 0, flex: 1 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              minWidth: 28, height: 20, padding: "0 7px",
+              borderRadius: 7,
+              background: `${accent}1c`, border: `1px solid ${accent}4a`,
+              color: "#ede9fe", fontSize: 10.5, fontWeight: 800, lineHeight: 1,
+              fontVariantNumeric: "tabular-nums",
+            }}>{officeLabel(BOARD_OFFICE_NUMBER)}</span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>مجلس الإدارة / المكتب التنفيذي</span>
+            <span style={{ fontSize: 9.5, fontWeight: 700, color: "#d8b4fe", background: `${accent}1c`, border: `1px solid ${accent}3a`, padding: "1px 8px", borderRadius: 999 }}>المكتب التنفيذي</span>
+          </span>
+          <span style={{ display: "block", fontSize: 11, color: "#9d8bc0", marginTop: 2 }}>مركز قيادة المنشأة · {orgName}</span>
+        </span>
+        <ChevronDown size={18} color="#9d8bc0" style={{ flexShrink: 0, transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "none" }} />
+      </button>
+
+      {/* Panel */}
+      {open && (
+        <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Manager */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, borderRadius: 12, border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.03)", padding: "10px 12px" }}>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: accent, display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{managerInitials}</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 9.5, color: "#9d8bc0" }}>مدير المنشأة</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#ede9fe", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{managerName ?? "مدير المنشأة"}</div>
+            </div>
+          </div>
+
+          {/* Executive metrics */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+            {metrics.map((m) => (
+              <div key={m.label} style={{ borderRadius: 11, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(255,255,255,0.03)", padding: "9px 12px", textAlign: "center" }}>
+                <div style={{ fontSize: 19, fontWeight: 800, color: m.color, lineHeight: 1 }}>{m.value}</div>
+                <div style={{ fontSize: 10, color: "#9d8bc0", marginTop: 3 }}>{m.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Executive snapshot note */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 11, border: "1px solid rgba(34,211,238,0.18)", background: "rgba(34,211,238,0.05)", padding: "9px 12px" }}>
+            <Activity size={14} color="#67e8f9" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 11.5, color: "#bae6fd" }}>
+              لقطة تنفيذية محسوبة من حالة ربط المكاتب الحالية فقط.
+            </span>
+          </div>
+
+          <ExecutiveBrainPanel brain={executiveBrain} />
+
+          {/* Future AI agent placeholder — visual only, no logic/API */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, borderRadius: 12, border: "1px dashed rgba(139,92,246,0.30)", background: "rgba(139,92,246,0.06)", padding: "10px 12px" }}>
+            <span style={{ width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", flexShrink: 0, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)" }}>
+              <BrainCircuit size={15} color="#c4b5fd" />
+            </span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#ddd6fe" }}>غرفة المساعد الذكي</span>
+                <span style={{ fontSize: 8.5, fontWeight: 700, color: "#c4b5fd", background: "rgba(139,92,246,0.14)", border: "1px solid rgba(139,92,246,0.3)", padding: "1px 7px", borderRadius: 999 }}>قريبًا</span>
+              </div>
+              <div style={{ fontSize: 10.5, color: "#9d8bc0", marginTop: 2 }}>قريبًا: وكيل ذكاء اصطناعي خاص بهذه المنشأة</div>
+            </div>
+          </div>
+
+          <p style={{ margin: 0, fontSize: 9.5, color: "#6b5a8a", textAlign: "center" }}>
+            عرض تنفيذي للقراءة فقط — لا يتم حفظ أي ربط لمكتب مجلس الإدارة.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+type OfficeControlEntry = {
+  room: OfficeRoom;
+  mappingUnit: PreviewOrgUnit | null;
+  mappingSource: MappingSource | null;
+};
+
+type ExecutiveBrainSnapshot = {
+  linkedOfficeCount: number;
+  unassignedOfficeCount: number;
+  mappingCompletionPct: number;
+  linkedOrgUnitCount: number;
+  structureStatus: string;
+  recommendation: string;
+};
+
+function ExecutiveBrainPanel({
+  brain,
+  compact = false,
+}: {
+  brain: ExecutiveBrainSnapshot;
+  compact?: boolean;
+}) {
+  const metrics = [
+    { label: "عدد المكاتب المرتبطة", value: brain.linkedOfficeCount, color: "#22d3ee" },
+    { label: "عدد المكاتب غير المخصصة", value: brain.unassignedOfficeCount, color: brain.unassignedOfficeCount > 0 ? "#f59e0b" : "#10b981" },
+    { label: "نسبة اكتمال الربط", value: `${brain.mappingCompletionPct}%`, color: "#10b981" },
+    { label: "عدد الإدارات/الأقسام المرتبطة بالمكاتب", value: brain.linkedOrgUnitCount, color: "#c4b5fd" },
+    { label: "آخر حالة للهيكل الإداري", value: brain.structureStatus, color: "#bae6fd" },
+  ];
+
+  return (
+    <div style={{ borderRadius: compact ? 11 : 13, border: "1px solid rgba(34,211,238,0.18)", background: "linear-gradient(135deg, rgba(34,211,238,0.075), rgba(168,85,247,0.07))", padding: compact ? 9 : 12, display: "flex", flexDirection: "column", gap: compact ? 8 : 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: "#e0f2fe", fontSize: compact ? 11.5 : 13, fontWeight: 900 }}>
+          <BrainCircuit size={compact ? 13 : 15} color="#67e8f9" />
+          العقل التنفيذي
+        </span>
+        <span style={{ fontSize: 9, color: "#93c5fd", border: "1px solid rgba(147,197,253,0.22)", background: "rgba(147,197,253,0.08)", borderRadius: 999, padding: "1px 7px" }}>
+          قراءة فقط
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: compact ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(130px, 1fr))", gap: 7 }}>
+        {metrics.map((metric) => (
+          <div key={metric.label} style={{ borderRadius: 9, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(255,255,255,0.035)", padding: "7px 6px", minWidth: 0 }}>
+            <div style={{ fontSize: compact ? 12 : 14, fontWeight: 900, color: metric.color, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metric.value}</div>
+            <div style={{ fontSize: 9, color: "#8ba3c7", marginTop: 4, lineHeight: 1.35 }}>{metric.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {brain.unassignedOfficeCount > 0 && (
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 7, borderRadius: 10, border: "1px solid rgba(245,158,11,0.22)", background: "rgba(245,158,11,0.08)", padding: "7px 8px" }}>
+          <AlertTriangle size={13} color="#fbbf24" style={{ flexShrink: 0, marginTop: 1 }} />
+          <span style={{ fontSize: compact ? 10 : 11, color: "#fde68a", lineHeight: 1.6 }}>
+            توجد مكاتب غير مخصصة وتحتاج إلى استكمال الربط.
+          </span>
+        </div>
+      )}
+
+      <p style={{ margin: 0, fontSize: compact ? 10 : 11.5, color: "#c8ddf0", lineHeight: 1.7 }}>
+        {brain.recommendation}
+      </p>
+      <p style={{ margin: 0, fontSize: 9, color: "#5a7a9a", lineHeight: 1.5 }}>
+        ملخص محسوب من بيانات الواجهة الحالية فقط، بدون ذكاء اصطناعي أو حفظ بيانات.
+      </p>
+    </div>
+  );
+}
+
+function OfficeControlPanel({
+  entries,
+  linkedOfficeCount,
+  unassignedOfficeCount,
+  mappingCompletionPct,
+  executiveBrain,
+  deletingRoomKey,
+  onSelectRoom,
+  onOpenMapping,
+  onClearPreview,
+  onClearSaved,
+}: {
+  entries: OfficeControlEntry[];
+  linkedOfficeCount: number;
+  unassignedOfficeCount: number;
+  mappingCompletionPct: number;
+  executiveBrain: ExecutiveBrainSnapshot;
+  deletingRoomKey: ExecutiveOfficeFixedRoomKey | null;
+  onSelectRoom: (room: OfficeRoom) => void;
+  onOpenMapping: (room: OfficeRoom) => void;
+  onClearPreview: (room: OfficeRoom) => void;
+  onClearSaved: (room: OfficeRoom) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const boardAccent = "#a855f7";
+  const boardMetrics = [
+    { label: "عدد المكاتب المرتبطة", value: linkedOfficeCount, color: "#22d3ee" },
+    { label: "عدد المكاتب غير المخصصة", value: unassignedOfficeCount, color: "#f59e0b" },
+    { label: "نسبة اكتمال الربط", value: `${mappingCompletionPct}%`, color: "#10b981" },
+  ];
+
+  return (
+    <section style={{ borderRadius: 18, border: "1px solid rgba(34,211,238,0.18)", background: "rgba(6,14,28,0.88)", overflow: "hidden", boxShadow: "0 18px 42px rgba(0,0,0,0.25)" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "13px 16px", border: "none", background: "linear-gradient(135deg, rgba(34,211,238,0.10), rgba(168,85,247,0.08))", cursor: "pointer", textAlign: "start" }}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+          <span style={{ width: 32, height: 32, borderRadius: 11, display: "grid", placeItems: "center", background: "rgba(34,211,238,0.12)", border: "1px solid rgba(34,211,238,0.24)", flexShrink: 0 }}>
+            <Settings2 size={16} color="#67e8f9" />
+          </span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: "block", fontSize: 14, fontWeight: 850, color: "#fff" }}>إدارة المكاتب</span>
+            <span style={{ display: "block", fontSize: 10.5, color: "#7a9ab8", marginTop: 2 }}>تحكم آمن في ربط المكاتب 01-09 باستخدام تدفق الربط الحالي</span>
+          </span>
+        </span>
+        <ChevronDown size={18} color="#8ba3c7" style={{ flexShrink: 0, transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "none" }} />
+      </button>
+
+      {open && (
+        <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 10 }}>
+          {entries.map(({ room, mappingUnit, mappingSource }) => {
+            const mapped = Boolean(mappingUnit);
+            const isDeleting = deletingRoomKey === room.fixedRoomKey;
+            const canClear = mappingSource === "saved" || mappingSource === "preview";
+            return (
+              <article key={room.id} style={{ borderRadius: 13, border: mapped ? `1px solid ${room.accentColor}30` : "1px solid rgba(245,158,11,0.20)", background: mapped ? "rgba(255,255,255,0.035)" : "rgba(245,158,11,0.055)", padding: 11, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 10, fontWeight: 900, color: "#cbd5e1", background: "rgba(255,255,255,0.06)", border: `1px solid ${room.accentColor}35`, borderRadius: 8, padding: "2px 7px" }}>
+                        {room.officeNumber ? officeLabel(room.officeNumber) : "مكتب"}
+                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: mapped ? "#86efac" : "#fbbf24", background: mapped ? "rgba(16,185,129,0.10)" : "rgba(245,158,11,0.10)", border: mapped ? "1px solid rgba(16,185,129,0.22)" : "1px solid rgba(245,158,11,0.24)", borderRadius: 999, padding: "2px 7px" }}>
+                        {mapped ? "مرتبط" : "غير مخصص"}
+                      </span>
+                    </div>
+                    <p style={{ margin: "7px 0 0", fontSize: 12.5, fontWeight: 800, color: mapped ? "#fff" : "#fde68a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {mapped ? mappingUnit!.name : UNASSIGNED_LABEL}
+                    </p>
+                    {mapped ? (
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 5 }}>
+                        <span style={{ fontSize: 9.5, color: "#d8b4fe", border: "1px solid rgba(168,85,247,0.22)", background: "rgba(168,85,247,0.07)", borderRadius: 999, padding: "1px 7px" }}>{mappingUnit?.typeLabel ?? "غير متاح"}</span>
+                        {mappingSource && <span style={{ fontSize: 9.5, color: "#67e8f9", border: "1px solid rgba(34,211,238,0.22)", background: "rgba(34,211,238,0.07)", borderRadius: 999, padding: "1px 7px" }}>{mappingSourceValue(mappingSource)}</span>}
+                      </div>
+                    ) : (
+                      <p style={{ margin: "5px 0 0", fontSize: 10.5, lineHeight: 1.55, color: "#d8c7a3" }}>
+                        اختر إدارة أو قسم من الهيكل الإداري لربط هذا المكتب.
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onSelectRoom(room)}
+                    style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7", borderRadius: 9, padding: "5px 7px", fontSize: 9.5, cursor: "pointer", flexShrink: 0 }}
+                  >
+                    عرض
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenMapping(room)}
+                    style={{ border: "1px solid rgba(139,92,246,0.30)", background: "rgba(139,92,246,0.09)", color: "#d8b4fe", borderRadius: 9, padding: "6px 9px", fontSize: 10, fontWeight: 800, cursor: "pointer" }}
+                  >
+                    {mapped ? "تغيير الربط" : "ربط المكتب"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (mappingSource === "saved") onClearSaved(room);
+                      if (mappingSource === "preview") onClearPreview(room);
+                    }}
+                    disabled={!canClear || isDeleting}
+                    title={mappingSource === "auto" ? "الربط التلقائي لا يُحذف، ويمكن تغييره بربط محفوظ أو تجريبي." : undefined}
+                    style={{ border: "1px solid rgba(239,68,68,0.22)", background: "rgba(239,68,68,0.07)", color: canClear ? "#fecaca" : "rgba(254,202,202,0.42)", borderRadius: 9, padding: "6px 9px", fontSize: 10, fontWeight: 800, cursor: !canClear || isDeleting ? "not-allowed" : "pointer", opacity: isDeleting ? 0.7 : 1 }}
+                  >
+                    {isDeleting ? "جارٍ الحذف..." : "حذف الربط"}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+
+          <article style={{ borderRadius: 13, border: `1px solid ${boardAccent}35`, background: "linear-gradient(135deg, rgba(168,85,247,0.12), rgba(34,211,238,0.05))", padding: 11, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 10, fontWeight: 900, color: "#ede9fe", background: `${boardAccent}1c`, border: `1px solid ${boardAccent}40`, borderRadius: 8, padding: "2px 7px" }}>
+                {officeLabel(BOARD_OFFICE_NUMBER)}
+              </span>
+              <span style={{ fontSize: 12.5, fontWeight: 850, color: "#fff" }}>مجلس الإدارة / المكتب التنفيذي</span>
+              <span style={{ fontSize: 9.5, color: "#d8b4fe", border: `1px solid ${boardAccent}30`, background: `${boardAccent}12`, borderRadius: 999, padding: "1px 7px" }}>قراءة فقط</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7 }}>
+              {boardMetrics.map((metric) => (
+                <div key={metric.label} style={{ borderRadius: 9, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(255,255,255,0.03)", padding: "7px 6px", textAlign: "center", minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: metric.color, lineHeight: 1 }}>{metric.value}</div>
+                  <div style={{ fontSize: 9, color: "#9d8bc0", marginTop: 4 }}>{metric.label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 9 }}>
+              <ExecutiveBrainPanel brain={executiveBrain} compact />
+            </div>
+          </article>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function VirtualOfficeDesign({
   snapshot, employees, tasks, orgName, orgCode,
   onBackToOrg, onRefresh, isRefreshing = false,
 }: VirtualOfficeDesignProps) {
+  const { user } = useAuth();
   const [selectedRoom, setSelectedRoom] = useState<OfficeRoom | null>(null);
   const [mappingModalRoom, setMappingModalRoom] = useState<OfficeRoom | null>(null);
   const [previewMappings, setPreviewMappings] = useState<Record<string, PreviewOrgUnit>>({});
@@ -1088,6 +1840,39 @@ export default function VirtualOfficeDesign({
     () => buildPreviewOrgUnits(snapshot, safeTasks),
     [snapshot, safeTasks],
   );
+
+  // Presence overlay: replace each real room's avatars/count with mapping-aware
+  // presence people (saved > preview > auto). Demo/placeholder rooms and rooms
+  // with no resolvable people are left exactly as-is (no regression).
+  //
+  // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1: also fold in the resolved
+  // display name. If a mapping resolves (saved/preview/auto) we surface the
+  // unit name; otherwise placeholder rooms keep "مكتب XX" + isUnassigned so
+  // the manager sees clean empty offices, never fake departments.
+  const roomsWithPresence = useMemo(() => {
+    return rooms.map((room) => {
+      const { unit } = resolveRoomMapping({ room, units: previewOrgUnits, savedMappings, previewMappings });
+      const hasMapping = Boolean(unit);
+      const isUnassigned = !hasMapping && room.isDemo === true;
+      const displayName = unit?.name ?? (isUnassigned ? UNASSIGNED_LABEL : room.name);
+
+      const base: OfficeRoom = {
+        ...room,
+        name: displayName,
+        isUnassigned,
+      };
+
+      if (room.isDemo) return base;
+
+      const people = resolveRoomPeople(room, unit, snapshot, safeEmps);
+      if (people.length === 0) return base;
+      return {
+        ...base,
+        employeeCount: people.length,
+        avatars: people.slice(0, 3).map((p) => ({ initials: p.initials, color: p.color, statusColor: p.statusColor })),
+      };
+    });
+  }, [rooms, previewOrgUnits, savedMappings, previewMappings, snapshot, safeEmps]);
 
   useEffect(() => {
     let alive = true;
@@ -1205,7 +1990,17 @@ export default function VirtualOfficeDesign({
     }
   }, [clearPreviewForRoom, clearRoomMappingError]);
 
-  const openTasks    = safeTasks.filter((t) => t?.status !== "مكتملة").length;
+  const confirmDeleteSavedMapping = useCallback((room: OfficeRoom) => {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm("هل تريد حذف ربط هذا المكتب؟ سيعود المكتب إلى حالة غير مخصص.")
+    ) {
+      return;
+    }
+
+    void handleDeleteSavedMapping(room);
+  }, [handleDeleteSavedMapping]);
+
   const overdueTasks = safeTasks.filter((t) => t?.status === "متأخرة").length;
   const activeEmps   = safeRels.length;
   const deptCount    = isDemo ? DEMO_DEF.length : safeDepts.length;
@@ -1217,15 +2012,66 @@ export default function VirtualOfficeDesign({
 
   const kpis = [
     { label: "صحة المكتب",       value: `${avgHealth}%`, sub: hpLabel(avgHealth),                          Icon: Heart,        iconBg: "rgba(16,185,129,0.28)" },
-    { label: "الأقسام",          value: deptCount,        sub: undefined,                                   Icon: LayoutGrid,   iconBg: "rgba(34,211,238,0.25)" },
+    { label: "الوحدات",          value: deptCount,        sub: undefined,                                   Icon: LayoutGrid,   iconBg: "rgba(34,211,238,0.25)" },
     { label: "الموظفون النشطون", value: isDemo ? 18 : activeEmps, sub: `من ${isDemo ? 24 : safeEmps.length}`, Icon: Users, iconBg: "rgba(59,130,246,0.25)" },
-    { label: "اجتماعات اليوم",  value: isDemo ? 5 : 0,   sub: isDemo ? "اجتماعات" : undefined,            Icon: Calendar,     iconBg: "rgba(139,92,246,0.25)" },
-    { label: "المهام المفتوحة",  value: isDemo ? 46 : openTasks,    sub: "مهمة",                           Icon: CheckCircle2, iconBg: "rgba(16,185,129,0.25)" },
     { label: "المهام المتأخرة",  value: isDemo ? 6  : overdueTasks, sub: "مهمة",                           Icon: AlertCircle,  iconBg: "rgba(245,158,11,0.28)" },
-    { label: "تنبيهات AI",       value: isDemo ? 4  : Math.max(overdueTasks, 0), sub: "تنبيه",             Icon: BrainCircuit, iconBg: "rgba(139,92,246,0.28)" },
   ];
 
   const isEmpty = safeDepts.length === 0 && !isDemo;
+
+  // Board/Executive office summary inputs (in-memory only; no persistence).
+  // The signed-in organization manager is shown when available; otherwise a
+  // safe role fallback is used inside the panel.
+  const boardManagerName =
+    user && user.role === "organization_manager" ? (user.name ?? null) : null;
+  const linkedOfficeCount = roomsWithPresence.filter((room) => !room.isUnassigned).length;
+  const unassignedOfficeCount = roomsWithPresence.filter((room) => room.isUnassigned).length;
+  const mappingCompletionPct = roomsWithPresence.length > 0
+    ? Math.round((linkedOfficeCount / roomsWithPresence.length) * 100)
+    : 0;
+  const officeControlEntries = useMemo<OfficeControlEntry[]>(
+    () => roomsWithPresence.map((room) => {
+      const mapping = resolveRoomMapping({
+        room,
+        units: previewOrgUnits,
+        savedMappings,
+        previewMappings,
+      });
+      return {
+        room,
+        mappingUnit: mapping.unit,
+        mappingSource: mapping.source,
+      };
+    }),
+    [roomsWithPresence, previewOrgUnits, savedMappings, previewMappings],
+  );
+  const executiveBrain = useMemo<ExecutiveBrainSnapshot>(() => {
+    const linkedOrgUnitIds = new Set(
+      officeControlEntries
+        .map((entry) => entry.mappingUnit)
+        .filter((unit): unit is PreviewOrgUnit => unit != null)
+        .map((unit) => `${unit.type}:${unit.id}`),
+    );
+    const structureItemCount =
+      safeDepts.length +
+      (Array.isArray(snapshot?.teams) ? snapshot!.teams.length : 0) +
+      (Array.isArray(snapshot?.positions) ? snapshot!.positions.length : 0) +
+      safeRels.length;
+    const recommendation = linkedOfficeCount === 0
+      ? "لم يتم ربط أي مكتب بعد. ابدأ بربط الإدارات الأساسية."
+      : unassignedOfficeCount > 0
+        ? "يوجد مكاتب غير مخصصة. يفضل إكمال الربط قبل اعتماد المكتب الافتراضي."
+        : "اكتمل ربط المكاتب التشغيلية. المكتب الافتراضي جاهز للمراجعة التنفيذية.";
+
+    return {
+      linkedOfficeCount,
+      unassignedOfficeCount,
+      mappingCompletionPct,
+      linkedOrgUnitCount: linkedOrgUnitIds.size,
+      structureStatus: structureItemCount > 0 ? "متاح من الهيكل الحالي" : UNAVAILABLE_LABEL,
+      recommendation,
+    };
+  }, [officeControlEntries, linkedOfficeCount, unassignedOfficeCount, mappingCompletionPct, safeDepts.length, safeRels.length, snapshot]);
 
   // Compact mobile feed (max 2 each) — derived, no fetches.
   const mobileActivity = useMemo(() => {
@@ -1277,6 +2123,20 @@ export default function VirtualOfficeDesign({
       })
     : { unit: null, source: null as MappingSource | null };
 
+  const selectedPeople = useMemo(
+    () => (selectedRoom ? resolveRoomPeople(selectedRoom, selectedMapping.unit, snapshot, safeEmps) : []),
+    [selectedRoom, selectedMapping.unit, snapshot, safeEmps],
+  );
+
+  const modalCurrentMapping = mappingModalRoom
+    ? resolveRoomMapping({
+        room: mappingModalRoom,
+        units: previewOrgUnits,
+        savedMappings,
+        previewMappings,
+      })
+    : { unit: null, source: null as MappingSource | null };
+
   const modalSaveError = mappingModalRoom ? mappingErrorByRoom[mappingModalRoom.id] ?? null : null;
   const selectedMappingError = selectedRoom ? mappingErrorByRoom[selectedRoom.id] ?? null : null;
 
@@ -1312,10 +2172,32 @@ export default function VirtualOfficeDesign({
       {/* ── Workspace Identity Strip ── */}
       <WorkspaceIdentityStrip orgName={orgName} orgCode={orgCode} snapshot={snapshot} employees={safeEmps} />
 
-      {/* ── KPI Row ── */}
-      <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
-        {kpis.map((k) => <KpiCard key={k.label} label={k.label} value={k.value} sub={k.sub} Icon={k.Icon} iconBg={k.iconBg} />)}
-      </div>
+      <OfficeControlPanel
+        entries={officeControlEntries}
+        linkedOfficeCount={linkedOfficeCount}
+        unassignedOfficeCount={unassignedOfficeCount}
+        mappingCompletionPct={mappingCompletionPct}
+        executiveBrain={executiveBrain}
+        deletingRoomKey={deletingRoomKey}
+        onSelectRoom={(room) => setSelectedRoom(room)}
+        onOpenMapping={(room) => {
+          clearRoomMappingError(room);
+          setSelectedRoom(room);
+          setMappingModalRoom(room);
+        }}
+        onClearPreview={(room) => clearPreviewForRoom(room)}
+        onClearSaved={(room) => confirmDeleteSavedMapping(room)}
+      />
+
+      {/* ── Board / Executive office (9th office — off-map, no coordinate change) ── */}
+      <BoardExecutiveOffice
+        orgName={orgName}
+        managerName={boardManagerName}
+        linkedOfficeCount={linkedOfficeCount}
+        unassignedOfficeCount={unassignedOfficeCount}
+        mappingCompletionPct={mappingCompletionPct}
+        executiveBrain={executiveBrain}
+      />
 
       {/* ── Empty State ── */}
       {isEmpty ? (
@@ -1333,8 +2215,17 @@ export default function VirtualOfficeDesign({
         <>
           {/* ── Desktop scene (sm+) ── */}
           <div className="hidden sm:block space-y-5">
+            {/* Section clarity: the 8 map rooms are the operational offices,
+                distinct from the off-map Board/Executive office above. */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <LayoutGrid size={15} color="#22d3ee" />
+                <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>المكاتب التشغيلية</span>
+              </div>
+              <span style={{ fontSize: 11, color: "#5a7a9a" }}>اختر مكتبًا من المخطط ثم اضغط «افتح المكتب».</span>
+            </div>
             <VirtualOfficeReferenceScene
-              rooms={rooms}
+              rooms={roomsWithPresence}
               selectedRoomId={selectedRoom?.id ?? null}
               onRoomClick={(r) => setSelectedRoom(prev => prev?.id === r.id ? null : r as OfficeRoom)}
             />
@@ -1350,7 +2241,7 @@ export default function VirtualOfficeDesign({
                 isDeletingSaved={deletingRoomKey === selectedRoom.fixedRoomKey}
                 onOpenMapping={() => setMappingModalRoom(selectedRoom)}
                 onClearPreview={() => clearPreviewForRoom(selectedRoom)}
-                onClearSaved={() => void handleDeleteSavedMapping(selectedRoom)}
+                onClearSaved={() => confirmDeleteSavedMapping(selectedRoom)}
                 onClose={() => setSelectedRoom(null)}
               />
             )}
@@ -1367,8 +2258,9 @@ export default function VirtualOfficeDesign({
             style={{ paddingBottom: "calc(120px + env(safe-area-inset-bottom))" }}
           >
             <MobileExecutiveOfficeScene
-              rooms={rooms}
+              rooms={roomsWithPresence}
               selectedRoom={selectedRoom}
+              people={selectedPeople}
               onRoomClick={(r) => setSelectedRoom(prev => prev?.id === r.id ? null : r as OfficeRoom)}
               mappingUnit={selectedMapping.unit}
               mappingSource={selectedMapping.source}
@@ -1376,7 +2268,7 @@ export default function VirtualOfficeDesign({
               isDeletingSaved={selectedRoom ? deletingRoomKey === selectedRoom.fixedRoomKey : false}
               onOpenMapping={() => selectedRoom && setMappingModalRoom(selectedRoom)}
               onClearPreview={() => selectedRoom && clearPreviewForRoom(selectedRoom)}
-              onClearSaved={() => selectedRoom && void handleDeleteSavedMapping(selectedRoom)}
+              onClearSaved={() => selectedRoom && confirmDeleteSavedMapping(selectedRoom)}
               activity={mobileActivity}
               meetings={mobileMeetings}
               alerts={mobileAlerts}
@@ -1384,6 +2276,11 @@ export default function VirtualOfficeDesign({
           </div>
         </>
       )}
+
+      {/* ── KPI summary (below the map — keeps the office image central) ── */}
+      <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
+        {kpis.map((k) => <KpiCard key={k.label} label={k.label} value={k.value} sub={k.sub} Icon={k.Icon} iconBg={k.iconBg} />)}
+      </div>
 
       <p style={{ fontSize: 10, color: "#1e3050", textAlign: "center", paddingBottom: 8 }}>
         محاكاة للقراءة فقط · لا تغييرات في البيانات · مبني من الهيكل الإداري
@@ -1393,7 +2290,8 @@ export default function VirtualOfficeDesign({
           key={mappingModalRoom.id}
           room={mappingModalRoom}
           units={previewOrgUnits}
-          currentUnit={findAutoMappedUnit(mappingModalRoom, previewOrgUnits)}
+          currentUnit={modalCurrentMapping.unit}
+          currentSource={modalCurrentMapping.source}
           previewUnit={previewMappings[mappingModalRoom.id] ?? null}
           saveError={modalSaveError}
           isSaving={savingRoomKey === mappingModalRoom.fixedRoomKey}

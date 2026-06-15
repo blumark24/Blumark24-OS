@@ -10,9 +10,22 @@ import Image from "next/image";
 import {
   Layers, Users, CheckCircle2, AlertCircle,
   Activity, Calendar, BrainCircuit, MessageSquare, AlertTriangle,
+  Settings2, ChevronDown,
 } from "lucide-react";
-import type { SceneRoom } from "./VirtualOfficeReferenceScene";
-import type { MappingSource, PreviewOrgUnit } from "./VirtualOfficeDesign";
+import {
+  formatOfficeNumber,
+  type SceneRoom,
+} from "./VirtualOfficeReferenceScene";
+import type { MappingSource, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
+
+type MobilePresencePerson = PresencePerson;
+
+// EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
+const OFFICE_LABEL_PREFIX = "مكتب";
+const UNASSIGNED_LABEL = "غير مخصص";
+const UNASSIGNED_HINT_LONG = "اربط هذا المكتب بإدارة أو قسم من الهيكل الإداري لتفعيل التوأم الرقمي.";
+const UNAVAILABLE_LABEL = "غير متاح";
+const officeLabel = (n: number) => `${OFFICE_LABEL_PREFIX} ${formatOfficeNumber(n)}`;
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -57,6 +70,13 @@ function hpLabel(pct: number): string {
   return "يحتاج متابعة";
 }
 
+function mappingSourceValue(source: MappingSource | null): string {
+  if (source === "saved") return "saved";
+  if (source === "preview") return "preview";
+  if (source === "auto") return "auto";
+  return UNAVAILABLE_LABEL;
+}
+
 // ─── Compact chip ─────────────────────────────────────────────────────────────
 
 function Chip({ room, selected, onClick, position }: {
@@ -88,11 +108,27 @@ function Chip({ room, selected, onClick, position }: {
         transition: "all 0.18s ease",
       }}
     >
-      <span style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: hp.color, boxShadow: `0 0 4px ${hp.color}` }} />
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", maxWidth: 64 }}>
-        {shortName(room.name)}
-      </span>
       {room.healthPct > 0 && (
+        <span style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: hp.color, boxShadow: `0 0 4px ${hp.color}` }} />
+      )}
+      {room.officeNumber ? (
+        <span style={{
+          fontSize: 7.5, fontWeight: 800,
+          color: "#cbd5e1",
+          background: "rgba(255,255,255,0.10)",
+          border: "1px solid rgba(148,163,184,0.30)",
+          padding: "0 4px", borderRadius: 4, lineHeight: 1.4,
+          fontVariantNumeric: "tabular-nums", flexShrink: 0,
+        }}>{formatOfficeNumber(room.officeNumber)}</span>
+      ) : null}
+      <span style={{
+        overflow: "hidden", textOverflow: "ellipsis", maxWidth: 64,
+        fontStyle: room.isUnassigned ? "italic" : "normal",
+        opacity: room.isUnassigned ? 0.85 : 1,
+      }}>
+        {room.isUnassigned ? UNASSIGNED_LABEL : shortName(room.name)}
+      </span>
+      {!room.isUnassigned && room.healthPct > 0 && (
         <span style={{
           fontSize: 7.5, fontWeight: 800, color: hp.color,
           padding: "0 3.5px", borderRadius: 999,
@@ -108,6 +144,7 @@ function Chip({ room, selected, onClick, position }: {
 
 function SelectedRoomCard({
   room,
+  people = [],
   mappingUnit,
   mappingSource,
   mappingError,
@@ -117,6 +154,7 @@ function SelectedRoomCard({
   onClearSaved,
 }: {
   room: MobileSelectedRoom;
+  people?: MobilePresencePerson[];
   mappingUnit: PreviewOrgUnit | null;
   mappingSource: MappingSource | null;
   mappingError: string | null;
@@ -125,6 +163,10 @@ function SelectedRoomCard({
   onClearPreview: () => void;
   onClearSaved: () => void;
 }) {
+  const MOBILE_PRESENCE_NOTE = "الحالة المعروضة للمعاينة التشغيلية فقط.";
+  const visiblePeople = people.slice(0, 2);
+  const extraPeople = Math.max(0, people.length - visiblePeople.length);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const hp = hpStyle(room.healthPct);
   const lbl = hpLabel(room.healthPct);
   return (
@@ -137,11 +179,36 @@ function SelectedRoomCard({
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
         <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{room.name}</p>
-          <p style={{ fontSize: 10, color: "#5a7a9a", margin: "3px 0 0" }}>
-            {room.type ?? "مساحة عمل"}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            {room.officeNumber ? (
+              <span style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                minWidth: 26, height: 18, padding: "0 6px",
+                borderRadius: 6,
+                background: "rgba(255,255,255,0.07)",
+                border: `1px solid ${room.accentColor}40`,
+                color: "#cbd5e1",
+                fontSize: 9.5, fontWeight: 800, lineHeight: 1,
+                fontVariantNumeric: "tabular-nums",
+              }}>{officeLabel(room.officeNumber)}</span>
+            ) : null}
+            <p style={{
+              fontSize: 13, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1.2,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              maxWidth: 170,
+              fontStyle: room.isUnassigned ? "italic" : "normal",
+              opacity: room.isUnassigned ? 0.85 : 1,
+            }}>{room.isUnassigned ? UNASSIGNED_LABEL : room.name}</p>
+          </div>
+          <p style={{ fontSize: 10, color: "#5a7a9a", margin: "4px 0 0" }}>
+            {room.isUnassigned ? UNASSIGNED_LABEL : (room.type ?? "مساحة عمل")}
             {room.deptCode ? <span style={{ fontFamily: "monospace", marginRight: 6 }}> · {room.deptCode}</span> : null}
           </p>
+          {room.isUnassigned && (
+            <p style={{ fontSize: 10.5, color: "#8ba3c7", margin: "6px 0 0", lineHeight: 1.5 }}>
+              {UNASSIGNED_HINT_LONG}
+            </p>
+          )}
         </div>
         {room.healthPct > 0 && (
           <span style={{
@@ -152,6 +219,62 @@ function SelectedRoomCard({
         )}
       </div>
 
+      <div style={{
+        borderRadius: 12,
+        border: "1px solid rgba(34,211,238,0.14)",
+        background: "linear-gradient(135deg, rgba(34,211,238,0.07), rgba(168,85,247,0.06))",
+        padding: "9px 10px",
+        marginBottom: 10,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 6 }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: "#cffafe" }}>لقطة التوأم الرقمي</span>
+          {room.officeNumber ? (
+            <span style={{ fontSize: 9, fontWeight: 800, color: "#cbd5e1", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 999, padding: "1px 6px" }}>
+              {officeLabel(room.officeNumber)}
+            </span>
+          ) : null}
+        </div>
+        {room.isUnassigned ? (
+          <div style={{ borderRadius: 9, border: "1px dashed rgba(245,158,11,0.26)", background: "rgba(245,158,11,0.06)", padding: "8px 9px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 10, fontWeight: 800, color: "#fde68a" }}>
+              <span>{UNASSIGNED_LABEL}</span>
+              <span>غير مخصص</span>
+            </div>
+            <p style={{ fontSize: 10, color: "#d8c7a3", margin: "5px 0 0", lineHeight: 1.45 }}>
+              {UNASSIGNED_HINT_LONG}
+            </p>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 9, color: "#6b87ab" }}>الوحدة المرتبطة</p>
+                <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "#fff", fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {mappingUnit?.name ?? room.name}
+                </p>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                <span style={{ fontSize: 8.5, color: "#d8b4fe", border: "1px solid rgba(168,85,247,0.24)", borderRadius: 999, padding: "1px 6px" }}>{mappingUnit?.typeLabel ?? room.type ?? "وحدة"}</span>
+                <span style={{ fontSize: 8.5, color: "#67e8f9", border: "1px solid rgba(34,211,238,0.22)", borderRadius: 999, padding: "1px 6px" }}>{mappingSourceValue(mappingSource)}</span>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 5, marginTop: 8 }}>
+              {[
+                { label: "الأعضاء", value: mappingUnit?.employeeCount ?? room.employeeCount ?? UNAVAILABLE_LABEL },
+                { label: "المهام", value: mappingUnit?.taskCount ?? room.openTasks ?? UNAVAILABLE_LABEL },
+                { label: "الصحة", value: room.healthPct > 0 ? `${room.healthPct}%` : UNAVAILABLE_LABEL },
+              ].map((metric) => (
+                <div key={metric.label} style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.055)", background: "rgba(255,255,255,0.03)", padding: "6px 4px", textAlign: "center", minWidth: 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: metric.value === UNAVAILABLE_LABEL ? "#7a9ab8" : "#e0f2fe", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metric.value}</div>
+                  <div style={{ fontSize: 8.5, color: "#6b87ab", marginTop: 2 }}>{metric.label}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {!room.isUnassigned && (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 10 }}>
         {[
           { label: "موظف",  value: room.employeeCount,  Icon: Users,        color: "#22d3ee" },
@@ -170,8 +293,58 @@ function SelectedRoomCard({
           </div>
         ))}
       </div>
+      )}
 
-      {mappingUnit && mappingSource && (
+      {/* الموجودون في المكتب — compact presence (preview only) */}
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+          <p style={{ fontSize: 10, color: "#4a6a8a", margin: 0 }}>الموجودون في المكتب{people.length > 0 ? ` (${people.length})` : ""}</p>
+          {people.length > 0 && <span style={{ fontSize: 8.5, color: "#5a7a9a" }}>{MOBILE_PRESENCE_NOTE}</span>}
+        </div>
+        {people.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {visiblePeople.map((p) => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 7, borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", padding: "5px 8px" }}>
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: p.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>{p.initials}</div>
+                  <span aria-hidden style={{ position: "absolute", bottom: -1, insetInlineEnd: -1, width: 7, height: 7, borderRadius: "50%", background: p.statusColor, border: "2px solid rgba(6,14,28,0.92)" }} />
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 10.5, color: "#c0d4ee", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                  {p.roleOrUnit && <div style={{ fontSize: 8.5, color: "#5a7a9a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.roleOrUnit}</div>}
+                </div>
+                <span style={{ flexShrink: 0, fontSize: 8.5, fontWeight: 600, color: p.statusColor, background: `${p.statusColor}1a`, border: `1px solid ${p.statusColor}33`, padding: "1px 6px", borderRadius: 999 }}>{p.statusLabel}</span>
+              </div>
+            ))}
+            {extraPeople > 0 && (
+              <span style={{ fontSize: 9.5, color: "#4a6a8a" }}>+{extraPeople} آخرون</span>
+            )}
+          </div>
+        ) : (
+          <div style={{ borderRadius: 8, border: "1px dashed rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.02)", padding: "8px 10px", fontSize: 10, color: "#6b87ab", textAlign: "center" }}>
+            لا يوجد أعضاء مرتبطون بهذا المكتب حاليًا.
+          </div>
+        )}
+      </div>
+
+      {/* إدارة المكتب — advanced mapping controls collapsed behind one button */}
+      <button
+        type="button"
+        onClick={() => setAdvancedOpen((v) => !v)}
+        aria-expanded={advancedOpen}
+        style={{
+          width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+          padding: "8px 12px", borderRadius: 10, marginBottom: advancedOpen ? 10 : 0,
+          border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)",
+          color: "#b0c8e0", fontSize: 11, fontWeight: 700, cursor: "pointer",
+        }}
+      >
+        <Settings2 size={12} />
+        إدارة المكتب
+        <ChevronDown size={13} style={{ transition: "transform 0.2s ease", transform: advancedOpen ? "rotate(180deg)" : "none" }} />
+      </button>
+
+      {advancedOpen && mappingUnit && mappingSource && (
         <div style={{
           borderRadius: 12,
           border: mappingSource === "saved" ? "1px solid rgba(34,211,238,0.25)" : mappingSource === "preview" ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(168,85,247,0.22)",
@@ -208,28 +381,30 @@ function SelectedRoomCard({
         </div>
       )}
 
-      {mappingError && (
+      {advancedOpen && mappingError && (
         <div style={{ borderRadius: 10, border: "1px solid rgba(239,68,68,0.22)", background: "rgba(239,68,68,0.07)", color: "#fecaca", fontSize: 10, lineHeight: 1.5, padding: "7px 9px", marginBottom: 10 }}>
           {mappingError}
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={onOpenMapping}
-        style={{
-          width: "100%",
-          display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-          padding: "8px 12px", borderRadius: 10,
-          border: "1px solid rgba(139,92,246,0.36)",
-          background: "rgba(139,92,246,0.10)",
-          color: "#d8b4fe",
-          fontSize: 11, fontWeight: 700, cursor: "pointer",
-        }}
-      >
-        <Layers size={12} />
-        تخصيص الربط
-      </button>
+      {advancedOpen && (
+        <button
+          type="button"
+          onClick={onOpenMapping}
+          style={{
+            width: "100%",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+            padding: "8px 12px", borderRadius: 10,
+            border: "1px solid rgba(139,92,246,0.36)",
+            background: "rgba(139,92,246,0.10)",
+            color: "#d8b4fe",
+            fontSize: 11, fontWeight: 700, cursor: "pointer",
+          }}
+        >
+          <Layers size={12} />
+          تخصيص ربط المكتب
+        </button>
+      )}
     </div>
   );
 }
@@ -345,6 +520,7 @@ function MobileBottomSections({
 export interface MobileExecutiveOfficeSceneProps {
   rooms: SceneRoom[];
   selectedRoom: MobileSelectedRoom | null;
+  people?: MobilePresencePerson[];
   onRoomClick: (room: SceneRoom) => void;
   mappingUnit: PreviewOrgUnit | null;
   mappingSource: MappingSource | null;
@@ -359,7 +535,7 @@ export interface MobileExecutiveOfficeSceneProps {
 }
 
 export default function MobileExecutiveOfficeScene({
-  rooms, selectedRoom, onRoomClick,
+  rooms, selectedRoom, people, onRoomClick,
   mappingUnit, mappingSource, mappingError, isDeletingSaved,
   onOpenMapping, onClearPreview, onClearSaved,
   activity, meetings, alerts,
@@ -419,6 +595,7 @@ export default function MobileExecutiveOfficeScene({
       {selectedRoom ? (
         <SelectedRoomCard
           room={selectedRoom}
+          people={people}
           mappingUnit={mappingUnit}
           mappingSource={mappingSource}
           mappingError={mappingError}

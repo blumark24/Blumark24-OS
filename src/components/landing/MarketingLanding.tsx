@@ -29,6 +29,7 @@ import {
 import OfficialBlumarkLogo from "@/components/brand/OfficialBlumarkLogo";
 import CodexAnimatedBackground from "@/components/landing/CodexAnimatedBackground";
 import Jellyfish from "@/components/demo/Jellyfish";
+import PricingSection from "@/components/landing/PricingSection";
 
 const NAV = [
   { href: "#home", label: "الرئيسية" },
@@ -36,6 +37,7 @@ const NAV = [
   { href: "#features", label: "المزايا" },
   { href: "#how", label: "كيف يعمل" },
   { href: "#audience", label: "لمن مناسب" },
+  { href: "#pricing", label: "الباقات" },
 ];
 
 const TRUST_BULLETS = ["بدون بطاقة ائتمان", "إعداد سريع", "دعم عربي كامل"];
@@ -603,6 +605,9 @@ export default function MarketingLanding() {
           </div>
         </section>
 
+        {/* ━━━━━━━━━━ PRICING ━━━━━━━━━━ */}
+        <PricingSection />
+
         {/* ━━━━━━━━━━ FINAL CTA ━━━━━━━━━━ */}
         <section id="contact" className="relative py-20 sm:py-24 lg:py-32">
           <div
@@ -685,6 +690,9 @@ export default function MarketingLanding() {
             </a>
             <a href="#features" className="hover:text-white transition">
               المزايا
+            </a>
+            <a href="#pricing" className="hover:text-white transition">
+              الباقات
             </a>
             <a href="#contact" className="hover:text-white transition">
               تواصل

@@ -14,6 +14,7 @@ import {
 import { withTimeout, withSoftTimeout } from "@/lib/asyncHelpers";
 import type { Client, Task, Transaction, Employee, Project, Activity, StrategyPhase } from "@/types";
 import type { BoardMember } from "@/lib/db";
+import { ACTIVE_EMPLOYEE_STATUS_VALUES } from "@/lib/tenant/employeeStatus";
 
 // Timeout constants (ms)
 const DB_WRITE_TIMEOUT  = 12_000; // INSERT/UPDATE/DELETE operations
@@ -491,6 +492,7 @@ async function fetchEmployees(): Promise<Employee[]> {
   const { data, error } = await supabase
     .from("employees")
     .select("*")
+    .in("status", [...ACTIVE_EMPLOYEE_STATUS_VALUES])
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(employeeFromDB);

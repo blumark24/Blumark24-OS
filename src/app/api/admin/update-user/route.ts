@@ -6,6 +6,7 @@ import {
   authorizeUserProvisioner,
   sanitizeRoleForProvisioner,
 } from "@/lib/api/tenantUserAdmin";
+import { ensureEmployeeRow } from "@/lib/api/ensureEmployee";
 
 const TAG = "[update-user]";
 
@@ -108,6 +109,53 @@ export async function PATCH(req: NextRequest) {
     cleanRole = roleCheck;
   }
 
+  // ── Guard 1: Self-removal / self-deactivation ──────────────────────────────
+  // A caller may not deactivate themselves or change their own role. This
+  // prevents a manager from accidentally locking themselves out.
+  if (provisioner.callerId === userId) {
+    const wouldDeactivate = cleanIsActive === false;
+    const wouldChangeRole = cleanRole !== undefined;
+    if (wouldDeactivate || wouldChangeRole) {
+      return fail(
+        403,
+        "لا يمكنك إزالة أو تعطيل حسابك من نفس المنشأة.",
+        "step=self-removal-guard: caller is the update target",
+      );
+    }
+  }
+
+  // ── Guard 2: Last active organization_manager ──────────────────────────────
+  // Prevent removing or downgrading the last remaining active manager in an
+  // organization, which would leave no one able to administer the tenant.
+  const targetIsManager = targetCheck.targetRole === "organization_manager";
+  const wouldLoseManagerStatus =
+    cleanIsActive === false ||
+    (cleanRole !== undefined && cleanRole !== "organization_manager");
+
+  if (targetIsManager && wouldLoseManagerStatus && targetCheck.targetOrgId) {
+    const { count, error: countErr } = await admin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", targetCheck.targetOrgId)
+      .eq("role", "organization_manager")
+      .eq("is_active", true);
+
+    if (countErr) {
+      return fail(
+        500,
+        "تعذّر التحقق من مديري المنشأة النشطين — حاول مجدداً.",
+        `step=last-manager-guard: count query failed: ${countErr.message}`,
+      );
+    }
+    if ((count ?? 0) <= 1) {
+      return fail(
+        403,
+        "لا يمكن إزالة آخر مدير نشط في المنشأة. عيّن مديرًا آخر أولًا.",
+        "step=last-manager-guard: removing last active organization_manager",
+      );
+    }
+  }
+
   if (
     !cleanRole &&
     !cleanDept &&
@@ -120,6 +168,9 @@ export async function PATCH(req: NextRequest) {
     return fail(400, "لا توجد حقول للتحديث", "step=validate: no updatable fields");
   }
 
+  // Build both update payloads before any DB write so no write begins until
+  // all guards have passed and all inputs are fully validated.
+
   // profiles table does not have updated_at — build update map without it
   const profileUpdate: Record<string, unknown> = {};
   if (cleanRole     !== undefined) profileUpdate.role       = cleanRole;
@@ -127,6 +178,29 @@ export async function PATCH(req: NextRequest) {
   if (cleanIsActive !== undefined) profileUpdate.is_active  = cleanIsActive;
   if (cleanName     !== undefined) profileUpdate.name       = cleanName;
 
+  const employeeSync: Record<string, unknown> = {};
+  if (cleanName     !== undefined) employeeSync.name       = cleanName;
+  if (cleanRole     !== undefined) employeeSync.role       = cleanRole;
+  if (cleanDept     !== undefined) employeeSync.department = cleanDept;
+  if (cleanJobTitle !== undefined) employeeSync.job_title  = cleanJobTitle;
+  if (cleanPhone    !== undefined) employeeSync.phone      = cleanPhone;
+  if (cleanSalary   !== undefined) employeeSync.salary     = cleanSalary;
+  if (cleanIsActive !== undefined) employeeSync.status     = cleanIsActive ? "نشط" : "غير_نشط";
+
+  // Guarantee the employee row exists BEFORE the profile update so the
+  // subsequent sync can never silently no-op against a missing row.
+  // Note: true atomicity across profiles + employees requires a DB RPC/
+  // migration and is intentionally out of scope for this PR. If the process
+  // fails between the profile write and the employee sync, retrying the
+  // request will re-apply the profile update (idempotent) and re-attempt sync.
+  const ensured = await ensureEmployeeRow(admin, userId);
+  if (!ensured.ok) {
+    return fail(ensured.status, ensured.error, ensured.debug);
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`${TAG} step=updateProfile | userId=${userId} fields=${JSON.stringify(profileUpdate)}`);
+  }
   let profileUpdateQuery = admin.from("profiles").update(profileUpdate).eq("id", userId);
   if (targetCheck.targetOrgId) {
     profileUpdateQuery = profileUpdateQuery.eq("organization_id", targetCheck.targetOrgId);
@@ -142,17 +216,6 @@ export async function PATCH(req: NextRequest) {
     await admin.auth.admin.updateUserById(userId, { user_metadata: { name: cleanName } });
   }
 
-  // Sync the same fields to the employees table so the employees list
-  // stays consistent with the profiles table after a Settings-panel edit.
-  // Non-fatal: employee row may not exist for board members / admin-only accounts.
-  const employeeSync: Record<string, unknown> = {};
-  if (cleanName     !== undefined) employeeSync.name       = cleanName;
-  if (cleanRole     !== undefined) employeeSync.role       = cleanRole;
-  if (cleanDept     !== undefined) employeeSync.department = cleanDept;
-  if (cleanJobTitle !== undefined) employeeSync.job_title  = cleanJobTitle;
-  if (cleanPhone    !== undefined) employeeSync.phone      = cleanPhone;
-  if (cleanSalary   !== undefined) employeeSync.salary     = cleanSalary;
-  if (cleanIsActive !== undefined) employeeSync.status     = cleanIsActive ? "نشط" : "غير_نشط";
   if (Object.keys(employeeSync).length > 0) {
     let employeeUpdateQuery = admin
       .from("employees")
@@ -163,10 +226,16 @@ export async function PATCH(req: NextRequest) {
     }
     const { error: empError } = await employeeUpdateQuery;
     if (empError) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn(`${TAG} employees sync skipped (non-fatal): ${empError.message}`);
-      }
-    } else if (process.env.NODE_ENV !== "production") {
+      // Employee sync failure is now fatal. Profile was already updated above;
+      // retrying the request will re-apply the profile change (idempotent) and
+      // re-attempt the employee sync, restoring consistency.
+      return fail(
+        500,
+        "فشل مزامنة سجل الموظف — يُرجى المحاولة مجدداً.",
+        `step=syncEmployees: ${empError.message}`,
+      );
+    }
+    if (process.env.NODE_ENV !== "production") {
       console.log(`${TAG} step=syncEmployees ok`);
     }
   }
