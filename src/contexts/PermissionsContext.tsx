@@ -206,7 +206,7 @@ export function mapAuthRoleToUserRole(role: string): UserRole {
     case "manager":
     case "مدير_قسم":
     case "مدير":
-      return "organization_manager";
+      return "employee";
     case "finance_manager":
     case "مدير_مالي":
       return "finance_manager";
