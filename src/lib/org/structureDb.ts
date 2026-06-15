@@ -21,12 +21,13 @@ async function resolveOrgId(): Promise<string> {
 }
 
 export async function fetchOrgStructure(): Promise<OrgStructureSnapshot> {
-  const [deptRes, teamRes, posRes, relRes, activeEmpRes] = await Promise.all([
+  const [deptRes, teamRes, posRes, relRes, activeEmpRes, profileRes] = await Promise.all([
     supabase.from("departments").select("*").order("sort_order"),
     supabase.from("teams").select("*").order("sort_order"),
     supabase.from("positions").select("*").order("sort_order"),
     supabase.from("employee_relations").select("*"),
     supabase.from("employees").select("id").in("status", [...ACTIVE_EMPLOYEE_STATUS_VALUES]),
+    supabase.from("profiles").select("id"),
   ]);
 
   if (deptRes.error) throw new Error(deptRes.error.message);
@@ -34,9 +35,16 @@ export async function fetchOrgStructure(): Promise<OrgStructureSnapshot> {
   if (posRes.error) throw new Error(posRes.error.message);
   if (relRes.error) throw new Error(relRes.error.message);
   if (activeEmpRes.error) throw new Error(activeEmpRes.error.message);
+  if (profileRes.error) throw new Error(profileRes.error.message);
 
   const activeEmployeeIds = new Set(
     ((activeEmpRes.data ?? []) as { id: string }[])
+      .map((row) => row.id)
+      .filter((id): id is string => typeof id === "string"),
+  );
+
+  const linkedProfileIds = new Set(
+    ((profileRes.data ?? []) as { id: string }[])
       .map((row) => row.id)
       .filter((id): id is string => typeof id === "string"),
   );
@@ -63,7 +71,7 @@ export async function fetchOrgStructure(): Promise<OrgStructureSnapshot> {
     teams: (teamRes.data ?? []) as Team[],
     positions: (posRes.data ?? []) as Position[],
     relations: ((relRes.data ?? []) as EmployeeRelation[]).filter((rel) =>
-      activeEmployeeIds.has(rel.employee_id),
+      activeEmployeeIds.has(rel.employee_id) && linkedProfileIds.has(rel.employee_id),
     ),
   };
 }
