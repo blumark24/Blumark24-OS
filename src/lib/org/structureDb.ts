@@ -27,7 +27,7 @@ export async function fetchOrgStructure(): Promise<OrgStructureSnapshot> {
     supabase.from("positions").select("*").order("sort_order"),
     supabase.from("employee_relations").select("*"),
     supabase.from("employees").select("id").in("status", [...ACTIVE_EMPLOYEE_STATUS_VALUES]),
-    supabase.from("profiles").select("id"),
+    supabase.from("profiles").select("id").eq("is_active", true),
   ]);
 
   if (deptRes.error) throw new Error(deptRes.error.message);
