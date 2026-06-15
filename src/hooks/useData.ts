@@ -550,7 +550,7 @@ export function useEmployees() {
 // "linked" when employees.id is present here; cross-tenant rows can never leak
 // in, and matching is strictly by id (never by email).
 async function fetchOrgProfileIds(): Promise<string[]> {
-  const { data, error } = await supabase.from("profiles").select("id");
+  const { data, error } = await supabase.from("profiles").select("id").eq("is_active", true);
   if (error) throw new Error(error.message);
   return ((data ?? []) as { id: string }[]).map((r) => r.id);
 }
