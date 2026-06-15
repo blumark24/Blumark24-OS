@@ -38,11 +38,24 @@ function isProtectedPath(pathname: string) {
 // identity check (owner email allowlist, organization_id binding) still
 // lives in OwnerGuard and AuthContext on the client.
 //
+// P0-Security: hasOwnerSession now requires BOTH the surface marker cookie
+// AND a live Supabase auth cookie. This prevents anyone who only sets the
+// marker cookie (without a real Supabase session) from reaching /owner pages.
+// The email allowlist check is enforced by OwnerGuard (client) and by
+// verifyOwnerBearer() in every owner API route (server). Middleware is the
+// first-line edge gate only.
+//
 // Legacy: any stale `blumark_session=1` from a pre-PR5-D session is
 // honored as a customer marker for one release window so already-logged-in
 // users are not silently kicked to /auth on deploy.
 function hasOwnerSession(request: NextRequest): boolean {
-  return request.cookies.get("blumark_owner_session")?.value === "1";
+  const hasMarker = request.cookies.get("blumark_owner_session")?.value === "1";
+  if (!hasMarker) return false;
+  // Also require a live Supabase auth cookie — blocks cookie-only spoofing.
+  const hasSupabaseCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"));
+  return hasSupabaseCookie;
 }
 
 function hasCustomerSession(request: NextRequest): boolean {

@@ -1,11 +1,16 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { checkRateLimit, resolveIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TAG = "[ai/chat]";
+
+// 20 requests per user per minute — enough for active use, blocks runaway loops.
+const RATE_LIMIT = 20;
+const RATE_WINDOW_MS = 60_000;
 
 // Allowlist of valid Anthropic model IDs. If ANTHROPIC_MODEL env var is set
 // to an unrecognised value we fall back to the default rather than crashing.
@@ -80,14 +85,22 @@ function getAccessTokenFromSupabaseCookies(req: NextRequest): string | null {
   return parseSession(decodeURIComponent(rawCookieValue)) ?? parseSession(rawCookieValue);
 }
 
+interface AuthResult {
+  ok: true;
+  userId: string;
+  organizationId: string | null;
+}
+
 async function requireAuthenticatedUser(
   req: NextRequest,
-): Promise<{ ok: true } | { ok: false; response: NextResponse }> {
+): Promise<AuthResult | { ok: false; response: NextResponse }> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn(`${TAG} Supabase env missing — cannot verify session`);
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`${TAG} Supabase env missing — cannot verify session`);
+    }
     return {
       ok: false,
       response: NextResponse.json(
@@ -127,12 +140,32 @@ async function requireAuthenticatedUser(
     };
   }
 
-  return { ok: true };
+  // Fetch organization_id from the user's profile so we can scope the session.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return { ok: true, userId: user.id, organizationId: profile?.organization_id ?? null };
 }
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUser(req);
   if (!auth.ok) return auth.response;
+
+  // Rate limit per user (fallback to IP if userId somehow unavailable).
+  const rateLimitKey = `ai-chat:user:${auth.userId ?? resolveIp(req)}`;
+  const rl = checkRateLimit(rateLimitKey, RATE_LIMIT, RATE_WINDOW_MS);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "RATE_LIMITED", message: "تجاوزت الحد المسموح من الطلبات. حاول مجدداً بعد دقيقة." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil(rl.resetInMs / 1000)) },
+      },
+    );
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
   if (!apiKey) {
@@ -164,7 +197,9 @@ export async function POST(req: NextRequest) {
   const client = new Anthropic({ apiKey });
 
   try {
-    console.log(`${TAG} streaming | model=${model} msg_len=${userMessage.length}`);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`${TAG} streaming | model=${model} msg_len=${userMessage.length}`);
+    }
 
     // Use the Node.js request abort signal so the Anthropic stream is cancelled
     // when the client disconnects (e.g. user navigates away mid-stream).

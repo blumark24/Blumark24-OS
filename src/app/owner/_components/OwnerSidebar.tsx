@@ -26,6 +26,8 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   href?: string;
+  /** If true, item is shown as disabled with a badge — no navigable link. */
+  comingSoon?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -33,12 +35,12 @@ const NAV_ITEMS: NavItem[] = [
   { id: "orgs",      label: "المنشآت",                   icon: Building2,       href: "/owner/organizations" },
   { id: "plans",     label: "الباقات",                   icon: Layers,          href: "/owner/plans" },
   { id: "subs",      label: "الاشتراكات",                icon: CreditCard,      href: "/owner/subscriptions" },
-  { id: "invoices",  label: "الفواتير",                  icon: Receipt,         href: "/owner/billing" },
-  { id: "ai",        label: "استخدام الذكاء الاصطناعي",  icon: Sparkles,        href: "/owner/usage" },
-  { id: "whatsapp",  label: "واتساب بوت",                icon: MessageCircle,   href: "/owner/usage" },
+  { id: "invoices",  label: "الفواتير",                  icon: Receipt,         comingSoon: true },
+  { id: "ai",        label: "استخدام الذكاء الاصطناعي",  icon: Sparkles,        comingSoon: true },
+  { id: "whatsapp",  label: "واتساب بوت",                icon: MessageCircle,   comingSoon: true },
   { id: "activity",  label: "سجل النشاطات",              icon: Activity,        href: "/owner/security" },
-  { id: "roles",     label: "الصلاحيات والأدوار",        icon: ShieldCheck },
-  { id: "settings",  label: "الإعدادات",                 icon: Settings },
+  { id: "roles",     label: "الصلاحيات والأدوار",        icon: ShieldCheck,     comingSoon: true },
+  { id: "settings",  label: "الإعدادات",                 icon: Settings,        comingSoon: true },
 ];
 
 interface OwnerSidebarProps {
@@ -98,8 +100,27 @@ export default function OwnerSidebar({ mobileOpen, onMobileClose }: OwnerSidebar
       <nav className="flex-1 overflow-y-auto px-3 py-3">
         <ul className="space-y-1">
           {NAV_ITEMS.map((item) => {
-            const { id, label, icon: Icon, href } = item;
+            const { id, label, icon: Icon, href, comingSoon } = item;
             const isActive = isNavActive(item);
+
+            if (comingSoon) {
+              return (
+                <li key={id}>
+                  <div
+                    className="w-full flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] border border-transparent text-right opacity-50 cursor-not-allowed select-none"
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <Icon className="h-4 w-4 flex-shrink-0 text-white/40" strokeWidth={1.6} />
+                      <span className="truncate text-white/50">{label}</span>
+                    </span>
+                    <span className="text-[10px] text-[#5f7798] border border-white/[0.08] rounded-md px-1.5 py-0.5 flex-shrink-0">
+                      قريباً
+                    </span>
+                  </div>
+                </li>
+              );
+            }
+
             const itemClass = cn(
               "w-full flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-colors border text-right",
               isActive

@@ -8,13 +8,26 @@ import {
   authorizeUserProvisioner,
   sanitizeRoleForProvisioner,
 } from "@/lib/api/tenantUserAdmin";
+import { checkRateLimit, resolveIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// 10 user creations per caller per hour — prevents runaway provisioning.
+const RATE_LIMIT = 10;
+const RATE_WINDOW_MS = 60 * 60_000;
+
 export async function POST(req: NextRequest) {
   try {
-    console.log("[create-user] start");
+    // ── 0. rate limit by IP before any heavy work ─────────────────────────
+    const ip = resolveIp(req);
+    const rl = checkRateLimit(`create-user:ip:${ip}`, RATE_LIMIT, RATE_WINDOW_MS);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { success: false, error: "تجاوزت الحد المسموح من العمليات. حاول لاحقاً." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetInMs / 1000)) } },
+      );
+    }
 
     // ── 1. env (read inside handler) ──────────────────────────────────────
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -25,12 +38,11 @@ export async function POST(req: NextRequest) {
           success: false,
           error:
             "إعداد الخادم غير مكتمل — أضف NEXT_PUBLIC_SUPABASE_URL و SUPABASE_SERVICE_ROLE_KEY في Vercel Environment Variables",
-          debug: `urlSet=${!!SUPABASE_URL} keySet=${!!SERVICE_KEY}`,
+          ...(process.env.NODE_ENV !== "production" ? { debug: `urlSet=${!!SUPABASE_URL} keySet=${!!SERVICE_KEY}` } : {}),
         },
         { status: 500 },
       );
     }
-    console.log(`[create-user] env loaded URL=${!!SUPABASE_URL} KEY=${!!SERVICE_KEY}`);
 
     // ── 2. service-role admin client (the ONLY client used) ───────────────
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
@@ -53,7 +65,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           error:   "جلسة المستخدم غير صالحة أو انتهت",
-          debug:   tokenResp.error?.message ?? "no user",
+          ...(process.env.NODE_ENV !== "production" ? { debug: tokenResp.error?.message ?? "no user" } : {}),
         },
         { status: 401 },
       );
@@ -61,7 +73,7 @@ export async function POST(req: NextRequest) {
     const authResult = await authorizeUserProvisioner(admin, token);
     if (!authResult.ok) {
       return NextResponse.json(
-        { success: false, error: authResult.error, debug: authResult.debug },
+        { success: false, error: authResult.error, ...(process.env.NODE_ENV !== "production" ? { debug: authResult.debug } : {}) },
         { status: authResult.status },
       );
     }
@@ -69,13 +81,14 @@ export async function POST(req: NextRequest) {
     const callerEmail = provisioner.callerEmail;
     const callerId = provisioner.callerId;
     const callerOrgId = provisioner.callerOrgId;
-    console.log(
-      `[create-user] caller verified email=${callerEmail} platform=${provisioner.isPlatformAdmin} orgManager=${provisioner.isOrgManager}`,
-    );
+    if (process.env.NODE_ENV !== "production") {
+      console.log(
+        `[create-user] caller verified email=${callerEmail} platform=${provisioner.isPlatformAdmin} orgManager=${provisioner.isOrgManager}`,
+      );
+    }
 
     // ── 4. parse body (await; outer catch handles malformed JSON) ─────────
     const body = (await req.json()) as Record<string, unknown>;
-    console.log("[create-user] request parsed");
 
     // ── 5. inline clean + validate ────────────────────────────────────────
     const rawEmail = typeof body.email === "string" ? body.email : "";
@@ -130,7 +143,7 @@ export async function POST(req: NextRequest) {
     if (provisioner.isPlatformAdmin) {
       if (!PLATFORM_ROLES.includes(role)) {
         return NextResponse.json(
-          { success: false, error: `الدور غير مقبول: ${rawRole}`, debug: `mapped=${role}` },
+          { success: false, error: `الدور غير مقبول: ${rawRole}`, ...(process.env.NODE_ENV !== "production" ? { debug: `mapped=${role}` } : {}) },
           { status: 400 },
         );
       }
@@ -138,7 +151,7 @@ export async function POST(req: NextRequest) {
     const roleCheck = sanitizeRoleForProvisioner(provisioner, role);
     if (typeof roleCheck !== "string") {
       return NextResponse.json(
-        { success: false, error: roleCheck.error, debug: roleCheck.debug },
+        { success: false, error: roleCheck.error, ...(process.env.NODE_ENV !== "production" ? { debug: roleCheck.debug } : {}) },
         { status: roleCheck.status },
       );
     }
@@ -153,7 +166,6 @@ export async function POST(req: NextRequest) {
     const status     = body.status === "غير_نشط" ? "غير_نشط" : "نشط";
 
     // ── 6. create auth user (await) ───────────────────────────────────────
-    console.log(`[create-user] creating auth user email=${email} role=${role}`);
     const createResp = await admin.auth.admin.createUser({
       email,
       password,
@@ -174,13 +186,12 @@ export async function POST(req: NextRequest) {
           error: dup
             ? `البريد الإلكتروني (${email}) مسجل مسبقاً`
             : `فشل إنشاء الحساب: ${msg}`,
-          debug: msg,
+          ...(process.env.NODE_ENV !== "production" ? { debug: msg } : {}),
         },
         { status: 400 },
       );
     }
     const userId = createResp.data.user.id;
-    console.log(`[create-user] auth create success userId=${userId}`);
 
     // ── 7. upsert profile (await; rollback auth user on failure) ──────────
     // Try with force_password_change first; fall back without it if the column
@@ -191,21 +202,27 @@ export async function POST(req: NextRequest) {
       { onConflict: "id" },
     );
     if (profUpsert.error?.message?.toLowerCase().includes("force_password_change")) {
-      console.warn("[create-user] force_password_change column missing — retrying without it");
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[create-user] force_password_change column missing — retrying without it");
+      }
       profUpsert = await admin.from("profiles").upsert(
         { id: userId, email, name, role, department, is_active: true, ...orgStamp },
         { onConflict: "id" },
       );
     }
     if (profUpsert.error) {
-      console.error(`[create-user] profile upsert failed: ${profUpsert.error.message} — rolling back`);
+      if (process.env.NODE_ENV !== "production") {
+        console.error(`[create-user] profile upsert failed: ${profUpsert.error.message} — rolling back`);
+      }
       const rb = await admin.auth.admin.deleteUser(userId);
-      if (rb.error) console.error(`[create-user] rollback (post-profile) failed: ${rb.error.message}`);
+      if (rb.error && process.env.NODE_ENV !== "production") {
+        console.error(`[create-user] rollback (post-profile) failed: ${rb.error.message}`);
+      }
       return NextResponse.json(
         {
           success: false,
           error:   `فشل إنشاء الملف الشخصي: ${profUpsert.error.message}`,
-          debug:   profUpsert.error.message,
+          ...(process.env.NODE_ENV !== "production" ? { debug: profUpsert.error.message } : {}),
         },
         { status: 500 },
       );
@@ -232,34 +249,39 @@ export async function POST(req: NextRequest) {
       { onConflict: "id" },
     );
     if (empUpsert.error) {
-      console.error(`[create-user] employees upsert failed: ${empUpsert.error.message} — rolling back`);
+      if (process.env.NODE_ENV !== "production") {
+        console.error(`[create-user] employees upsert failed: ${empUpsert.error.message} — rolling back`);
+      }
       const rb = await admin.auth.admin.deleteUser(userId);
-      if (rb.error) console.error(`[create-user] rollback (post-employees) failed: ${rb.error.message}`);
+      if (rb.error && process.env.NODE_ENV !== "production") {
+        console.error(`[create-user] rollback (post-employees) failed: ${rb.error.message}`);
+      }
       return NextResponse.json(
         {
           success: false,
           error:   `فشل إنشاء سجل الموظف: ${empUpsert.error.message}`,
-          debug:   empUpsert.error.message,
+          ...(process.env.NODE_ENV !== "production" ? { debug: empUpsert.error.message } : {}),
         },
         { status: 500 },
       );
     }
-    console.log(`[create-user] db insert success userId=${userId}`);
-
     // ── 9. final success ──────────────────────────────────────────────────
-    console.log(`[create-user] SUCCESS email=${email} userId=${userId}`);
     return NextResponse.json({ success: true, id: userId, name });
 
   } catch (error: unknown) {
     const msg   = error instanceof Error ? error.message     : String(error);
     const stack = error instanceof Error ? error.stack ?? "" : "";
-    console.error("[CREATE_USER_FATAL]", error);
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[CREATE_USER_FATAL]", error);
+    }
     return NextResponse.json(
       {
         success: false,
         fatal:   true,
-        error:   msg || "Unknown error",
-        stack:   String(stack),
+        error:   process.env.NODE_ENV === "production"
+          ? "حدث خطأ غير متوقع — يرجى المحاولة مجدداً"
+          : (msg || "Unknown error"),
+        ...(process.env.NODE_ENV !== "production" ? { stack: String(stack) } : {}),
       },
       { status: 500 },
     );
