@@ -491,20 +491,6 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
         const s = await getSystemSettings();
         if (s.company_info) {
           setCompanyForm((prev) => ({ ...prev, ...(s.company_info as typeof companyForm) }));
-        } else if (!tenantMode) {
-          setCompanyForm({
-            name: "Blumark24",
-            logo_url: "",
-            tagline: "نظام إدارة الأعمال بالذكاء الاصطناعي",
-            email: "info@blumark24.com",
-            phone: "0550000000",
-            website: "blumark24.com",
-            city: "جدة",
-            activity_type: "",
-            address: "",
-            commercial_register: "",
-            tax_number: "",
-          });
         }
         if (s.notifications) setNotifs(s.notifications as typeof notifs);
         const app = s.appearance as { darkMode?: boolean; accentColor?: string; language?: string } | undefined;
