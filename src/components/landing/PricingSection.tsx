@@ -93,6 +93,91 @@ const PLAN_NAME_AR: Record<PlanKey, string> = {
   enterprise: "مؤسسي",
 };
 
+const PLANS_EN: PlanDef[] = [
+  {
+    key: "basic",
+    name: "Basic",
+    desc: "For organized daily operations from day one.",
+    bestFor: "Suitable for small teams and new hires.",
+    bullets: [
+      "Basic dashboard",
+      "Task and client management",
+      "Core HR management",
+      "Basic operational reports",
+      "Up to 5 users",
+    ],
+    cta: "Subscribe",
+  },
+  {
+    key: "growth",
+    name: "Growth",
+    desc: "For organizing teams, departments, and tracking operations.",
+    bestFor: "Suitable for growing businesses that need clearer structure.",
+    bullets: [
+      "All Basic features",
+      "Org structure",
+      "Departments and divisions",
+      "Core finance",
+      "Operational reports",
+      "Up to 15 users",
+    ],
+    cta: "Subscribe",
+  },
+  {
+    key: "advanced",
+    name: "Advanced",
+    desc: "For smart management and an advanced operational experience.",
+    bestFor: "Suitable for companies that want automation and a virtual office.",
+    bullets: [
+      "All Growth features",
+      "Executive virtual office",
+      "Workflow automation",
+      "Strategic tracking",
+      "Advanced reports",
+      "Up to 40 users",
+    ],
+    featured: true,
+    featuredBadge: "Most Value",
+    cta: "Subscribe",
+  },
+  {
+    key: "enterprise",
+    name: "Enterprise",
+    desc: "A tailored solution for multi-branch companies and entities.",
+    bestFor: "Suitable for companies requiring higher customization and dedicated support.",
+    bullets: [
+      "Custom solutions",
+      "Users per contract",
+      "Multi-branch support",
+      "Dedicated support",
+      "SLA per agreement",
+      "Future integrations",
+    ],
+    cta: "Contact the team",
+  },
+];
+
+const PLANS_BY_LANG: Record<"ar" | "en", PlanDef[]> = { ar: PLANS, en: PLANS_EN };
+
+const PRICE_LABELS = {
+  ar: {
+    enterpriseFrom: "يبدأ من",
+    sarMonth: "ر.س / شهريًا",
+    customContract: "عقد مخصص حسب الاحتياج",
+    launchPeriod: "سعر إطلاق لمدة 6 أشهر",
+    basePrice: "السعر الأساسي",
+    currency: "ر.س",
+  },
+  en: {
+    enterpriseFrom: "Starting from",
+    sarMonth: "SAR / month",
+    customContract: "Custom contract per requirement",
+    launchPeriod: "Launch price for 6 months",
+    basePrice: "Base price",
+    currency: "SAR",
+  },
+};
+
 // ─── Visual palette per plan ──────────────────────────────────────────────────
 
 const PALETTE: Record<PlanKey, {
@@ -407,6 +492,29 @@ function ActivationModal({ initialPlan, onClose }: ModalProps) {
   );
 }
 
+// ─── Bilingual pricing text ───────────────────────────────────────────────────
+
+const PRICING_TEXT = {
+  ar: {
+    eyebrow: "عرض الإطلاق للسوق السعودي",
+    title: "باقات",
+    titleAccent: "Blumark24 OS",
+    subtitle: "اختر الخطة المناسبة لتشغيل أعمالك بذكاء، من البداية حتى التوسع.",
+    launchBadge: "عرض الإطلاق",
+    launchDesc: "استفد من خصم 50% على باقات Blumark24 OS حتى 30-12-2026",
+    paymentNotice: "الدفع الإلكتروني قريبًا — الاشتراك الحالي يتم عبر فريق Blumark24.",
+  },
+  en: {
+    eyebrow: "Saudi Market Launch Offer",
+    title: "Blumark24 OS",
+    titleAccent: "Plans",
+    subtitle: "Choose the plan that fits your business — from day one to full scale.",
+    launchBadge: "Launch Offer",
+    launchDesc: "Get 50% off all Blumark24 OS plans until 30-12-2026",
+    paymentNotice: "Online payments coming soon — subscriptions are currently processed by the Blumark24 team.",
+  },
+} as const;
+
 // ─── EyebrowChip ──────────────────────────────────────────────────────────────
 
 function EyebrowChip({ children }: { children: React.ReactNode }) {
@@ -423,12 +531,16 @@ function EyebrowChip({ children }: { children: React.ReactNode }) {
 
 // ─── Plan card ────────────────────────────────────────────────────────────────
 
+type PriceLabels = typeof PRICE_LABELS["ar"];
+
 function PlanCard({
   plan,
   onRequest,
+  priceLabels,
 }: {
   plan: PlanDef;
   onRequest: (key: PlanKey) => void;
+  priceLabels: PriceLabels;
 }) {
   const p = PALETTE[plan.key];
   const isEnterprise = plan.key === "enterprise";
@@ -463,27 +575,27 @@ function PlanCard({
       <div className="mb-4 pb-4 border-b border-white/[0.06]">
         {isEnterprise ? (
           <>
-            <div className="text-[10.5px] text-white/35 mb-1 uppercase tracking-widest">يبدأ من</div>
+            <div className="text-[10.5px] text-white/35 mb-1 uppercase tracking-widest">{priceLabels.enterpriseFrom}</div>
             <div className="text-[26px] font-bold text-white leading-none">
               1,999
-              <span className="text-[13px] font-normal text-white/40 mr-1.5">ر.س / شهريًا</span>
+              <span className="text-[13px] font-normal text-white/40 mr-1.5">{priceLabels.sarMonth}</span>
             </div>
-            <div className="mt-1.5 text-[11.5px] text-white/30">عقد مخصص حسب الاحتياج</div>
+            <div className="mt-1.5 text-[11.5px] text-white/30">{priceLabels.customContract}</div>
           </>
         ) : (
           <>
-            <div className="text-[10.5px] text-white/35 mb-1 uppercase tracking-widest">سعر إطلاق لمدة 6 أشهر</div>
+            <div className="text-[10.5px] text-white/35 mb-1 uppercase tracking-widest">{priceLabels.launchPeriod}</div>
             <div className="flex items-baseline gap-2">
               <span className="text-[28px] font-bold text-white leading-none">
                 {launchPrice?.toLocaleString("en-US")}
               </span>
-              <span className="text-[13px] text-white/40">ر.س / شهريًا</span>
+              <span className="text-[13px] text-white/40">{priceLabels.sarMonth}</span>
             </div>
             <div className="mt-1.5 flex items-center gap-2">
               <span className="text-[11.5px] line-through text-white/25">
-                {basePrice?.toLocaleString("en-US")} ر.س
+                {basePrice?.toLocaleString("en-US")} {priceLabels.currency}
               </span>
-              <span className="text-[10px] text-white/35">السعر الأساسي</span>
+              <span className="text-[10px] text-white/35">{priceLabels.basePrice}</span>
             </div>
           </>
         )}
@@ -519,7 +631,10 @@ function PlanCard({
 
 // ─── Section ──────────────────────────────────────────────────────────────────
 
-export default function PricingSection() {
+export default function PricingSection({ lang = "ar" }: { lang?: "ar" | "en" }) {
+  const t = PRICING_TEXT[lang];
+  const plans = PLANS_BY_LANG[lang];
+  const priceLabels = PRICE_LABELS[lang];
   const [activePlan, setActivePlan] = useState<PlanKey | null>(null);
 
   const openModal = (plan: PlanKey) => setActivePlan(plan);
@@ -544,28 +659,35 @@ export default function PricingSection() {
 
           {/* Heading block */}
           <div className="max-w-2xl text-center mx-auto">
-            <EyebrowChip>عرض الإطلاق للسوق السعودي</EyebrowChip>
+            <EyebrowChip>{t.eyebrow}</EyebrowChip>
             <h2 className="mt-5 text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-[1.2] tracking-tight">
-              باقات{" "}
+              {t.title}{" "}
               <span className="bg-gradient-to-l from-[#22D3EE] via-[#3B82F6] to-[#1E6FD9] bg-clip-text text-transparent">
-                Blumark24 OS
+                {t.titleAccent}
               </span>
             </h2>
             <p
               className="mt-4 text-base sm:text-lg leading-relaxed"
               style={{ color: "rgba(255,255,255,0.62)" }}
             >
-              اختر الخطة المناسبة لتشغيل أعمالك بذكاء، من البداية حتى التوسع.
+              {t.subtitle}
             </p>
           </div>
 
           {/* Launch offer strip */}
           <div className="mt-8 mx-auto max-w-xl rounded-2xl border border-[#22D3EE]/15 bg-[rgba(34,211,238,0.04)] backdrop-blur-md px-5 py-3.5 text-center">
             <p className="text-[12.5px] leading-relaxed" style={{ color: "rgba(255,255,255,0.68)" }}>
-              <span className="font-semibold text-[#22D3EE]">عرض الإطلاق</span>
+              <span className="font-semibold text-[#22D3EE]">{t.launchBadge}</span>
               {" — "}
-              استفد من خصم 50% على باقات Blumark24 OS حتى 30-12-202
+              {t.launchDesc}
             </p>
+          </div>
+
+          {/* Plans grid */}
+          <div className="mt-10 sm:mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {plans.map((plan) => (
+              <PlanCard key={plan.key} plan={plan} onRequest={openModal} priceLabels={priceLabels} />
+            ))}
           </div>
 
           {/* Payment notice */}
@@ -573,7 +695,7 @@ export default function PricingSection() {
             className="mt-8 text-center text-[12px]"
             style={{ color: "rgba(255,255,255,0.32)" }}
           >
-            الدفع الإلكتروني قريبًا — الاشتراك الحالي يتم عبر فريق Blumark24.
+            {t.paymentNotice}
           </p>
 
         </div>
