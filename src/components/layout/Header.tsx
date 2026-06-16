@@ -150,8 +150,9 @@ function ProfilePanelContent({
   onClose: () => void;
 }) {
   const { display: departmentInfo } = useProfileOrgDepartment();
+  const { name: companyName } = useTenantCompanyName();
   const isActive = user.is_active !== false;
-  const initials = user.name?.slice(0, 2) ?? "م";
+  const initials = companyName?.slice(0, 2) ?? "م";
   const roleLabel = userRole
     ? getTenantRoleLabel(userRole)
     : getTenantRoleLabel(user.role);
@@ -351,10 +352,10 @@ interface ProfileDropdownProps {
 
 function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, onOpenProfile, open, onToggle }: ProfileDropdownProps) {
   const isMobile = useIsMobile();
-  const { logoUrl: tenantLogoUrl } = useTenantCompanyName();
+  const { logoUrl: tenantLogoUrl, name: companyName } = useTenantCompanyName();
   if (!user) return null;
 
-  const initials = user.name?.slice(0, 2) ?? "م";
+  const initials = companyName?.slice(0, 2) ?? "م";
   const roleLabel = userRole
     ? getTenantRoleLabel(userRole)
     : getTenantRoleLabel(user.role);
