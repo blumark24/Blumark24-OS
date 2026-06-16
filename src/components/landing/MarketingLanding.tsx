@@ -11,6 +11,7 @@ import {
   ClipboardList,
   DollarSign,
   FileBarChart,
+  Globe2,
   Languages,
   Layers,
   LogIn,
@@ -63,6 +64,8 @@ const CONTENT = {
       mobileDemo: "طلب العرض التجريبي",
       menuOpen: "فتح القائمة",
       menuClose: "إغلاق",
+      langCode: "EN",
+      langAriaLabel: "تغيير اللغة إلى الإنجليزية",
     },
     why: {
       eyebrow: "لماذا نحن",
@@ -173,6 +176,8 @@ const CONTENT = {
       mobileDemo: "Request a Demo",
       menuOpen: "Open menu",
       menuClose: "Close",
+      langCode: "AR",
+      langAriaLabel: "Switch language to Arabic",
     },
     why: {
       eyebrow: "Why Us",
@@ -429,11 +434,11 @@ export default function MarketingLanding() {
             <div className="hidden lg:flex items-center gap-2">
               <button
                 onClick={toggleLang}
-                className="inline-flex items-center gap-1.5 rounded-2xl h-10 px-3 text-sm text-white/60 hover:text-white hover:bg-white/[0.04] transition"
-                aria-label="Toggle language"
+                className="inline-flex items-center gap-1 rounded-xl h-10 px-2.5 text-white/55 hover:text-white hover:bg-white/[0.06] border border-white/[0.08] bg-white/[0.03] transition"
+                aria-label={c.actions.langAriaLabel}
               >
-                <Languages className="h-4 w-4" strokeWidth={1.6} />
-                <span className="text-[12.5px] font-medium">{c.langToggle}</span>
+                <Globe2 className="h-4 w-4" strokeWidth={1.5} />
+                <span className="text-[10.5px] font-semibold tracking-wide">{c.actions.langCode}</span>
               </button>
               <Link
                 href="/auth"
@@ -499,8 +504,9 @@ export default function MarketingLanding() {
             <button
               onClick={() => { closeMenu(); toggleLang(); }}
               className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-11 px-6 text-[14px] bg-white/[0.04] text-white/70 border border-white/[0.08] w-full"
+              aria-label={c.actions.langAriaLabel}
             >
-              <Languages className="h-4 w-4" strokeWidth={1.8} />
+              <Globe2 className="h-4 w-4" strokeWidth={1.8} />
               {c.langToggle}
             </button>
             <Link
