@@ -42,7 +42,7 @@ export default function OwnerBillingPageContent() {
           description="فواتير الشهر الحالي قبل الإرسال للعملاء."
           icon={FileText}
           accent="blue"
-          value="0"
+          value="—"
           hint="معاينة واجهة"
         />
         <OwnerPlaceholderCard
@@ -50,7 +50,7 @@ export default function OwnerBillingPageContent() {
           description="شهري، سنوي، وداخلي للمنشآت الداخلية."
           icon={CalendarClock}
           accent="cyan"
-          value="3"
+          value="—"
           hint="أنواع الدورات المعرفة في النظام"
         />
         <OwnerPlaceholderCard
