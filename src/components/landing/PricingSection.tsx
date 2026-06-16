@@ -407,6 +407,29 @@ function ActivationModal({ initialPlan, onClose }: ModalProps) {
   );
 }
 
+// ─── Bilingual pricing text ───────────────────────────────────────────────────
+
+const PRICING_TEXT = {
+  ar: {
+    eyebrow: "عرض الإطلاق للسوق السعودي",
+    title: "باقات",
+    titleAccent: "Blumark24 OS",
+    subtitle: "اختر الخطة المناسبة لتشغيل أعمالك بذكاء، من البداية حتى التوسع.",
+    launchBadge: "عرض الإطلاق",
+    launchDesc: "استفد من خصم 50% على باقات Blumark24 OS حتى 30-12-2026",
+    paymentNotice: "الدفع الإلكتروني قريبًا — الاشتراك الحالي يتم عبر فريق Blumark24.",
+  },
+  en: {
+    eyebrow: "Saudi Market Launch Offer",
+    title: "Blumark24 OS",
+    titleAccent: "Plans",
+    subtitle: "Choose the plan that fits your business — from day one to full scale.",
+    launchBadge: "Launch Offer",
+    launchDesc: "Get 50% off all Blumark24 OS plans until 30-12-2026",
+    paymentNotice: "Online payments coming soon — subscriptions are currently processed by the Blumark24 team.",
+  },
+} as const;
+
 // ─── EyebrowChip ──────────────────────────────────────────────────────────────
 
 function EyebrowChip({ children }: { children: React.ReactNode }) {
@@ -519,7 +542,8 @@ function PlanCard({
 
 // ─── Section ──────────────────────────────────────────────────────────────────
 
-export default function PricingSection() {
+export default function PricingSection({ lang = "ar" }: { lang?: "ar" | "en" }) {
+  const t = PRICING_TEXT[lang];
   const [activePlan, setActivePlan] = useState<PlanKey | null>(null);
 
   const openModal = (plan: PlanKey) => setActivePlan(plan);
@@ -544,27 +568,27 @@ export default function PricingSection() {
 
           {/* Heading block */}
           <div className="max-w-2xl text-center mx-auto">
-            <EyebrowChip>عرض الإطلاق للسوق السعودي</EyebrowChip>
+            <EyebrowChip>{t.eyebrow}</EyebrowChip>
             <h2 className="mt-5 text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-[1.2] tracking-tight">
-              باقات{" "}
+              {t.title}{" "}
               <span className="bg-gradient-to-l from-[#22D3EE] via-[#3B82F6] to-[#1E6FD9] bg-clip-text text-transparent">
-                Blumark24 OS
+                {t.titleAccent}
               </span>
             </h2>
             <p
               className="mt-4 text-base sm:text-lg leading-relaxed"
               style={{ color: "rgba(255,255,255,0.62)" }}
             >
-              اختر الخطة المناسبة لتشغيل أعمالك بذكاء، من البداية حتى التوسع.
+              {t.subtitle}
             </p>
           </div>
 
           {/* Launch offer strip */}
           <div className="mt-8 mx-auto max-w-xl rounded-2xl border border-[#22D3EE]/15 bg-[rgba(34,211,238,0.04)] backdrop-blur-md px-5 py-3.5 text-center">
             <p className="text-[12.5px] leading-relaxed" style={{ color: "rgba(255,255,255,0.68)" }}>
-              <span className="font-semibold text-[#22D3EE]">عرض الإطلاق</span>
+              <span className="font-semibold text-[#22D3EE]">{t.launchBadge}</span>
               {" — "}
-              استفد من خصم 50% على باقات Blumark24 OS حتى 30-12-202
+              {t.launchDesc}
             </p>
           </div>
 
@@ -573,7 +597,7 @@ export default function PricingSection() {
             className="mt-8 text-center text-[12px]"
             style={{ color: "rgba(255,255,255,0.32)" }}
           >
-            الدفع الإلكتروني قريبًا — الاشتراك الحالي يتم عبر فريق Blumark24.
+            {t.paymentNotice}
           </p>
 
         </div>

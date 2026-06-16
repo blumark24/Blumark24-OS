@@ -31,73 +31,234 @@ import CodexAnimatedBackground from "@/components/landing/CodexAnimatedBackgroun
 import Jellyfish from "@/components/demo/Jellyfish";
 import PricingSection from "@/components/landing/PricingSection";
 
-const NAV = [
-  { href: "#home", label: "الرئيسية" },
-  { href: "#why", label: "لماذا نحن" },
-  { href: "#features", label: "المزايا" },
-  { href: "#how", label: "كيف يعمل" },
-  { href: "#audience", label: "لمن مناسب" },
-  { href: "#pricing", label: "الباقات" },
-];
+type Lang = "ar" | "en";
 
-const TRUST_BULLETS = ["بدون بطاقة ائتمان", "إعداد سريع", "دعم عربي كامل"];
+// ─── Bilingual content ────────────────────────────────────────────────────────
 
-const WHY_CARDS = [
-  {
-    icon: Languages,
-    title: "منصة سعودية عربية بالكامل",
-    desc: "RTL أصلي وتجربة مصمّمة للسوق السعودي من اللحظة الأولى.",
+const CONTENT = {
+  ar: {
+    dir: "rtl" as const,
+    langToggle: "English",
+    nav: [
+      { href: "#home", label: "الرئيسية" },
+      { href: "#why", label: "لماذا نحن" },
+      { href: "#features", label: "المزايا" },
+      { href: "#how", label: "كيف يعمل" },
+      { href: "#audience", label: "لمن مناسب" },
+      { href: "#pricing", label: "الباقات" },
+    ],
+    trustBullets: ["إعداد سريع", "دعم عربي كامل", "منصة سعودية"],
+    hero: {
+      title: "نظام إدارة الأعمال",
+      titleAccent: "للفرق السعودية",
+      subtitle:
+        "إدارة العملاء والمهام والتقارير من مكان واحد — منصة سعودية تدعم التحول الرقمي وتنظّم عمليات فرق العمل.",
+    },
+    actions: {
+      primary: "اطلب العرض التجريبي",
+      secondary: "تسجيل دخول المنشآت",
+      navLogin: "تسجيل دخول المنشآت",
+      navDemo: "طلب العرض التجريبي",
+      mobileLogin: "تسجيل دخول المنشآت",
+      mobileDemo: "طلب العرض التجريبي",
+      menuOpen: "فتح القائمة",
+      menuClose: "إغلاق",
+    },
+    why: {
+      eyebrow: "لماذا نحن",
+      title: "منظومة عربية واحدة لإدارة",
+      titleAccent: "أعمالك بذكاء",
+      desc: "أربعة مبادئ بُني عليها النظام لتقدّم تجربة منظمة واحترافية.",
+      cards: [
+        {
+          icon: Languages,
+          title: "منصة عربية مصمّمة للسوق السعودي",
+          desc: "واجهة RTL أصلية وتجربة مصمّمة لفرق العمل في المملكة.",
+        },
+        {
+          icon: Layers,
+          title: "تجربة منظمة بدل تشتّت الأدوات",
+          desc: "موظفون، مهام، عملاء، مالية، وأتمتة في تجربة واحدة متّسقة.",
+        },
+        {
+          icon: BrainCircuit,
+          title: "لوحات متابعة وتقارير تشغيلية",
+          desc: "ملخصات فورية وتقارير قابلة للتخصيص على بيانات شركتك.",
+        },
+        {
+          icon: ShieldCheck,
+          title: "صلاحيات واضحة وإدارة منظمة",
+          desc: "صلاحيات دقيقة لكل دور وتدقيق شفاف لكل عملية تشغيلية.",
+        },
+      ],
+    },
+    features: {
+      eyebrow: "المزايا الرئيسية",
+      title: "كل ما تحتاجه شركتك",
+      titleAccent: "في نظام واحد",
+      desc: "ست وحدات تشغيلية مصمّمة لتعمل معاً بسلاسة لدعم التحول الرقمي.",
+      cards: [
+        { icon: Users, title: "إدارة الموظفين", desc: "ملفات الفريق، الصلاحيات الواضحة، والأدوار في مكان واحد منظّم." },
+        { icon: ClipboardList, title: "إدارة المهام", desc: "تخطيط ومتابعة لحظية لأداء الفرق وتسليم العمل." },
+        { icon: Briefcase, title: "العملاء CRM", desc: "إدارة العملاء والفرص وسجل التواصل بصورة موحّدة." },
+        { icon: DollarSign, title: "المالية", desc: "إيرادات، مصروفات، وفواتير مع لوحات متابعة حيّة." },
+        { icon: FileBarChart, title: "التقارير", desc: "تقارير تشغيلية فورية قابلة للتخصيص." },
+        { icon: Workflow, title: "أتمتة الأعمال", desc: "سيناريوهات تشغيل تربط الوحدات وتقلّل التدخّل اليدوي." },
+      ],
+    },
+    how: {
+      eyebrow: "كيف يعمل النظام",
+      title: "ثلاث خطوات",
+      titleAccent: "لتشغيل أذكى",
+      desc: "إعداد سريع بدون تعقيد، وقيمة تظهر من أول أسبوع.",
+      stepPrefix: "الخطوة",
+      steps: [
+        { icon: LogIn, title: "ابدأ خلال دقائق", desc: "أنشئ حساب شركتك وادعُ فريقك بخطوات بسيطة." },
+        { icon: Plug, title: "وحّد فرقك ووحداتك", desc: "اربط الموظفين، المهام، العملاء، والمالية في تجربة منظمة واحدة." },
+        { icon: Sparkles, title: "تابع الأداء بلوحات متابعة", desc: "تقارير وتنبيهات تشغيلية تساعدك على متابعة الأداء اليومي." },
+      ],
+    },
+    audience: {
+      eyebrow: "لمن مناسب",
+      title: "مصمّم لشركات تبحث",
+      titleAccent: "عن تشغيل احترافي",
+      desc: "من فرق صغيرة تبدأ، إلى شركات تشغيلية تتوسّع وتحتاج نظاماً موحّداً.",
+      items: [
+        { icon: Rocket, title: "الشركات الناشئة", desc: "ابدأ منظّماً من اليوم الأول بدون أدوات متفرّقة." },
+        { icon: Target, title: "الوكالات والاستوديوهات", desc: "تابع المشاريع، العملاء، والفواتير من مكان واحد." },
+        { icon: Building2, title: "شركات التشغيل والخدمات", desc: "وحّد العمليات اليومية وحسّن كفاءة الفرق." },
+        { icon: TrendingUp, title: "الفرق التنفيذية والإدارية", desc: "قرارات مبنية على بيانات حيّة ولوحات متابعة فعلية." },
+      ],
+    },
+    cta: {
+      eyebrow: "ابدأ اليوم",
+      title: "جاهز تدعم تحول شركتك",
+      titleAccent: "الرقمي",
+      desc: "احصل على عرض تجريبي مخصّص لشركتك، أو استكشف الديمو التفاعلي مباشرة.",
+    },
+    footer: {
+      links: [
+        { href: "#why", label: "لماذا نحن" },
+        { href: "#features", label: "المزايا" },
+        { href: "#pricing", label: "الباقات" },
+        { href: "#contact", label: "تواصل" },
+      ],
+      copyright: "© Blumark24 OS",
+    },
   },
-  {
-    icon: Layers,
-    title: "تجربة موحّدة بدل تشتّت الأدوات",
-    desc: "موظفون، مهام، عملاء، مالية، وأتمتة في تجربة واحدة متّسقة.",
+  en: {
+    dir: "ltr" as const,
+    langToggle: "العربية",
+    nav: [
+      { href: "#home", label: "Home" },
+      { href: "#why", label: "Why Us" },
+      { href: "#features", label: "Features" },
+      { href: "#how", label: "How It Works" },
+      { href: "#audience", label: "Who We Serve" },
+      { href: "#pricing", label: "Pricing" },
+    ],
+    trustBullets: ["Quick setup", "Full Arabic support", "Saudi-built platform"],
+    hero: {
+      title: "Business Management System",
+      titleAccent: "for Saudi Teams",
+      subtitle:
+        "Manage clients, tasks, and reports from one place — a Saudi-built platform supporting digital operations and organized workflows.",
+    },
+    actions: {
+      primary: "Request a Demo",
+      secondary: "Business Sign In",
+      navLogin: "Business Sign In",
+      navDemo: "Request Demo",
+      mobileLogin: "Business Sign In",
+      mobileDemo: "Request a Demo",
+      menuOpen: "Open menu",
+      menuClose: "Close",
+    },
+    why: {
+      eyebrow: "Why Us",
+      title: "One organized workspace",
+      titleAccent: "for your business",
+      desc: "Four core principles built into the system to deliver a professional Saudi business experience.",
+      cards: [
+        {
+          icon: Languages,
+          title: "Built for the Saudi Market",
+          desc: "Native RTL interface designed for Saudi business teams from day one.",
+        },
+        {
+          icon: Layers,
+          title: "Organized workspace for teams",
+          desc: "Employees, tasks, clients, finance, and automation in one consistent experience.",
+        },
+        {
+          icon: BrainCircuit,
+          title: "Business dashboards and operational reports",
+          desc: "Instant summaries and customizable reports on your company data.",
+        },
+        {
+          icon: ShieldCheck,
+          title: "Clear permissions and organized management",
+          desc: "Precise role-based access and transparent audit trail for every operation.",
+        },
+      ],
+    },
+    features: {
+      eyebrow: "Core Features",
+      title: "Everything your business needs",
+      titleAccent: "in one system",
+      desc: "Six operational modules designed to work together seamlessly to support digital operations.",
+      cards: [
+        { icon: Users, title: "HR Management", desc: "Team profiles, clear permissions, and roles in one organized place." },
+        { icon: ClipboardList, title: "Task Management", desc: "Real-time planning and tracking for team performance and delivery." },
+        { icon: Briefcase, title: "CRM", desc: "Manage clients, opportunities, and communication history from one place." },
+        { icon: DollarSign, title: "Finance", desc: "Revenue, expenses, and invoices with live business dashboards." },
+        { icon: FileBarChart, title: "Reports", desc: "Instant operational reports, fully customizable." },
+        { icon: Workflow, title: "Workflow Automation", desc: "Workflows that connect modules and reduce manual effort." },
+      ],
+    },
+    how: {
+      eyebrow: "How It Works",
+      title: "Three steps to",
+      titleAccent: "smarter operations",
+      desc: "Fast setup with no complexity, and visible value from the first week.",
+      stepPrefix: "Step",
+      steps: [
+        { icon: LogIn, title: "Start in minutes", desc: "Create your company account and invite your team in a few simple steps." },
+        { icon: Plug, title: "Unify your teams and modules", desc: "Connect employees, tasks, clients, and finance into one organized workspace." },
+        { icon: Sparkles, title: "Track performance with dashboards", desc: "Operational reports and alerts to help you monitor daily performance." },
+      ],
+    },
+    audience: {
+      eyebrow: "Who We Serve",
+      title: "Built for companies seeking",
+      titleAccent: "professional operations",
+      desc: "From small teams starting out, to scaling operations companies that need a unified system.",
+      items: [
+        { icon: Rocket, title: "Startups", desc: "Start organized from day one without scattered tools." },
+        { icon: Target, title: "Agencies & Studios", desc: "Track projects, clients, and invoices from one place." },
+        { icon: Building2, title: "Operations & Services", desc: "Unify daily operations and improve team efficiency." },
+        { icon: TrendingUp, title: "Executive Teams", desc: "Decisions based on live data and real business dashboards." },
+      ],
+    },
+    cta: {
+      eyebrow: "Get Started Today",
+      title: "Ready to support your business",
+      titleAccent: "digital operations",
+      desc: "Get a personalized demo for your company, or explore the interactive demo right now.",
+    },
+    footer: {
+      links: [
+        { href: "#why", label: "Why Us" },
+        { href: "#features", label: "Features" },
+        { href: "#pricing", label: "Pricing" },
+        { href: "#contact", label: "Contact" },
+      ],
+      copyright: "© Blumark24 OS",
+    },
   },
-  {
-    icon: BrainCircuit,
-    title: "ذكاء اصطناعي يساعد على القرار",
-    desc: "تلخيص فوري، اقتراحات تشغيل، وتحليلات حيّة على بيانات شركتك.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "أمان واحترافية مؤسسية",
-    desc: "صلاحيات دقيقة، تشفير على مستوى الصف، وتدقيق شفاف لكل عملية.",
-  },
-];
+};
 
-const FEATURE_CARDS = [
-  { icon: Users, title: "إدارة الموظفين", desc: "ملفات الفريق، الصلاحيات، والأدوار في مكان واحد منظّم." },
-  { icon: ClipboardList, title: "إدارة المهام", desc: "تخطيط ومتابعة لحظية لأداء الفرق وتسليم العمل." },
-  { icon: Briefcase, title: "العملاء CRM", desc: "خط أنابيب المبيعات، الفرص، وسجل التواصل بصورة موحّدة." },
-  { icon: DollarSign, title: "المالية", desc: "إيرادات، مصروفات، وفواتير مع لوحات قياس حيّة." },
-  { icon: FileBarChart, title: "التقارير الذكية", desc: "تقارير فورية مدعومة بالذكاء الاصطناعي وقابلة للتخصيص." },
-  { icon: Workflow, title: "مركز الأتمتة", desc: "سيناريوهات تشغيل تربط الوحدات وتقلّل التدخّل اليدوي." },
-];
-
-const HOW_STEPS = [
-  {
-    icon: LogIn,
-    title: "ابدأ خلال دقائق",
-    desc: "أنشئ حساب شركتك بدون إعدادات معقّدة وادعُ فريقك بسرعة.",
-  },
-  {
-    icon: Plug,
-    title: "اربط فرقك ووحداتك",
-    desc: "وحّد الموظفين، المهام، العملاء، والمالية داخل تجربة واحدة.",
-  },
-  {
-    icon: Sparkles,
-    title: "اترك الذكاء والأتمتة تعمل",
-    desc: "تذكيرات، تقارير، وتنبيهات تشغيلية تنفّذ نفسها بالنيابة عنك.",
-  },
-];
-
-const AUDIENCE = [
-  { icon: Rocket, title: "الشركات الناشئة", desc: "ابدأ منظّماً من اليوم الأول بدون أدوات متفرّقة." },
-  { icon: Target, title: "الوكالات والاستوديوهات", desc: "تابع المشاريع، العملاء، والفواتير من مكان واحد." },
-  { icon: Building2, title: "شركات التشغيل والخدمات", desc: "وحّد العمليات اليومية ورفع جاهزية الفرق." },
-  { icon: TrendingUp, title: "الفرق التنفيذية والإدارية", desc: "قرارات مبنية على بيانات حيّة ومؤشرات حقيقية." },
-];
+// ─── Shared sub-components ────────────────────────────────────────────────────
 
 function PrimaryCta({
   className = "",
@@ -186,9 +347,14 @@ function SectionHeading({
   );
 }
 
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function MarketingLanding() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [lang, setLang] = useState<Lang>("ar");
+
+  const c = CONTENT[lang];
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -205,13 +371,14 @@ export default function MarketingLanding() {
     setMobileMenuOpen(true);
     document.body.style.overflow = "hidden";
   };
+  const toggleLang = () => setLang((l) => (l === "ar" ? "en" : "ar"));
 
   return (
     <>
       <CodexAnimatedBackground />
       <div
         className="marketing-landing-root min-h-screen bg-[#050816] text-white antialiased overflow-x-hidden"
-        dir="rtl"
+        dir={c.dir}
         style={{ fontFamily: "'IBM Plex Sans Arabic', 'Tajawal', 'Cairo', system-ui, sans-serif" }}
       >
       {/* Legacy ambient layer hidden — codex animated bg is active */}
@@ -248,7 +415,7 @@ export default function MarketingLanding() {
             </Link>
 
             <nav className="hidden lg:flex items-center gap-1">
-              {NAV.map((item) => (
+              {c.nav.map((item) => (
                 <a
                   key={item.href}
                   href={item.href}
@@ -260,24 +427,32 @@ export default function MarketingLanding() {
             </nav>
 
             <div className="hidden lg:flex items-center gap-2">
+              <button
+                onClick={toggleLang}
+                className="inline-flex items-center gap-1.5 rounded-2xl h-10 px-3 text-sm text-white/60 hover:text-white hover:bg-white/[0.04] transition"
+                aria-label="Toggle language"
+              >
+                <Languages className="h-4 w-4" strokeWidth={1.6} />
+                <span className="text-[12.5px] font-medium">{c.langToggle}</span>
+              </button>
               <Link
                 href="/auth"
                 className="inline-flex items-center justify-center rounded-2xl font-medium h-10 px-4 text-sm text-white/70 hover:text-white hover:bg-white/[0.04] transition"
               >
-                تسجيل دخول المنشآت
+                {c.actions.navLogin}
               </Link>
               <Link
                 href="/demo"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-10 px-4 text-sm bg-gradient-to-l from-[#1E6FD9] via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_8px_32px_-8px_rgba(34,211,238,0.5)] hover:brightness-110 transition"
               >
-                طلب العرض التجريبي
+                {c.actions.navDemo}
               </Link>
             </div>
 
             <button
               onClick={openMenu}
               className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.10] bg-white/[0.03] text-white hover:bg-white/[0.06] transition"
-              aria-label="فتح القائمة"
+              aria-label={c.actions.menuOpen}
             >
               <Menu className="h-5 w-5" strokeWidth={1.6} />
             </button>
@@ -301,19 +476,19 @@ export default function MarketingLanding() {
             <button
               onClick={closeMenu}
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.10] bg-white/[0.03] text-white"
-              aria-label="إغلاق"
+              aria-label={c.actions.menuClose}
             >
               <X className="h-5 w-5" strokeWidth={1.6} />
             </button>
           </div>
           <nav className="p-3">
-            {NAV.map((item, i) => (
+            {c.nav.map((item, i) => (
               <a
                 key={item.href}
                 href={item.href}
                 onClick={closeMenu}
                 className={`block px-4 py-3.5 text-[15px] text-white/90 hover:bg-white/[0.04] rounded-xl ${
-                  i < NAV.length - 1 ? "border-b border-white/[0.04]" : ""
+                  i < c.nav.length - 1 ? "border-b border-white/[0.04]" : ""
                 }`}
               >
                 {item.label}
@@ -321,13 +496,20 @@ export default function MarketingLanding() {
             ))}
           </nav>
           <div className="p-4 pt-2 grid gap-2.5">
+            <button
+              onClick={() => { closeMenu(); toggleLang(); }}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-11 px-6 text-[14px] bg-white/[0.04] text-white/70 border border-white/[0.08] w-full"
+            >
+              <Languages className="h-4 w-4" strokeWidth={1.8} />
+              {c.langToggle}
+            </button>
             <Link
               href="/auth"
               onClick={closeMenu}
               className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-12 px-6 text-[15px] bg-white/[0.04] text-white border border-white/[0.10] backdrop-blur-md w-full"
             >
               <LogIn className="h-4 w-4" strokeWidth={1.8} />
-              تسجيل دخول المنشآت
+              {c.actions.mobileLogin}
             </Link>
             <Link
               href="/demo"
@@ -335,7 +517,7 @@ export default function MarketingLanding() {
               className="inline-flex items-center justify-center gap-2 rounded-2xl font-medium h-12 px-6 text-[15px] bg-gradient-to-l from-[#1E6FD9] via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_8px_32px_-8px_rgba(34,211,238,0.55)] w-full"
             >
               <Send className="h-4 w-4" strokeWidth={1.8} />
-              طلب العرض التجريبي
+              {c.actions.mobileDemo}
             </Link>
           </div>
         </div>
@@ -380,10 +562,10 @@ export default function MarketingLanding() {
               className="mt-6 sm:mt-8 text-center text-[34px] leading-[1.18] sm:text-5xl sm:leading-[1.12] md:text-6xl lg:text-[68px] lg:leading-[1.08] font-bold text-white tracking-tight max-w-5xl mx-auto animate-fade-up"
               style={{ animationDelay: "100ms" }}
             >
-              نظام إدارة الأعمال{" "}
+              {c.hero.title}{" "}
               <span className="relative inline-block">
                 <span className="bg-gradient-to-l from-[#22D3EE] via-[#3B82F6] to-[#1E6FD9] bg-clip-text text-transparent">
-                  بالذكاء الاصطناعي
+                  {c.hero.titleAccent}
                 </span>
                 <span
                   aria-hidden="true"
@@ -396,23 +578,22 @@ export default function MarketingLanding() {
               className="mt-5 sm:mt-6 text-center text-[15.5px] sm:text-lg md:text-xl leading-relaxed max-w-3xl mx-auto animate-fade-up"
               style={{ animationDelay: "200ms", color: "rgba(255,255,255,0.72)" }}
             >
-              منصة سعودية لإدارة العمليات، العملاء، المهام، التقارير، والأتمتة من مكان
-              واحد — مصمّمة للشركات التي تبحث عن تشغيل أكثر ذكاءً وكفاءة.
+              {c.hero.subtitle}
             </p>
 
             <div
               className="mt-7 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-up"
               style={{ animationDelay: "300ms" }}
             >
-              <PrimaryCta className="w-full sm:w-auto" />
-              <SecondaryCta className="w-full sm:w-auto" />
+              <PrimaryCta className="w-full sm:w-auto" label={c.actions.primary} />
+              <SecondaryCta className="w-full sm:w-auto" label={c.actions.secondary} />
             </div>
 
             <div
               className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12.5px] animate-fade-up"
               style={{ animationDelay: "400ms", color: "rgba(255,255,255,0.72)" }}
             >
-              {TRUST_BULLETS.map((item) => (
+              {c.trustBullets.map((item) => (
                 <span key={item} className="flex items-center gap-1.5">
                   <Check className="h-3.5 w-3.5 text-[#22D3EE]" strokeWidth={2.5} />
                   {item}
@@ -430,13 +611,13 @@ export default function MarketingLanding() {
           />
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6">
             <SectionHeading
-              eyebrow="لماذا نحن"
-              title="منظومة عربية واحدة لإدارة"
-              titleAccent="أعمالك بذكاء"
-              desc="أربعة مبادئ بُني عليها النظام لتقدّم تجربة سعودية احترافية."
+              eyebrow={c.why.eyebrow}
+              title={c.why.title}
+              titleAccent={c.why.titleAccent}
+              desc={c.why.desc}
             />
             <div className="mt-12 sm:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {WHY_CARDS.map((card) => {
+              {c.why.cards.map((card) => {
                 const Icon = card.icon;
                 return (
                   <div
@@ -476,13 +657,13 @@ export default function MarketingLanding() {
           />
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6">
             <SectionHeading
-              eyebrow="المزايا الرئيسية"
-              title="كل ما تحتاجه شركتك"
-              titleAccent="في نظام واحد"
-              desc="ست وحدات تشغيلية مصمّمة لتعمل معاً بسلاسة، مع لمسة ذكاء اصطناعي."
+              eyebrow={c.features.eyebrow}
+              title={c.features.title}
+              titleAccent={c.features.titleAccent}
+              desc={c.features.desc}
             />
             <div className="mt-12 sm:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {FEATURE_CARDS.map((f) => {
+              {c.features.cards.map((f) => {
                 const Icon = f.icon;
                 return (
                   <div
@@ -520,13 +701,13 @@ export default function MarketingLanding() {
           />
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6">
             <SectionHeading
-              eyebrow="كيف يعمل النظام"
-              title="ثلاث خطوات"
-              titleAccent="لتشغيل أذكى"
-              desc="إعداد سريع بدون تعقيد، وقيمة تظهر من أول أسبوع."
+              eyebrow={c.how.eyebrow}
+              title={c.how.title}
+              titleAccent={c.how.titleAccent}
+              desc={c.how.desc}
             />
             <div className="mt-12 sm:mt-16 grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 relative">
-              {HOW_STEPS.map((s, i) => {
+              {c.how.steps.map((s, i) => {
                 const Icon = s.icon;
                 return (
                   <div
@@ -543,7 +724,7 @@ export default function MarketingLanding() {
                           <Icon className="h-5 w-5" strokeWidth={1.6} />
                         </span>
                         <span className="text-[11px] font-mono text-white/45 tabular-nums">
-                          الخطوة 0{i + 1}
+                          {c.how.stepPrefix} 0{i + 1}
                         </span>
                       </div>
                       <div className="min-w-0 flex-1">
@@ -573,13 +754,13 @@ export default function MarketingLanding() {
           />
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6">
             <SectionHeading
-              eyebrow="لمن مناسب"
-              title="مصمّم لشركات تبحث"
-              titleAccent="عن تشغيل احترافي"
-              desc="من فرق صغيرة تبدأ، إلى شركات تشغيلية تتوسّع وتحتاج نظاماً موحّداً."
+              eyebrow={c.audience.eyebrow}
+              title={c.audience.title}
+              titleAccent={c.audience.titleAccent}
+              desc={c.audience.desc}
             />
             <div className="mt-12 sm:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {AUDIENCE.map((a) => {
+              {c.audience.items.map((a) => {
                 const Icon = a.icon;
                 return (
                   <div
@@ -606,7 +787,7 @@ export default function MarketingLanding() {
         </section>
 
         {/* ━━━━━━━━━━ PRICING ━━━━━━━━━━ */}
-        <PricingSection />
+        <PricingSection lang={lang} />
 
         {/* ━━━━━━━━━━ FINAL CTA ━━━━━━━━━━ */}
         <section id="contact" className="relative py-20 sm:py-24 lg:py-32">
@@ -639,27 +820,27 @@ export default function MarketingLanding() {
               />
 
               <div className="relative p-8 sm:p-12 lg:p-16 text-center">
-                <EyebrowChip>ابدأ اليوم</EyebrowChip>
+                <EyebrowChip>{c.cta.eyebrow}</EyebrowChip>
                 <h2 className="mt-5 text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-[1.2] tracking-tight max-w-3xl mx-auto">
-                  جاهز تشغّل شركتك بطريقة{" "}
+                  {c.cta.title}{" "}
                   <span className="bg-gradient-to-l from-[#22D3EE] via-[#3B82F6] to-[#1E6FD9] bg-clip-text text-transparent">
-                    أذكى
+                    {c.cta.titleAccent}
                   </span>
                 </h2>
                 <p
                   className="mt-5 sm:mt-6 text-[15px] sm:text-lg leading-relaxed max-w-2xl mx-auto"
                   style={{ color: "rgba(255,255,255,0.72)" }}
                 >
-                  احصل على عرض تجريبي مخصّص لشركتك، أو استكشف الديمو التفاعلي مباشرة.
+                  {c.cta.desc}
                 </p>
                 <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <PrimaryCta className="w-full sm:w-auto" />
+                  <PrimaryCta className="w-full sm:w-auto" label={c.actions.primary} />
                 </div>
                 <div
                   className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12.5px]"
                   style={{ color: "rgba(255,255,255,0.72)" }}
                 >
-                  {TRUST_BULLETS.map((item) => (
+                  {c.trustBullets.map((item) => (
                     <span key={item} className="flex items-center gap-1.5">
                       <Check className="h-3.5 w-3.5 text-[#22D3EE]" strokeWidth={2.5} />
                       {item}
@@ -685,21 +866,14 @@ export default function MarketingLanding() {
             </span>
           </div>
           <div className="flex items-center gap-5 text-[12.5px]" style={{ color: "rgba(255,255,255,0.72)" }}>
-            <a href="#why" className="hover:text-white transition">
-              لماذا نحن
-            </a>
-            <a href="#features" className="hover:text-white transition">
-              المزايا
-            </a>
-            <a href="#pricing" className="hover:text-white transition">
-              الباقات
-            </a>
-            <a href="#contact" className="hover:text-white transition">
-              تواصل
-            </a>
+            {c.footer.links.map((link) => (
+              <a key={link.href} href={link.href} className="hover:text-white transition">
+                {link.label}
+              </a>
+            ))}
           </div>
           <div className="text-[11.5px]" style={{ color: "rgba(255,255,255,0.45)" }}>
-            © Blumark24 OS
+            {c.footer.copyright}
           </div>
         </div>
       </footer>
