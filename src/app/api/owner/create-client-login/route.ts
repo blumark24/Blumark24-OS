@@ -9,11 +9,11 @@ import { isOwnerEmail } from "@/lib/owner";
 import {
   createServiceRoleAdmin,
   findAuthUserIdByEmail,
-  passwordError,
   upsertLinkedProfile,
   verifyOwnerBearer,
   writeOwnerAuditLog,
 } from "@/lib/api/ownerServerCommon";
+import { validatePasswordForAuth } from "@/lib/security/passwordGuard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,10 +41,11 @@ export async function POST(req: NextRequest) {
     if (!organizationId) {
       return NextResponse.json({ success: false, error: "معرّف المنشأة مطلوب" }, { status: 400 });
     }
-    const pwErr = passwordError(password);
-    if (pwErr) {
-      return NextResponse.json({ success: false, error: pwErr }, { status: 400 });
+    const pwResult = await validatePasswordForAuth(password);
+    if (!pwResult.ok) {
+      return NextResponse.json({ success: false, error: pwResult.error }, { status: 400 });
     }
+    const pwGuardWarning = pwResult.ok && !!pwResult.warning;
 
     const orgResp = await admin
       .from("organizations")
@@ -173,7 +174,7 @@ export async function POST(req: NextRequest) {
       action: "create_client_login",
       target_type: "organization",
       target_id: organizationId,
-      metadata: { owner_email: ownerEmail, auth_user_id: userId, adopted },
+      metadata: { owner_email: ownerEmail, auth_user_id: userId, adopted, ...(pwGuardWarning ? { password_guard_warning: true } : {}) },
     });
 
     return NextResponse.json({ success: true, id: userId, email: ownerEmail, adopted });

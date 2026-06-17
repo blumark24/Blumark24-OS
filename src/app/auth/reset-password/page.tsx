@@ -65,6 +65,19 @@ export default function ResetPasswordPage() {
     if (!/[^A-Za-z0-9]/.test(newPw)) { setError("كلمة المرور يجب أن تحتوي على رمز (!@#$...)");     return; }
 
     setLoading(true);
+
+    const guardRes = await fetch("/api/auth/check-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: newPw }),
+    }).then((r) => r.json()).catch(() => ({ ok: false, error: "تعذر التحقق من كلمة المرور" }));
+
+    if (!guardRes.ok) {
+      setLoading(false);
+      setError(guardRes.error ?? "كلمة المرور غير مقبولة");
+      return;
+    }
+
     const { error: updErr } = await supabase.auth.updateUser({ password: newPw });
     setLoading(false);
 
