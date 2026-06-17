@@ -71,14 +71,15 @@ const AuthContext = createContext<AuthContextValue>({
 // clears the owner edge marker, and vice versa.
 function setSessionCookie(value: string) {
   if (typeof document === "undefined") return;
+  const secureAttr = window.location.protocol === "https:" ? "; Secure" : "";
   if (value) {
-    document.cookie = `blumark_customer_session=${value}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+    document.cookie = `blumark_customer_session=${value}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax${secureAttr}`;
   } else {
-    document.cookie = "blumark_customer_session=; path=/; max-age=0; SameSite=Lax";
+    document.cookie = `blumark_customer_session=; path=/; max-age=0; SameSite=Lax${secureAttr}`;
     // Best-effort cleanup of the pre-PR5-D shared marker. Safe to clear
     // because anyone hitting customer logout intends to drop their own
     // customer-side authentication.
-    document.cookie = "blumark_session=; path=/; max-age=0; SameSite=Lax";
+    document.cookie = `blumark_session=; path=/; max-age=0; SameSite=Lax${secureAttr}`;
   }
 }
 
