@@ -10,7 +10,7 @@ import Link from "next/link";
 import {
   ArrowRight, RefreshCw, BrainCircuit, Users,
   AlertCircle, Clock, Activity, Calendar, Sparkles, Heart,
-  AlertTriangle, Zap, LayoutGrid, X, Building2, Shield,
+  AlertTriangle, LayoutGrid, X, Building2, Shield,
   Layers, MapPin, Crown, ChevronDown, DoorOpen, Archive, Settings2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1344,19 +1344,11 @@ function KpiCard({ label, value, sub, Icon, iconBg }: {
 function ActivityPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] }) {
   const items = useMemo(() => {
     const safeTasks = Array.isArray(tasks) ? tasks : [];
-    const live = [...safeTasks].filter((t) => t?.title).slice(0, 5).map((t, i) => ({
+    return [...safeTasks].filter((t) => t?.title).slice(0, 5).map((t, i) => ({
       id: t.id ?? `a${i}`, title: t.title, status: t.status ?? "",
       room: rooms[i % Math.max(rooms.length, 1)]?.name ?? "—",
-      ago: (["دقيقتين", "5 دقائق", "10 دقائق", "15 دقائق", "20 دقيقة"] as const)[i] ?? "—",
+      ago: t.createdAt || t.dueDate || "—",
     }));
-    if (live.length > 0) return live;
-    return [
-      { id: "d1", title: "تم إسناد مهمة في غرفة التنفيذ",           room: "غرفة التنفيذ",         ago: "دقيقتين",  status: "قيد_التنفيذ" },
-      { id: "d2", title: "انضم محمد لاجتماع غرفة المبيعات",         room: "غرفة المبيعات",       ago: "5 دقائق",   status: "جديدة"       },
-      { id: "d3", title: "تم تحديث مهمة في غرفة الدعم",            room: "غرفة الدعم",          ago: "10 دقائق",  status: "قيد_التنفيذ" },
-      { id: "d4", title: "تم رفع فاتورة #INV-2026-0034",           room: "غرفة المالية",        ago: "15 دقائق",  status: "بانتظار_المراجعة" },
-      { id: "d5", title: "تم إنشاء اجتماع في غرفة الإدارة العليا", room: "غرفة الإدارة العليا", ago: "20 دقيقة",  status: "جديدة"       },
-    ];
   }, [tasks, rooms]);
 
   const DOT_COLOR: Record<string, string> = { "متأخرة": "#ef4444", "مكتملة": "#10b981", "قيد_التنفيذ": "#f59e0b" };
@@ -1371,16 +1363,22 @@ function ActivityPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
         <Link href="/tasks" style={{ fontSize: 10, color: "#3a5a7a", textDecoration: "none" }}>› الكل</Link>
       </div>
       <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {items.map((item, i) => (
-          <li key={item.id} style={{ padding: "10px 16px", borderBottom: i < items.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", display: "flex", alignItems: "flex-start", gap: 10 }}>
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: DOT_COLOR[item.status] ?? "#22d3ee", flexShrink: 0, marginTop: 4 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 12, color: "#b0c8e0", margin: 0, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</p>
-              <p style={{ fontSize: 10, color: "#3a5a7a", margin: "2px 0 0" }}>{item.room}</p>
-            </div>
-            <span style={{ fontSize: 10, color: "#2a4060", flexShrink: 0 }}>منذ {item.ago}</span>
+        {items.length === 0 ? (
+          <li style={{ padding: "10px 16px", color: "#3a5a7a", fontSize: 11 }}>
+            لا توجد أنشطة حالية داخل المكتب التنفيذي.
           </li>
-        ))}
+        ) : (
+          items.map((item, i) => (
+            <li key={item.id} style={{ padding: "10px 16px", borderBottom: i < items.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: DOT_COLOR[item.status] ?? "#22d3ee", flexShrink: 0, marginTop: 4 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 12, color: "#b0c8e0", margin: 0, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</p>
+                <p style={{ fontSize: 10, color: "#3a5a7a", margin: "2px 0 0" }}>{item.room}</p>
+              </div>
+              <span style={{ fontSize: 10, color: "#2a4060", flexShrink: 0 }}>{item.ago === "—" ? "—" : item.ago}</span>
+            </li>
+          ))
+        )}
       </ul>
     </div>
   );
@@ -1388,12 +1386,7 @@ function ActivityPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
 
 // ─── Meeting Rooms Panel ──────────────────────────────────────────────────────
 
-function MeetingRoomsPanel({ rooms }: { rooms: OfficeRoom[] }) {
-  // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1: empty placeholders use numbered
-  // offices, not fake department names.
-  const list = rooms.length > 0
-    ? rooms.slice(0, 3)
-    : [0, 1, 2].map((i) => ({ id: `mr${i}`, name: officeLabel(i + 1), employeeCount: 0 }));
+function MeetingRoomsPanel() {
   return (
     <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(6,14,28,0.92)", overflow: "hidden", flex: 1 }}>
       <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1401,34 +1394,13 @@ function MeetingRoomsPanel({ rooms }: { rooms: OfficeRoom[] }) {
         <span style={{ fontSize: 10, color: "#3a5a7a" }}>عرض التقويم</span>
       </div>
       <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {list.map((room, i) => {
-          const occupied = i === 0;
-          return (
-            <li key={room.id ?? i} style={{ padding: "10px 16px", borderBottom: i < list.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 10, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: occupied ? "rgba(139,92,246,0.20)" : "rgba(255,255,255,0.04)" }}>
-                <MessageSquare size={14} color={occupied ? "#a78bfa" : "#3a5a7a"} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 12, fontWeight: 500, color: "#c8ddf0", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{room.name}</p>
-                <p style={{ fontSize: 10, color: "#3a5a7a", margin: "2px 0 0" }}>{occupied ? "11:00 - 11:30" : "لا يوجد اجتماع محدول"}</p>
-              </div>
-              <button type="button" style={{ flexShrink: 0, fontSize: 10, fontWeight: 500, padding: "4px 10px", borderRadius: 8, border: occupied ? "1px solid rgba(139,92,246,0.35)" : "1px solid rgba(255,255,255,0.08)", background: occupied ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.04)", color: occupied ? "#c4b5fd" : "#5a7a9a", cursor: "default" }}>
-                {occupied ? "مشغولة الآن" : "جدولة سريعة"}
-              </button>
-            </li>
-          );
-        })}
+        <li style={{ padding: "10px 16px", color: "#3a5a7a", fontSize: 11 }}>
+          لا توجد اجتماعات مجدولة حالياً.
+        </li>
       </ul>
     </div>
   );
 }
-
-// missing import
-const MessageSquare = ({ size, color }: { size: number; color: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-  </svg>
-);
 
 // ─── AI Alerts Panel ──────────────────────────────────────────────────────────
 
@@ -1447,14 +1419,8 @@ function AIAlertsPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
     const pending   = safeTasks.filter((t) => t?.status === "بانتظار_المراجعة");
     const result: AlertItem[] = [];
     if (overdue.length > 0) result.push({ id: "a1", type: "تحذير", text: `${overdue.length} مهام متأخرة في ${rooms[0]?.name ?? "الأقسام"}`, room: rooms[0]?.name ?? "—", Icon: AlertTriangle });
-    if (pending.length > 0) result.push({ id: "a2", type: "حاد",   text: "#INV-2026-0034 متأخر عن الموعد", room: rooms[1]?.name ?? "—", Icon: AlertCircle });
-    if (result.length >= 2) return result;
-    return [
-      { id: "d1", type: "تنبيه",  text: "مؤشر النشاط انخفض -38% مقارنة بالأسبوع الماضي", room: "غرفة المبيعات", Icon: AlertTriangle },
-      { id: "d2", type: "تحذير",  text: "3 مهام متأخرة في غرفة التسويق", room: "غرفة التسويق", Icon: AlertTriangle },
-      { id: "d3", type: "حاد",    text: "#INV-2026-0034 متأخر عن الموعد", room: "غرفة المالية", Icon: AlertCircle },
-      { id: "d4", type: "توصية",  text: "إعادة توزيع مهام الدعم على موظفين من قسم التنفيذ", room: "غرفة الدعم", Icon: Zap },
-    ];
+    if (pending.length > 0) result.push({ id: "a2", type: "حاد", text: `${pending.length} مهام بانتظار المراجعة`, room: rooms[1]?.name ?? "—", Icon: AlertCircle });
+    return result;
   }, [tasks, rooms]);
 
   return (
@@ -1464,7 +1430,11 @@ function AIAlertsPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
         <span style={{ fontSize: 10, color: "#3a5a7a" }}>عرض الكل</span>
       </div>
       <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {alerts.slice(0, 4).map((alert, i) => {
+        {alerts.length === 0 ? (
+          <li style={{ padding: "10px 16px", color: "#3a5a7a", fontSize: 11 }}>
+            لا توجد تنبيهات حالية.
+          </li>
+        ) : alerts.slice(0, 4).map((alert, i) => {
           const ts = TYPE_STYLE[alert.type] ?? TYPE_STYLE["تنبيه"]!;
           const AlertIcon = alert.Icon;
           return (
@@ -2082,23 +2052,15 @@ export default function VirtualOfficeDesign({
         id: t.id ?? `m-a-${i}`,
         title: t.title,
         room: rooms[i % Math.max(rooms.length, 1)]?.name ?? "—",
-        ago: i === 0 ? "دقيقتين" : "5 دقائق",
+        ago: t.createdAt || t.dueDate || "—",
       }));
-    if (fromTasks.length > 0) return fromTasks;
-    return [
-      { id: "ma1", title: "تم إسناد مهمة في غرفة التنفيذ",   room: "غرفة التنفيذ",   ago: "دقيقتين" },
-      { id: "ma2", title: "انضم محمد لاجتماع غرفة المبيعات", room: "غرفة المبيعات", ago: "5 دقائق" },
-    ];
+    return fromTasks;
   }, [safeTasks, rooms]);
 
   const mobileMeetings = useMemo(() => {
-    const meet = rooms.find((r) => r.isCenter);
-    const next = rooms.find((r) => !r.isCenter && !r.isAI);
     const list: Array<{ id: string; name: string; status: string }> = [];
-    if (meet) list.push({ id: meet.id, name: meet.name, status: "مشغولة الآن · 11:00 – 11:30" });
-    if (next) list.push({ id: next.id, name: `اجتماع ${next.name}`, status: "لا يوجد اجتماع مجدول" });
     return list;
-  }, [rooms]);
+  }, []);
 
   const mobileAlerts = useMemo(() => {
     const overdue = safeTasks.filter((t) => t?.status === "متأخرة");
@@ -2108,10 +2070,7 @@ export default function VirtualOfficeDesign({
         { id: "mal2", type: "حاد",   text: "تحقق من تكليفات المهام المتأخرة", room: rooms[1]?.name ?? "—" },
       ];
     }
-    return [
-      { id: "mal1", type: "تنبيه", text: "مؤشر النشاط مستقر هذا الأسبوع", room: "غرفة المبيعات" },
-      { id: "mal2", type: "توصية", text: "راجع توزيع المهام في الدعم",    room: "غرفة الدعم"   },
-    ];
+    return [];
   }, [safeTasks, rooms]);
 
   const selectedMapping = selectedRoom
@@ -2247,7 +2206,7 @@ export default function VirtualOfficeDesign({
             )}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ alignItems: "start" }}>
               <ActivityPanel tasks={safeTasks} rooms={rooms} />
-              <MeetingRoomsPanel rooms={rooms} />
+              <MeetingRoomsPanel />
               <AIAlertsPanel tasks={safeTasks} rooms={rooms} />
             </div>
           </div>
