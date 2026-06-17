@@ -1,5 +1,5 @@
 -- ============================================================
--- P0-SUPABASE-HARDENING — Stage 1
+-- P0-SUPABASE-HARDENING — Stage 1A
 -- Branch: p0/supabase-hardening-stage-1
 -- Date:   2026-06-17
 --
@@ -20,8 +20,10 @@
 --   - current_org_id, get_my_role, can_manage_tenant_org: remain callable
 --     by authenticated (required for RLS policies — cannot be removed).
 --   - is_owner: remains without authenticated grant (correct, per 030).
+--   - b24_assign_* trigger functions: direct execution remains revoked;
+--     they are intended to run only through table triggers.
 --   - Performance: auth_rls_initplan, duplicate indexes, multiple permissive
---     policies, unindexed FKs — deferred to Stage 2.
+--     policies, unindexed FKs — deferred to later stages.
 --   - Leaked password protection: manual Supabase Auth Dashboard setting.
 -- ============================================================
 
@@ -83,8 +85,8 @@ $$;
 
 -- ── 4. Revoke direct execute on b24_assign_* trigger functions ───────────────
 -- These are BEFORE INSERT trigger functions invoked by the DB engine.
--- No user role needs EXECUTE directly: table INSERT permission is sufficient
--- to fire the trigger. Revoking direct execute does not break triggers.
+-- No app or service role should call trigger functions directly.
+-- Table INSERT permission is sufficient to fire the trigger.
 DO $$
 DECLARE
   fn text;
@@ -107,43 +109,58 @@ END $$;
 
 -- ── 5. Revoke direct execute on b24_backfill_* utility functions ─────────────
 -- Backfill functions are admin-only migration utilities.
--- They must only be callable via service_role (which bypasses REVOKE by default).
--- Migration 033 created these without any explicit REVOKE.
+-- service_role bypasses RLS, but function EXECUTE privileges still apply;
+-- therefore service_role is explicitly granted after public/user revokes.
 DO $$
 BEGIN
   IF to_regprocedure('public.b24_backfill_global_codes(regclass,text,text,integer)') IS NOT NULL THEN
     EXECUTE 'REVOKE ALL ON FUNCTION public.b24_backfill_global_codes(regclass, text, text, integer) FROM PUBLIC';
     EXECUTE 'REVOKE ALL ON FUNCTION public.b24_backfill_global_codes(regclass, text, text, integer) FROM anon';
     EXECUTE 'REVOKE ALL ON FUNCTION public.b24_backfill_global_codes(regclass, text, text, integer) FROM authenticated';
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+      EXECUTE 'GRANT EXECUTE ON FUNCTION public.b24_backfill_global_codes(regclass, text, text, integer) TO service_role';
+    END IF;
   END IF;
+
   IF to_regprocedure('public.b24_backfill_tenant_codes(regclass,text,text,integer)') IS NOT NULL THEN
     EXECUTE 'REVOKE ALL ON FUNCTION public.b24_backfill_tenant_codes(regclass, text, text, integer) FROM PUBLIC';
     EXECUTE 'REVOKE ALL ON FUNCTION public.b24_backfill_tenant_codes(regclass, text, text, integer) FROM anon';
     EXECUTE 'REVOKE ALL ON FUNCTION public.b24_backfill_tenant_codes(regclass, text, text, integer) FROM authenticated';
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+      EXECUTE 'GRANT EXECUTE ON FUNCTION public.b24_backfill_tenant_codes(regclass, text, text, integer) TO service_role';
+    END IF;
   END IF;
 END $$;
 
 -- ── 6. Revoke direct execute on b24_next_* code-sequence helpers ─────────────
--- Internal helpers called only by the b24_assign_* trigger functions.
--- No user role should call these directly.
+-- Internal helpers are called by b24_assign_* trigger functions. Direct app
+-- execution is revoked. service_role is explicitly granted for admin/support
+-- maintenance because function EXECUTE privileges are independent from RLS.
 DO $$
 BEGIN
   IF to_regprocedure('public.b24_next_global_code(regclass,text,text,integer)') IS NOT NULL THEN
     EXECUTE 'REVOKE ALL ON FUNCTION public.b24_next_global_code(regclass, text, text, integer) FROM PUBLIC';
     EXECUTE 'REVOKE ALL ON FUNCTION public.b24_next_global_code(regclass, text, text, integer) FROM anon';
     EXECUTE 'REVOKE ALL ON FUNCTION public.b24_next_global_code(regclass, text, text, integer) FROM authenticated';
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+      EXECUTE 'GRANT EXECUTE ON FUNCTION public.b24_next_global_code(regclass, text, text, integer) TO service_role';
+    END IF;
   END IF;
+
   IF to_regprocedure('public.b24_next_tenant_code(regclass,uuid,text,text,integer)') IS NOT NULL THEN
     EXECUTE 'REVOKE ALL ON FUNCTION public.b24_next_tenant_code(regclass, uuid, text, text, integer) FROM PUBLIC';
     EXECUTE 'REVOKE ALL ON FUNCTION public.b24_next_tenant_code(regclass, uuid, text, text, integer) FROM anon';
     EXECUTE 'REVOKE ALL ON FUNCTION public.b24_next_tenant_code(regclass, uuid, text, text, integer) FROM authenticated';
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+      EXECUTE 'GRANT EXECUTE ON FUNCTION public.b24_next_tenant_code(regclass, uuid, text, text, integer) TO service_role';
+    END IF;
   END IF;
 END $$;
 
 -- ── 7. Tighten handle_new_user and set_current_org_id ────────────────────────
 -- Migration 030 already revoked from PUBLIC and anon.
--- Re-assert full revoke including authenticated: trigger functions do not
--- need direct execute grants to any user role.
+-- Re-assert full revoke including authenticated: these are trigger functions
+-- and should not be directly callable by any user role.
 DO $$
 BEGIN
   IF to_regprocedure('public.handle_new_user()') IS NOT NULL THEN
@@ -187,7 +204,7 @@ END $$;
 --    Supabase Dashboard → Authentication → Providers → Email
 --    Enable "Leaked password protection" (HaveIBeenPwned check).
 --
--- 2. Performance issues deferred to Stage 2:
+-- 2. Performance issues deferred to later stages:
 --    auth_rls_initplan — requires wrapping RLS policies with (SELECT ...)
 --    multiple permissive policies — requires policy consolidation review
 --    duplicate indexes — requires index audit
