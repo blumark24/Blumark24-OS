@@ -31,7 +31,8 @@ export default function OwnerLogoutButton() {
       // PR5-D: clear ONLY the owner edge marker. A parallel customer
       // session in the same browser still satisfies middleware via its
       // own `blumark_customer_session` cookie.
-      document.cookie = "blumark_owner_session=; path=/; max-age=0; SameSite=Lax";
+      const secureAttr = window.location.protocol === "https:" ? "; Secure" : "";
+      document.cookie = `blumark_owner_session=; path=/; max-age=0; SameSite=Strict${secureAttr}`;
       router.replace("/owner/login");
       router.refresh();
     } catch {
