@@ -65,7 +65,8 @@ export default function OwnerLoginPage() {
 
       // PR5-D: owner-scoped middleware marker — distinct from
       // `blumark_customer_session` so customer logout cannot clear it.
-      document.cookie = `blumark_owner_session=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+      const secureAttr = window.location.protocol === "https:" ? "; Secure" : "";
+      document.cookie = `blumark_owner_session=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Strict${secureAttr}`;
       router.replace("/owner");
     } catch {
       setError("تعذّر إكمال تسجيل الدخول — حاول مجدداً");
