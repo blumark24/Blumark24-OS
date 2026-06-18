@@ -35,13 +35,16 @@ function shouldRunNow(schedule: string): boolean {
 }
 
 export async function GET(req: NextRequest) {
-  // Vercel Cron sends an Authorization header with CRON_SECRET
-  const cronSecret = process.env.CRON_SECRET ?? "";
-  if (cronSecret) {
-    const auth = req.headers.get("authorization") ?? "";
-    if (auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  // Fail closed: this service-role endpoint must never run without CRON_SECRET.
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    console.error(`${TAG} CRON_SECRET is not configured`);
+    return NextResponse.json({ error: "Server cron auth not configured" }, { status: 500 });
+  }
+
+  const auth = req.headers.get("authorization") ?? "";
+  if (auth !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
