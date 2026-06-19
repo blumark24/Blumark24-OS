@@ -40,6 +40,7 @@ const ACTION_META: Record<string, { title: string; accent: Accent; icon: LucideI
   activate_subscription: { title: "تم تفعيل اشتراك", accent: "blue", icon: ArrowUpCircle },
   update_organization: { title: "تم تحديث منشأة", accent: "cyan", icon: Pencil },
   change_plan: { title: "تم تغيير الباقة", accent: "purple", icon: Layers },
+  create_plan: { title: "تم إنشاء باقة جديدة", accent: "cyan", icon: Layers },
   suspend_organization: { title: "تم تعليق منشأة", accent: "orange", icon: PauseCircle },
   reactivate_organization: { title: "تم إعادة تفعيل منشأة", accent: "green", icon: ArrowUpCircle },
   soft_delete_organization: { title: "تم حذف منشأة", accent: "orange", icon: Trash2 },
@@ -208,4 +209,21 @@ export async function fetchOwnerAuditLogCount(): Promise<number | null> {
   }
 
   return count ?? 0;
+}
+
+export async function fetchPlanAuditHistory(limit = 20): Promise<OwnerAuditEntry[]> {
+  const { data, error } = await supabase
+    .from("owner_audit_logs")
+    .select("id, action, metadata, created_at, target_id")
+    .in("action", ["create_plan", "change_plan"])
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    console.warn("[owner] plan audit history fetch failed:", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((row) => mapAuditRow(row));
 }

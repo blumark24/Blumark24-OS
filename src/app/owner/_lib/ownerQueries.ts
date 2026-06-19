@@ -1102,6 +1102,93 @@ export async function setOrganizationStatus(input: { id: string; status: "active
   return { ok: true };
 }
 
+// ─── Create a new plan (owner-only mutation) ─────────────────────────────────
+// Inserts into `plans` and then `plan_limits`. Gated by is_owner() RLS.
+
+export interface NewPlanInput {
+  name: string;
+  slug: string;
+  priceMonthly: number | null;
+  priceAnnual: number | null;
+  sortOrder: number;
+  limits: {
+    maxEmployees: number | null;
+    maxAgencies: number | null;
+    maxDepartments: number | null;
+    maxSections: number | null;
+    aiLevel: number | null;
+    whatsappEnabled: number | null;
+  };
+}
+
+export type CreatePlanErrorCode = "validation" | "duplicate_slug" | "unknown";
+
+export interface CreatePlanResult {
+  ok: boolean;
+  id?: string;
+  errorCode?: CreatePlanErrorCode;
+  error?: string;
+}
+
+export async function createPlan(input: NewPlanInput): Promise<CreatePlanResult> {
+  const name = input.name.trim();
+  const slug = input.slug.trim().toLowerCase().replace(/\s+/g, "-");
+  if (!name) return { ok: false, errorCode: "validation", error: "اسم الباقة مطلوب" };
+  if (!slug) return { ok: false, errorCode: "validation", error: "المعرّف (slug) مطلوب" };
+
+  const { data, error } = await supabase
+    .from("plans")
+    .insert({
+      name,
+      slug,
+      price_monthly: input.priceMonthly,
+      price_annual: input.priceAnnual,
+      sort_order: input.sortOrder,
+      is_active: true,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      return { ok: false, errorCode: "duplicate_slug", error: "المعرّف (slug) مستخدم مسبقًا" };
+    }
+    console.error("[owner] create plan error:", error.message);
+    return { ok: false, errorCode: "unknown", error: "تعذّر إنشاء الباقة — حاول مجدداً" };
+  }
+
+  const planId = data.id as string;
+
+  const limitRows: { plan_id: string; limit_key: string; limit_value: number }[] = [];
+  const { limits } = input;
+  if (limits.maxEmployees !== null)    limitRows.push({ plan_id: planId, limit_key: "max_employees",    limit_value: limits.maxEmployees });
+  if (limits.maxAgencies !== null)     limitRows.push({ plan_id: planId, limit_key: "max_agencies",     limit_value: limits.maxAgencies });
+  if (limits.maxDepartments !== null)  limitRows.push({ plan_id: planId, limit_key: "max_departments",  limit_value: limits.maxDepartments });
+  if (limits.maxSections !== null)     limitRows.push({ plan_id: planId, limit_key: "max_sections",     limit_value: limits.maxSections });
+  if (limits.aiLevel !== null)         limitRows.push({ plan_id: planId, limit_key: "ai_level",         limit_value: limits.aiLevel });
+  if (limits.whatsappEnabled !== null) limitRows.push({ plan_id: planId, limit_key: "whatsapp_enabled", limit_value: limits.whatsappEnabled });
+
+  if (limitRows.length > 0) {
+    const { error: limErr } = await supabase.from("plan_limits").insert(limitRows);
+    if (limErr) console.warn("[owner] plan_limits insert skipped:", limErr.message);
+  }
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from("owner_audit_logs").insert({
+      owner_email: user?.email ?? "unknown",
+      action: "create_plan",
+      target_type: "plan",
+      target_id: planId,
+      metadata: { name, slug, price_monthly: input.priceMonthly, price_annual: input.priceAnnual },
+    });
+  } catch (logErr) {
+    console.warn("[owner] audit log insert failed:", logErr);
+  }
+
+  return { ok: true, id: planId };
+}
+
 // Soft-delete a customer tenant: mark deleted_at + status='cancelled'. No rows are
 // removed; the org simply leaves the active list and can be restored by clearing
 // deleted_at. The protect_internal_organization trigger rejects this on internal orgs.
