@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import {
   Layers,
+  Plus,
   Edit2,
   PauseCircle,
   SlidersHorizontal,
@@ -33,6 +34,8 @@ import {
   updatePlanPricing,
   type OwnerWorkspaceFeature,
 } from "../../_lib/planMutations";
+import CreatePlanWizard from "./CreatePlanWizard";
+import PlanHistoryTimeline from "./PlanHistoryTimeline";
 
 function numOrDash(n: number | null): string {
   if (n === -1) return "غير محدود";
@@ -419,12 +422,12 @@ function PlanCard({ plan, busy, onEdit, onToggle, onLimits, onFeatures }: {
 }) {
   const a = ACCENT[plan.accent];
   const metrics: { icon: LucideIcon; label: string; value: string }[] = [
-    { icon: Users,         label: "الحد الأقصى للموظفين", value: numOrDash(plan.limits.maxEmployees) },
-    { icon: Building2,     label: "الحد الأقصى للوكالات", value: numOrDash(plan.limits.maxAgencies) },
-    { icon: Layers,        label: "الحد الأقصى للإدارات", value: numOrDash(plan.limits.maxDepartments) },
-    { icon: Grid3x3,       label: "الحد الأقصى للأقسام",  value: numOrDash(plan.limits.maxSections) },
+    { icon: Users,         label: "الحد الأقصى للموظفين",    value: numOrDash(plan.limits.maxEmployees) },
+    { icon: Building2,     label: "الحد الأقصى للوكالات",    value: numOrDash(plan.limits.maxAgencies) },
+    { icon: Layers,        label: "الحد الأقصى للإدارات",    value: numOrDash(plan.limits.maxDepartments) },
+    { icon: Grid3x3,       label: "الحد الأقصى للأقسام",     value: numOrDash(plan.limits.maxSections) },
     { icon: Sparkles,      label: "مستوى الذكاء الاصطناعي", value: aiLevelLabel(plan.limits.aiLevel) },
-    { icon: MessageCircle, label: "واتساب بوت",          value: whatsappLabel(plan.limits.whatsappEnabled) },
+    { icon: MessageCircle, label: "واتساب بوت",              value: whatsappLabel(plan.limits.whatsappEnabled) },
   ];
 
   return (
@@ -483,6 +486,8 @@ export default function PlansPageContent() {
   const [editPlan, setEditPlan] = useState<DisplayPlanFull | null>(null);
   const [limitsPlan, setLimitsPlan] = useState<DisplayPlanFull | null>(null);
   const [featuresPlan, setFeaturesPlan] = useState<DisplayPlanFull | null>(null);
+  const [showWizard, setShowWizard] = useState(false);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   const loadPlans = useCallback(async () => {
     setError(null);
@@ -531,10 +536,24 @@ export default function PlansPageContent() {
             إدارة باقات منصة Blumark24 وأسعارها وحدودها وميزاتها من لوحة المالك مباشرة.
           </p>
         </div>
-        <button type="button" onClick={() => void loadPlans()} className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/[0.08] px-4 py-2.5 text-[13px] font-medium text-[#22d3ee] hover:bg-[#22d3ee]/15 transition-colors flex-shrink-0">
-          <RefreshCw size={15} />
-          تحديث البيانات
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => void loadPlans()}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.04] px-4 py-2.5 text-[13px] font-medium text-[#8ba3c7] hover:text-white hover:bg-white/[0.08] transition-colors"
+          >
+            <RefreshCw size={15} />
+            تحديث
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowWizard(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/[0.12] px-4 py-2.5 text-[13px] font-medium text-[#22d3ee] hover:bg-[#22d3ee]/[0.20] transition"
+          >
+            <Plus size={15} />
+            إنشاء باقة
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -578,9 +597,22 @@ export default function PlansPageContent() {
         </div>
       )}
 
+      <PlanHistoryTimeline refreshKey={historyRefreshKey} />
+
       {editPlan && <EditPlanModal plan={editPlan} onClose={() => setEditPlan(null)} onSaved={loadPlans} />}
       {limitsPlan && <LimitsModal plan={limitsPlan} onClose={() => setLimitsPlan(null)} onSaved={loadPlans} />}
       {featuresPlan && <FeaturesModal plan={featuresPlan} onClose={() => setFeaturesPlan(null)} onSaved={loadPlans} />}
+
+      {showWizard && (
+        <CreatePlanWizard
+          onClose={() => setShowWizard(false)}
+          onCreated={() => {
+            setShowWizard(false);
+            setHistoryRefreshKey((k) => k + 1);
+            void loadPlans();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -68,12 +68,15 @@ async function logPlanAction(
   }
 }
 
-function cleanNullableNumber(value: number | null, fieldName: string): number | null | OwnerPlanActionResult {
-  if (value === null) return null;
+function cleanNullableNumber(
+  value: number | null,
+  fieldName: string,
+): { valid: true; value: number | null } | { valid: false; error: OwnerPlanActionResult } {
+  if (value === null) return { valid: true, value: null };
   if (!Number.isFinite(value) || value < 0) {
-    return { ok: false, error: `${fieldName} يجب أن يكون رقمًا صحيحًا أو فارغًا` };
+    return { valid: false, error: { ok: false, error: `${fieldName} يجب أن يكون رقمًا صحيحًا أو فارغًا` } };
   }
-  return Math.round(value);
+  return { valid: true, value: Math.round(value) };
 }
 
 function cleanLimit(value: number | null, fieldName: string): number | OwnerPlanActionResult {
@@ -157,10 +160,12 @@ export async function updatePlanPricing(input: UpdatePlanPricingInput): Promise<
   const name = input.name.trim();
   if (!name) return { ok: false, error: "اسم الباقة مطلوب" };
 
-  const priceMonthly = cleanNullableNumber(input.priceMonthly, "السعر الشهري");
-  if (typeof priceMonthly === "object") return priceMonthly;
-  const priceAnnual = cleanNullableNumber(input.priceAnnual, "السعر السنوي");
-  if (typeof priceAnnual === "object") return priceAnnual;
+  const monthlyResult = cleanNullableNumber(input.priceMonthly, "السعر الشهري");
+  if (!monthlyResult.valid) return monthlyResult.error;
+  const priceMonthly = monthlyResult.value;
+  const annualResult = cleanNullableNumber(input.priceAnnual, "السعر السنوي");
+  if (!annualResult.valid) return annualResult.error;
+  const priceAnnual = annualResult.value;
 
   if (!Number.isFinite(input.sortOrder) || input.sortOrder < 1) {
     return { ok: false, error: "ترتيب الباقة يجب أن يكون رقمًا أكبر من صفر" };
