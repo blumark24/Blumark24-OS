@@ -179,10 +179,10 @@ WITH canonical_limits(slug, limit_key, limit_value) AS (
     ('advanced', 'ai_level', 0),
     ('advanced', 'whatsapp_enabled', 1),
 
-    ('enterprise', 'max_employees', -1),
-    ('enterprise', 'max_agencies', -1),
-    ('enterprise', 'max_departments', -1),
-    ('enterprise', 'max_sections', -1),
+    ('enterprise', 'max_employees', 999),
+    ('enterprise', 'max_agencies', 999),
+    ('enterprise', 'max_departments', 999),
+    ('enterprise', 'max_sections', 999),
     ('enterprise', 'ai_level', 3),
     ('enterprise', 'whatsapp_enabled', 1)
 )
