@@ -1,12 +1,145 @@
 "use client";
 
-import { Search, Bell, Menu, ShieldHalf, ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import Link from "next/link";
+import { Search, Bell, Menu, ShieldHalf, ChevronDown, Clock, ExternalLink, Inbox } from "lucide-react";
+import {
+  fetchNotificationBellData,
+  type BellEntry,
+  type NotificationBellData,
+} from "../_lib/ownerTruthQueries";
 
 interface OwnerHeaderProps {
   onMobileMenuToggle: () => void;
 }
 
+// ─── Bell dropdown ─────────────────────────────────────────────────────────────
+
+function BellDropdown({
+  data,
+  loading,
+  onClose,
+}: {
+  data: NotificationBellData | null;
+  loading: boolean;
+  onClose: () => void;
+}) {
+  const entries: BellEntry[] = data?.entries ?? [];
+
+  return (
+    <div className="absolute left-0 top-full mt-2 w-[340px] sm:w-[380px] z-50 rounded-2xl border border-white/[0.10] bg-[#0a1628] shadow-[0_16px_48px_-8px_rgba(0,0,0,0.8)] overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.07]">
+        <span className="text-[13px] font-semibold text-white">آخر النشاطات</span>
+        <Link
+          href="/owner/security"
+          onClick={onClose}
+          className="flex items-center gap-1 text-[11px] text-[#22d3ee] hover:text-[#22d3ee]/80 transition-colors"
+        >
+          عرض الكل
+          <ExternalLink size={10} />
+        </Link>
+      </div>
+
+      <div className="max-h-[340px] overflow-y-auto">
+        {loading ? (
+          <div className="animate-pulse px-4 py-3 space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex gap-3">
+                <div className="h-7 w-7 rounded-lg bg-white/[0.06] flex-shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 w-32 rounded bg-white/[0.06]" />
+                  <div className="h-2.5 w-24 rounded bg-white/[0.04]" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : entries.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center px-4">
+            <Inbox size={32} className="text-white/20 mb-3" strokeWidth={1.2} />
+            <p className="text-[13px] text-white/50">لا توجد نشاطات مسجّلة بعد</p>
+            <p className="text-[11px] text-white/30 mt-1">ستظهر هنا الإجراءات التي يقوم بها مالك المنصة</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-white/[0.04]">
+            {entries.map((entry) => (
+              <li key={entry.id} className="flex items-start gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors">
+                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-[#22d3ee]/10 mt-0.5">
+                  <Clock size={12} className="text-[#22d3ee]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12.5px] text-white font-medium leading-tight truncate">{entry.title}</p>
+                  <p className="text-[11px] text-[#8ba3c7] mt-0.5 truncate">{entry.detail}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] text-[#5f7798]">{entry.timeAgo}</span>
+                    {entry.targetType && (
+                      <span className="text-[10px] text-[#5f7798] border border-white/[0.08] rounded px-1 py-0.5">
+                        {entry.targetType}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="px-4 py-2.5 border-t border-white/[0.06]">
+        <p className="text-[10px] text-[#5f7798]">
+          {entries.length > 0 ? `${entries.length} نشاط — آخر 10 سجلات` : "سجل النشاطات فارغ"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main header ───────────────────────────────────────────────────────────────
+
 export default function OwnerHeader({ onMobileMenuToggle }: OwnerHeaderProps) {
+  const [bellOpen, setBellOpen] = useState(false);
+  const [bellData, setBellData] = useState<NotificationBellData | null>(null);
+  const [bellLoading, setBellLoading] = useState(false);
+  const [hasRecent, setHasRecent] = useState(false);
+  const bellRef = useRef<HTMLDivElement>(null);
+
+  const fetchBell = useCallback(async () => {
+    if (bellData !== null) return;
+    setBellLoading(true);
+    try {
+      const data = await fetchNotificationBellData();
+      setBellData(data);
+      setHasRecent(data.hasRecentActivity);
+    } catch {
+      setBellData({ entries: [], hasRecentActivity: false });
+    } finally {
+      setBellLoading(false);
+    }
+  }, [bellData]);
+
+  // Initial dot check (no dropdown open needed).
+  useEffect(() => {
+    fetchNotificationBellData()
+      .then((d) => setHasRecent(d.hasRecentActivity))
+      .catch(() => {/* silent */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleBellClick() {
+    if (!bellOpen) void fetchBell();
+    setBellOpen((prev) => !prev);
+  }
+
+  useEffect(() => {
+    if (!bellOpen) return;
+    function handler(e: MouseEvent) {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setBellOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [bellOpen]);
+
   return (
     <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[rgba(10,22,40,0.72)] backdrop-blur-xl">
       <div className="flex items-center gap-3 px-3 sm:px-5 py-3">
@@ -19,7 +152,7 @@ export default function OwnerHeader({ onMobileMenuToggle }: OwnerHeaderProps) {
           <Menu size={20} />
         </button>
 
-        {/* Title (compact, hidden on small) */}
+        {/* Title */}
         <div className="hidden md:block flex-shrink-0">
           <div className="text-white font-heading font-bold text-[15px] leading-tight">
             Owner Command Center
@@ -42,7 +175,7 @@ export default function OwnerHeader({ onMobileMenuToggle }: OwnerHeaderProps) {
 
         {/* Right cluster */}
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          {/* System status badge */}
+          {/* System status */}
           <div className="hidden sm:flex items-center gap-2 rounded-full border border-[#10b981]/30 bg-[#10b981]/[0.1] px-3 py-1.5">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-70 animate-ping" />
@@ -53,14 +186,28 @@ export default function OwnerHeader({ onMobileMenuToggle }: OwnerHeaderProps) {
             </span>
           </div>
 
-          {/* Notifications */}
-          <button
-            className="relative p-2 rounded-xl text-white/70 hover:text-[#22d3ee] hover:bg-white/[0.04] transition-colors"
-            aria-label="الإشعارات"
-          >
-            <Bell size={18} />
-            <span className="absolute top-1 left-1 h-2 w-2 rounded-full bg-[#ff7a3d] shadow-[0_0_6px_1px_rgba(255,122,61,0.6)]" />
-          </button>
+          {/* Notification bell */}
+          <div ref={bellRef} className="relative">
+            <button
+              onClick={handleBellClick}
+              className="relative p-2 rounded-xl text-white/70 hover:text-[#22d3ee] hover:bg-white/[0.04] transition-colors"
+              aria-label="الإشعارات"
+              aria-expanded={bellOpen}
+            >
+              <Bell size={18} />
+              {hasRecent && (
+                <span className="absolute top-1 left-1 h-2 w-2 rounded-full bg-[#ff7a3d] shadow-[0_0_6px_1px_rgba(255,122,61,0.6)]" />
+              )}
+            </button>
+
+            {bellOpen && (
+              <BellDropdown
+                data={bellData}
+                loading={bellLoading}
+                onClose={() => setBellOpen(false)}
+              />
+            )}
+          </div>
 
           {/* Owner profile chip */}
           <button className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] transition-colors pr-2 pl-1.5 py-1.5">

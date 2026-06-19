@@ -227,3 +227,68 @@ export async function fetchPlanAuditHistory(limit = 20): Promise<OwnerAuditEntry
 
   return (data ?? []).map((row) => mapAuditRow(row));
 }
+
+// ─── Notification bell data ────────────────────────────────────────────────────
+// Latest 10 audit log entries with owner_email + target_type for the bell
+// dropdown, plus a flag for activity within the last 24 h (for the red dot).
+
+export interface BellEntry {
+  id: string;
+  title: string;
+  detail: string;
+  ownerEmail: string;
+  targetType: string | null;
+  timeAgo: string;
+}
+
+export interface NotificationBellData {
+  entries: BellEntry[];
+  hasRecentActivity: boolean;
+}
+
+export async function fetchNotificationBellData(): Promise<NotificationBellData> {
+  const { data, error } = await supabase
+    .from("owner_audit_logs")
+    .select("id, action, owner_email, target_type, metadata, created_at")
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (error) {
+    if (isMissingTableError(error)) return { entries: [], hasRecentActivity: false };
+    console.warn("[owner] bell fetch failed:", error.message);
+    return { entries: [], hasRecentActivity: false };
+  }
+
+  const rows = (data ?? []) as {
+    id: string;
+    action: string;
+    owner_email: string;
+    target_type: string | null;
+    metadata: Record<string, unknown>;
+    created_at: string;
+  }[];
+
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const hasRecentActivity = rows.some(
+    (r) => now - new Date(r.created_at).getTime() < oneDayMs,
+  );
+
+  const entries: BellEntry[] = rows.map((row) => {
+    const meta = ACTION_META[row.action] ?? {
+      title: row.action || "نشاط مالك المنصة",
+      accent: "cyan" as Accent,
+      icon: Sparkles,
+    };
+    return {
+      id: row.id,
+      title: meta.title,
+      detail: formatAuditDetail(row.action, row.metadata ?? {}),
+      ownerEmail: row.owner_email,
+      targetType: row.target_type,
+      timeAgo: timeAgo(row.created_at),
+    };
+  });
+
+  return { entries, hasRecentActivity };
+}
