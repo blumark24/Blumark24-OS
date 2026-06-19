@@ -146,6 +146,7 @@ export interface DisplaySubscriptionFull {
   orgName: string;
   orgSlug: string | null;
   isInternal: boolean;
+  planId: string;
   planName: string;
   planSlug: string;
   accent: Accent;
@@ -570,6 +571,7 @@ export async function fetchSubscriptionsPage(): Promise<DisplaySubscriptionFull[
       orgName: org?.name ?? "—",
       orgSlug: org?.slug ?? null,
       isInternal: org?.is_internal === true,
+      planId: sub.plan_id,
       planName: plan?.name ?? "—",
       planSlug,
       accent: SLUG_ACCENT[planSlug] ?? "cyan",
@@ -1206,4 +1208,139 @@ export async function softDeleteOrganization(input: { id: string }): Promise<Own
 
   await logOwnerAction("soft_delete_organization", input.id, {});
   return { ok: true };
+}
+
+// ─── Subscription-level mutations (owner-only) ────────────────────────────────
+// Operate on subscriptions by subscription ID. Each mutation syncs the parent
+// organization and logs to owner_audit_logs with target_type="subscription".
+
+async function logSubAction(
+  action: string,
+  subscriptionId: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from("owner_audit_logs").insert({
+      owner_email: user?.email ?? "unknown",
+      action,
+      target_type: "subscription",
+      target_id: subscriptionId,
+      metadata,
+    });
+  } catch (logErr) {
+    console.warn(`[owner] audit log insert failed (${action}):`, logErr);
+  }
+}
+
+// Change the plan on an existing subscription. Syncs org.plan_id.
+export async function changeSubscriptionPlan(input: {
+  subscriptionId: string;
+  organizationId: string;
+  planId: string;
+}): Promise<OwnerActionResult> {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("subscriptions")
+    .update({ plan_id: input.planId, updated_at: now })
+    .eq("id", input.subscriptionId);
+
+  if (error) {
+    console.error("[owner] change subscription plan error:", error.message);
+    return { ok: false, error: "تعذّر تغيير الباقة — حاول مجدداً" };
+  }
+
+  await supabase
+    .from("organizations")
+    .update({ plan_id: input.planId, updated_at: now })
+    .eq("id", input.organizationId);
+
+  await logSubAction("change_subscription_plan", input.subscriptionId, {
+    organization_id: input.organizationId,
+    plan_id: input.planId,
+  });
+  return { ok: true };
+}
+
+// Set subscription status to 'suspended' or 'cancelled'. Syncs org.status.
+export async function updateSubscriptionStatus(input: {
+  subscriptionId: string;
+  organizationId: string;
+  status: "suspended" | "cancelled";
+}): Promise<OwnerActionResult> {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("subscriptions")
+    .update({ status: input.status, updated_at: now })
+    .eq("id", input.subscriptionId);
+
+  if (error) {
+    console.error("[owner] update subscription status error:", error.message);
+    return { ok: false, error: "تعذّر تحديث حالة الاشتراك — حاول مجدداً" };
+  }
+
+  await supabase
+    .from("organizations")
+    .update({ status: input.status === "suspended" ? "suspended" : "cancelled", updated_at: now })
+    .eq("id", input.organizationId);
+
+  const action = input.status === "suspended" ? "subscription_suspended" : "subscription_cancelled";
+  await logSubAction(action, input.subscriptionId, {
+    organization_id: input.organizationId,
+    status: input.status,
+  });
+  return { ok: true };
+}
+
+// Create a new subscription. Blocks only if active/trialing/past_due sub exists,
+// allowing creation for orgs whose previous subscription was cancelled.
+export async function createSubscriptionForOrg(input: {
+  organizationId: string;
+  planId: string;
+  billingCycle: "monthly" | "annual" | "internal";
+}): Promise<ActivateSubResult> {
+  const { data: existing, error: checkErr } = await supabase
+    .from("subscriptions")
+    .select("id")
+    .eq("organization_id", input.organizationId)
+    .in("status", ["active", "trialing", "past_due"])
+    .limit(1);
+
+  if (checkErr) {
+    console.error("[owner] subscription check error:", checkErr.message);
+    return { ok: false, errorCode: "unknown", error: "تعذّر التحقق من الاشتراك الحالي" };
+  }
+  if (existing && existing.length > 0) {
+    return { ok: false, errorCode: "already_exists", error: "يوجد اشتراك نشط لهذه المنشأة بالفعل" };
+  }
+
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .insert({
+      organization_id: input.organizationId,
+      plan_id: input.planId,
+      status: "active",
+      billing_cycle: input.billingCycle,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("[owner] create subscription error:", error.message);
+    return { ok: false, errorCode: "unknown", error: "تعذّر إنشاء الاشتراك — حاول مجدداً" };
+  }
+
+  const newId = data.id as string;
+
+  await supabase
+    .from("organizations")
+    .update({ plan_id: input.planId, updated_at: new Date().toISOString() })
+    .eq("id", input.organizationId);
+
+  await logSubAction("create_subscription", newId, {
+    organization_id: input.organizationId,
+    plan_id: input.planId,
+    billing_cycle: input.billingCycle,
+  });
+  return { ok: true, id: newId };
 }
