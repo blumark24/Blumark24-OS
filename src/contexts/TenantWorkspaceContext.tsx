@@ -62,6 +62,7 @@ const defaultState: TenantWorkspaceState = {
 
 const WORKSPACE_CONTEXT_REFRESH_KEY = "blumark_workspace_context_refresh";
 const WORKSPACE_CONTEXT_REFRESH_EVENT = "blumark:workspace-context-refresh";
+const WORKSPACE_CONTEXT_REFRESH_CHANNEL = "blumark:workspace-plan-events";
 
 const TenantWorkspaceContext = createContext<TenantWorkspaceState>(defaultState);
 
@@ -192,32 +193,48 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
     void load();
   }, [authLoading, user?.id, user?.role, user?.organizationId, pathname, load]);
 
-  // Stage 4A: refresh customer package context quietly when the owner changes a plan.
-  // No interval here: avoid repeated loading flicker while keeping focus/visibility sync.
+  // Refresh package context for every open customer tab after owner-side plan changes.
+  // No polling interval: storage + BroadcastChannel + focus/pageshow/visibility fallbacks.
   useEffect(() => {
     if (authLoading || !user?.id || !user.organizationId || isPlatformSuperAdminRole(user.role)) {
       return;
     }
     if (typeof window === "undefined") return;
 
-    const refreshVisibleWorkspace = () => {
-      if (document.visibilityState === "visible") void load({ silent: true });
+    const refreshWorkspace = () => {
+      void load({ silent: true });
     };
 
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === WORKSPACE_CONTEXT_REFRESH_KEY) refreshVisibleWorkspace();
+      if (event.key === WORKSPACE_CONTEXT_REFRESH_KEY) refreshWorkspace();
     };
 
-    window.addEventListener("focus", refreshVisibleWorkspace);
+    const handleBroadcast = () => refreshWorkspace();
+
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel(WORKSPACE_CONTEXT_REFRESH_CHANNEL);
+      channel.addEventListener("message", handleBroadcast);
+    } catch {
+      channel = null;
+    }
+
+    window.addEventListener("focus", refreshWorkspace);
+    window.addEventListener("pageshow", refreshWorkspace);
     window.addEventListener("storage", handleStorage);
-    window.addEventListener(WORKSPACE_CONTEXT_REFRESH_EVENT, refreshVisibleWorkspace);
-    document.addEventListener("visibilitychange", refreshVisibleWorkspace);
+    window.addEventListener(WORKSPACE_CONTEXT_REFRESH_EVENT, refreshWorkspace);
+    document.addEventListener("visibilitychange", refreshWorkspace);
 
     return () => {
-      window.removeEventListener("focus", refreshVisibleWorkspace);
+      window.removeEventListener("focus", refreshWorkspace);
+      window.removeEventListener("pageshow", refreshWorkspace);
       window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(WORKSPACE_CONTEXT_REFRESH_EVENT, refreshVisibleWorkspace);
-      document.removeEventListener("visibilitychange", refreshVisibleWorkspace);
+      window.removeEventListener(WORKSPACE_CONTEXT_REFRESH_EVENT, refreshWorkspace);
+      document.removeEventListener("visibilitychange", refreshWorkspace);
+      if (channel) {
+        channel.removeEventListener("message", handleBroadcast);
+        channel.close();
+      }
     };
   }, [authLoading, user?.id, user?.organizationId, user?.role, load]);
 
