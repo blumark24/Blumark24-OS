@@ -123,8 +123,12 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const res = await fetch("/api/tenant/workspace-context", {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`/api/tenant/workspace-context?ts=${Date.now()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
         cache: "no-store",
       });
 
@@ -194,7 +198,7 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
   }, [authLoading, user?.id, user?.role, user?.organizationId, pathname, load]);
 
   // Refresh package context for every open customer tab after owner-side plan changes.
-  // No polling interval: storage + BroadcastChannel + focus/pageshow/visibility fallbacks.
+  // No interval: storage + BroadcastChannel + focus/pageshow/visibility fallbacks.
   useEffect(() => {
     if (authLoading || !user?.id || !user.organizationId || isPlatformSuperAdminRole(user.role)) {
       return;
