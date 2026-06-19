@@ -10,20 +10,31 @@ import { isPlatformAdminEmail } from "@/lib/platformAdmins";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+  "Surrogate-Control": "no-store",
+};
+
+function jsonNoStore(payload: Record<string, unknown>, status = 200) {
+  return NextResponse.json(payload, {
+    status,
+    headers: NO_STORE_HEADERS,
+  });
+}
+
 export async function GET(req: NextRequest) {
   try {
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
     const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
     if (!SUPABASE_URL || !SERVICE_KEY) {
-      return NextResponse.json(
-        { error: "إعداد الخادم غير مكتمل" },
-        { status: 500 },
-      );
+      return jsonNoStore({ error: "إعداد الخادم غير مكتمل" }, 500);
     }
 
     const authHeader = req.headers.get("authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+      return jsonNoStore({ error: "غير مصرح" }, 401);
     }
     const token = authHeader.slice(7);
 
@@ -33,7 +44,7 @@ export async function GET(req: NextRequest) {
 
     const { data: authData, error: authErr } = await admin.auth.getUser(token);
     if (authErr || !authData?.user) {
-      return NextResponse.json({ error: "جلسة غير صالحة" }, { status: 401 });
+      return jsonNoStore({ error: "جلسة غير صالحة" }, 401);
     }
 
     const userId = authData.user.id;
@@ -47,7 +58,7 @@ export async function GET(req: NextRequest) {
 
     if (profErr) {
       console.error("[workspace-context] profile error:", profErr.message);
-      return NextResponse.json({ error: "تعذر قراءة الملف الشخصي" }, { status: 500 });
+      return jsonNoStore({ error: "تعذر قراءة الملف الشخصي" }, 500);
     }
 
     const role = String(profile?.role ?? "");
@@ -63,10 +74,11 @@ export async function GET(req: NextRequest) {
       isPlatformAdmin,
       organizationId: orgId ?? null,
       organizationStatus: null as string | null,
+      contextVersion: new Date().toISOString(),
     };
 
     if (!orgId) {
-      return NextResponse.json({
+      return jsonNoStore({
         ...emptyPayload,
         planSlug: "basic",
         enabledFeatures: [],
@@ -77,17 +89,17 @@ export async function GET(req: NextRequest) {
 
     const { data: org, error: orgErr } = await admin
       .from("organizations")
-      .select("id, plan_id, status, deleted_at")
+      .select("id, plan_id, status, deleted_at, updated_at")
       .eq("id", orgId)
       .maybeSingle();
 
     if (orgErr) {
       console.error("[workspace-context] org error:", orgErr.message);
-      return NextResponse.json({ error: "تعذر قراءة بيانات المنشأة" }, { status: 500 });
+      return jsonNoStore({ error: "تعذر قراءة بيانات المنشأة" }, 500);
     }
 
     if (!org || org.deleted_at) {
-      return NextResponse.json({
+      return jsonNoStore({
         ...emptyPayload,
         organizationStatus: "missing",
       });
@@ -95,14 +107,16 @@ export async function GET(req: NextRequest) {
 
     let planSlug: PlanSlug = "basic";
     let planId: string | null = null;
+    let planName: string | null = null;
     if (org.plan_id) {
       planId = org.plan_id as string;
       const { data: plan } = await admin
         .from("plans")
-        .select("slug")
+        .select("name, slug")
         .eq("id", planId)
         .maybeSingle();
       planSlug = normalizePlanSlug(plan?.slug);
+      planName = (plan?.name as string | null | undefined) ?? null;
     }
 
     let enabledFeatures: WorkspaceFeature[] = [];
@@ -116,10 +130,7 @@ export async function GET(req: NextRequest) {
 
       if (featErr) {
         console.error("[workspace-context] plan_features error:", featErr.message);
-        return NextResponse.json(
-          { error: "تعذر قراءة ميزات الباقة" },
-          { status: 500 },
-        );
+        return jsonNoStore({ error: "تعذر قراءة ميزات الباقة" }, 500);
       }
 
       if (features && features.length > 0) {
@@ -141,17 +152,21 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    return jsonNoStore({
       planSlug,
+      planId,
+      planName,
       enabledFeatures,
       planLimits,
       featuresConfigured,
       isPlatformAdmin,
       organizationId: org.id,
       organizationStatus: org.status ?? null,
+      organizationUpdatedAt: org.updated_at ?? null,
+      contextVersion: `${org.id}:${org.plan_id ?? "none"}:${org.updated_at ?? "na"}`,
     });
   } catch (err) {
     console.error("[workspace-context] unexpected:", err);
-    return NextResponse.json({ error: "خطأ داخلي" }, { status: 500 });
+    return jsonNoStore({ error: "خطأ داخلي" }, 500);
   }
 }
