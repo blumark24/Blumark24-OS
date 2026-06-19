@@ -32,14 +32,14 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: "command",   label: "القيادة الرئيسية",          icon: LayoutDashboard, href: "/owner" },
+  { id: "activity",  label: "مركز التدقيق والمراقبة",   icon: ShieldCheck,     href: "/owner/security" },
   { id: "orgs",      label: "المنشآت",                   icon: Building2,       href: "/owner/organizations" },
   { id: "plans",     label: "الباقات",                   icon: Layers,          href: "/owner/plans" },
   { id: "subs",      label: "الاشتراكات",                icon: CreditCard,      href: "/owner/subscriptions" },
   { id: "invoices",  label: "الفواتير",                  icon: Receipt,         href: "/owner/invoices" },
   { id: "ai",        label: "استخدام الذكاء الاصطناعي",  icon: Sparkles,        href: "/owner/ai-usage" },
   { id: "whatsapp",  label: "واتساب بوت",                icon: MessageCircle,   href: "/owner/whatsapp" },
-  { id: "activity",  label: "سجل النشاطات",              icon: Activity,        href: "/owner/security" },
-  { id: "roles",     label: "الصلاحيات والأدوار",        icon: ShieldCheck,     href: "/owner/roles" },
+  { id: "roles",     label: "الصلاحيات والأدوار",        icon: Activity,        href: "/owner/roles" },
   { id: "settings",  label: "الإعدادات",                 icon: Settings,        href: "/owner/settings" },
 ];
 
