@@ -60,6 +60,10 @@ const defaultState: TenantWorkspaceState = {
   refresh: async () => {},
 };
 
+const WORKSPACE_CONTEXT_REFRESH_MS = 30_000;
+const WORKSPACE_CONTEXT_REFRESH_KEY = "blumark_workspace_context_refresh";
+const WORKSPACE_CONTEXT_REFRESH_EVENT = "blumark:workspace-context-refresh";
+
 const TenantWorkspaceContext = createContext<TenantWorkspaceState>(defaultState);
 
 export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
@@ -186,6 +190,38 @@ export function TenantWorkspaceProvider({ children }: { children: ReactNode }) {
     }
     void load();
   }, [authLoading, user?.id, user?.role, user?.organizationId, pathname, load]);
+
+  // Stage 4A: keep customer workspaces in sync when the owner changes a tenant plan.
+  // This avoids forcing customer users to sign out/in after package upgrades or downgrades.
+  useEffect(() => {
+    if (authLoading || !user?.id || !user.organizationId || isPlatformSuperAdminRole(user.role)) {
+      return;
+    }
+    if (typeof window === "undefined") return;
+
+    const refreshVisibleWorkspace = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === WORKSPACE_CONTEXT_REFRESH_KEY) refreshVisibleWorkspace();
+    };
+
+    window.addEventListener("focus", refreshVisibleWorkspace);
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(WORKSPACE_CONTEXT_REFRESH_EVENT, refreshVisibleWorkspace);
+    document.addEventListener("visibilitychange", refreshVisibleWorkspace);
+
+    const intervalId = window.setInterval(refreshVisibleWorkspace, WORKSPACE_CONTEXT_REFRESH_MS);
+
+    return () => {
+      window.removeEventListener("focus", refreshVisibleWorkspace);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(WORKSPACE_CONTEXT_REFRESH_EVENT, refreshVisibleWorkspace);
+      document.removeEventListener("visibilitychange", refreshVisibleWorkspace);
+      window.clearInterval(intervalId);
+    };
+  }, [authLoading, user?.id, user?.organizationId, user?.role, load]);
 
   const accessCtx = useMemo(
     () => ({
