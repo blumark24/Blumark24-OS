@@ -15,6 +15,20 @@ interface Props {
   onChanged: () => void;
 }
 
+const WORKSPACE_CONTEXT_REFRESH_KEY = "blumark_workspace_context_refresh";
+const WORKSPACE_CONTEXT_REFRESH_EVENT = "blumark:workspace-context-refresh";
+
+function signalWorkspacePlanChanged() {
+  if (typeof window === "undefined") return;
+  const stamp = String(Date.now());
+  try {
+    window.localStorage.setItem(WORKSPACE_CONTEXT_REFRESH_KEY, stamp);
+  } catch {
+    /* storage may be unavailable in restricted browsers */
+  }
+  window.dispatchEvent(new CustomEvent(WORKSPACE_CONTEXT_REFRESH_EVENT, { detail: stamp }));
+}
+
 export default function ChangePlanModal({ org, onClose, onChanged }: Props) {
   const [planId, setPlanId] = useState("");
   const [plans, setPlans] = useState<PlanOption[]>([]);
@@ -50,6 +64,7 @@ export default function ChangePlanModal({ org, onClose, onChanged }: Props) {
       setError(res.error ?? "تعذّر تغيير الباقة");
       return;
     }
+    signalWorkspacePlanChanged();
     onChanged();
     onClose();
   };
