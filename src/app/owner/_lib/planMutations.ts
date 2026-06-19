@@ -19,6 +19,36 @@ export interface UpdatePlanLimitsInput {
   limits: PlanLimitsValues;
 }
 
+export const OWNER_WORKSPACE_FEATURES = [
+  "dashboard",
+  "tasks",
+  "clients",
+  "employees",
+  "reports",
+  "org",
+  "finance",
+  "strategy",
+  "automation",
+  "ai",
+] as const;
+
+export type OwnerWorkspaceFeature = typeof OWNER_WORKSPACE_FEATURES[number];
+
+const VALID_FEATURES = new Set<string>(OWNER_WORKSPACE_FEATURES);
+
+export const OWNER_FEATURE_LABELS_AR: Record<OwnerWorkspaceFeature, string> = {
+  dashboard: "لوحة التحكم",
+  tasks: "المهام",
+  clients: "العملاء",
+  employees: "الموظفون",
+  reports: "التقارير",
+  org: "الهيكل الإداري",
+  finance: "المالية",
+  strategy: "الاستراتيجية",
+  automation: "الأتمتة",
+  ai: "الذكاء الاصطناعي",
+};
+
 async function logPlanAction(
   action: string,
   planId: string,
@@ -51,6 +81,76 @@ function cleanLimit(value: number | null, fieldName: string): number | OwnerPlan
     return { ok: false, error: `${fieldName} مطلوب` };
   }
   return Math.trunc(value);
+}
+
+function cleanFeatures(featureKeys: string[]): OwnerWorkspaceFeature[] {
+  return Array.from(new Set(featureKeys))
+    .filter((key): key is OwnerWorkspaceFeature => VALID_FEATURES.has(key));
+}
+
+export async function fetchPlanFeatures(planId: string): Promise<OwnerWorkspaceFeature[]> {
+  const { data, error } = await supabase
+    .from("plan_features")
+    .select("feature_key")
+    .eq("plan_id", planId);
+
+  if (error) {
+    console.error("[owner] fetch plan features error:", error.message);
+    throw new Error("تعذّر تحميل ميزات الباقة");
+  }
+
+  return cleanFeatures((data ?? []).map((row) => String(row.feature_key)));
+}
+
+export async function updatePlanFeatures(input: {
+  id: string;
+  featureKeys: string[];
+}): Promise<OwnerPlanActionResult> {
+  const featureKeys = cleanFeatures(input.featureKeys);
+
+  const { data: currentRows, error: fetchErr } = await supabase
+    .from("plan_features")
+    .select("feature_key")
+    .eq("plan_id", input.id);
+
+  if (fetchErr) {
+    console.error("[owner] fetch current plan features error:", fetchErr.message);
+    return { ok: false, error: "تعذّر قراءة ميزات الباقة الحالية" };
+  }
+
+  const current = cleanFeatures((currentRows ?? []).map((row) => String(row.feature_key)));
+  const selected = new Set(featureKeys);
+  const toDelete = current.filter((key) => !selected.has(key));
+
+  if (toDelete.length > 0) {
+    const { error: deleteErr } = await supabase
+      .from("plan_features")
+      .delete()
+      .eq("plan_id", input.id)
+      .in("feature_key", toDelete);
+
+    if (deleteErr) {
+      console.error("[owner] delete plan features error:", deleteErr.message);
+      return { ok: false, error: "تعذّر حذف الميزات غير المطلوبة" };
+    }
+  }
+
+  if (featureKeys.length > 0) {
+    const { error: upsertErr } = await supabase
+      .from("plan_features")
+      .upsert(
+        featureKeys.map((featureKey) => ({ plan_id: input.id, feature_key: featureKey })),
+        { onConflict: "plan_id,feature_key" },
+      );
+
+    if (upsertErr) {
+      console.error("[owner] upsert plan features error:", upsertErr.message);
+      return { ok: false, error: "تعذّر حفظ ميزات الباقة" };
+    }
+  }
+
+  await logPlanAction("update_plan_features", input.id, { feature_keys: featureKeys });
+  return { ok: true };
 }
 
 export async function updatePlanPricing(input: UpdatePlanPricingInput): Promise<OwnerPlanActionResult> {
