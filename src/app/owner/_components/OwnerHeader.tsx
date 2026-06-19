@@ -2,12 +2,30 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { Search, Bell, Menu, ShieldHalf, ChevronDown, Clock, ExternalLink, Inbox } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  Search,
+  Bell,
+  Menu,
+  ShieldHalf,
+  ChevronDown,
+  Clock,
+  ExternalLink,
+  Inbox,
+  LayoutDashboard,
+  Lock,
+  ShieldCheck,
+  Settings,
+  AlertOctagon,
+  LogOut,
+  Loader2,
+} from "lucide-react";
 import {
   fetchNotificationBellData,
   type BellEntry,
   type NotificationBellData,
 } from "../_lib/ownerTruthQueries";
+import { ownerSupabase } from "@/lib/supabase/ownerClient";
 
 interface OwnerHeaderProps {
   onMobileMenuToggle: () => void;
@@ -93,15 +111,150 @@ function BellDropdown({
   );
 }
 
+// ─── Owner quick menu ──────────────────────────────────────────────────────────
+
+const QUICK_MENU_ITEMS = [
+  { href: "/owner",          label: "لوحة المالك الرئيسية", icon: LayoutDashboard, disabled: false },
+  { href: "/owner/roles",    label: "الصلاحيات والأدوار",   icon: Lock,            disabled: false },
+  { href: "/owner/security", label: "سجل الأمان",           icon: ShieldCheck,     disabled: false },
+  { href: "/owner/settings", label: "إعدادات المنصة",       icon: Settings,        disabled: false },
+  { href: null,              label: "وضع الطوارئ",          icon: AlertOctagon,    disabled: true,  badge: "قريبًا" },
+] as const;
+
+function OwnerQuickMenu({
+  ownerEmail,
+  onClose,
+}: {
+  ownerEmail: string | null;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState(false);
+
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLogoutError(false);
+    setLoggingOut(true);
+    try {
+      const { error } = await ownerSupabase.auth.signOut({ scope: "local" });
+      if (error) { setLogoutError(true); setLoggingOut(false); return; }
+      const secureAttr = window.location.protocol === "https:" ? "; Secure" : "";
+      document.cookie = `blumark_owner_session=; path=/; max-age=0; SameSite=Strict${secureAttr}`;
+      onClose();
+      router.replace("/owner/login");
+      router.refresh();
+    } catch {
+      setLogoutError(true);
+      setLoggingOut(false);
+    }
+  }
+
+  return (
+    <div className="absolute left-0 top-full mt-2 w-[260px] z-50 rounded-2xl border border-white/[0.10] bg-[#0a1628] shadow-[0_16px_48px_-8px_rgba(0,0,0,0.85)] overflow-hidden">
+      {/* Identity strip */}
+      <div className="px-4 py-3.5 border-b border-white/[0.07] flex items-center gap-3">
+        <span
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl flex-shrink-0"
+          style={{ background: "linear-gradient(135deg,#a855f7,#1e6fd9)" }}
+        >
+          <ShieldHalf size={16} className="text-white" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-white leading-tight">مالك المنصة</p>
+          <p className="text-[10.5px] text-white/40 leading-tight mt-0.5">Platform Owner</p>
+          {ownerEmail && (
+            <p className="text-[10.5px] text-[#22d3ee]/70 truncate mt-0.5">{ownerEmail}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Nav items */}
+      <div className="py-1.5">
+        {QUICK_MENU_ITEMS.map((item) =>
+          item.disabled ? (
+            <div
+              key={item.label}
+              className="flex items-center gap-3 px-4 py-2.5 text-white/25 cursor-not-allowed select-none"
+            >
+              <item.icon size={14} className="flex-shrink-0" />
+              <span className="text-[12.5px] flex-1">{item.label}</span>
+              {"badge" in item && item.badge && (
+                <span className="text-[10px] bg-white/[0.07] text-white/30 rounded-md px-1.5 py-0.5">
+                  {item.badge}
+                </span>
+              )}
+            </div>
+          ) : (
+            <Link
+              key={item.label}
+              href={item.href}
+              onClick={onClose}
+              className="flex items-center gap-3 px-4 py-2.5 text-white/65 hover:text-white hover:bg-white/[0.04] transition-colors"
+            >
+              <item.icon size={14} className="flex-shrink-0 text-white/35" />
+              <span className="text-[12.5px]">{item.label}</span>
+            </Link>
+          )
+        )}
+      </div>
+
+      {/* Logout */}
+      <div className="border-t border-white/[0.07] px-3 py-3">
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[#f87171] hover:bg-[#ef4444]/[0.08] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loggingOut
+            ? <Loader2 size={14} className="animate-spin flex-shrink-0" />
+            : <LogOut size={14} className="flex-shrink-0" />}
+          <span className="text-[12.5px] font-medium">
+            {loggingOut ? "جارٍ تسجيل الخروج..." : "تسجيل الخروج"}
+          </span>
+        </button>
+        {logoutError && (
+          <p className="text-[11px] text-[#f87171]/70 text-center mt-1.5">
+            تعذّر تسجيل الخروج، حاول مرة أخرى
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main header ───────────────────────────────────────────────────────────────
 
 export default function OwnerHeader({ onMobileMenuToggle }: OwnerHeaderProps) {
+  const pathname = usePathname();
+
+  // Bell state
   const [bellOpen, setBellOpen] = useState(false);
   const [bellData, setBellData] = useState<NotificationBellData | null>(null);
   const [bellLoading, setBellLoading] = useState(false);
   const [hasRecent, setHasRecent] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
 
+  // Quick menu state
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close both dropdowns on route change
+  useEffect(() => {
+    setBellOpen(false);
+    setMenuOpen(false);
+  }, [pathname]);
+
+  // Fetch owner email once on mount
+  useEffect(() => {
+    ownerSupabase.auth.getUser()
+      .then(({ data }) => setOwnerEmail(data.user?.email ?? null))
+      .catch(() => {/* silent */});
+  }, []);
+
+  // Bell lazy fetch
   const fetchBell = useCallback(async () => {
     if (bellData !== null) return;
     setBellLoading(true);
@@ -116,7 +269,7 @@ export default function OwnerHeader({ onMobileMenuToggle }: OwnerHeaderProps) {
     }
   }, [bellData]);
 
-  // Initial dot check (no dropdown open needed).
+  // Initial dot check
   useEffect(() => {
     fetchNotificationBellData()
       .then((d) => setHasRecent(d.hasRecentActivity))
@@ -125,20 +278,35 @@ export default function OwnerHeader({ onMobileMenuToggle }: OwnerHeaderProps) {
   }, []);
 
   function handleBellClick() {
+    if (menuOpen) setMenuOpen(false);
     if (!bellOpen) void fetchBell();
     setBellOpen((prev) => !prev);
   }
 
+  function handleMenuClick() {
+    if (bellOpen) setBellOpen(false);
+    setMenuOpen((prev) => !prev);
+  }
+
+  // Click-outside: bell
   useEffect(() => {
     if (!bellOpen) return;
     function handler(e: MouseEvent) {
-      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
-        setBellOpen(false);
-      }
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) setBellOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [bellOpen]);
+
+  // Click-outside: menu
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handler(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
 
   return (
     <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[rgba(10,22,40,0.72)] backdrop-blur-xl">
@@ -209,19 +377,36 @@ export default function OwnerHeader({ onMobileMenuToggle }: OwnerHeaderProps) {
             )}
           </div>
 
-          {/* Owner profile chip */}
-          <button className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] transition-colors pr-2 pl-1.5 py-1.5">
-            <span
-              className="inline-flex h-7 w-7 items-center justify-center rounded-lg flex-shrink-0"
-              style={{ background: "linear-gradient(135deg,#a855f7,#1e6fd9)" }}
+          {/* Owner profile chip → quick menu */}
+          <div ref={menuRef} className="relative">
+            <button
+              onClick={handleMenuClick}
+              aria-expanded={menuOpen}
+              aria-label="قائمة المالك"
+              className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] transition-colors pr-2 pl-1.5 py-1.5"
             >
-              <ShieldHalf size={14} className="text-white" />
-            </span>
-            <span className="hidden sm:block text-[12px] font-medium text-white whitespace-nowrap">
-              مالك المنصة
-            </span>
-            <ChevronDown size={14} className="hidden sm:block text-white/45" />
-          </button>
+              <span
+                className="inline-flex h-7 w-7 items-center justify-center rounded-lg flex-shrink-0"
+                style={{ background: "linear-gradient(135deg,#a855f7,#1e6fd9)" }}
+              >
+                <ShieldHalf size={14} className="text-white" />
+              </span>
+              <span className="hidden sm:block text-[12px] font-medium text-white whitespace-nowrap">
+                مالك المنصة
+              </span>
+              <ChevronDown
+                size={14}
+                className={`hidden sm:block text-white/45 transition-transform duration-200 ${menuOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {menuOpen && (
+              <OwnerQuickMenu
+                ownerEmail={ownerEmail}
+                onClose={() => setMenuOpen(false)}
+              />
+            )}
+          </div>
         </div>
       </div>
     </header>
