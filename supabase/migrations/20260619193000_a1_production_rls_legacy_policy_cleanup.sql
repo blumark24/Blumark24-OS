@@ -97,14 +97,30 @@ BEGIN
     DROP POLICY IF EXISTS "super_admin_all_messages" ON public.messages;
   END IF;
 
-  -- profiles
+  -- profiles — drop all known legacy names AND current names so Step 3 recreates cleanly
   IF to_regclass('public.profiles') IS NOT NULL THEN
-    DROP POLICY IF EXISTS "authenticated_read" ON public.profiles;
+    -- legacy camelCase / snake_case variants
+    DROP POLICY IF EXISTS "authenticated_read"           ON public.profiles;
     DROP POLICY IF EXISTS "profiles_select_own_or_admin" ON public.profiles;
     DROP POLICY IF EXISTS "profiles_update_own_or_admin" ON public.profiles;
-    DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
-    DROP POLICY IF EXISTS "profiles_delete_admin" ON public.profiles;
-    DROP POLICY IF EXISTS "service_role_full_access" ON public.profiles;
+    DROP POLICY IF EXISTS "profiles_insert_own"          ON public.profiles;
+    DROP POLICY IF EXISTS "profiles_delete_admin"        ON public.profiles;
+    DROP POLICY IF EXISTS "service_role_full_access"     ON public.profiles;
+    DROP POLICY IF EXISTS profiles_select                ON public.profiles;
+    DROP POLICY IF EXISTS profiles_update                ON public.profiles;
+    DROP POLICY IF EXISTS profiles_insert                ON public.profiles;
+    DROP POLICY IF EXISTS profiles_delete                ON public.profiles;
+    -- current colon-style names (recreated in Step 3)
+    DROP POLICY IF EXISTS "profiles: read"               ON public.profiles;
+    DROP POLICY IF EXISTS "profiles: select"             ON public.profiles;
+    DROP POLICY IF EXISTS "profiles: insert own"         ON public.profiles;
+    DROP POLICY IF EXISTS "profiles: insert"             ON public.profiles;
+    DROP POLICY IF EXISTS "profiles: update"             ON public.profiles;
+    DROP POLICY IF EXISTS "profiles: update own"         ON public.profiles;
+    DROP POLICY IF EXISTS "profiles: update own no-escalate" ON public.profiles;
+    DROP POLICY IF EXISTS "profiles: delete"             ON public.profiles;
+    DROP POLICY IF EXISTS "profiles: owner select"       ON public.profiles;
+    DROP POLICY IF EXISTS "profiles: org select"         ON public.profiles;
   END IF;
 
   -- role_permissions
@@ -415,10 +431,53 @@ BEGIN
   END IF;
 END $$;
 
+-- PROFILES
+-- SELECT: own row, or same-org coworker (needed for employee lists), or owner/super_admin.
+-- INSERT: only own uid (Supabase creates the row on sign-up via trigger; direct insert must match uid).
+-- UPDATE: own row or super_admin; both USING and WITH CHECK prevent self-escalation at the SQL layer.
+--         A trigger (profiles_block_protected_updates) enforces column-level guards independently.
+-- DELETE: super_admin or owner only.
+-- No broad `auth.role() = 'authenticated'` clause anywhere.
+DO $$
+BEGIN
+  IF to_regclass('public.profiles') IS NOT NULL THEN
+    CREATE POLICY "profiles: select"
+      ON public.profiles FOR SELECT
+      USING (
+        auth.uid() = id
+        OR public.is_owner()
+        OR public.get_my_role() = 'super_admin'
+        OR (
+          organization_id IS NOT NULL
+          AND organization_id = public.current_org_id()
+        )
+      );
+
+    CREATE POLICY "profiles: insert own"
+      ON public.profiles FOR INSERT
+      WITH CHECK (auth.uid() = id);
+
+    CREATE POLICY "profiles: update"
+      ON public.profiles FOR UPDATE
+      USING      (auth.uid() = id OR public.get_my_role() IN ('super_admin') OR public.is_owner())
+      WITH CHECK (auth.uid() = id OR public.get_my_role() IN ('super_admin') OR public.is_owner());
+
+    CREATE POLICY "profiles: delete"
+      ON public.profiles FOR DELETE
+      USING (public.get_my_role() = 'super_admin' OR public.is_owner());
+
+    CREATE POLICY "profiles: owner select"
+      ON public.profiles FOR SELECT
+      USING (public.is_owner());
+  END IF;
+END $$;
+
 -- ── 4. Verification helper output ─────────────────────────────
--- After applying, run this read-only query:
+-- Run these two read-only queries after applying:
 --
--- SELECT tablename, policyname, cmd, qual
+-- QUERY A — legacy policies must be gone (expect zero rows):
+--
+-- SELECT tablename, policyname, cmd
 -- FROM pg_policies
 -- WHERE schemaname='public'
 --   AND (
@@ -430,13 +489,32 @@ END $$;
 --       'authenticated_read_system_settings',
 --       'authenticated_read_role_permissions',
 --       'messages: write',
---       'activities: insert'
+--       'activities: insert',
+--       'profiles_select_own_or_admin',
+--       'profiles_update_own_or_admin',
+--       'profiles_insert_own',
+--       'profiles_delete_admin'
 --     )
 --     OR policyname LIKE 'super_admin_all_%'
 --     OR policyname = 'service_role_full_access'
 --   )
 -- ORDER BY tablename, policyname;
 --
--- Expected result: zero rows, except intentionally retained policies documented
--- in the migration review notes if any future requirement appears.
+-- Expected: zero rows.
+--
+-- QUERY B — profiles replacement policies must exist (expect 5 rows):
+--
+-- SELECT policyname, cmd
+-- FROM pg_policies
+-- WHERE schemaname='public' AND tablename='profiles'
+-- ORDER BY policyname;
+--
+-- Expected rows:
+--   policyname              | cmd
+--   ------------------------+--------
+--   profiles: delete        | DELETE
+--   profiles: insert own    | INSERT
+--   profiles: owner select  | SELECT
+--   profiles: select        | SELECT
+--   profiles: update        | UPDATE
 -- ============================================================
