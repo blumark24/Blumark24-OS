@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import OwnerSecurityPageContent from "../_components/OwnerSecurityPageContent";
+import OwnerSecurityPageContent from "./_components/OwnerSecurityPageContent";
 
 export const metadata: Metadata = {
-  title: "الأمان والتدقيق – Owner Command Center",
-  description: "معاينة مركز الأمان وسجل التدقيق — واجهة فقط.",
+  title: "مركز التدقيق والمراقبة – Owner Command Center",
+  description: "متابعة جميع عمليات المالك والاشتراكات والباقات والحذف والأمان.",
 };
 
 export default function OwnerSecurityPage() {

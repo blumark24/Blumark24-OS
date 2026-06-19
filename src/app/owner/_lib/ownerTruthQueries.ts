@@ -292,3 +292,44 @@ export async function fetchNotificationBellData(): Promise<NotificationBellData>
 
   return { entries, hasRecentActivity };
 }
+
+// ─── Audit center raw log ──────────────────────────────────────────────────────
+// Returns raw audit log rows for the B2 Audit Center page. Intentionally
+// avoids icon/accent mapping so the UI can apply its own severity system.
+
+export interface AuditLog {
+  id: string;
+  ownerEmail: string;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export async function fetchAuditCenterLogs(
+  limit = 100,
+  offset = 0,
+): Promise<AuditLog[]> {
+  const { data, error } = await supabase
+    .from("owner_audit_logs")
+    .select("id, owner_email, action, target_type, target_id, metadata, created_at")
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    console.warn("[owner] audit center fetch failed:", error.message);
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    ownerEmail: (row.owner_email as string) ?? "unknown",
+    action: (row.action as string) ?? "",
+    targetType: (row.target_type as string | null) ?? null,
+    targetId: (row.target_id as string | null) ?? null,
+    metadata: ((row.metadata ?? {}) as Record<string, unknown>),
+    createdAt: (row.created_at as string) ?? "",
+  }));
+}
