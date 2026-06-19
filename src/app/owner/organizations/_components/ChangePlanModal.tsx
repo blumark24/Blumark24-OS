@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { X, Layers, AlertCircle, Building2 } from "lucide-react";
 import {
-  changeOrganizationPlan,
   fetchPlanOptions,
   type PlanOption,
   type DisplayOrgFull,
 } from "../../_lib/ownerQueries";
+import { ownerSupabase } from "@/lib/supabase/ownerClient";
 
 interface Props {
   org: DisplayOrgFull | null;
@@ -15,18 +15,106 @@ interface Props {
   onChanged: () => void;
 }
 
+interface ChangePlanResult {
+  ok: boolean;
+  error?: string;
+  organizationId?: string;
+  planId?: string | null;
+  planSlug?: string | null;
+  updatedAt?: string;
+}
+
 const WORKSPACE_CONTEXT_REFRESH_KEY = "blumark_workspace_context_refresh";
 const WORKSPACE_CONTEXT_REFRESH_EVENT = "blumark:workspace-context-refresh";
+const WORKSPACE_CONTEXT_REFRESH_CHANNEL = "blumark:workspace-plan-events";
 
-function signalWorkspacePlanChanged() {
+function signalWorkspacePlanChanged(payload: {
+  organizationId: string;
+  planId: string | null;
+  planSlug?: string | null;
+  updatedAt?: string;
+}) {
   if (typeof window === "undefined") return;
-  const stamp = String(Date.now());
+  const message = {
+    type: "plan_changed",
+    organizationId: payload.organizationId,
+    planId: payload.planId,
+    planSlug: payload.planSlug ?? null,
+    updatedAt: payload.updatedAt ?? new Date().toISOString(),
+    stamp: Date.now(),
+  };
+
   try {
-    window.localStorage.setItem(WORKSPACE_CONTEXT_REFRESH_KEY, stamp);
+    window.localStorage.setItem(WORKSPACE_CONTEXT_REFRESH_KEY, JSON.stringify(message));
   } catch {
     /* storage may be unavailable in restricted browsers */
   }
-  window.dispatchEvent(new CustomEvent(WORKSPACE_CONTEXT_REFRESH_EVENT, { detail: stamp }));
+
+  try {
+    window.dispatchEvent(new CustomEvent(WORKSPACE_CONTEXT_REFRESH_EVENT, { detail: message }));
+  } catch {
+    /* custom events may be unavailable in older embedded browsers */
+  }
+
+  try {
+    const channel = new BroadcastChannel(WORKSPACE_CONTEXT_REFRESH_CHANNEL);
+    channel.postMessage(message);
+    channel.close();
+  } catch {
+    /* BroadcastChannel is best-effort; focus/pageshow refresh remains as fallback */
+  }
+}
+
+async function changeOrganizationPlan(input: {
+  id: string;
+  planId: string | null;
+}): Promise<ChangePlanResult> {
+  const { data: { session } } = await ownerSupabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) {
+    return { ok: false, error: "انتهت جلسة المالك — سجّل الدخول مجدداً" };
+  }
+
+  let resp: Response;
+  try {
+    resp = await fetch("/api/owner/change-organization-plan", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+      body: JSON.stringify({ organizationId: input.id, planId: input.planId }),
+    });
+  } catch {
+    return { ok: false, error: "تعذّر الاتصال بالخادم — حاول مرة أخرى" };
+  }
+
+  let payload: {
+    success?: boolean;
+    error?: string;
+    organizationId?: string;
+    planId?: string | null;
+    planSlug?: string | null;
+    updatedAt?: string;
+  } = {};
+  try {
+    payload = await resp.json();
+  } catch {
+    /* non-JSON */
+  }
+
+  if (!resp.ok || payload.success !== true) {
+    return { ok: false, error: payload.error ?? "تعذّر تغيير الباقة" };
+  }
+
+  return {
+    ok: true,
+    organizationId: payload.organizationId ?? input.id,
+    planId: payload.planId ?? input.planId,
+    planSlug: payload.planSlug ?? null,
+    updatedAt: payload.updatedAt,
+  };
 }
 
 export default function ChangePlanModal({ org, onClose, onChanged }: Props) {
@@ -64,7 +152,12 @@ export default function ChangePlanModal({ org, onClose, onChanged }: Props) {
       setError(res.error ?? "تعذّر تغيير الباقة");
       return;
     }
-    signalWorkspacePlanChanged();
+    signalWorkspacePlanChanged({
+      organizationId: res.organizationId ?? org.id,
+      planId: res.planId ?? (planId || null),
+      planSlug: res.planSlug ?? null,
+      updatedAt: res.updatedAt,
+    });
     onChanged();
     onClose();
   };
