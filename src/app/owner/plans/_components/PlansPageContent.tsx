@@ -20,6 +20,8 @@ import { ACCENT } from "../../_accent";
 import { OWNER_READ_ONLY_ACTION, OWNER_UNAVAILABLE_HINT } from "../../_data";
 import OwnerReadOnlyBadge from "../../_components/OwnerReadOnlyBadge";
 import { fetchPlansPage, type DisplayPlanFull } from "../../_lib/ownerQueries";
+import CreatePlanWizard from "./CreatePlanWizard";
+import PlanHistoryTimeline from "./PlanHistoryTimeline";
 
 // ─── Value formatters (Arabic) ────────────────────────────────────────────────
 
@@ -197,12 +199,20 @@ export default function PlansPageContent() {
   const [plans, setPlans] = useState<DisplayPlanFull[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showWizard, setShowWizard] = useState(false);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
-  useEffect(() => {
+  function loadPlans() {
+    setLoading(true);
     fetchPlansPage()
       .then(setPlans)
       .catch(() => setError("فشل تحميل بيانات الباقات"))
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadPlans();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const total = plans?.length ?? 0;
@@ -225,9 +235,8 @@ export default function PlansPageContent() {
         <div className="flex flex-col sm:items-end gap-2 flex-shrink-0">
           <OwnerReadOnlyBadge />
           <button
-            disabled
-            title={OWNER_READ_ONLY_ACTION}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/[0.08] px-4 py-2.5 text-[13px] font-medium text-[#22d3ee]/40 cursor-not-allowed"
+            onClick={() => setShowWizard(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/[0.12] px-4 py-2.5 text-[13px] font-medium text-[#22d3ee] hover:bg-[#22d3ee]/[0.20] transition"
           >
             <Plus size={15} />
             إنشاء باقة
@@ -276,6 +285,21 @@ export default function PlansPageContent() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Plan history */}
+      <PlanHistoryTimeline refreshKey={historyRefreshKey} />
+
+      {/* Create plan wizard */}
+      {showWizard && (
+        <CreatePlanWizard
+          onClose={() => setShowWizard(false)}
+          onCreated={() => {
+            setShowWizard(false);
+            setHistoryRefreshKey((k) => k + 1);
+            loadPlans();
+          }}
+        />
       )}
     </div>
   );
