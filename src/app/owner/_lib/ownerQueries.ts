@@ -1344,3 +1344,33 @@ export async function createSubscriptionForOrg(input: {
   });
   return { ok: true, id: newId };
 }
+
+// Permanently delete a cancelled subscription. No FK children reference subscriptions,
+// so this is relationally safe. RLS already has is_owner() DELETE policy.
+export async function hardDeleteSubscription(input: {
+  subscriptionId: string;
+  organizationId: string;
+  planId: string;
+  previousStatus: string;
+}): Promise<OwnerActionResult> {
+  // Write audit log BEFORE deletion so the record is preserved.
+  await logSubAction("subscription_hard_deleted", input.subscriptionId, {
+    organization_id: input.organizationId,
+    plan_id: input.planId,
+    previous_status: input.previousStatus,
+  });
+
+  // Extra guard: only delete if status is still cancelled.
+  const { error } = await supabase
+    .from("subscriptions")
+    .delete()
+    .eq("id", input.subscriptionId)
+    .eq("status", "cancelled");
+
+  if (error) {
+    console.error("[owner] hard delete subscription error:", error.message);
+    return { ok: false, error: "تعذّر الحذف النهائي — " + error.message };
+  }
+
+  return { ok: true };
+}
