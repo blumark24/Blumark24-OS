@@ -12,7 +12,7 @@ Blumark24 OS has completed:
 - A2 Supabase Security Hardening
 - A3 Professional Plan Management Engine
 
-Current launch posture: **Pilot Ready, not Public Launch Ready**.
+Current launch posture: **Pilot Ready**.
 
 Target: controlled first 10 customers.
 
@@ -20,24 +20,27 @@ Target: controlled first 10 customers.
 
 ## A4 findings
 
-### 1. Vercel project visibility blocker
+### 1. Vercel production deployment confirmed
 
-The connected Vercel team currently exposes only:
+User-provided Vercel production evidence confirms:
 
-- `blumark24-website`
-
-The OS repository/project is not visible as a Vercel project under the connected team.
-
-Impact:
-
-- Production domain cannot be verified from the connected Vercel context.
-- Build/deployment logs cannot be inspected from the connected Vercel context.
-- Runtime logs cannot be monitored from the connected Vercel context.
+- Production deployment URL: `blumark24-lpbmptehv-blumark24-os.vercel.app`
+- Production status: `Ready`
+- Production source branch: `main`
+- Production commit: `b5e6821`
+- Domains:
+  - `app.blumark24.com`
+  - `blumark24-os.vercel.app`
+- Observability:
+  - Edge Requests: `1.6K`
+  - Function Invocations: `372`
+  - Error Rate: `0%`
+- Firewall: Active / all systems normal
 
 Decision:
 
-- Treat this as an A4 launch blocker.
-- OS must be imported/deployed as a separate Vercel project or the correct Vercel team/account must be connected.
+- The previous Vercel visibility blocker is cleared from the user dashboard evidence.
+- The connected Vercel tool still cannot inspect this deployment directly, so final runtime log review must be done from the Vercel dashboard unless connector access is updated.
 
 ---
 
@@ -90,13 +93,15 @@ A3 status: complete.
 
 ### Deployment
 
-- [ ] Import `blumark24/Blumark24-OS` into Vercel as a dedicated project.
-- [ ] Confirm framework: Next.js.
-- [ ] Confirm Node.js version >= 20.
-- [ ] Add required environment variables.
-- [ ] Run production build.
-- [ ] Confirm deployment URL.
-- [ ] Assign subdomain, recommended: `app.blumark24.com`.
+- [x] Import/deploy `blumark24/Blumark24-OS` into Vercel.
+- [x] Confirm framework: Next.js.
+- [x] Confirm production deployment status: Ready.
+- [x] Confirm deployment URL.
+- [x] Assign subdomain: `app.blumark24.com`.
+- [ ] Confirm Node.js version >= 20 from Vercel project settings.
+- [ ] Confirm required environment variables.
+- [ ] Review Vercel build logs.
+- [ ] Review Vercel runtime logs.
 
 ### Security smoke tests
 
@@ -140,12 +145,12 @@ A3 status: complete.
 
 ## A4 decision gate
 
-The product can move to pilot when:
+The product can move to controlled pilot when:
 
-1. OS project appears in Vercel.
-2. Production deployment build succeeds.
-3. Required env vars are configured.
-4. Smoke tests pass.
-5. Domain routing is confirmed.
+1. Required env vars are confirmed.
+2. Production smoke tests pass.
+3. Owner flow works end-to-end.
+4. Customer flow works end-to-end.
+5. Runtime logs stay clean after smoke testing.
 
-Until then: **do not onboard public customers**. Controlled internal testing is acceptable.
+Until then: **controlled pilot only, not broad public launch**.
