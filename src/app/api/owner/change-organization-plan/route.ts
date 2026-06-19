@@ -17,7 +17,10 @@ function jsonNoStore(payload: Record<string, unknown>, status = 200) {
   return NextResponse.json(payload, {
     status,
     headers: {
-      "Cache-Control": "no-store, no-cache, must-revalidate",
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+      "Surrogate-Control": "no-store",
     },
   });
 }
@@ -113,18 +116,47 @@ export async function POST(req: NextRequest) {
     }
 
     let subscriptionSyncCount = 0;
-    if (planId) {
-      const subUpdate = await admin
-        .from("subscriptions")
-        .update({ plan_id: planId, updated_at: now })
-        .eq("organization_id", organizationId)
-        .select("id");
+    const subUpdate = await admin
+      .from("subscriptions")
+      .update({ plan_id: planId, updated_at: now })
+      .eq("organization_id", organizationId)
+      .select("id, plan_id, updated_at");
 
-      if (subUpdate.error) {
-        console.error("[owner/change-plan] subscription sync error:", subUpdate.error.message);
-        return jsonNoStore({ success: false, error: "تغيّرت باقة المنشأة لكن تعذّر مزامنة الاشتراك" }, 500);
-      }
-      subscriptionSyncCount = subUpdate.data?.length ?? 0;
+    if (subUpdate.error) {
+      console.error("[owner/change-plan] subscription sync error:", subUpdate.error.message);
+      return jsonNoStore({ success: false, error: "تغيّرت باقة المنشأة لكن تعذّر مزامنة الاشتراك" }, 500);
+    }
+    subscriptionSyncCount = subUpdate.data?.length ?? 0;
+
+    const truthResp = await admin
+      .from("organizations")
+      .select("id, plan_id, updated_at")
+      .eq("id", organizationId)
+      .single();
+
+    if (truthResp.error) {
+      console.error("[owner/change-plan] truth readback error:", truthResp.error.message);
+      return jsonNoStore({ success: false, error: "تغيّرت الباقة لكن تعذّر فحص النتيجة النهائية" }, 500);
+    }
+
+    const finalOrgPlanId = (truthResp.data.plan_id as string | null) ?? null;
+    const subscriptionMismatch = (subUpdate.data ?? []).some(
+      (row) => ((row.plan_id as string | null) ?? null) !== planId,
+    );
+
+    if (finalOrgPlanId !== planId || subscriptionMismatch) {
+      return jsonNoStore(
+        {
+          success: false,
+          error: "لم تتطابق باقة المنشأة مع الاشتراك بعد الحفظ — لم يتم اعتماد التغيير",
+          truth: {
+            expectedPlanId: planId,
+            organizationPlanId: finalOrgPlanId,
+            subscriptionSyncCount,
+          },
+        },
+        409,
+      );
     }
 
     await writeOwnerAuditLog(admin, {
@@ -137,6 +169,7 @@ export async function POST(req: NextRequest) {
         plan_id: planId,
         plan_slug: planSlug,
         subscription_sync_count: subscriptionSyncCount,
+        verified: true,
       },
     });
 
@@ -148,6 +181,13 @@ export async function POST(req: NextRequest) {
       planName,
       updatedAt: now,
       subscriptionSyncCount,
+      truth: {
+        organizationPlanId: finalOrgPlanId,
+        subscriptionPlanId: planId,
+        customerContextPlanSlug: planSlug,
+        verified: true,
+        checkedAt: new Date().toISOString(),
+      },
     });
   } catch (err) {
     console.error("[owner/change-plan] unexpected:", err);
