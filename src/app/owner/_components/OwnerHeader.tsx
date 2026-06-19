@@ -116,7 +116,7 @@ function BellDropdown({
 const QUICK_MENU_ITEMS = [
   { href: "/owner",          label: "لوحة المالك الرئيسية", icon: LayoutDashboard, disabled: false },
   { href: "/owner/roles",    label: "الصلاحيات والأدوار",   icon: Lock,            disabled: false },
-  { href: "/owner/security", label: "سجل الأمان",           icon: ShieldCheck,     disabled: false },
+  { href: "/owner/security", label: "مركز التدقيق والمراقبة", icon: ShieldCheck,    disabled: false },
   { href: "/owner/settings", label: "إعدادات المنصة",       icon: Settings,        disabled: false },
   { href: null,              label: "وضع الطوارئ",          icon: AlertOctagon,    disabled: true,  badge: "قريبًا" },
 ] as const;
