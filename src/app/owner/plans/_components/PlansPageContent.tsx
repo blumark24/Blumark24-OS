@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import {
   Layers,
@@ -15,15 +16,23 @@ import {
   X,
   Check,
   Power,
+  Settings2,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { ACCENT } from "../../_accent";
 import { fetchPlansPage, type DisplayPlanFull, type PlanLimitsValues } from "../../_lib/ownerQueries";
-import { setPlanActive, updatePlanLimits, updatePlanPricing } from "../../_lib/planMutations";
-
-// ─── Value formatters (Arabic) ────────────────────────────────────────────────
+import {
+  fetchPlanFeatures,
+  OWNER_FEATURE_LABELS_AR,
+  OWNER_WORKSPACE_FEATURES,
+  setPlanActive,
+  updatePlanFeatures,
+  updatePlanLimits,
+  updatePlanPricing,
+  type OwnerWorkspaceFeature,
+} from "../../_lib/planMutations";
 
 function numOrDash(n: number | null): string {
   if (n === -1) return "غير محدود";
@@ -60,8 +69,6 @@ function parseRequiredNumber(value: string): number | null {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
-
-// ─── Loading skeleton ─────────────────────────────────────────────────────────
 
 function PlanSkeleton() {
   return (
@@ -101,11 +108,9 @@ function LimitTile({ icon: Icon, label, value, accentText }: {
   );
 }
 
-// ─── Modals ───────────────────────────────────────────────────────────────────
-
 function ModalShell({ title, children, onClose }: {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
   onClose: () => void;
 }) {
   return (
@@ -270,23 +275,114 @@ function LimitsModal({ plan, onClose, onSaved }: {
   );
 }
 
-// ─── Plan card ─────────────────────────────────────────────────────────────────
+function FeaturesModal({ plan, onClose, onSaved }: {
+  plan: DisplayPlanFull;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const [selected, setSelected] = useState<Set<OwnerWorkspaceFeature>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-function PlanActions({ plan, busy, onEdit, onToggle, onLimits }: {
+  useEffect(() => {
+    let alive = true;
+    fetchPlanFeatures(plan.id)
+      .then((features) => {
+        if (alive) setSelected(new Set(features));
+      })
+      .catch(() => {
+        if (alive) setError("تعذّر تحميل ميزات الباقة");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => { alive = false; };
+  }, [plan.id]);
+
+  function toggle(feature: OwnerWorkspaceFeature) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(feature)) next.delete(feature);
+      else next.add(feature);
+      return next;
+    });
+  }
+
+  async function save() {
+    setSaving(true);
+    const res = await updatePlanFeatures({ id: plan.id, featureKeys: Array.from(selected) });
+    setSaving(false);
+    if (!res.ok) {
+      toast.error(res.error ?? "تعذّر حفظ ميزات الباقة");
+      return;
+    }
+    toast.success("تم تحديث ميزات الباقة");
+    onSaved();
+    onClose();
+  }
+
+  return (
+    <ModalShell title={`إدارة الميزات — ${plan.name}`} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-[12px] text-[#8ba3c7] leading-relaxed">
+          اختر الوحدات التي تظهر لهذه الباقة في مساحة العميل. التغيير لا يحذف بيانات العميل؛ فقط يتحكم في الظهور والصلاحية.
+        </p>
+        {error && (
+          <div className="rounded-xl border border-[#ff7a3d]/25 bg-[#ff7a3d]/[0.06] px-3 py-2 text-[12px] text-[#ff9a68]">
+            {error}
+          </div>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {OWNER_WORKSPACE_FEATURES.map((feature) => (
+            <label
+              key={feature}
+              className={cn(
+                "flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 transition-colors cursor-pointer",
+                selected.has(feature)
+                  ? "border-[#22d3ee]/35 bg-[#22d3ee]/[0.10]"
+                  : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04]",
+                loading && "opacity-50 pointer-events-none",
+              )}
+            >
+              <span className="min-w-0">
+                <span className="block text-[13px] font-medium text-white">{OWNER_FEATURE_LABELS_AR[feature]}</span>
+                <span className="block text-[10px] text-[#8ba3c7] font-mono">{feature}</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={selected.has(feature)}
+                onChange={() => toggle(feature)}
+                className="h-4 w-4 accent-cyan-400"
+              />
+            </label>
+          ))}
+        </div>
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="rounded-xl border border-white/[0.10] px-4 py-2 text-sm text-[#8ba3c7] hover:text-white hover:bg-white/[0.06]">
+            إلغاء
+          </button>
+          <button type="button" onClick={save} disabled={saving || loading || !!error} className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/15 px-4 py-2 text-sm text-[#22d3ee] hover:bg-[#22d3ee]/25 disabled:opacity-40">
+            <Check size={14} /> {saving ? "جاري الحفظ..." : "حفظ الميزات"}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+function PlanActions({ plan, busy, onEdit, onToggle, onLimits, onFeatures }: {
   plan: DisplayPlanFull;
   busy: boolean;
   onEdit: (plan: DisplayPlanFull) => void;
   onToggle: (plan: DisplayPlanFull) => void;
   onLimits: (plan: DisplayPlanFull) => void;
+  onFeatures: (plan: DisplayPlanFull) => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <button
-        type="button"
-        onClick={() => onEdit(plan)}
-        disabled={busy}
-        className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/30 bg-[#22d3ee]/[0.10] px-2.5 py-1 text-[11px] text-[#22d3ee] hover:bg-[#22d3ee]/20 hover:border-[#22d3ee]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-      >
+      <button type="button" onClick={() => onEdit(plan)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-[#22d3ee]/30 bg-[#22d3ee]/[0.10] px-2.5 py-1 text-[11px] text-[#22d3ee] hover:bg-[#22d3ee]/20 hover:border-[#22d3ee]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
         <Edit2 size={11} /> تعديل
       </button>
       <button
@@ -303,24 +399,23 @@ function PlanActions({ plan, busy, onEdit, onToggle, onLimits }: {
         {plan.isActive ? <PauseCircle size={11} /> : <Power size={11} />}
         {plan.isActive ? "تعطيل" : "تفعيل"}
       </button>
-      <button
-        type="button"
-        onClick={() => onLimits(plan)}
-        disabled={busy}
-        className="inline-flex items-center gap-1 rounded-lg border border-[#a855f7]/30 bg-[#a855f7]/[0.10] px-2.5 py-1 text-[11px] text-[#c084fc] hover:bg-[#a855f7]/20 hover:border-[#a855f7]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-      >
+      <button type="button" onClick={() => onLimits(plan)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-[#a855f7]/30 bg-[#a855f7]/[0.10] px-2.5 py-1 text-[11px] text-[#c084fc] hover:bg-[#a855f7]/20 hover:border-[#a855f7]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
         <SlidersHorizontal size={11} /> تعديل الحدود
+      </button>
+      <button type="button" onClick={() => onFeatures(plan)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-[#1e6fd9]/30 bg-[#1e6fd9]/[0.10] px-2.5 py-1 text-[11px] text-[#5b9bf0] hover:bg-[#1e6fd9]/20 hover:border-[#1e6fd9]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+        <Settings2 size={11} /> الميزات
       </button>
     </div>
   );
 }
 
-function PlanCard({ plan, busy, onEdit, onToggle, onLimits }: {
+function PlanCard({ plan, busy, onEdit, onToggle, onLimits, onFeatures }: {
   plan: DisplayPlanFull;
   busy: boolean;
   onEdit: (plan: DisplayPlanFull) => void;
   onToggle: (plan: DisplayPlanFull) => void;
   onLimits: (plan: DisplayPlanFull) => void;
+  onFeatures: (plan: DisplayPlanFull) => void;
 }) {
   const a = ACCENT[plan.accent];
   const metrics: { icon: LucideIcon; label: string; value: string }[] = [
@@ -344,12 +439,7 @@ function PlanCard({ plan, busy, onEdit, onToggle, onLimits }: {
             <div className="text-[11px] text-[#8ba3c7] font-mono truncate">{plan.slug}</div>
           </div>
         </div>
-        <span className={cn(
-          "rounded-full px-2.5 py-0.5 text-[10px] flex-shrink-0 border",
-          plan.isActive
-            ? "bg-[#10b981]/15 text-[#34d399] border-[#10b981]/30"
-            : "bg-[#6b7280]/15 text-[#9ca3af] border-[#6b7280]/30",
-        )}>
+        <span className={cn("rounded-full px-2.5 py-0.5 text-[10px] flex-shrink-0 border", plan.isActive ? "bg-[#10b981]/15 text-[#34d399] border-[#10b981]/30" : "bg-[#6b7280]/15 text-[#9ca3af] border-[#6b7280]/30")}>
           {plan.isActive ? "نشطة" : "معطّلة"}
         </span>
       </div>
@@ -370,9 +460,7 @@ function PlanCard({ plan, busy, onEdit, onToggle, onLimits }: {
         حدود الباقة
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2.5 flex-1">
-        {metrics.map((m) => (
-          <LimitTile key={m.label} icon={m.icon} label={m.label} value={m.value} accentText={a.text} />
-        ))}
+        {metrics.map((m) => <LimitTile key={m.label} icon={m.icon} label={m.label} value={m.value} accentText={a.text} />)}
       </div>
 
       <div className="mt-5 pt-4 border-t border-white/[0.06] space-y-3">
@@ -380,13 +468,11 @@ function PlanCard({ plan, busy, onEdit, onToggle, onLimits }: {
           <span>الترتيب: <span className="text-white tabular-nums">{plan.sortOrder}</span></span>
           <span>أُنشئت: <span className="text-white tabular-nums">{plan.createdAt}</span></span>
         </div>
-        <PlanActions plan={plan} busy={busy} onEdit={onEdit} onToggle={onToggle} onLimits={onLimits} />
+        <PlanActions plan={plan} busy={busy} onEdit={onEdit} onToggle={onToggle} onLimits={onLimits} onFeatures={onFeatures} />
       </div>
     </div>
   );
 }
-
-// ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PlansPageContent() {
   const toast = useToast();
@@ -396,6 +482,7 @@ export default function PlansPageContent() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editPlan, setEditPlan] = useState<DisplayPlanFull | null>(null);
   const [limitsPlan, setLimitsPlan] = useState<DisplayPlanFull | null>(null);
+  const [featuresPlan, setFeaturesPlan] = useState<DisplayPlanFull | null>(null);
 
   const loadPlans = useCallback(async () => {
     setError(null);
@@ -410,15 +497,11 @@ export default function PlansPageContent() {
     }
   }, []);
 
-  useEffect(() => {
-    void loadPlans();
-  }, [loadPlans]);
+  useEffect(() => { void loadPlans(); }, [loadPlans]);
 
   const handleToggle = useCallback(async (plan: DisplayPlanFull) => {
     const nextActive = !plan.isActive;
-    const ok = window.confirm(nextActive
-      ? `تفعيل الباقة "${plan.name}"؟`
-      : `تعطيل الباقة "${plan.name}"؟\nلن يتم حذف أي بيانات أو اشتراكات.`);
+    const ok = window.confirm(nextActive ? `تفعيل الباقة "${plan.name}"؟` : `تعطيل الباقة "${plan.name}"؟\nلن يتم حذف أي بيانات أو اشتراكات.`);
     if (!ok) return;
 
     setBusyId(plan.id);
@@ -445,14 +528,10 @@ export default function PlansPageContent() {
             الباقات
           </h1>
           <p className="text-[13px] text-[#8ba3c7] leading-relaxed max-w-2xl">
-            إدارة باقات منصة Blumark24 وأسعارها وحدودها من لوحة المالك مباشرة.
+            إدارة باقات منصة Blumark24 وأسعارها وحدودها وميزاتها من لوحة المالك مباشرة.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void loadPlans()}
-          className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/[0.08] px-4 py-2.5 text-[13px] font-medium text-[#22d3ee] hover:bg-[#22d3ee]/15 transition-colors flex-shrink-0"
-        >
+        <button type="button" onClick={() => void loadPlans()} className="inline-flex items-center gap-2 rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/[0.08] px-4 py-2.5 text-[13px] font-medium text-[#22d3ee] hover:bg-[#22d3ee]/15 transition-colors flex-shrink-0">
           <RefreshCw size={15} />
           تحديث البيانات
         </button>
@@ -471,12 +550,7 @@ export default function PlansPageContent() {
         ))}
       </div>
 
-      {error && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-[#ff7a3d]/25 bg-[#ff7a3d]/[0.06] px-4 py-3 text-[13px] text-[#ff9a68]">
-          <RefreshCw size={14} className="flex-shrink-0" />
-          {error}
-        </div>
-      )}
+      {error && <div className="flex items-center gap-2.5 rounded-xl border border-[#ff7a3d]/25 bg-[#ff7a3d]/[0.06] px-4 py-3 text-[13px] text-[#ff9a68]"><RefreshCw size={14} className="flex-shrink-0" />{error}</div>}
 
       {!error && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -491,26 +565,22 @@ export default function PlansPageContent() {
                 onEdit={setEditPlan}
                 onToggle={handleToggle}
                 onLimits={setLimitsPlan}
+                onFeatures={setFeaturesPlan}
               />
             ))
           ) : (
             <div className="md:col-span-2 xl:col-span-3 flex flex-col items-center justify-center glass-card p-10 text-center rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02]">
               <Layers size={32} className="text-[#22d3ee]/30 mb-3" strokeWidth={1.4} />
               <p className="text-[14px] font-medium text-white">لا توجد باقات مسجّلة بعد</p>
-              <p className="text-[12px] text-[#8ba3c7] mt-2 max-w-sm leading-relaxed">
-                تُعرض هنا الباقات من جدول plans مع حدود plan_limits عند توفرها.
-              </p>
+              <p className="text-[12px] text-[#8ba3c7] mt-2 max-w-sm leading-relaxed">تُعرض هنا الباقات من جدول plans مع حدود plan_limits عند توفرها.</p>
             </div>
           )}
         </div>
       )}
 
-      {editPlan && (
-        <EditPlanModal plan={editPlan} onClose={() => setEditPlan(null)} onSaved={loadPlans} />
-      )}
-      {limitsPlan && (
-        <LimitsModal plan={limitsPlan} onClose={() => setLimitsPlan(null)} onSaved={loadPlans} />
-      )}
+      {editPlan && <EditPlanModal plan={editPlan} onClose={() => setEditPlan(null)} onSaved={loadPlans} />}
+      {limitsPlan && <LimitsModal plan={limitsPlan} onClose={() => setLimitsPlan(null)} onSaved={loadPlans} />}
+      {featuresPlan && <FeaturesModal plan={featuresPlan} onClose={() => setFeaturesPlan(null)} onSaved={loadPlans} />}
     </div>
   );
 }
