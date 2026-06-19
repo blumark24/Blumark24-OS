@@ -35,12 +35,12 @@ const NAV_ITEMS: NavItem[] = [
   { id: "orgs",      label: "المنشآت",                   icon: Building2,       href: "/owner/organizations" },
   { id: "plans",     label: "الباقات",                   icon: Layers,          href: "/owner/plans" },
   { id: "subs",      label: "الاشتراكات",                icon: CreditCard,      href: "/owner/subscriptions" },
-  { id: "invoices",  label: "الفواتير",                  icon: Receipt,         comingSoon: true },
-  { id: "ai",        label: "استخدام الذكاء الاصطناعي",  icon: Sparkles,        comingSoon: true },
-  { id: "whatsapp",  label: "واتساب بوت",                icon: MessageCircle,   comingSoon: true },
+  { id: "invoices",  label: "الفواتير",                  icon: Receipt,         href: "/owner/invoices" },
+  { id: "ai",        label: "استخدام الذكاء الاصطناعي",  icon: Sparkles,        href: "/owner/ai-usage" },
+  { id: "whatsapp",  label: "واتساب بوت",                icon: MessageCircle,   href: "/owner/whatsapp" },
   { id: "activity",  label: "سجل النشاطات",              icon: Activity,        href: "/owner/security" },
-  { id: "roles",     label: "الصلاحيات والأدوار",        icon: ShieldCheck,     comingSoon: true },
-  { id: "settings",  label: "الإعدادات",                 icon: Settings,        comingSoon: true },
+  { id: "roles",     label: "الصلاحيات والأدوار",        icon: ShieldCheck,     href: "/owner/roles" },
+  { id: "settings",  label: "الإعدادات",                 icon: Settings,        href: "/owner/settings" },
 ];
 
 interface OwnerSidebarProps {
