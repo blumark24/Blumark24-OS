@@ -37,6 +37,10 @@ import {
   Users,
   FileText,
   Wifi,
+  Target,
+  TrendingUp,
+  ListChecks,
+  AlertOctagon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -419,6 +423,278 @@ function answerQuestion(
       return "غير معروف.";
   }
 }
+
+// ─── B3 Autonomous Operations Interfaces ──────────────────────────────────────
+
+interface HealthScore {
+  score: number;
+  label: string;
+  labelColor: string;
+  topFactor: string | null;
+}
+
+interface RemediationItem {
+  id: string;
+  issue: string;
+  severity: Severity;
+  area: string;
+  action: string;
+  href?: string;
+  status: "جديد" | "قيد المراجعة" | "يتطلب إجراء" | "تم التحقق";
+  safetyNote?: string;
+  requiresManual?: boolean;
+}
+
+interface PriorityQueueItem {
+  priority: "فوري" | "عالي" | "متوسط" | "منخفض";
+  priorityColor: string;
+  priorityOrder: number;
+  reason: string;
+  nextStep: string;
+  href?: string;
+}
+
+interface CommandBrief {
+  todaySummary: string;
+  needsAttention: string[];
+  canWait: string[];
+  recommendedFocus: string;
+  systemColor: "أخضر" | "برتقالي" | "أحمر" | "حرج";
+  colorHex: string;
+}
+
+function computeHealthScore(
+  logs: AuditLog[],
+  orgSummary: OrgStatusSummary,
+  subSummary: SubStatusSummary,
+): HealthScore {
+  let score = 100;
+  const factors: { label: string; deduction: number }[] = [];
+  const criticalCount = logs.filter((l) => getSeverity(l.action) === "critical").length;
+  const highCount = logs.filter((l) => getSeverity(l.action) === "high").length;
+  const mediumCount = logs.filter((l) => getSeverity(l.action) === "medium").length;
+  const softDeletes = logs.filter((l) => l.action === "soft_delete_organization").length;
+  if (criticalCount > 0) {
+    const d = Math.min(criticalCount * 30, 60);
+    score -= d;
+    factors.push({ label: `${criticalCount} أحداث حرجة`, deduction: d });
+  }
+  if (highCount > 0) {
+    const d = Math.min(highCount * 12, 36);
+    score -= d;
+    factors.push({ label: `${highCount} أحداث عالية الخطورة`, deduction: d });
+  }
+  if (mediumCount > 0) {
+    const d = Math.min(mediumCount * 5, 25);
+    score -= d;
+    factors.push({ label: `${mediumCount} أحداث متوسطة`, deduction: d });
+  }
+  if (subSummary.suspended > 0) {
+    const d = subSummary.suspended * 8;
+    score -= d;
+    factors.push({ label: `${subSummary.suspended} اشتراكات معلّقة`, deduction: d });
+  }
+  if (subSummary.cancelled > 0) {
+    const d = subSummary.cancelled * 6;
+    score -= d;
+    factors.push({ label: `${subSummary.cancelled} اشتراكات ملغاة`, deduction: d });
+  }
+  if (softDeletes > 0) {
+    const d = softDeletes * 8;
+    score -= d;
+    factors.push({ label: `${softDeletes} منشآت محذوفة`, deduction: d });
+  }
+  score = Math.max(0, Math.min(100, score));
+  const label = score >= 90 ? "ممتاز" : score >= 75 ? "جيد" : score >= 60 ? "يحتاج متابعة" : "خطر";
+  const labelColor = score >= 90 ? "#10b981" : score >= 75 ? "#22d3ee" : score >= 60 ? "#f59e0b" : "#ef4444";
+  const topFactor = factors.sort((a, b) => b.deduction - a.deduction)[0]?.label ?? null;
+  return { score, label, labelColor, topFactor };
+}
+
+function computeRemediationPlan(
+  logs: AuditLog[],
+  orgSummary: OrgStatusSummary,
+  subSummary: SubStatusSummary,
+): RemediationItem[] {
+  const items: RemediationItem[] = [];
+  const hardDeletes = logs.filter((l) => l.action === "subscription_hard_deleted").length;
+  if (hardDeletes > 0)
+    items.push({
+      id: "hard-delete", issue: `تم رصد ${hardDeletes} عملية حذف نهائي للاشتراكات`,
+      severity: "critical", area: "الاشتراكات",
+      action: "مراجعة الاشتراكات المحذوفة نهائياً وتوثيق المبررات",
+      href: "/owner/subscriptions", status: "يتطلب إجراء",
+      safetyNote: "يتطلب تنفيذ يدوي من الصفحة المختصة", requiresManual: true,
+    });
+  if (orgSummary.suspended > 0)
+    items.push({
+      id: "suspended-orgs", issue: `${orgSummary.suspended} منشأة في حالة تعليق`,
+      severity: "high", area: "المنشآت",
+      action: "مراجعة المنشآت المعلّقة وتحديد مسار إعادة التفعيل أو الحذف",
+      href: "/owner/organizations", status: "جديد",
+      safetyNote: "يتطلب تنفيذ يدوي من الصفحة المختصة", requiresManual: true,
+    });
+  if (subSummary.suspended > 0)
+    items.push({
+      id: "suspended-subs", issue: `${subSummary.suspended} اشتراك معلّق`,
+      severity: "high", area: "الاشتراكات",
+      action: "التواصل مع العملاء المعنيين لحل مشكلة التعليق",
+      href: "/owner/subscriptions", status: "جديد",
+    });
+  if (subSummary.cancelled > 0)
+    items.push({
+      id: "cancelled-subs", issue: `${subSummary.cancelled} اشتراك ملغى`,
+      severity: "high", area: "الاشتراكات",
+      action: "مراجعة أسباب الإلغاء وإمكانية إعادة التفعيل",
+      href: "/owner/subscriptions", status: "جديد",
+    });
+  if (subSummary.trialing > 0)
+    items.push({
+      id: "trialing-subs", issue: `${subSummary.trialing} حساب في فترة تجريبية`,
+      severity: "medium", area: "الاشتراكات",
+      action: "التواصل مع الحسابات التجريبية لتحسين معدل التحويل",
+      href: "/owner/subscriptions", status: "جديد",
+    });
+  const planChanges = logs.filter((l) =>
+    ["change_plan", "change_subscription_plan", "subscription_plan_changed"].includes(l.action)
+  ).length;
+  if (planChanges > 5)
+    items.push({
+      id: "plan-changes", issue: `${planChanges} تغيير متكرر على الباقات`,
+      severity: "medium", area: "الباقات",
+      action: "مراجعة استقرار التسعير وتقييم تجربة العملاء مع الباقات",
+      href: "/owner/plans", status: "جديد",
+    });
+  items.push({
+    id: "readiness-1000", issue: "جاهزية النظام لـ 1000+ عميل",
+    severity: "medium", area: "البنية التحتية",
+    action: "مراجعة نقاط الاختناق والفجوات التقنية الموثقة في قسم الجاهزية",
+    status: "قيد المراجعة",
+  });
+  return items;
+}
+
+function computePriorityQueue(
+  logs: AuditLog[],
+  orgSummary: OrgStatusSummary,
+  subSummary: SubStatusSummary,
+): PriorityQueueItem[] {
+  const items: PriorityQueueItem[] = [];
+  const hardDeletes = logs.filter((l) => l.action === "subscription_hard_deleted").length;
+  if (hardDeletes > 0)
+    items.push({
+      priority: "فوري", priorityColor: "#ef4444", priorityOrder: 0,
+      reason: `${hardDeletes} عملية حذف نهائي مسجلة — تستوجب مراجعة فورية`,
+      nextStep: "افتح صفحة الاشتراكات وراجع سجل الحذف",
+      href: "/owner/subscriptions",
+    });
+  const criticalCount = logs.filter((l) => getSeverity(l.action) === "critical").length;
+  if (criticalCount > 3)
+    items.push({
+      priority: "فوري", priorityColor: "#ef4444", priorityOrder: 0,
+      reason: `${criticalCount} أحداث حرجة — تركّز غير طبيعي`,
+      nextStep: "راجع السجلات مصفّاة على 'حرج'",
+      href: "/owner/security",
+    });
+  if (orgSummary.suspended > 0)
+    items.push({
+      priority: "عالي", priorityColor: "#f59e0b", priorityOrder: 1,
+      reason: `${orgSummary.suspended} منشأة معلّقة تؤثر على عملاء نشطين`,
+      nextStep: "افتح المنشآت وقرر إعادة التفعيل أو المعالجة",
+      href: "/owner/organizations",
+    });
+  if (subSummary.suspended > 0)
+    items.push({
+      priority: "عالي", priorityColor: "#f59e0b", priorityOrder: 1,
+      reason: `${subSummary.suspended} اشتراك معلّق — عملاء لا يستطيعون الوصول`,
+      nextStep: "راجع الاشتراكات المعلّقة وتواصل مع العملاء",
+      href: "/owner/subscriptions",
+    });
+  if (subSummary.cancelled > 0)
+    items.push({
+      priority: "عالي", priorityColor: "#f59e0b", priorityOrder: 1,
+      reason: `${subSummary.cancelled} اشتراك ملغى — خطر على الإيرادات`,
+      nextStep: "تحليل أسباب الإلغاء وإمكانية الاسترداد",
+      href: "/owner/subscriptions",
+    });
+  if (subSummary.trialing > 0)
+    items.push({
+      priority: "متوسط", priorityColor: "#a855f7", priorityOrder: 2,
+      reason: `${subSummary.trialing} حساب تجريبي — فرصة للتحويل`,
+      nextStep: "تواصل مع الحسابات التجريبية قبل انتهاء فترة التجربة",
+      href: "/owner/subscriptions",
+    });
+  items.push({
+    priority: "منخفض", priorityColor: "#22d3ee", priorityOrder: 3,
+    reason: "مراجعة جاهزية النظام لـ 1000+ عميل ضرورية بشكل دوري",
+    nextStep: "راجع الفجوات التقنية الموثقة في قسم العمليات",
+  });
+  return items.sort((a, b) => a.priorityOrder - b.priorityOrder);
+}
+
+function computeCommandBrief(
+  logs: AuditLog[],
+  orgSummary: OrgStatusSummary,
+  subSummary: SubStatusSummary,
+  health: HealthScore,
+): CommandBrief {
+  const todayLogs = logs.filter((l) => isToday(l.createdAt));
+  const criticalToday = todayLogs.filter((l) => getSeverity(l.action) === "critical").length;
+  const highToday = todayLogs.filter((l) => getSeverity(l.action) === "high").length;
+  const needsAttention: string[] = [];
+  const canWait: string[] = [];
+  if (criticalToday > 0) needsAttention.push(`${criticalToday} أحداث حرجة اليوم`);
+  if (orgSummary.suspended > 0) needsAttention.push(`${orgSummary.suspended} منشأة معلّقة`);
+  if (subSummary.suspended > 0) needsAttention.push(`${subSummary.suspended} اشتراك معلّق`);
+  if (highToday > 2) needsAttention.push(`${highToday} أحداث عالية الخطورة اليوم`);
+  if (subSummary.trialing > 0) canWait.push(`${subSummary.trialing} حساب تجريبي`);
+  if (subSummary.cancelled > 0) canWait.push(`${subSummary.cancelled} اشتراك ملغى — مراجعة غير عاجلة`);
+  const systemColor =
+    criticalToday > 0 || health.score < 40 ? "حرج"
+    : needsAttention.length > 0 || health.score < 60 ? "أحمر"
+    : health.score < 75 ? "برتقالي"
+    : "أخضر";
+  const colorHex =
+    systemColor === "حرج" ? "#ef4444"
+    : systemColor === "أحمر" ? "#f87171"
+    : systemColor === "برتقالي" ? "#f59e0b"
+    : "#10b981";
+  const todaySummary =
+    todayLogs.length === 0
+      ? "لا توجد عمليات مسجلة اليوم — النظام هادئ"
+      : `${todayLogs.length} عملية مسجلة اليوم (${criticalToday} حرجة، ${highToday} عالية)`;
+  const recommendedFocus =
+    needsAttention.length > 0
+      ? `ركّز على: ${needsAttention[0]}`
+      : "لا توجد قضايا عاجلة — استمر في المراقبة الدورية";
+  return { todaySummary, needsAttention, canWait, recommendedFocus, systemColor, colorHex };
+}
+
+// ─── Support response templates ────────────────────────────────────────────────
+
+const SUPPORT_RESPONSES: Record<string, string> = {
+  login: "مرحبًا، تم استلام بلاغكم بخصوص تسجيل الدخول. سنراجع حالة المنشأة والاشتراك وحساب المستخدم، وسيتم تحديثكم بعد التحقق.",
+  subscription: "مرحبًا، تم استلام استفساركم بخصوص الاشتراك. سنتحقق من الحالة الحالية للاشتراك وتاريخ الانتهاء، وسنتواصل معكم فور الانتهاء من المراجعة.",
+  billing: "مرحبًا، تم استلام استفساركم بخصوص الفاتورة. سنراجع بيانات الفوترة الخاصة بمنشأتكم وسنرسل لكم التفاصيل عبر القناة المعتمدة.",
+  permissions: "مرحبًا، تم استلام بلاغكم بخصوص الصلاحيات. سنراجع إعدادات الأدوار والوصول المرتبطة بحساب منشأتكم وسيتم تحديثكم قريبًا.",
+  data: "مرحبًا، تم استلام بلاغكم بخصوص البيانات. سنتحقق من سجل العمليات على منشأتكم للتأكد من سلامة البيانات، وسنرد عليكم فور اكتمال التحقق.",
+  performance: "مرحبًا، تم استلام بلاغكم بخصوص أداء النظام. نحن على علم بالموضوع ونعمل على متابعته. سنعلمكم بأي تحديثات ذات صلة.",
+  users: "مرحبًا، تم استلام طلبكم بخصوص إدارة المستخدمين. سنراجع الطلب بالتنسيق مع فريق العمليات وسنتواصل معكم لتأكيد تنفيذه.",
+};
+
+// ─── 1000-Customer Readiness ───────────────────────────────────────────────────
+
+const READINESS_ITEMS: { area: string; status: "جاهز" | "جزئي" | "غير جاهز"; note: string }[] = [
+  { area: "فلترة السجلات من جانب الخادم", status: "غير جاهز", note: "الفلترة تتم على الجانب العميل — غير مناسب لأكثر من 10,000 سجل" },
+  { area: "فهارس قاعدة البيانات", status: "غير جاهز", note: "يُنصح بإضافة فهارس على owner_audit_logs.created_at, target_type, action" },
+  { area: "حدود معدل الطلبات للعمليات الحساسة", status: "غير جاهز", note: "لا توجد حدود معدل للعمليات الحساسة مثل الحذف وتغيير الأدوار" },
+  { area: "جدول تذاكر الدعم الفني", status: "غير جاهز", note: "لا يوجد جدول قاعدة بيانات لتذاكر الدعم — موصى به لـ 1000+ عميل" },
+  { area: "مراقبة الأخطاء والاستثناءات", status: "غير جاهز", note: "لا يوجد جدول لتسجيل الأخطاء — يصعب تشخيص المشاكل على نطاق واسع" },
+  { area: "بيانات استخدام الميزات", status: "جزئي", note: "بيانات جزئية في سجل التدقيق — لا يوجد جدول استخدام مخصص" },
+  { area: "واجهة مستخدم الجوال", status: "جاهز", note: "الواجهة متجاوبة مع الشاشات الصغيرة" },
+  { area: "قابلية توسع التدقيق", status: "جزئي", note: "الصفحة محدودة بـ 100 سجل — ترقيم الصفحات يعمل لكنه يعتمد على الجانب العميل" },
+  { area: "جاهزية الدعم الفني", status: "جزئي", note: "دليل استكشاف الأخطاء متاح — لكن لا يوجد نظام تذاكر أو إشعارات آلية" },
+];
 
 // ─── Preset questions ──────────────────────────────────────────────────────────
 
@@ -833,13 +1109,14 @@ const SEV_OPTS: { key: SeverityFilter; label: string }[] = [
 
 // ─── Tab types ─────────────────────────────────────────────────────────────────
 
-type Tab = "monitoring" | "diagnosis" | "support" | "logs";
+type Tab = "monitoring" | "diagnosis" | "support" | "logs" | "ops";
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: "monitoring", label: "المراقبة",        icon: Eye       },
-  { id: "diagnosis",  label: "التشخيص الذكي",  icon: Brain     },
+  { id: "monitoring", label: "المراقبة",        icon: Eye            },
+  { id: "diagnosis",  label: "التشخيص الذكي",  icon: Brain          },
   { id: "support",    label: "الدعم الفني",     icon: HeadphonesIcon },
-  { id: "logs",       label: "السجلات",         icon: ScrollText },
+  { id: "logs",       label: "السجلات",         icon: ScrollText     },
+  { id: "ops",        label: "العمليات",        icon: Target         },
 ];
 
 // ─── Main component ────────────────────────────────────────────────────────────
@@ -868,6 +1145,9 @@ export default function OwnerSecurityPageContent() {
   const [sevFilter, setSevFilter] = useState<SeverityFilter>("all");
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
   const [expandedSupport, setExpandedSupport] = useState<string | null>(null);
+  const [supportResponseCat, setSupportResponseCat] = useState<string | null>(null);
+  const [supportResponseCopied, setSupportResponseCopied] = useState(false);
+  const [remediationStatuses, setRemediationStatuses] = useState<Record<string, RemediationItem["status"]>>({});
 
   const load = useCallback(async (reset = true) => {
     if (reset) { setLoading(true); setError(null); setOffset(0); }
@@ -954,6 +1234,10 @@ export default function OwnerSecurityPageContent() {
   const diagnosis     = useMemo(() => computeDiagnosis(logs, orgSummary, subSummary), [logs, orgSummary, subSummary]);
   const recommendations = useMemo(() => generateRecommendations(logs, orgSummary, subSummary), [logs, orgSummary, subSummary]);
   const dailyBrief    = useMemo(() => computeDailyBrief(logs), [logs]);
+  const healthScore   = useMemo(() => computeHealthScore(logs, orgSummary, subSummary), [logs, orgSummary, subSummary]);
+  const remediationPlan = useMemo(() => computeRemediationPlan(logs, orgSummary, subSummary), [logs, orgSummary, subSummary]);
+  const priorityQueue = useMemo(() => computePriorityQueue(logs, orgSummary, subSummary), [logs, orgSummary, subSummary]);
+  const commandBrief  = useMemo(() => computeCommandBrief(logs, orgSummary, subSummary, healthScore), [logs, orgSummary, subSummary, healthScore]);
 
   const questionAnswer = useMemo(() => {
     if (!activeQuestion) return null;
@@ -1420,6 +1704,53 @@ export default function OwnerSecurityPageContent() {
             </p>
           </div>
 
+          {/* Support Response Generator */}
+          <div
+            className="rounded-2xl border border-[#a855f7]/15 p-5"
+            style={{ background: "linear-gradient(135deg, #091528 0%, #07111f 100%)" }}
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <MessageSquare size={14} className="text-[#c084fc]" />
+              <span className="text-[13px] font-semibold text-white">مولد رد الدعم الفني</span>
+              <span className="text-[10px] text-white/25 mr-auto">قوالب ردود جاهزة بالعربية</span>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {SUPPORT_CATS.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSupportResponseCat(supportResponseCat === cat.id ? null : cat.id)}
+                  className="text-[11.5px] rounded-xl border px-3 py-1.5 transition-all"
+                  style={
+                    supportResponseCat === cat.id
+                      ? { background: `${cat.color}18`, borderColor: `${cat.color}40`, color: cat.color }
+                      : { borderColor: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.45)" }
+                  }
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+            {supportResponseCat && SUPPORT_RESPONSES[supportResponseCat] && (
+              <div className="rounded-xl border border-[#a855f7]/15 bg-[#a855f7]/[0.04] px-4 py-3">
+                <p className="text-[12.5px] text-white/75 leading-relaxed mb-3">
+                  {SUPPORT_RESPONSES[supportResponseCat]}
+                </p>
+                <button
+                  onClick={() => {
+                    void navigator.clipboard.writeText(SUPPORT_RESPONSES[supportResponseCat]!).then(() => {
+                      setSupportResponseCopied(true);
+                      setTimeout(() => setSupportResponseCopied(false), 2000);
+                    });
+                  }}
+                  className="flex items-center gap-1.5 text-[11.5px] text-[#c084fc] hover:text-[#a855f7] transition-colors"
+                >
+                  {supportResponseCopied ? <CheckCheck size={13} /> : <Copy size={13} />}
+                  {supportResponseCopied ? "تم النسخ" : "نسخ الرد"}
+                </button>
+              </div>
+            )}
+          </div>
+
           {SUPPORT_CATS.map((cat) => {
             const Icon = cat.icon;
             const isOpen = expandedSupport === cat.id;
@@ -1700,6 +2031,263 @@ export default function OwnerSecurityPageContent() {
                 </p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* TAB: OPS (Autonomous Operations Center)                               */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "ops" && (
+        <div className="space-y-5">
+          {/* Safety Banner */}
+          <div className="flex items-start gap-3 rounded-2xl border border-[#f59e0b]/15 bg-[#f59e0b]/[0.04] px-4 py-3">
+            <AlertOctagon size={14} className="text-[#fbbf24] flex-shrink-0 mt-0.5" />
+            <p className="text-[11.5px] text-[#fde68a] leading-relaxed">
+              <span className="font-semibold">مركز العمليات الآمن — لا تنفيذ تلقائي.</span>{" "}
+              جميع الإجراءات تُعرض للمراجعة فقط. أي عملية تستوجب التنفيذ اليدوي من الصفحة المختصة. لا يتم حذف أو تعليق أو تعديل أي بيانات من هنا.
+            </p>
+          </div>
+
+          {/* Command Brief */}
+          <div
+            className="rounded-2xl border overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, #091528 0%, #07111f 100%)",
+              borderColor: `${commandBrief.colorHex}25`,
+              boxShadow: `0 0 30px ${commandBrief.colorHex}08`,
+            }}
+          >
+            <div className="h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${commandBrief.colorHex}, transparent)` }} />
+            <div className="px-5 pt-4 pb-3 border-b border-white/[0.04] flex items-center gap-3">
+              <Zap size={14} style={{ color: commandBrief.colorHex }} />
+              <span className="text-[13px] font-semibold text-white">موجز اليوم التنفيذي</span>
+              <span
+                className="mr-auto text-[10px] font-bold rounded-full px-2.5 py-0.5 border"
+                style={{ color: commandBrief.colorHex, borderColor: `${commandBrief.colorHex}30`, background: `${commandBrief.colorHex}10` }}
+              >
+                النظام: {commandBrief.systemColor}
+              </span>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-[13px] text-white/75">{commandBrief.todaySummary}</p>
+              {commandBrief.needsAttention.length > 0 && (
+                <div>
+                  <p className="text-[10.5px] text-white/30 uppercase tracking-widest font-mono mb-1.5">يحتاج انتباهاً</p>
+                  <ul className="space-y-1">
+                    {commandBrief.needsAttention.map((item, i) => (
+                      <li key={i} className="flex items-center gap-2 text-[12px] text-[#fca5a5]">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#ef4444] flex-shrink-0" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {commandBrief.canWait.length > 0 && (
+                <div>
+                  <p className="text-[10.5px] text-white/30 uppercase tracking-widest font-mono mb-1.5">يمكن الانتظار</p>
+                  <ul className="space-y-1">
+                    {commandBrief.canWait.map((item, i) => (
+                      <li key={i} className="flex items-center gap-2 text-[12px] text-white/45">
+                        <span className="h-1.5 w-1.5 rounded-full bg-white/20 flex-shrink-0" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="rounded-xl border border-[#22d3ee]/12 bg-[#22d3ee]/[0.04] px-3 py-2.5">
+                <p className="text-[11.5px] text-[#22d3ee]/80">
+                  <span className="text-[#22d3ee]/50 text-[10px] uppercase font-mono tracking-wider ml-1">التركيز الموصى به:</span>
+                  {commandBrief.recommendedFocus}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Health Score */}
+          <div
+            className="rounded-2xl border p-5"
+            style={{
+              background: "linear-gradient(135deg, #091528 0%, #07111f 100%)",
+              borderColor: `${healthScore.labelColor}22`,
+            }}
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp size={14} style={{ color: healthScore.labelColor }} />
+              <span className="text-[13px] font-semibold text-white">صحة النظام</span>
+              <span
+                className="mr-auto text-[11px] font-semibold rounded-full px-2.5 py-0.5"
+                style={{ color: healthScore.labelColor, background: `${healthScore.labelColor}12`, border: `1px solid ${healthScore.labelColor}25` }}
+              >
+                {healthScore.label}
+              </span>
+            </div>
+            <div className="flex items-center gap-4 mb-3">
+              <span className="text-[48px] font-bold leading-none" style={{ color: healthScore.labelColor }}>
+                {healthScore.score}
+              </span>
+              <div className="flex-1">
+                <div className="h-3 rounded-full bg-white/[0.06] overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${healthScore.score}%`, background: `linear-gradient(90deg, ${healthScore.labelColor}80, ${healthScore.labelColor})` }}
+                  />
+                </div>
+                <p className="text-[10.5px] text-white/30 mt-1.5">من 100 — مبني على السجلات المحملة والبيانات الحالية</p>
+              </div>
+            </div>
+            {healthScore.topFactor && (
+              <p className="text-[11.5px] text-white/40">
+                أكبر عامل مؤثر: <span className="text-white/60">{healthScore.topFactor}</span>
+              </p>
+            )}
+          </div>
+
+          {/* Remediation Plan */}
+          <div
+            className="rounded-2xl border border-white/[0.07] p-5"
+            style={{ background: "linear-gradient(135deg, #091528 0%, #07111f 100%)" }}
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <ListChecks size={14} className="text-[#22d3ee]" />
+              <span className="text-[13px] font-semibold text-white">خطة المعالجة الذكية</span>
+              <span className="text-[10px] text-white/25 mr-auto">{remediationPlan.length} بند</span>
+            </div>
+            <div className="space-y-3">
+              {remediationPlan.map((item) => {
+                const s = SEV[item.severity];
+                const currentStatus = remediationStatuses[item.id] ?? item.status;
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border px-4 py-3.5"
+                    style={{ borderColor: `${s.color}20`, background: `${s.color}04` }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`h-1.5 w-1.5 rounded-full flex-shrink-0 mt-1.5 ${s.dot}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="text-[12.5px] font-medium text-white/85">{item.issue}</p>
+                          <span className={`text-[10px] rounded-full px-2 py-0.5 flex-shrink-0 ${s.badge}`}>{s.label}</span>
+                        </div>
+                        <p className="text-[11px] text-white/40 mb-2">{item.area} — {item.action}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <select
+                            value={currentStatus}
+                            onChange={(e) => setRemediationStatuses((prev) => ({
+                              ...prev,
+                              [item.id]: e.target.value as RemediationItem["status"],
+                            }))}
+                            className="text-[10.5px] rounded-lg bg-white/[0.04] border border-white/[0.08] text-white/55 px-2 py-1 outline-none"
+                          >
+                            {(["جديد", "قيد المراجعة", "يتطلب إجراء", "تم التحقق"] as const).map((s) => (
+                              <option key={s} value={s} className="bg-[#07111f]">{s}</option>
+                            ))}
+                          </select>
+                          {item.requiresManual && (
+                            <span className="text-[10px] text-[#fbbf24]/60 border border-[#f59e0b]/15 rounded-lg px-2 py-0.5">
+                              يتطلب تنفيذ يدوي من الصفحة المختصة
+                            </span>
+                          )}
+                          {item.href && (
+                            <a
+                              href={item.href}
+                              className="flex items-center gap-1 text-[11px] text-[#22d3ee]/60 hover:text-[#22d3ee] transition-colors"
+                            >
+                              <Navigation size={11} />
+                              فتح الصفحة
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Priority Queue */}
+          <div
+            className="rounded-2xl border border-white/[0.07] p-5"
+            style={{ background: "linear-gradient(135deg, #091528 0%, #07111f 100%)" }}
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle size={14} className="text-[#fbbf24]" />
+              <span className="text-[13px] font-semibold text-white">طابور الأولويات</span>
+            </div>
+            <div className="space-y-2">
+              {priorityQueue.map((item, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl border px-4 py-3 flex items-start gap-3"
+                  style={{ borderColor: `${item.priorityColor}20`, background: `${item.priorityColor}04` }}
+                >
+                  <span
+                    className="text-[10px] font-bold rounded-lg px-2 py-1 flex-shrink-0 mt-0.5"
+                    style={{ color: item.priorityColor, background: `${item.priorityColor}15`, border: `1px solid ${item.priorityColor}25` }}
+                  >
+                    {item.priority}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] text-white/75 mb-1">{item.reason}</p>
+                    <p className="text-[11px] text-white/40">{item.nextStep}</p>
+                  </div>
+                  {item.href && (
+                    <a
+                      href={item.href}
+                      className="flex items-center gap-1 text-[11px] flex-shrink-0 hover:opacity-80 transition-opacity mt-0.5"
+                      style={{ color: item.priorityColor }}
+                    >
+                      <Navigation size={11} />
+                      انتقل
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 1000-Customer Readiness */}
+          <div
+            className="rounded-2xl border border-white/[0.07] p-5"
+            style={{ background: "linear-gradient(135deg, #091528 0%, #07111f 100%)" }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <CheckCircle2 size={14} className="text-[#10b981]" />
+              <span className="text-[13px] font-semibold text-white">جاهزية النظام لـ 1000+ عميل</span>
+            </div>
+            <p className="text-[11px] text-white/30 mb-4 mr-6">
+              فجوات تقنية موثقة — لا تتطلب migrations. للمعلومات فقط.
+            </p>
+            <div className="space-y-2">
+              {READINESS_ITEMS.map((item, i) => {
+                const statusColor =
+                  item.status === "جاهز" ? "#10b981"
+                  : item.status === "جزئي" ? "#f59e0b"
+                  : "#ef4444";
+                return (
+                  <div
+                    key={i}
+                    className="rounded-xl border px-4 py-3 flex items-start gap-3"
+                    style={{ borderColor: `${statusColor}15`, background: `${statusColor}04` }}
+                  >
+                    <span
+                      className="text-[9.5px] font-bold rounded-lg px-1.5 py-0.5 flex-shrink-0 mt-0.5"
+                      style={{ color: statusColor, background: `${statusColor}15`, border: `1px solid ${statusColor}25` }}
+                    >
+                      {item.status}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-medium text-white/75">{item.area}</p>
+                      <p className="text-[11px] text-white/35 mt-0.5">{item.note}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
