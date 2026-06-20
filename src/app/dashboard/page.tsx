@@ -12,7 +12,7 @@ import {
   UserCheck, DollarSign, CheckCircle, X, Sparkles, TrendingUp, Timer, Siren,
   Bot, CheckSquare, UserPlus, FileText, Wallet, BarChart3, ListChecks,
   ArrowLeft, ShieldCheck, Building2, Zap, Plus,
-  Briefcase, Network, UserCog, CalendarDays, CreditCard,
+  Briefcase, Network, UserCog, CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency, timeAgo } from "@/lib/utils";
@@ -97,14 +97,6 @@ function todayArabic() {
 
 const ar = (...codePoints: number[]) => String.fromCodePoint(...codePoints);
 
-const WORK_IDENTITY_LABELS = {
-  title:                ar(0x0628,0x064A,0x0627,0x0646,0x0627,0x062A,0x0020,0x0627,0x0644,0x0639,0x0645,0x0644),
-  active:               ar(0x0646,0x0634,0x0637),
-  inactive:             ar(0x063A,0x064A,0x0631,0x0020,0x0646,0x0634,0x0637),
-  incompleteBadge:      ar(0x064A,0x062A,0x0637,0x0644,0x0628,0x0020,0x0627,0x0633,0x062A,0x0643,0x0645,0x0627,0x0644),
-  incompleteTitle:      ar(0x0628,0x064A,0x0627,0x0646,0x0627,0x062A,0x0020,0x0627,0x0644,0x0639,0x0645,0x0644,0x0020,0x0644,0x0645,0x0020,0x062A,0x064F,0x0633,0x062A,0x0643,0x0645,0x0644,0x0020,0x0628,0x0639,0x062F),
-  incompleteDescription:ar(0x062A,0x064F,0x062F,0x0627,0x0631,0x0020,0x0647,0x0630,0x0647,0x0020,0x0627,0x0644,0x0628,0x064A,0x0627,0x0646,0x0627,0x062A,0x0020,0x0645,0x0646,0x0020,0x0642,0x0633,0x0645,0x0020,0x0627,0x0644,0x0645,0x0648,0x0638,0x0641,0x064A,0x0646,0x0020,0x0648,0x0627,0x0644,0x0647,0x064A,0x0643,0x0644,0x0020,0x0627,0x0644,0x0625,0x062F,0x0627,0x0631,0x064A,0x0020,0x0628,0x0648,0x0627,0x0633,0x0637,0x0629,0x0020,0x0645,0x062F,0x064A,0x0631,0x0020,0x0627,0x0644,0x0645,0x0646,0x0634,0x0623,0x0629,0x002E),
-} as const;
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -436,6 +428,30 @@ export default function DashboardPage() {
                 <StatPill icon={TrendingUp} label="الإنجاز"      value={`${kpi.completedTasksPct}%`} tint="cyan"          />
                 <StatPill icon={Activity}   label="حالة التشغيل" value={operationalStatus}           tint={operationalTint} />
               </div>
+
+              {/* Work identity chips — shown only when data is ready; no warning if incomplete */}
+              {!workLoading && work.hasWorkData && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {work.jobTitle && (
+                    <span className={cn(WS_STATUS_CHIP, "text-[11px]")}>
+                      <Briefcase size={11} className="text-cyan-300 shrink-0" />
+                      <span>{work.jobTitle}</span>
+                    </span>
+                  )}
+                  {work.directManager && (
+                    <span className={cn(WS_STATUS_CHIP, "text-[11px]")}>
+                      <UserCog size={11} className="text-cyan-300 shrink-0" />
+                      <span>{work.directManager}</span>
+                    </span>
+                  )}
+                  {work.orgLink && (
+                    <span className={cn(WS_STATUS_CHIP, "text-[11px]")}>
+                      <Network size={11} className="text-cyan-300 shrink-0" />
+                      <span>{work.orgLink}</span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* AI insight panel (left side on desktop; the mobile equivalent lives lower as a full card) */}
@@ -459,66 +475,30 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* ─── Work identity block ────────────────────────────────────────── */}
-        <section className={cn(WS_CARD, "p-4 sm:p-5")}>
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-          <div className="relative z-10">
-            <div className="mb-3 flex items-center gap-1.5 text-[11px] text-cyan-300/80">
-              <Briefcase size={12} />
-              <span>{WORK_IDENTITY_LABELS.title}</span>
-            </div>
-            {workLoading ? (
-              <div className="h-8 animate-pulse rounded-xl bg-white/5" />
-            ) : work.hasWorkData ? (
-              <div className="flex flex-wrap gap-2">
-                {work.jobTitle && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <Briefcase size={12} className="text-cyan-300 shrink-0" />
-                    <span>{work.jobTitle}</span>
-                  </span>
-                )}
-                {work.orgLink && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <Network size={12} className="text-cyan-300 shrink-0" />
-                    <span>{work.orgLink}</span>
-                  </span>
-                )}
-                {work.directManager && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <UserCog size={12} className="text-cyan-300 shrink-0" />
-                    <span>{work.directManager}</span>
-                  </span>
-                )}
-                {work.joinDate && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <CalendarDays size={12} className="text-cyan-300 shrink-0" />
-                    <span>{shortArabicDate(work.joinDate)}</span>
-                  </span>
-                )}
-                {work.status === "active" && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
-                    <span>{WORK_IDENTITY_LABELS.active}</span>
-                  </span>
-                )}
-                {work.status === "inactive" && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-rose-400 shrink-0" />
-                    <span>{WORK_IDENTITY_LABELS.inactive}</span>
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-amber-400/15 bg-amber-500/[0.05] p-3 text-center space-y-1.5">
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/25 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
-                  {WORK_IDENTITY_LABELS.incompleteBadge}
-                </span>
-                <div className="text-white text-[13px] font-medium">{WORK_IDENTITY_LABELS.incompleteTitle}</div>
-                <p className="text-[#8ba3c7] text-[11px] leading-relaxed">{WORK_IDENTITY_LABELS.incompleteDescription}</p>
-              </div>
-            )}
+        {/* ─── Subscription Strip ─────────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-[rgba(34,211,238,0.18)] bg-[rgba(30,111,217,0.07)] px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-2 min-w-0">
+            <CreditCard size={15} className="shrink-0 text-cyan-300" />
+            <span className="text-sm font-semibold text-white">{PLAN_LABELS_AR[planSlug]}</span>
           </div>
-        </section>
+          <div className="flex items-center gap-1.5">
+            <span className={cn(
+              "h-2 w-2 rounded-full shrink-0",
+              organizationStatus === "active" ? "bg-emerald-400" :
+              organizationStatus === "trial"  ? "bg-amber-400"  : "bg-rose-400"
+            )} />
+            <span className="text-xs text-[#8ba3c7]">{subscriptionStatusLabel}</span>
+          </div>
+          <span className="text-xs text-[#8ba3c7]">الدفع الإلكتروني: قيد الإعداد</span>
+          <div className="flex flex-1 justify-end">
+            <a
+              href="mailto:support@blumark24.com"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(34,211,238,0.25)] px-3 py-1.5 text-xs font-medium text-cyan-200 transition-colors hover:bg-[rgba(34,211,238,0.08)]"
+            >
+              تواصل مع الدعم
+            </a>
+          </div>
+        </div>
 
         {/* ─── KPI cards ─────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 auto-rows-fr items-stretch min-w-0">
@@ -776,6 +756,29 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* ─── Quick actions ─────────────────────────────────────────────── */}
+        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className={`${WS_SECTION_TITLE} text-sm`}>اختصارات سريعة</h2>
+            <span className="text-[11px] text-[#6b87ab]">اختصارات لأهم العمليات</span>
+          </div>
+          <div className="flex items-stretch gap-3">
+            {/* Central quick-create orb (links to the existing task create flow) */}
+            <Link
+              href="/tasks"
+              aria-label="إنشاء سريع"
+              className="grid h-auto w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_14px_34px_-12px_rgba(124,58,237,0.75)] transition-opacity hover:opacity-90"
+            >
+              <Plus size={26} strokeWidth={2.2} />
+            </Link>
+            <div className="grid min-w-0 flex-1 grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
+              {QUICK_ACTIONS.map((a) => (
+                <QuickActionTile key={a.label} href={a.href} label={a.label} icon={a.icon} tint={a.tint} />
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ─── Projects + recent activity ────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className={cn(WS_CARD, WS_CARD_HOVER, "lg:col-span-2 p-5 sm:p-6")}>
@@ -846,73 +849,6 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-
-        {/* ─── Quick actions ─────────────────────────────────────────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className={`${WS_SECTION_TITLE} text-sm`}>اختصارات سريعة</h2>
-            <span className="text-[11px] text-[#6b87ab]">اختصارات لأهم العمليات</span>
-          </div>
-          <div className="flex items-stretch gap-3">
-            {/* Central quick-create orb (links to the existing task create flow) */}
-            <Link
-              href="/tasks"
-              aria-label="إنشاء سريع"
-              className="grid h-auto w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_14px_34px_-12px_rgba(124,58,237,0.75)] transition-opacity hover:opacity-90"
-            >
-              <Plus size={26} strokeWidth={2.2} />
-            </Link>
-            <div className="grid min-w-0 flex-1 grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
-              {QUICK_ACTIONS.map((a) => (
-                <QuickActionTile key={a.label} href={a.href} label={a.label} icon={a.icon} tint={a.tint} />
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className={cn(WS_CARD, "p-4 sm:p-5")}>
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <div className="mb-3 flex items-center gap-2">
-                <div className={`${WS_ICON_ORB} h-9 w-9 shrink-0 bg-cyan-400/10 ring-1 ring-cyan-300/20 text-[#22d3ee]`}>
-                  <CreditCard size={16} />
-                </div>
-                <div className="min-w-0">
-                  <h2 className={`${WS_SECTION_TITLE} text-sm`}>حالة الاشتراك والدفع</h2>
-                  <p className="mt-0.5 text-xs text-[#8ba3c7]">
-                    الدفع الإلكتروني قيد التجهيز — تواصل مع الدعم لإتمام الاشتراك.
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-                {[
-                  { label: "حالة الاشتراك", value: subscriptionStatusLabel },
-                  { label: "آخر فاتورة", value: "—" },
-                  { label: "حالة الدفع", value: "غير مفعّل" },
-                ].map((row) => (
-                  <div key={row.label} className={cn(WS_INNER_CARD, "px-3 py-2")}>
-                    <div className="text-[11px] text-[#8ba3c7]">{row.label}</div>
-                    <div className="mt-1 truncate text-sm font-semibold text-white">{row.value}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex shrink-0 flex-col gap-2 lg:w-56">
-              <span className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-[#b8c7dd]">
-                الباقة الحالية: {PLAN_LABELS_AR[planSlug]}
-              </span>
-              <button
-                type="button"
-                disabled
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#22d3ee]/20 bg-[#22d3ee]/10 px-3 text-sm font-semibold text-[#8ddff0] opacity-70"
-              >
-                <CreditCard size={15} />
-                طلب رابط الدفع
-              </button>
-            </div>
-          </div>
-        </section>
 
         {/* ─── Drilldown modal (unchanged behavior) ──────────────────────── */}
         {activeBoard && (
