@@ -42,7 +42,7 @@ import {
   ListChecks,
   AlertOctagon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, timeAgo } from "@/lib/utils";
 import {
   fetchAuditCenterLogs,
   fetchOwnerAuditLogCount,
@@ -52,6 +52,7 @@ import {
   fetchSystemAlertSummary,
   fetchSupportTicketSummary,
   fetchFeatureUsageSummary,
+  fetchSystemHealthSummary,
   type AuditLog,
   type AuditLogFilters,
   type OrgStatusSummary,
@@ -60,6 +61,7 @@ import {
   type SystemAlertSummary,
   type SupportTicketSummary,
   type FeatureUsageSummary,
+  type SystemHealthSummary,
 } from "../../_lib/ownerTruthQueries";
 
 // ─── Severity ──────────────────────────────────────────────────────────────────
@@ -1125,9 +1127,11 @@ const READINESS_ITEMS: { area: string; status: "جاهز" | "جزئي" | "غير
   { area: "ترقيم الصفحات من الخادم", status: "جاهز", note: "C2: الجلب يستخدم range() من Supabase — الخادم يُعيد الصفحة الصحيحة مع الفلاتر المطبقة" },
   { area: "استعلامات العدّ المحسّنة", status: "جاهز", note: "C2: ملخص المنشآت والاشتراكات يستخدم طلبات HEAD بالعدّ الدقيق بدل تحميل جميع الصفوف" },
   { area: "جدول تذاكر الدعم الفني", status: "جاهز", note: "C3: جداول support_tickets و support_messages جاهزة مع RLS وفهارس" },
-  { area: "مراقبة الأخطاء والاستثناءات", status: "جاهز", note: "C3: جدول system_errors جاهز مع RLS وفهارس — يحتاج middleware التسجيل التلقائي" },
-  { area: "تنبيهات النظام التشغيلية", status: "جاهز", note: "C3: جدول system_alerts جاهز مع RLS وملخص مرئي في مركز التدقيق" },
+  { area: "مراقبة الأخطاء والاستثناءات", status: "جاهز", note: "C4: أداة logSystemError جاهزة — تُسجَّل الأخطاء الحرجة في owner API routes. التسجيل الشامل جزئي." },
+  { area: "تنبيهات النظام التشغيلية", status: "جاهز", note: "C4: createSystemAlert جاهزة مع dedup 30 دقيقة — تُفعَّل تلقائياً عند أخطاء حرجة وعمليات حساسة" },
   { area: "بيانات استخدام الميزات", status: "جاهز", note: "C3: جدول feature_usage_events جاهز مع فهارس — يحتاج ربط استدعاءات التتبع" },
+  { area: "محرك صحة الإنتاج", status: "جاهز", note: "C4: fetchSystemHealthSummary يحسب نقاط الصحة 0-100 ويحدد التركيز الموصى به" },
+  { area: "تغطية تسجيل الأخطاء", status: "جزئي", note: "C4: مُفعَّل في owner API routes الحساسة — يحتاج Next.js error boundary وmiddleware شاملاً" },
   { area: "واجهة مستخدم الجوال", status: "جاهز", note: "الواجهة متجاوبة مع الشاشات الصغيرة" },
   { area: "جاهزية الدعم الفني", status: "جزئي", note: "C3: هيكل قاعدة البيانات جاهز — يحتاج واجهة إدارة التذاكر وإشعارات آلية" },
   { area: "حدود معدل الطلبات للعمليات الحساسة", status: "غير جاهز", note: "لا توجد حدود معدل للعمليات الحساسة مثل الحذف وتغيير الأدوار" },
@@ -1608,6 +1612,8 @@ export default function OwnerSecurityPageContent() {
   const [ticketSummary,  setTicketSummary]  = useState<SupportTicketSummary>({ total: null, open: null, highPriority: null, latestAt: null });
   const [usageSummary,   setUsageSummary]   = useState<FeatureUsageSummary> ({ todayCount: null, totalCount: null });
   const [loadingOps,     setLoadingOps]     = useState(true);
+  // C4 health engine
+  const [healthSummary,  setHealthSummary]  = useState<SystemHealthSummary | null>(null);
 
   const [activeTab, setActiveTab] = useState<Tab>("monitoring");
   const [search, setSearch] = useState("");
@@ -1668,17 +1674,19 @@ export default function OwnerSecurityPageContent() {
       setSubSummary(sub);
       setLoadingMeta(false);
     });
-    // C3 ops monitoring summaries — loaded in parallel, non-blocking
+    // C3+C4 ops monitoring summaries — loaded in parallel, non-blocking
     void Promise.all([
       fetchSystemErrorSummary(),
       fetchSystemAlertSummary(),
       fetchSupportTicketSummary(),
       fetchFeatureUsageSummary(),
-    ]).then(([err, alert, ticket, usage]) => {
+      fetchSystemHealthSummary(),
+    ]).then(([err, alert, ticket, usage, health]) => {
       setErrorSummary(err);
       setAlertSummary(alert);
       setTicketSummary(ticket);
       setUsageSummary(usage);
+      setHealthSummary(health);
       setLoadingOps(false);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -3139,6 +3147,126 @@ export default function OwnerSecurityPageContent() {
                 </p>
               </div>
             )}
+          </div>
+
+          {/* C4: حالة النظام التشغيلية */}
+          <div
+            className="rounded-2xl border overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, #091528 0%, #07111f 100%)",
+              borderColor:
+                !loadingOps && healthSummary?.status === "critical" ? "#ef444425" :
+                !loadingOps && healthSummary?.status === "warning"  ? "#f59e0b25" :
+                "rgba(16,185,129,0.18)",
+            }}
+          >
+            <div
+              className="h-[2px]"
+              style={{
+                background:
+                  !loadingOps && healthSummary?.status === "critical"
+                    ? "linear-gradient(90deg, transparent, #ef4444, transparent)"
+                    : !loadingOps && healthSummary?.status === "warning"
+                    ? "linear-gradient(90deg, transparent, #f59e0b, transparent)"
+                    : "linear-gradient(90deg, transparent, #10b981, transparent)",
+              }}
+            />
+            <div className="px-5 py-4 flex items-center gap-3 flex-wrap border-b border-white/[0.04]">
+              <Activity size={14} className="text-[#22d3ee]" />
+              <span className="text-[13.5px] font-bold text-white">حالة النظام التشغيلية</span>
+              <span className="text-[10px] text-white/25 font-mono">C4 · صحة الإنتاج</span>
+              {!loadingOps && healthSummary && (
+                <span
+                  className="mr-auto text-[10px] font-semibold rounded-full px-2.5 py-0.5 border"
+                  style={{
+                    color:
+                      healthSummary.status === "critical" ? "#f87171" :
+                      healthSummary.status === "warning"  ? "#fbbf24" : "#34d399",
+                    borderColor:
+                      healthSummary.status === "critical" ? "#ef444430" :
+                      healthSummary.status === "warning"  ? "#f59e0b30" : "#10b98130",
+                    background:
+                      healthSummary.status === "critical" ? "#ef44440a" :
+                      healthSummary.status === "warning"  ? "#f59e0b0a" : "#10b9810a",
+                  }}
+                >
+                  {healthSummary.status === "critical" ? "حرج" :
+                   healthSummary.status === "warning"  ? "تحذير" : "سليم"}
+                </span>
+              )}
+            </div>
+
+            <div className="p-5 grid grid-cols-2 md:grid-cols-3 gap-3">
+              {/* Health Score */}
+              <div className="rounded-xl border border-white/[0.06] px-4 py-3.5" style={{ background: "rgba(255,255,255,0.02)" }}>
+                <p className="text-[10px] text-white/35 mb-1">نقاط الصحة</p>
+                {loadingOps ? (
+                  <div className="h-7 w-14 rounded bg-white/[0.07] animate-pulse" />
+                ) : (
+                  <p
+                    className="text-[26px] font-bold leading-none"
+                    style={{
+                      color:
+                        (healthSummary?.healthScore ?? 100) >= 80 ? "#34d399" :
+                        (healthSummary?.healthScore ?? 100) >= 50 ? "#fbbf24" : "#f87171",
+                    }}
+                  >
+                    {healthSummary?.healthScore ?? "—"}<span className="text-[13px] text-white/30">/100</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Recommended Focus */}
+              <div className="rounded-xl border border-white/[0.06] px-4 py-3.5 md:col-span-2" style={{ background: "rgba(255,255,255,0.02)" }}>
+                <p className="text-[10px] text-white/35 mb-1">التركيز الموصى به</p>
+                {loadingOps ? (
+                  <div className="h-5 w-48 rounded bg-white/[0.07] animate-pulse mt-1" />
+                ) : (
+                  <p className="text-[12.5px] text-white/70 leading-snug">{healthSummary?.recommendedFocus ?? "—"}</p>
+                )}
+              </div>
+
+              {/* Last Error */}
+              <div className="rounded-xl border border-white/[0.06] px-4 py-3.5" style={{ background: "rgba(255,255,255,0.02)" }}>
+                <p className="text-[10px] text-white/35 mb-1">آخر خطأ</p>
+                {loadingOps ? (
+                  <div className="h-4 w-20 rounded bg-white/[0.07] animate-pulse" />
+                ) : (
+                  <p className="text-[11.5px] text-white/50">
+                    {healthSummary?.lastErrorAt ? timeAgo(healthSummary.lastErrorAt) : "لا يوجد"}
+                  </p>
+                )}
+              </div>
+
+              {/* Last Alert */}
+              <div className="rounded-xl border border-white/[0.06] px-4 py-3.5" style={{ background: "rgba(255,255,255,0.02)" }}>
+                <p className="text-[10px] text-white/35 mb-1">آخر تنبيه</p>
+                {loadingOps ? (
+                  <div className="h-4 w-20 rounded bg-white/[0.07] animate-pulse" />
+                ) : (
+                  <p className="text-[11.5px] text-white/50">
+                    {healthSummary?.lastAlertAt ? timeAgo(healthSummary.lastAlertAt) : "لا يوجد"}
+                  </p>
+                )}
+              </div>
+
+              {/* Open Issues */}
+              <div className="rounded-xl border border-white/[0.06] px-4 py-3.5" style={{ background: "rgba(255,255,255,0.02)" }}>
+                <p className="text-[10px] text-white/35 mb-1">مشاكل مفتوحة</p>
+                {loadingOps ? (
+                  <div className="h-4 w-16 rounded bg-white/[0.07] animate-pulse" />
+                ) : (
+                  <p className="text-[11.5px] text-white/60">
+                    {(healthSummary?.openErrors ?? 0) + (healthSummary?.openAlerts ?? 0) + (healthSummary?.openTickets ?? 0)} إجمالي
+                    {(healthSummary?.criticalErrors ?? 0) + (healthSummary?.criticalAlerts ?? 0) > 0 && (
+                      <span className="text-[#f87171] mr-1">
+                        · {(healthSummary?.criticalErrors ?? 0) + (healthSummary?.criticalAlerts ?? 0)} حرج
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Command Brief */}

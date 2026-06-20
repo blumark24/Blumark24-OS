@@ -571,3 +571,93 @@ export async function fetchFeatureUsageSummary(): Promise<FeatureUsageSummary> {
     todayCount: today.count ?? 0,
   };
 }
+
+// ── C4: System Health Summary ─────────────────────────────────────────────────
+
+export interface SystemHealthSummary {
+  healthScore:          number;
+  status:               "healthy" | "warning" | "critical";
+  openErrors:           number;
+  criticalErrors:       number;
+  openAlerts:           number;
+  criticalAlerts:       number;
+  openTickets:          number;
+  highPriorityTickets:  number;
+  lastErrorAt:          string | null;
+  lastAlertAt:          string | null;
+  recommendedFocus:     string;
+}
+
+export async function fetchSystemHealthSummary(): Promise<SystemHealthSummary> {
+  const [
+    openErrors,
+    criticalErrors,
+    lastError,
+    openAlerts,
+    criticalAlerts,
+    lastAlert,
+    openTickets,
+    highPriorityTickets,
+  ] = await Promise.all([
+    supabase.from("system_errors").select("*", { count: "exact", head: true }).is("resolved_at", null),
+    supabase.from("system_errors").select("*", { count: "exact", head: true }).eq("severity", "critical").is("resolved_at", null),
+    supabase.from("system_errors").select("created_at").order("created_at", { ascending: false }).limit(1),
+    supabase.from("system_alerts").select("*", { count: "exact", head: true }).eq("status", "open"),
+    supabase.from("system_alerts").select("*", { count: "exact", head: true }).eq("severity", "critical").eq("status", "open"),
+    supabase.from("system_alerts").select("created_at").order("created_at", { ascending: false }).limit(1),
+    supabase.from("support_tickets").select("*", { count: "exact", head: true }).eq("status", "open"),
+    supabase.from("support_tickets").select("*", { count: "exact", head: true }).eq("priority", "high").eq("status", "open"),
+  ]);
+
+  // Gracefully handle missing tables (C3 not yet migrated)
+  const oE  = openErrors.count           ?? 0;
+  const cE  = criticalErrors.count       ?? 0;
+  const oA  = openAlerts.count           ?? 0;
+  const cA  = criticalAlerts.count       ?? 0;
+  const oT  = openTickets.count          ?? 0;
+  const hpT = highPriorityTickets.count  ?? 0;
+
+  const lastErrorAt  = ((lastError.data  ?? []) as { created_at: string }[])[0]?.created_at ?? null;
+  const lastAlertAt  = ((lastAlert.data  ?? []) as { created_at: string }[])[0]?.created_at ?? null;
+
+  // Score: start at 100, deduct for open issues
+  let score = 100;
+  score -= cE  * 20; // each critical error is severe
+  score -= cA  * 15; // each critical alert
+  score -= oE  * 5;  // open errors
+  score -= oA  * 3;  // open alerts
+  score -= hpT * 5;  // high priority tickets
+  score -= oT  * 1;  // open tickets
+  const healthScore = Math.max(0, Math.min(100, Math.round(score)));
+
+  let status: "healthy" | "warning" | "critical";
+  if (healthScore >= 80 && cE === 0 && cA === 0) {
+    status = "healthy";
+  } else if (healthScore >= 50 || (cE === 0 && cA === 0)) {
+    status = "warning";
+  } else {
+    status = "critical";
+  }
+
+  let recommendedFocus = "النظام في حالة جيدة";
+  if (cE > 0) recommendedFocus = `${cE} خطأ حرج يتطلب معالجة فورية`;
+  else if (cA > 0) recommendedFocus = `${cA} تنبيه حرج مفتوح`;
+  else if (hpT > 0) recommendedFocus = `${hpT} تذكرة دعم عالية الأولوية`;
+  else if (oE > 0) recommendedFocus = `${oE} خطأ مفتوح بانتظار المراجعة`;
+  else if (oA > 0) recommendedFocus = `${oA} تنبيه مفتوح بانتظار المراجعة`;
+  else if (oT > 0) recommendedFocus = `${oT} تذكرة دعم مفتوحة`;
+
+  return {
+    healthScore,
+    status,
+    openErrors:          oE,
+    criticalErrors:      cE,
+    openAlerts:          oA,
+    criticalAlerts:      cA,
+    openTickets:         oT,
+    highPriorityTickets: hpT,
+    lastErrorAt,
+    lastAlertAt,
+    recommendedFocus,
+  };
+}

@@ -13,6 +13,7 @@ import {
   verifyOwnerBearer,
   writeOwnerAuditLog,
 } from "@/lib/api/ownerServerCommon";
+import { logAndAlert, normalizeError, generateRequestId } from "@/lib/monitoring/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -224,6 +225,7 @@ async function createOrAdoptAuthUser(
 }
 
 export async function POST(req: NextRequest) {
+  const requestId = generateRequestId();
   const partial: PartialState = {};
 
   try {
@@ -523,12 +525,26 @@ export async function POST(req: NextRequest) {
       adopted: authRes.adopted,
     });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error("[PROVISION_TENANT_FATAL]", error);
+    const norm = normalizeError(error);
+    console.error("[PROVISION_TENANT_FATAL]", norm.message);
+    void logAndAlert(
+      {
+        source:     "owner_provision_tenant",
+        severity:   "critical",
+        message:    norm.message,
+        stack:      norm.stack,
+        error_code: norm.error_code,
+        request_id: requestId,
+        path:       "/api/owner/provision-tenant",
+        metadata:   { partial: Boolean(partial.organizationId) },
+      },
+      "خطأ حرج في تزويد عميل جديد",
+    );
     return NextResponse.json(
       {
         success: false,
-        error: msg || "خطأ غير متوقع",
+        error: norm.message || "خطأ غير متوقع",
+        request_id: requestId,
         partial: Boolean(partial.organizationId),
         ...partial,
         // OWNER-PROVISION-TENANT-CODE-FIX-1: backward-compatible alias for

@@ -4,6 +4,7 @@ import {
   verifyOwnerBearer,
   writeOwnerAuditLog,
 } from "@/lib/api/ownerServerCommon";
+import { logAndAlert, normalizeError, generateRequestId } from "@/lib/monitoring/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ function jsonNoStore(payload: Record<string, unknown>, status = 200) {
 }
 
 export async function POST(req: NextRequest) {
+  const requestId = generateRequestId();
   try {
     const svc = createServiceRoleAdmin();
     if ("error" in svc) {
@@ -190,7 +192,21 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
-    console.error("[owner/change-plan] unexpected:", err);
-    return jsonNoStore({ success: false, error: "خطأ داخلي" }, 500);
+    const norm = normalizeError(err);
+    console.error("[owner/change-plan] unexpected:", norm.message);
+    void logAndAlert(
+      {
+        source:     "owner_change_plan",
+        severity:   "critical",
+        message:    norm.message,
+        stack:      norm.stack,
+        error_code: norm.error_code,
+        request_id: requestId,
+        path:       "/api/owner/change-organization-plan",
+        metadata:   {},
+      },
+      "خطأ حرج في تغيير باقة المنشأة",
+    );
+    return jsonNoStore({ success: false, error: "خطأ داخلي", request_id: requestId }, 500);
   }
 }
