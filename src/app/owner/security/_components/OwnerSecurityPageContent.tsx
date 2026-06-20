@@ -424,6 +424,171 @@ function answerQuestion(
   }
 }
 
+// ─── B5 Secure Repair Actions ─────────────────────────────────────────────────
+
+type RepairStatus = "جاهز" | "قيد المراجعة" | "تم التوجيه" | "محظور تلقائيًا";
+type RepairRisk = "منخفض" | "متوسط" | "عالٍ" | "محظور";
+
+interface RepairAction {
+  id: string;
+  title: string;
+  area: string;
+  riskLevel: RepairRisk;
+  riskColor: string;
+  currentStatus: string;
+  proposedRepair: string;
+  expectedResult: string;
+  safetyLevel: string;
+  requiresConfirmation: boolean;
+  isBlocked: boolean;
+  blockedReason?: string;
+  href?: string;
+  actionLabel: string;
+  supportCat?: string;
+}
+
+interface RepairReport {
+  preparedAt: string;
+  totalPrepared: number;
+  safeAvailable: number;
+  blockedCount: number;
+  manualReviewCount: number;
+}
+
+function buildRepairActions(
+  orgSummary: OrgStatusSummary,
+  subSummary: SubStatusSummary,
+  logs: AuditLog[],
+): RepairAction[] {
+  const actions: RepairAction[] = [];
+
+  if (subSummary.suspended > 0) {
+    actions.push({
+      id: "repair-suspended-subs",
+      title: "مراجعة اشتراك معلّق",
+      area: "الاشتراكات",
+      riskLevel: "متوسط",
+      riskColor: "#f59e0b",
+      currentStatus: `${subSummary.suspended} اشتراك في حالة تعليق`,
+      proposedRepair: "توجيه المالك إلى صفحة الاشتراكات لمراجعة كل حالة تعليق",
+      expectedResult: "تحديد سبب التعليق والقرار المناسب (إعادة تفعيل أو إلغاء)",
+      safetyLevel: "آمن — تصفح فقط",
+      requiresConfirmation: true,
+      isBlocked: false,
+      href: "/owner/subscriptions",
+      actionLabel: "فتح صفحة الاشتراكات",
+    });
+  }
+
+  if (subSummary.cancelled > 0) {
+    actions.push({
+      id: "repair-cancelled-subs",
+      title: "استعادة اشتراك ملغى",
+      area: "الاشتراكات",
+      riskLevel: "متوسط",
+      riskColor: "#f59e0b",
+      currentStatus: `${subSummary.cancelled} اشتراك ملغى`,
+      proposedRepair: "تجهيز مراجعة الاستعادة وتوجيه المالك لاتخاذ القرار",
+      expectedResult: "تقييم إمكانية الاسترداد وتواصل مع العميل",
+      safetyLevel: "آمن — تصفح فقط، لا إعادة تفعيل تلقائية",
+      requiresConfirmation: true,
+      isBlocked: false,
+      href: "/owner/subscriptions",
+      actionLabel: "فتح صفحة الاشتراكات",
+    });
+  }
+
+  if (orgSummary.suspended > 0) {
+    actions.push({
+      id: "repair-suspended-orgs",
+      title: "مراجعة منشأة معلّقة",
+      area: "المنشآت",
+      riskLevel: "عالٍ",
+      riskColor: "#ef4444",
+      currentStatus: `${orgSummary.suspended} منشأة في حالة تعليق`,
+      proposedRepair: "توجيه المالك إلى صفحة المنشآت لمراجعة حالة التعليق",
+      expectedResult: "قرار مدروس: إعادة تفعيل أو إكمال الإجراء اليدوي",
+      safetyLevel: "آمن — تصفح فقط، لا إعادة تفعيل تلقائية",
+      requiresConfirmation: true,
+      isBlocked: false,
+      href: "/owner/organizations",
+      actionLabel: "فتح صفحة المنشآت",
+    });
+  }
+
+  const hardDeletes = logs.filter((l) => l.action === "subscription_hard_deleted").length;
+  if (hardDeletes > 0) {
+    actions.push({
+      id: "repair-hard-delete",
+      title: "مراجعة حدث حرج — حذف نهائي",
+      area: "الاشتراكات",
+      riskLevel: "محظور",
+      riskColor: "#ef4444",
+      currentStatus: `${hardDeletes} عملية حذف نهائي مسجلة`,
+      proposedRepair: "عرض تفاصيل الحذف فقط — لا يمكن استعادة البيانات المحذوفة نهائياً",
+      expectedResult: "توثيق المراجعة وضمان أن الحذف كان مبرراً",
+      safetyLevel: "محظور تلقائيًا",
+      requiresConfirmation: false,
+      isBlocked: true,
+      blockedReason: "هذا الإجراء قد يغيّر بيانات العميل أو الاشتراك، لذلك لا يتم تنفيذه تلقائيًا من مركز التدقيق. افتح الصفحة المختصة ونفّذ بعد المراجعة.",
+      href: "/owner/subscriptions",
+      actionLabel: "فتح الصفحة المختصة",
+    });
+  }
+
+  actions.push({
+    id: "repair-login-issue",
+    title: "تجهيز إعادة ضبط دخول العميل",
+    area: "الدعم الفني",
+    riskLevel: "منخفض",
+    riskColor: "#22d3ee",
+    currentStatus: "استعداد لمعالجة بلاغات تسجيل الدخول",
+    proposedRepair: "تجهيز رد دعم فني وتوجيه المالك إلى صفحة المنشأة المعنية",
+    expectedResult: "رد جاهز للإرسال للعميل + مسار واضح لإعادة الضبط",
+    safetyLevel: "آمن — تجهيز فقط، لا تعديل في Auth",
+    requiresConfirmation: true,
+    isBlocked: false,
+    href: "/owner/organizations",
+    actionLabel: "فتح المنشآت + تجهيز رد",
+    supportCat: "login",
+  });
+
+  actions.push({
+    id: "repair-permissions",
+    title: "مراجعة صلاحيات المستخدمين",
+    area: "الصلاحيات",
+    riskLevel: "متوسط",
+    riskColor: "#f59e0b",
+    currentStatus: "مراجعة أدوار وصلاحيات المستخدمين",
+    proposedRepair: "توجيه المالك إلى صفحة الأدوار لمراجعة الصلاحيات",
+    expectedResult: "فهم واضح لصلاحيات كل دور وإمكانية التعديل اليدوي",
+    safetyLevel: "آمن — تصفح فقط، لا تعديل على الأدوار",
+    requiresConfirmation: true,
+    isBlocked: false,
+    href: "/owner/roles",
+    actionLabel: "فتح صفحة الأدوار",
+  });
+
+  actions.push({
+    id: "repair-billing",
+    title: "مراجعة الفواتير",
+    area: "الفواتير",
+    riskLevel: "منخفض",
+    riskColor: "#22d3ee",
+    currentStatus: "استعداد لمراجعة الفواتير والاستفسارات",
+    proposedRepair: "توجيه المالك إلى صفحة الفواتير لمراجعة البيانات",
+    expectedResult: "إجابة واضحة على استفسار الفاتورة وتجهيز رد للعميل",
+    safetyLevel: "آمن — تصفح فقط، لا تعديل في الفوترة",
+    requiresConfirmation: true,
+    isBlocked: false,
+    href: "/owner/invoices",
+    actionLabel: "فتح صفحة الفواتير",
+    supportCat: "billing",
+  });
+
+  return actions;
+}
+
 // ─── B4 Smart Scan ────────────────────────────────────────────────────────────
 
 type ScanStatus = "idle" | "scanning" | "done" | "clean";
@@ -1412,6 +1577,9 @@ export default function OwnerSecurityPageContent() {
   const [scanStatus, setScanStatus] = useState<ScanStatus>("idle");
   const [scanReport, setScanReport] = useState<ScanReport | null>(null);
   const [expandedScanIssue, setExpandedScanIssue] = useState<string | null>(null);
+  const [repairStatuses, setRepairStatuses] = useState<Record<string, RepairStatus>>({});
+  const [confirmRepair, setConfirmRepair] = useState<RepairAction | null>(null);
+  const [expandedRepair, setExpandedRepair] = useState<string | null>(null);
 
   const load = useCallback(async (reset = true) => {
     if (reset) { setLoading(true); setError(null); setOffset(0); }
@@ -1502,6 +1670,14 @@ export default function OwnerSecurityPageContent() {
   const remediationPlan = useMemo(() => computeRemediationPlan(logs, orgSummary, subSummary), [logs, orgSummary, subSummary]);
   const priorityQueue = useMemo(() => computePriorityQueue(logs, orgSummary, subSummary), [logs, orgSummary, subSummary]);
   const commandBrief  = useMemo(() => computeCommandBrief(logs, orgSummary, subSummary, healthScore), [logs, orgSummary, subSummary, healthScore]);
+  const repairActions = useMemo(() => buildRepairActions(orgSummary, subSummary, logs), [orgSummary, subSummary, logs]);
+  const repairReport  = useMemo<RepairReport>(() => ({
+    preparedAt: new Date().toISOString(),
+    totalPrepared: repairActions.length,
+    safeAvailable: repairActions.filter((a) => !a.isBlocked).length,
+    blockedCount: repairActions.filter((a) => a.isBlocked).length,
+    manualReviewCount: repairActions.filter((a) => a.requiresConfirmation && !a.isBlocked).length,
+  }), [repairActions]);
 
   const questionAnswer = useMemo(() => {
     if (!activeQuestion) return null;
@@ -2608,6 +2784,165 @@ export default function OwnerSecurityPageContent() {
             )}
           </div>
 
+          {/* ── Secure Repair Actions ──────────────────────────────────────── */}
+          <div
+            className="rounded-2xl border border-[#22d3ee]/12 overflow-hidden"
+            style={{ background: "linear-gradient(135deg, #091528 0%, #07111f 100%)" }}
+          >
+            <div className="h-[1px]" style={{ background: "linear-gradient(90deg, transparent, rgba(34,211,238,0.3), transparent)" }} />
+            <div className="px-5 py-4 border-b border-white/[0.05] flex items-center gap-3 flex-wrap">
+              <Shield size={14} className="text-[#22d3ee]" />
+              <span className="text-[13.5px] font-bold text-white">إجراءات الإصلاح الآمنة</span>
+              <span className="text-[10px] text-white/25">تُنفَّذ بتأكيد المالك — لا عمليات تلقائية مدمّرة</span>
+              {/* Repair summary chips */}
+              <div className="mr-auto flex items-center gap-2 flex-wrap">
+                {[
+                  { label: `${repairReport.totalPrepared} إجراء`, color: "#22d3ee" },
+                  { label: `${repairReport.safeAvailable} آمن`, color: "#10b981" },
+                  { label: `${repairReport.blockedCount} محظور`, color: "#ef4444" },
+                ].map((chip) => (
+                  <span
+                    key={chip.label}
+                    className="text-[10px] rounded-full px-2 py-0.5 border"
+                    style={{ color: chip.color, borderColor: `${chip.color}25`, background: `${chip.color}10` }}
+                  >
+                    {chip.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 space-y-2">
+              {repairActions.map((action) => {
+                const status = repairStatuses[action.id] ?? (action.isBlocked ? "محظور تلقائيًا" : "جاهز");
+                const isExpanded = expandedRepair === action.id;
+                const statusColor =
+                  status === "تم التوجيه" ? "#10b981"
+                  : status === "قيد المراجعة" ? "#f59e0b"
+                  : status === "محظور تلقائيًا" ? "#ef4444"
+                  : "#22d3ee";
+                return (
+                  <div
+                    key={action.id}
+                    className="rounded-xl border overflow-hidden transition-all"
+                    style={{
+                      borderColor: action.isBlocked ? "rgba(239,68,68,0.18)" : `${action.riskColor}18`,
+                      background: action.isBlocked ? "rgba(239,68,68,0.04)" : `${action.riskColor}04`,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setExpandedRepair(isExpanded ? null : action.id)}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-right hover:bg-white/[0.02] transition-colors"
+                    >
+                      <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: action.riskColor }} />
+                      <span className="flex-1 text-[12.5px] font-medium text-white/80 text-right">{action.title}</span>
+                      <span className="text-[10px] text-white/30 hidden sm:inline">{action.area}</span>
+                      <span
+                        className="text-[9.5px] rounded-lg px-2 py-0.5 border flex-shrink-0"
+                        style={{ color: statusColor, borderColor: `${statusColor}25`, background: `${statusColor}10` }}
+                      >
+                        {status}
+                      </span>
+                      {action.isBlocked
+                        ? <span className="text-[9.5px] text-[#ef4444]/60 flex-shrink-0 hidden sm:inline">محظور</span>
+                        : null}
+                      {isExpanded
+                        ? <ChevronUp size={13} className="text-white/25 flex-shrink-0" />
+                        : <ChevronDown size={13} className="text-white/25 flex-shrink-0" />}
+                    </button>
+
+                    {isExpanded && (
+                      <div className="px-4 pb-4 space-y-3 border-t border-white/[0.04] pt-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {[
+                            ["الحالة الحالية",  action.currentStatus],
+                            ["الإصلاح المقترح", action.proposedRepair],
+                            ["النتيجة المتوقعة", action.expectedResult],
+                            ["مستوى الأمان",    action.safetyLevel],
+                          ].map(([k, v]) => (
+                            <div key={k} className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2">
+                              <p className="text-[9.5px] text-white/30 mb-0.5">{k}</p>
+                              <p className="text-[11.5px] text-white/65 leading-snug">{v}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {action.isBlocked && action.blockedReason && (
+                          <div className="flex items-start gap-2.5 rounded-xl border border-[#ef4444]/15 bg-[#ef4444]/[0.05] px-3 py-2.5">
+                            <AlertOctagon size={12} className="text-[#f87171] flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-[10.5px] font-semibold text-[#f87171] mb-0.5">سبب الحظر</p>
+                              <p className="text-[11px] text-[#fca5a5]/70 leading-relaxed">{action.blockedReason}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {action.isBlocked ? (
+                            <a
+                              href={action.href}
+                              className="inline-flex items-center gap-1.5 text-[11.5px] rounded-xl border px-3 py-1.5 transition-all hover:opacity-80"
+                              style={{ color: "#ef4444", borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.08)" }}
+                            >
+                              <Navigation size={11} />
+                              {action.actionLabel}
+                            </a>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setRepairStatuses((p) => ({ ...p, [action.id]: "قيد المراجعة" }));
+                                setConfirmRepair(action);
+                              }}
+                              className="inline-flex items-center gap-1.5 text-[11.5px] rounded-xl border px-3 py-1.5 transition-all hover:opacity-80"
+                              style={{ color: action.riskColor, borderColor: `${action.riskColor}30`, background: `${action.riskColor}10` }}
+                            >
+                              <Zap size={11} />
+                              {action.actionLabel}
+                            </button>
+                          )}
+                          <span
+                            className="text-[10px] rounded-lg px-2 py-1 border"
+                            style={{ color: action.riskColor, borderColor: `${action.riskColor}20`, background: `${action.riskColor}08` }}
+                          >
+                            خطورة: {action.riskLevel}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Future repairs disabled */}
+            <div className="px-5 pb-5">
+              <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: "rgba(255,255,255,0.01)" }}>
+                <p className="text-[11px] font-semibold text-white/30 mb-3 flex items-center gap-2">
+                  <Clock size={11} className="text-white/20" />
+                  إصلاحات متقدمة لاحقًا — يتطلب Backend Action مؤمّن + تأكيد المالك + Audit Log
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    "إعادة تفعيل اشتراك",
+                    "إعادة تفعيل منشأة",
+                    "إعادة ضبط كلمة مرور عميل",
+                    "إنشاء تذكرة دعم",
+                    "إصلاح صلاحية مستخدم",
+                  ].map((label) => (
+                    <button
+                      key={label}
+                      disabled
+                      className="text-[11px] rounded-xl border border-white/[0.05] text-white/18 px-3 py-2 cursor-not-allowed text-right"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Command Brief */}
           <div
             className="rounded-2xl border overflow-hidden"
@@ -2846,6 +3181,121 @@ export default function OwnerSecurityPageContent() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Repair Confirmation Modal ─────────────────────────────────────────── */}
+      {confirmRepair && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4"
+          onMouseDown={() => setConfirmRepair(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, #0d1e3a 0%, #07111f 100%)",
+              border: `1px solid ${confirmRepair.riskColor}28`,
+              boxShadow: "0 40px 120px rgba(0,0,0,0.9)",
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="h-[2px]"
+              style={{ background: `linear-gradient(90deg, transparent, ${confirmRepair.riskColor}, transparent)` }} />
+
+            <div className="px-5 py-4 border-b border-white/[0.06]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Shield size={14} style={{ color: confirmRepair.riskColor }} />
+                  <p className="text-[14px] font-semibold text-white">تأكيد إجراء الإصلاح</p>
+                </div>
+                <button
+                  onClick={() => setConfirmRepair(null)}
+                  className="p-1.5 rounded-lg text-white/35 hover:text-white/70 hover:bg-white/[0.06] transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                <p className="text-[11px] text-white/30 mb-1">الإجراء</p>
+                <p className="text-[13px] font-semibold text-white">{confirmRepair.title}</p>
+                <p className="text-[11px] text-white/40 mt-0.5">{confirmRepair.area}</p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 rounded-xl border border-[#10b981]/15 bg-[#10b981]/[0.04] px-3 py-2.5">
+                  <CheckCircle2 size={12} className="text-[#10b981] flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[10.5px] text-[#10b981] font-semibold mb-0.5">ما سيحدث</p>
+                    <p className="text-[11.5px] text-white/60">{confirmRepair.proposedRepair}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 rounded-xl border border-[#ef4444]/12 bg-[#ef4444]/[0.04] px-3 py-2.5">
+                  <AlertOctagon size={12} className="text-[#f87171] flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[10.5px] text-[#f87171] font-semibold mb-0.5">ما لن يحدث</p>
+                    <p className="text-[11.5px] text-white/60">
+                      لا حذف، لا تعليق، لا تغيير في الاشتراك أو الصلاحيات تلقائياً
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-white/30">مستوى الأمان:</span>
+                <span
+                  className="text-[10px] rounded-lg px-2 py-0.5 border"
+                  style={{ color: confirmRepair.riskColor, borderColor: `${confirmRepair.riskColor}25`, background: `${confirmRepair.riskColor}10` }}
+                >
+                  {confirmRepair.safetyLevel}
+                </span>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setConfirmRepair(null)}
+                  className="flex-1 rounded-xl border border-white/[0.10] bg-white/[0.03] text-white/50 text-[12.5px] py-2.5 hover:bg-white/[0.06] transition-colors"
+                >
+                  إلغاء
+                </button>
+                {confirmRepair.href ? (
+                  <a
+                    href={confirmRepair.href}
+                    onClick={() => {
+                      setRepairStatuses((p) => ({ ...p, [confirmRepair.id]: "تم التوجيه" }));
+                      setConfirmRepair(null);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl text-[12.5px] font-semibold py-2.5 transition-all hover:opacity-90"
+                    style={{
+                      background: `linear-gradient(135deg, ${confirmRepair.riskColor}22, ${confirmRepair.riskColor}12)`,
+                      border: `1px solid ${confirmRepair.riskColor}35`,
+                      color: confirmRepair.riskColor,
+                    }}
+                  >
+                    <Navigation size={13} />
+                    {confirmRepair.actionLabel}
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setRepairStatuses((p) => ({ ...p, [confirmRepair.id]: "تم التوجيه" }));
+                      setConfirmRepair(null);
+                    }}
+                    className="flex-1 rounded-xl text-[12.5px] font-semibold py-2.5 transition-all hover:opacity-90"
+                    style={{
+                      background: `linear-gradient(135deg, ${confirmRepair.riskColor}22, ${confirmRepair.riskColor}12)`,
+                      border: `1px solid ${confirmRepair.riskColor}35`,
+                      color: confirmRepair.riskColor,
+                    }}
+                  >
+                    تأكيد
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
