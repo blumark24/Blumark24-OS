@@ -58,6 +58,8 @@ import {
   fetchTenantActivitySignals,
   fetchCustomerSuccessSummary,
   fetchTenantHealthSignals,
+  fetchAutomatedOperationsIntelligence,
+  fetchExecutiveOperationsBrief,
   type AuditLog,
   type AuditLogFilters,
   type OrgStatusSummary,
@@ -72,6 +74,8 @@ import {
   type TenantActivitySignals,
   type CustomerSuccessSummary,
   type TenantHealthSignal,
+  type AutomatedOperationsIntelligence,
+  type ExecutiveOperationsBrief,
 } from "../../_lib/ownerTruthQueries";
 
 // ─── Severity ──────────────────────────────────────────────────────────────────
@@ -1150,6 +1154,10 @@ const READINESS_ITEMS: { area: string; status: "جاهز" | "جزئي" | "غير
   { area: "واجهة مستخدم الجوال", status: "جاهز", note: "الواجهة متجاوبة مع الشاشات الصغيرة" },
   { area: "جاهزية الدعم الفني", status: "جزئي", note: "C3: هيكل قاعدة البيانات جاهز — يحتاج واجهة إدارة التذاكر وإشعارات آلية" },
   { area: "حدود معدل الطلبات للعمليات الحساسة", status: "جزئي", note: "C5: مُفعَّل في 3 مسارات (تغيير الباقة، تزويد عميل، مراقبة الأخطاء) — التغطية الكاملة لجميع المسارات الحساسة قيد التطوير" },
+  { area: "ذكاء العمليات الآلي", status: "جزئي", note: "C8: قائمة إجراءات قائمة على القواعد من بيانات حقيقية — لا وظائف خلفية، لا إشعارات خارجية بعد" },
+  { area: "قائمة الإجراءات التشغيلية", status: "جاهز", note: "C8: حتى 10 إجراءات مرتبة حسب الأولوية من system_errors وsystem_alerts وsupport_tickets وrate_limits وorganizations" },
+  { area: "الموجز التنفيذي اليومي", status: "جزئي", note: "C8: موجز نصي قائم على القواعد مع نقاط الصحة وإشارات العملاء — لا LLM، لا ذكاء اصطناعي" },
+  { area: "التصعيد التلقائي", status: "جزئي", note: "C8: كشف التصعيد قائم على القواعد (تنبيهات حرجة / تذاكر عالية الأولوية) — يعرض السبب فقط، لا إرسال إشعارات خارجية" },
 ];
 
 // ─── Preset questions ──────────────────────────────────────────────────────────
@@ -1644,6 +1652,9 @@ export default function OwnerSecurityPageContent() {
     activeTenants7d: null, inactiveTenants30d: null,
     highUsageTenants7d: null, lowUsageTenants7d: null, partial: true,
   });
+  // C8 automated ops intelligence
+  const [opsIntelligence, setOpsIntelligence] = useState<AutomatedOperationsIntelligence | null>(null);
+  const [execBrief, setExecBrief] = useState<ExecutiveOperationsBrief | null>(null);
 
   const [activeTab, setActiveTab] = useState<Tab>("monitoring");
   const [search, setSearch] = useState("");
@@ -1704,7 +1715,7 @@ export default function OwnerSecurityPageContent() {
       setSubSummary(sub);
       setLoadingMeta(false);
     });
-    // C3–C7 ops summaries — all loaded in parallel, non-blocking
+    // C3–C8 ops summaries — all loaded in parallel, non-blocking
     void Promise.all([
       fetchSystemErrorSummary(),
       fetchSystemAlertSummary(),
@@ -1716,7 +1727,9 @@ export default function OwnerSecurityPageContent() {
       fetchTenantActivitySignals(),
       fetchCustomerSuccessSummary(),
       fetchTenantHealthSignals(),
-    ]).then(([err, alert, ticket, usage, health, rl, analytics, signals, cs, tenantHealth]) => {
+      fetchAutomatedOperationsIntelligence(),
+      fetchExecutiveOperationsBrief(),
+    ]).then(([err, alert, ticket, usage, health, rl, analytics, signals, cs, tenantHealth, opsInt, execB]) => {
       setErrorSummary(err);
       setAlertSummary(alert);
       setTicketSummary(ticket);
@@ -1727,6 +1740,8 @@ export default function OwnerSecurityPageContent() {
       setTenantSignals(signals);
       setCsSummary(cs);
       setTenantHealthList(tenantHealth);
+      setOpsIntelligence(opsInt);
+      setExecBrief(execB);
       setLoadingOps(false);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -3521,6 +3536,144 @@ export default function OwnerSecurityPageContent() {
             {loadingOps && (
               <div className="px-5 py-6 text-center">
                 <p className="text-[11px] text-white/20 animate-pulse">جارٍ تحليل بيانات العملاء…</p>
+              </div>
+            )}
+          </div>
+
+          {/* C8: مركز القرار التشغيلي */}
+          <div
+            className="rounded-2xl border overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, #090e1e 0%, #07101c 100%)",
+              borderColor: "#22d3ee20",
+              boxShadow: "0 0 32px #22d3ee07",
+            }}
+          >
+            <div className="h-[2px]" style={{ background: "linear-gradient(90deg, transparent, #22d3ee, transparent)" }} />
+            {/* Header */}
+            <div className="px-5 pt-4 pb-3 border-b border-white/[0.04] flex items-center gap-3">
+              <Brain size={14} className="text-[#22d3ee]" />
+              <span className="text-[13px] font-semibold text-white">مركز القرار التشغيلي</span>
+              {!loadingOps && opsIntelligence && (
+                <span
+                  className="mr-auto text-[10px] font-bold rounded-full px-2.5 py-0.5 border"
+                  style={{
+                    color:        opsIntelligence.operationStatus === "urgent" ? "#ef4444"
+                                : opsIntelligence.operationStatus === "needs_attention" ? "#f59e0b"
+                                : "#10b981",
+                    borderColor:  opsIntelligence.operationStatus === "urgent" ? "#ef444430"
+                                : opsIntelligence.operationStatus === "needs_attention" ? "#f59e0b30"
+                                : "#10b98130",
+                    background:   opsIntelligence.operationStatus === "urgent" ? "#ef444410"
+                                : opsIntelligence.operationStatus === "needs_attention" ? "#f59e0b10"
+                                : "#10b98110",
+                  }}
+                >
+                  {opsIntelligence.operationStatus === "urgent" ? "عاجل"
+                    : opsIntelligence.operationStatus === "needs_attention" ? "يحتاج انتباهاً"
+                    : "مستقر"}
+                </span>
+              )}
+              {loadingOps && <span className="mr-auto text-[10px] text-white/20 animate-pulse">جارٍ التحليل…</span>}
+            </div>
+
+            {/* Executive brief from C8 */}
+            {!loadingOps && execBrief && (
+              <div className="px-5 py-3 border-b border-white/[0.04] space-y-1.5">
+                <p className="text-[13px] font-semibold text-white/80">{execBrief.headline}</p>
+                <p className="text-[11.5px] text-white/45">{execBrief.healthText}</p>
+                <p className="text-[11.5px] text-white/45">{execBrief.customerText}</p>
+                {execBrief.riskText && (
+                  <p className="text-[11.5px]" style={{ color: execBrief.riskText.includes("لا توجد") ? "#34d399" : "#fca5a5" }}>
+                    {execBrief.riskText}
+                  </p>
+                )}
+                {execBrief.opportunityText && (
+                  <p className="text-[11.5px] text-[#818cf8]/70">{execBrief.opportunityText}</p>
+                )}
+                <div className="flex items-center justify-between pt-1">
+                  <p className="text-[10px] text-white/25 uppercase font-mono tracking-widest">
+                    ثقة التحليل: {execBrief.confidence === "high" ? "عالية" : execBrief.confidence === "medium" ? "متوسطة" : "منخفضة"}
+                  </p>
+                  <p className="text-[10px] text-white/20 font-mono">قائم على القواعد · لا ذكاء اصطناعي</p>
+                </div>
+              </div>
+            )}
+
+            {/* Daily brief + escalation */}
+            {!loadingOps && opsIntelligence && (
+              <div className="px-5 py-3 border-b border-white/[0.04]">
+                <p className="text-[11.5px] text-white/55 leading-relaxed">{opsIntelligence.dailyBrief}</p>
+                {opsIntelligence.escalationRequired && opsIntelligence.escalationReason && (
+                  <div className="mt-2 flex items-start gap-2 rounded-xl border border-[#ef4444]/20 bg-[#ef4444]/[0.05] px-3 py-2">
+                    <AlertOctagon size={12} className="text-[#ef4444] mt-0.5 flex-shrink-0" />
+                    <p className="text-[11px] text-[#ef4444]/80">{opsIntelligence.escalationReason}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Next best actions */}
+            {!loadingOps && opsIntelligence && opsIntelligence.nextBestActions.length > 0 && (
+              <div className="px-5 py-3 border-b border-white/[0.04]">
+                <p className="text-[10px] text-white/25 uppercase font-mono tracking-widest mb-2">الإجراءات الموصى بها</p>
+                <ul className="space-y-1.5">
+                  {opsIntelligence.nextBestActions.map((action, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[11.5px] text-white/55">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#22d3ee]/50 mt-1 flex-shrink-0" />
+                      {action}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Action queue — top 5 */}
+            {!loadingOps && opsIntelligence && opsIntelligence.actionQueue.length > 0 && (
+              <div className="px-5 py-3">
+                <p className="text-[10px] text-white/25 uppercase font-mono tracking-widest mb-2.5">قائمة الإجراءات ({opsIntelligence.actionQueue.length})</p>
+                <div className="space-y-1.5">
+                  {opsIntelligence.actionQueue.slice(0, 5).map(item => {
+                    const pColor =
+                      item.priority === "critical" ? "#ef4444"
+                      : item.priority === "high"   ? "#f59e0b"
+                      : item.priority === "medium" ? "#6366f1"
+                      : "#6b7280";
+                    return (
+                      <div key={item.id} className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2.5">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: pColor }} />
+                          <span className="text-[11.5px] font-medium text-white/80 flex-1">{item.title}</span>
+                          {item.priority === "critical" && (
+                            <span className="text-[9px] font-bold text-[#ef4444] border border-[#ef444430] rounded-full px-1.5 py-0.5">حرج</span>
+                          )}
+                          {item.priority === "high" && (
+                            <span className="text-[9px] font-bold text-[#f59e0b] border border-[#f59e0b30] rounded-full px-1.5 py-0.5">عالي</span>
+                          )}
+                        </div>
+                        <p className="text-[10.5px] text-white/35 mr-3.5">{item.recommendedAction}</p>
+                      </div>
+                    );
+                  })}
+                  {opsIntelligence.actionQueue.length > 5 && (
+                    <p className="text-[10px] text-white/20 text-center pt-1">
+                      +{opsIntelligence.actionQueue.length - 5} إجراءات إضافية
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!loadingOps && opsIntelligence && opsIntelligence.actionQueue.length === 0 && (
+              <div className="px-5 py-5 text-center">
+                <p className="text-[11.5px] text-[#10b981]/60">لا توجد إجراءات مطلوبة — النظام يعمل بشكل مثالي.</p>
+              </div>
+            )}
+
+            {loadingOps && (
+              <div className="px-5 py-6 text-center">
+                <p className="text-[11px] text-white/20 animate-pulse">جارٍ توليد قائمة الإجراءات التشغيلية…</p>
               </div>
             )}
           </div>
