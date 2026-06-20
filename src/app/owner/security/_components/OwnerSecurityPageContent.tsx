@@ -54,6 +54,8 @@ import {
   fetchFeatureUsageSummary,
   fetchSystemHealthSummary,
   fetchRateLimitSummary,
+  fetchFeatureAnalyticsSummary,
+  fetchTenantActivitySignals,
   type AuditLog,
   type AuditLogFilters,
   type OrgStatusSummary,
@@ -64,6 +66,8 @@ import {
   type FeatureUsageSummary,
   type SystemHealthSummary,
   type RateLimitSummary,
+  type FeatureAnalyticsSummary,
+  type TenantActivitySignals,
 } from "../../_lib/ownerTruthQueries";
 
 // ─── Severity ──────────────────────────────────────────────────────────────────
@@ -1131,7 +1135,10 @@ const READINESS_ITEMS: { area: string; status: "جاهز" | "جزئي" | "غير
   { area: "جدول تذاكر الدعم الفني", status: "جاهز", note: "C3: جداول support_tickets و support_messages جاهزة مع RLS وفهارس" },
   { area: "مراقبة الأخطاء والاستثناءات", status: "جاهز", note: "C4: أداة logSystemError جاهزة — تُسجَّل الأخطاء الحرجة في owner API routes. التسجيل الشامل جزئي." },
   { area: "تنبيهات النظام التشغيلية", status: "جاهز", note: "C4: createSystemAlert جاهزة مع dedup 30 دقيقة — تُفعَّل تلقائياً عند أخطاء حرجة وعمليات حساسة" },
-  { area: "بيانات استخدام الميزات", status: "جاهز", note: "C3: جدول feature_usage_events جاهز مع فهارس — يحتاج ربط استدعاءات التتبع" },
+  { area: "بيانات استخدام الميزات", status: "جاهز", note: "C6: أداة trackFeatureUsage جاهزة — تتبع فعلي في change_plan وprovision_tenant والمراقبة. التتبع الشامل جزئي." },
+  { area: "ذكاء استخدام SaaS", status: "جزئي", note: "C6: ملخص تحليلي وإشارات نشاط المنشآت — يتطلب تغطية أوسع لحسابات churn وفرص الترقية الموثوقة" },
+  { area: "كشف خطر التراجع (Churn Risk)", status: "جزئي", note: "C6: تقريبي من updated_at للمنشآت — يحتاج نموذج تسجيل مبني على بيانات استخدام حقيقية" },
+  { area: "فرص الترقية", status: "جزئي", note: "C6: قيد التطوير — يحتاج ربط الاشتراكات بأنماط الاستخدام الفعلي" },
   { area: "محرك صحة الإنتاج", status: "جاهز", note: "C4: fetchSystemHealthSummary يحسب نقاط الصحة 0-100 ويحدد التركيز الموصى به" },
   { area: "تغطية تسجيل الأخطاء", status: "جزئي", note: "C4: مُفعَّل في owner API routes الحساسة — يحتاج Next.js error boundary وmiddleware شاملاً" },
   { area: "واجهة مستخدم الجوال", status: "جاهز", note: "الواجهة متجاوبة مع الشاشات الصغيرة" },
@@ -1618,6 +1625,16 @@ export default function OwnerSecurityPageContent() {
   const [healthSummary,  setHealthSummary]  = useState<SystemHealthSummary | null>(null);
   // C5 rate limit summary
   const [rlSummary, setRlSummary] = useState<RateLimitSummary>({ totalToday: null, blockedToday: null, lastBlockedAt: null, topRoute: null });
+  // C6 feature analytics
+  const [analyticsSummary, setAnalyticsSummary] = useState<FeatureAnalyticsSummary>({
+    eventsToday: null, events7d: null, activeOrganizations7d: null,
+    topFeatureToday: null, topFeature7d: null, latestEventAt: null,
+    churnRiskOrganizations: null, upgradeOpportunityOrganizations: null,
+  });
+  const [tenantSignals, setTenantSignals] = useState<TenantActivitySignals>({
+    activeTenants7d: null, inactiveTenants30d: null,
+    highUsageTenants7d: null, lowUsageTenants7d: null, partial: true,
+  });
 
   const [activeTab, setActiveTab] = useState<Tab>("monitoring");
   const [search, setSearch] = useState("");
@@ -1678,7 +1695,7 @@ export default function OwnerSecurityPageContent() {
       setSubSummary(sub);
       setLoadingMeta(false);
     });
-    // C3+C4 ops monitoring summaries — loaded in parallel, non-blocking
+    // C3–C6 ops summaries — all loaded in parallel, non-blocking
     void Promise.all([
       fetchSystemErrorSummary(),
       fetchSystemAlertSummary(),
@@ -1686,13 +1703,17 @@ export default function OwnerSecurityPageContent() {
       fetchFeatureUsageSummary(),
       fetchSystemHealthSummary(),
       fetchRateLimitSummary(),
-    ]).then(([err, alert, ticket, usage, health, rl]) => {
+      fetchFeatureAnalyticsSummary(),
+      fetchTenantActivitySignals(),
+    ]).then(([err, alert, ticket, usage, health, rl, analytics, signals]) => {
       setErrorSummary(err);
       setAlertSummary(alert);
       setTicketSummary(ticket);
       setUsageSummary(usage);
       setHealthSummary(health);
       setRlSummary(rl);
+      setAnalyticsSummary(analytics);
+      setTenantSignals(signals);
       setLoadingOps(false);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -3304,6 +3325,96 @@ export default function OwnerSecurityPageContent() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* C6: ذكاء استخدام الميزات */}
+          <div
+            className="rounded-2xl border border-white/[0.07] overflow-hidden"
+            style={{ background: "linear-gradient(135deg, #091528 0%, #07111f 100%)" }}
+          >
+            <div className="h-[2px]" style={{ background: "linear-gradient(90deg, transparent, #6366f1, transparent)" }} />
+            <div className="px-5 pt-4 pb-3 border-b border-white/[0.04] flex items-center gap-2">
+              <BarChart3 size={14} className="text-[#818cf8]" />
+              <span className="text-[13px] font-semibold text-white">ذكاء استخدام الميزات</span>
+              <span className="mr-auto text-[10px] text-white/25 font-mono">C6 · قراءة فقط</span>
+              {tenantSignals.partial && !loadingOps && (
+                <span className="text-[9px] text-white/20 border border-white/[0.06] rounded px-1.5 py-0.5">بيانات تقريبية</span>
+              )}
+            </div>
+
+            <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* Events today */}
+              <div className="rounded-xl border border-white/[0.06] px-4 py-3.5" style={{ background: "rgba(255,255,255,0.02)" }}>
+                <p className="text-[10px] text-white/35 mb-1">أحداث اليوم</p>
+                {loadingOps ? (
+                  <div className="h-6 w-10 rounded bg-white/[0.07] animate-pulse" />
+                ) : (
+                  <p className="text-[22px] font-bold leading-none text-[#818cf8]">
+                    {analyticsSummary.eventsToday ?? 0}
+                  </p>
+                )}
+                {!loadingOps && (analyticsSummary.events7d ?? 0) > 0 && (
+                  <p className="text-[9.5px] text-white/30 mt-1">{analyticsSummary.events7d} آخر 7 أيام</p>
+                )}
+              </div>
+
+              {/* Active organizations */}
+              <div className="rounded-xl border border-white/[0.06] px-4 py-3.5" style={{ background: "rgba(255,255,255,0.02)" }}>
+                <p className="text-[10px] text-white/35 mb-1">منشآت نشطة (7 أيام)</p>
+                {loadingOps ? (
+                  <div className="h-6 w-10 rounded bg-white/[0.07] animate-pulse" />
+                ) : (
+                  <p className="text-[22px] font-bold leading-none text-[#34d399]">
+                    {analyticsSummary.activeOrganizations7d ?? 0}
+                  </p>
+                )}
+                {!loadingOps && (tenantSignals.highUsageTenants7d ?? 0) > 0 && (
+                  <p className="text-[9.5px] text-white/30 mt-1">{tenantSignals.highUsageTenants7d} استخدام مرتفع</p>
+                )}
+              </div>
+
+              {/* Top feature */}
+              <div className="rounded-xl border border-white/[0.06] px-4 py-3.5" style={{ background: "rgba(255,255,255,0.02)" }}>
+                <p className="text-[10px] text-white/35 mb-1">أكثر ميزة استخداماً</p>
+                {loadingOps ? (
+                  <div className="h-5 w-24 rounded bg-white/[0.07] animate-pulse mt-1" />
+                ) : (
+                  <p className="text-[11.5px] font-medium text-white/70 leading-snug font-mono">
+                    {analyticsSummary.topFeature7d ?? analyticsSummary.topFeatureToday ?? "—"}
+                  </p>
+                )}
+                {!loadingOps && analyticsSummary.topFeatureToday && analyticsSummary.topFeature7d && analyticsSummary.topFeatureToday !== analyticsSummary.topFeature7d && (
+                  <p className="text-[9.5px] text-white/25 mt-0.5">اليوم: {analyticsSummary.topFeatureToday}</p>
+                )}
+              </div>
+
+              {/* Churn risk / upgrade */}
+              <div className="rounded-xl border border-white/[0.06] px-4 py-3.5" style={{ background: "rgba(255,255,255,0.02)" }}>
+                <p className="text-[10px] text-white/35 mb-1">مخاطر الخمول</p>
+                {loadingOps ? (
+                  <div className="h-6 w-10 rounded bg-white/[0.07] animate-pulse" />
+                ) : (
+                  <p
+                    className="text-[22px] font-bold leading-none"
+                    style={{ color: (analyticsSummary.churnRiskOrganizations ?? 0) > 0 ? "#f87171" : "#34d399" }}
+                  >
+                    {analyticsSummary.churnRiskOrganizations ?? 0}
+                  </p>
+                )}
+                {!loadingOps && (tenantSignals.inactiveTenants30d ?? 0) > 0 && (
+                  <p className="text-[9.5px] text-white/30 mt-1">{tenantSignals.inactiveTenants30d} غير نشط 30 يوم</p>
+                )}
+              </div>
+            </div>
+
+            {/* Zero state */}
+            {!loadingOps && (analyticsSummary.eventsToday ?? 0) === 0 && (analyticsSummary.events7d ?? 0) === 0 && (
+              <div className="mx-5 mb-4 rounded-xl border border-[#6366f1]/12 bg-[#6366f1]/[0.04] px-3.5 py-2.5">
+                <p className="text-[11.5px] text-[#818cf8]/60">
+                  لا توجد أحداث استخدام بعد — ستظهر التحليلات تلقائياً عند بدء استخدام الميزات.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Command Brief */}
