@@ -333,3 +333,67 @@ export async function fetchAuditCenterLogs(
     createdAt: (row.created_at as string) ?? "",
   }));
 }
+
+// ─── Org + Subscription status summaries ──────────────────────────────────────
+// Lightweight read-only count queries for the intelligent operations center.
+
+export interface OrgStatusSummary {
+  total: number;
+  active: number;
+  suspended: number;
+  deleted: number;
+}
+
+export interface SubStatusSummary {
+  total: number;
+  active: number;
+  cancelled: number;
+  suspended: number;
+  trialing: number;
+}
+
+const EMPTY_ORG: OrgStatusSummary = { total: 0, active: 0, suspended: 0, deleted: 0 };
+const EMPTY_SUB: SubStatusSummary = { total: 0, active: 0, cancelled: 0, suspended: 0, trialing: 0 };
+
+export async function fetchOrgStatusSummary(): Promise<OrgStatusSummary> {
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("status, deleted_at")
+    .eq("is_internal", false);
+
+  if (error) {
+    if (isMissingTableError(error)) return EMPTY_ORG;
+    console.warn("[owner] org summary failed:", error.message);
+    return EMPTY_ORG;
+  }
+
+  const rows = (data ?? []) as { status: string; deleted_at: string | null }[];
+  return {
+    total:     rows.length,
+    active:    rows.filter((r) => !r.deleted_at && r.status === "active").length,
+    suspended: rows.filter((r) => !r.deleted_at && r.status === "suspended").length,
+    deleted:   rows.filter((r) => !!r.deleted_at).length,
+  };
+}
+
+export async function fetchSubStatusSummary(): Promise<SubStatusSummary> {
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("status")
+    .neq("billing_cycle", "internal");
+
+  if (error) {
+    if (isMissingTableError(error)) return EMPTY_SUB;
+    console.warn("[owner] sub summary failed:", error.message);
+    return EMPTY_SUB;
+  }
+
+  const rows = (data ?? []) as { status: string }[];
+  return {
+    total:     rows.length,
+    active:    rows.filter((r) => r.status === "active").length,
+    cancelled: rows.filter((r) => r.status === "cancelled" || r.status === "canceled").length,
+    suspended: rows.filter((r) => r.status === "suspended").length,
+    trialing:  rows.filter((r) => r.status === "trialing").length,
+  };
+}
