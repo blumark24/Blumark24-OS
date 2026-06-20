@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { logSystemError, generateRequestId } from "@/lib/monitoring/server";
 import { getClientIp, buildRateLimitKey, checkRateLimit } from "@/lib/security/rateLimit";
+import { trackFeatureUsage } from "@/lib/analytics/featureUsage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -120,6 +121,14 @@ export async function POST(req: NextRequest) {
   safeMeta["reported_by_user_id"] = user.id;
 
   const requestId = generateRequestId();
+
+  trackFeatureUsage({
+    feature_key: "monitoring_error_reported",
+    event_type:  "completed",
+    user_id:     user.id,
+    path:        "/api/monitoring/error",
+    metadata:    { source, severity },
+  });
 
   await logSystemError({
     source:     source as "low" | "medium" | "high" | "critical",

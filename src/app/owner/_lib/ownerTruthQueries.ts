@@ -721,3 +721,139 @@ export async function fetchRateLimitSummary(): Promise<RateLimitSummary> {
     topRoute:      topRow[0]?.route       ?? null,
   };
 }
+
+// ── C6: Feature Analytics Summary ─────────────────────────────────────────────
+
+export interface FeatureAnalyticsSummary {
+  eventsToday:                  number | null;
+  events7d:                     number | null;
+  activeOrganizations7d:        number | null;
+  topFeatureToday:              string | null;
+  topFeature7d:                 string | null;
+  latestEventAt:                string | null;
+  churnRiskOrganizations:       number | null;
+  upgradeOpportunityOrganizations: number | null;
+}
+
+const EMPTY_ANALYTICS_SUMMARY: FeatureAnalyticsSummary = {
+  eventsToday: null, events7d: null, activeOrganizations7d: null,
+  topFeatureToday: null, topFeature7d: null, latestEventAt: null,
+  churnRiskOrganizations: null, upgradeOpportunityOrganizations: null,
+};
+
+export async function fetchFeatureAnalyticsSummary(): Promise<FeatureAnalyticsSummary> {
+  const now = new Date();
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const [eventsToday, events7d, activeOrgs7d, latestEvent, topToday, top7d, inactive30d] =
+    await Promise.all([
+      supabase.from("feature_usage_events").select("*", { count: "exact", head: true })
+        .gte("created_at", todayStart.toISOString()),
+      supabase.from("feature_usage_events").select("*", { count: "exact", head: true })
+        .gte("created_at", sevenDaysAgo.toISOString()),
+      supabase.from("feature_usage_events").select("organization_id", { count: "exact", head: true })
+        .gte("created_at", sevenDaysAgo.toISOString())
+        .not("organization_id", "is", null),
+      supabase.from("feature_usage_events").select("created_at")
+        .order("created_at", { ascending: false }).limit(1),
+      // Top feature today: fetch up to 200 events and tally client-side
+      supabase.from("feature_usage_events").select("feature_key")
+        .gte("created_at", todayStart.toISOString()).limit(200),
+      supabase.from("feature_usage_events").select("feature_key")
+        .gte("created_at", sevenDaysAgo.toISOString()).limit(200),
+      // Inactive orgs: orgs with no usage events in last 30 days (count via subscription proxy)
+      supabase.from("organizations").select("*", { count: "exact", head: true })
+        .eq("is_internal", false).is("deleted_at", null).eq("status", "active")
+        .lt("updated_at", thirtyDaysAgo.toISOString()),
+    ]);
+
+  if (eventsToday.error) {
+    if (isMissingTableError(eventsToday.error)) return EMPTY_ANALYTICS_SUMMARY;
+    console.warn("[owner] feature analytics summary failed:", eventsToday.error.message);
+    return EMPTY_ANALYTICS_SUMMARY;
+  }
+
+  // Tally top features client-side from capped rows
+  function topFeatureFrom(rows: { feature_key: string }[]): string | null {
+    const counts: Record<string, number> = {};
+    for (const r of rows) counts[r.feature_key] = (counts[r.feature_key] ?? 0) + 1;
+    let best: string | null = null; let bestCount = 0;
+    for (const [k, c] of Object.entries(counts)) { if (c > bestCount) { best = k; bestCount = c; } }
+    return best;
+  }
+
+  const latestRow = (latestEvent.data ?? []) as { created_at: string }[];
+
+  return {
+    eventsToday:             eventsToday.count  ?? 0,
+    events7d:                events7d.count     ?? 0,
+    activeOrganizations7d:   activeOrgs7d.count ?? 0,
+    topFeatureToday:         topToday.data ? topFeatureFrom(topToday.data as { feature_key: string }[]) : null,
+    topFeature7d:            top7d.data   ? topFeatureFrom(top7d.data   as { feature_key: string }[]) : null,
+    latestEventAt:           latestRow[0]?.created_at ?? null,
+    churnRiskOrganizations:  inactive30d.count  ?? 0,
+    upgradeOpportunityOrganizations: null, // future: needs subscription + usage join
+  };
+}
+
+// ── C6: Tenant Activity Signals ───────────────────────────────────────────────
+
+export interface TenantActivitySignals {
+  activeTenants7d:    number | null;
+  inactiveTenants30d: number | null;
+  highUsageTenants7d: number | null;
+  lowUsageTenants7d:  number | null;
+  partial:            boolean;
+}
+
+export async function fetchTenantActivitySignals(): Promise<TenantActivitySignals> {
+  const sevenDaysAgo  = new Date(Date.now() - 7  * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const [activeOrgs, inactiveOrgs, highUsage, lowUsage] = await Promise.all([
+    supabase.from("organizations").select("*", { count: "exact", head: true })
+      .eq("is_internal", false).is("deleted_at", null).eq("status", "active")
+      .gte("updated_at", sevenDaysAgo.toISOString()),
+    supabase.from("organizations").select("*", { count: "exact", head: true })
+      .eq("is_internal", false).is("deleted_at", null).eq("status", "active")
+      .lt("updated_at", thirtyDaysAgo.toISOString()),
+    // High usage: organizations with >10 usage events in last 7 days
+    // (approximate via distinct org count from a capped query)
+    supabase.from("feature_usage_events").select("organization_id")
+      .gte("created_at", sevenDaysAgo.toISOString())
+      .not("organization_id", "is", null)
+      .limit(500),
+    supabase.from("feature_usage_events").select("organization_id")
+      .gte("created_at", sevenDaysAgo.toISOString())
+      .not("organization_id", "is", null)
+      .limit(500),
+  ]);
+
+  // Tally org event counts from capped rows
+  function orgCounts(rows: { organization_id: string }[]): Record<string, number> {
+    const counts: Record<string, number> = {};
+    for (const r of rows) counts[r.organization_id] = (counts[r.organization_id] ?? 0) + 1;
+    return counts;
+  }
+
+  const HIGH_THRESHOLD = 10;
+  const LOW_THRESHOLD  = 2;
+
+  let highCount: number | null = null;
+  let lowCount:  number | null = null;
+  if (highUsage.data) {
+    const counts = orgCounts(highUsage.data as { organization_id: string }[]);
+    highCount = Object.values(counts).filter(c => c >= HIGH_THRESHOLD).length;
+    lowCount  = Object.values(counts).filter(c => c <= LOW_THRESHOLD).length;
+  }
+
+  return {
+    activeTenants7d:    activeOrgs.error  ? null : (activeOrgs.count  ?? 0),
+    inactiveTenants30d: inactiveOrgs.error ? null : (inactiveOrgs.count ?? 0),
+    highUsageTenants7d: highCount,
+    lowUsageTenants7d:  lowCount,
+    partial: true, // usage-based signals are approximate from capped rows
+  };
+}

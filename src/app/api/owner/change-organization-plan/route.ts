@@ -6,6 +6,7 @@ import {
 } from "@/lib/api/ownerServerCommon";
 import { logAndAlert, normalizeError, generateRequestId } from "@/lib/monitoring/server";
 import { getClientIp, buildRateLimitKey, checkRateLimit, rateLimitResponse } from "@/lib/security/rateLimit";
+import { trackFeatureUsage } from "@/lib/analytics/featureUsage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -188,6 +189,14 @@ export async function POST(req: NextRequest) {
         subscription_sync_count: subscriptionSyncCount,
         verified: true,
       },
+    });
+
+    trackFeatureUsage({
+      feature_key:     "owner_change_plan",
+      event_type:      "completed",
+      organization_id: organizationId,
+      path:            "/api/owner/change-organization-plan",
+      metadata:        { plan_slug: planSlug ?? null, subscription_sync_count: subscriptionSyncCount },
     });
 
     return jsonNoStore({

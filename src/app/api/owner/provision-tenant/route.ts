@@ -15,6 +15,7 @@ import {
 } from "@/lib/api/ownerServerCommon";
 import { logAndAlert, normalizeError, generateRequestId } from "@/lib/monitoring/server";
 import { getClientIp, buildRateLimitKey, checkRateLimit, rateLimitResponse } from "@/lib/security/rateLimit";
+import { trackFeatureUsage } from "@/lib/analytics/featureUsage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -534,6 +535,14 @@ export async function POST(req: NextRequest) {
         adopted: authRes.adopted,
         workspace_settings_created: wsRes.skipped !== true,
       },
+    });
+
+    trackFeatureUsage({
+      feature_key:     "owner_provision_tenant",
+      event_type:      "completed",
+      organization_id: orgRes.id,
+      path:            "/api/owner/provision-tenant",
+      metadata:        { plan_id: planId ?? null, status, adopted: authRes.adopted },
     });
 
     return NextResponse.json({
