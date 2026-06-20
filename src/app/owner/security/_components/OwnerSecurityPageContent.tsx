@@ -56,6 +56,8 @@ import {
   fetchRateLimitSummary,
   fetchFeatureAnalyticsSummary,
   fetchTenantActivitySignals,
+  fetchCustomerSuccessSummary,
+  fetchTenantHealthSignals,
   type AuditLog,
   type AuditLogFilters,
   type OrgStatusSummary,
@@ -68,6 +70,8 @@ import {
   type RateLimitSummary,
   type FeatureAnalyticsSummary,
   type TenantActivitySignals,
+  type CustomerSuccessSummary,
+  type TenantHealthSignal,
 } from "../../_lib/ownerTruthQueries";
 
 // ─── Severity ──────────────────────────────────────────────────────────────────
@@ -1137,8 +1141,10 @@ const READINESS_ITEMS: { area: string; status: "جاهز" | "جزئي" | "غير
   { area: "تنبيهات النظام التشغيلية", status: "جاهز", note: "C4: createSystemAlert جاهزة مع dedup 30 دقيقة — تُفعَّل تلقائياً عند أخطاء حرجة وعمليات حساسة" },
   { area: "بيانات استخدام الميزات", status: "جاهز", note: "C6: أداة trackFeatureUsage جاهزة — تتبع فعلي في change_plan وprovision_tenant والمراقبة. التتبع الشامل جزئي." },
   { area: "ذكاء استخدام SaaS", status: "جزئي", note: "C6: ملخص تحليلي وإشارات نشاط المنشآت — يتطلب تغطية أوسع لحسابات churn وفرص الترقية الموثوقة" },
-  { area: "كشف خطر التراجع (Churn Risk)", status: "جزئي", note: "C6: تقريبي من updated_at للمنشآت — يحتاج نموذج تسجيل مبني على بيانات استخدام حقيقية" },
-  { area: "فرص الترقية", status: "جزئي", note: "C6: قيد التطوير — يحتاج ربط الاشتراكات بأنماط الاستخدام الفعلي" },
+  { area: "ذكاء نجاح العملاء", status: "جزئي", note: "C7: تصنيف قائم على القواعد (سليم/متابعة/خطر/ترقية) — إشارات تقريبية من updated_at وأحداث الاستخدام وتذاكر الدعم" },
+  { area: "كشف خطر التراجع (Churn Risk)", status: "جزئي", note: "C7: تقريبي من updated_at للمنشآت غير النشطة 30 يوماً — يحتاج نموذج تسجيل مبني على بيانات استخدام حقيقية" },
+  { area: "فرص الترقية", status: "جزئي", note: "C7: منشآت بـ 5+ أحداث في 7 أيام — إشارة تقريبية تحتاج ربط الاشتراكات بأنماط الاستخدام الفعلي" },
+  { area: "تسجيل صحة المنشآت", status: "جزئي", note: "C7: مستوى خطر (منخفض/متوسط/عالٍ) وفرص (ممكن/قوي) لأعلى 20 منشأة — قائم على القواعد لا التعلم الآلي" },
   { area: "محرك صحة الإنتاج", status: "جاهز", note: "C4: fetchSystemHealthSummary يحسب نقاط الصحة 0-100 ويحدد التركيز الموصى به" },
   { area: "تغطية تسجيل الأخطاء", status: "جزئي", note: "C4: مُفعَّل في owner API routes الحساسة — يحتاج Next.js error boundary وmiddleware شاملاً" },
   { area: "واجهة مستخدم الجوال", status: "جاهز", note: "الواجهة متجاوبة مع الشاشات الصغيرة" },
@@ -1631,6 +1637,9 @@ export default function OwnerSecurityPageContent() {
     topFeatureToday: null, topFeature7d: null, latestEventAt: null,
     churnRiskOrganizations: null, upgradeOpportunityOrganizations: null,
   });
+  const [csSummary, setCsSummary] = useState<CustomerSuccessSummary | null>(null);
+  const [tenantHealthList, setTenantHealthList] = useState<TenantHealthSignal[]>([]);
+
   const [tenantSignals, setTenantSignals] = useState<TenantActivitySignals>({
     activeTenants7d: null, inactiveTenants30d: null,
     highUsageTenants7d: null, lowUsageTenants7d: null, partial: true,
@@ -1695,7 +1704,7 @@ export default function OwnerSecurityPageContent() {
       setSubSummary(sub);
       setLoadingMeta(false);
     });
-    // C3–C6 ops summaries — all loaded in parallel, non-blocking
+    // C3–C7 ops summaries — all loaded in parallel, non-blocking
     void Promise.all([
       fetchSystemErrorSummary(),
       fetchSystemAlertSummary(),
@@ -1705,7 +1714,9 @@ export default function OwnerSecurityPageContent() {
       fetchRateLimitSummary(),
       fetchFeatureAnalyticsSummary(),
       fetchTenantActivitySignals(),
-    ]).then(([err, alert, ticket, usage, health, rl, analytics, signals]) => {
+      fetchCustomerSuccessSummary(),
+      fetchTenantHealthSignals(),
+    ]).then(([err, alert, ticket, usage, health, rl, analytics, signals, cs, tenantHealth]) => {
       setErrorSummary(err);
       setAlertSummary(alert);
       setTicketSummary(ticket);
@@ -1714,6 +1725,8 @@ export default function OwnerSecurityPageContent() {
       setRlSummary(rl);
       setAnalyticsSummary(analytics);
       setTenantSignals(signals);
+      setCsSummary(cs);
+      setTenantHealthList(tenantHealth);
       setLoadingOps(false);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -3413,6 +3426,101 @@ export default function OwnerSecurityPageContent() {
                 <p className="text-[11.5px] text-[#818cf8]/60">
                   لا توجد أحداث استخدام بعد — ستظهر التحليلات تلقائياً عند بدء استخدام الميزات.
                 </p>
+              </div>
+            )}
+          </div>
+
+          {/* C7: Customer Success & Churn Intelligence */}
+          <div
+            className="rounded-2xl border overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, #0a1628 0%, #07111f 100%)",
+              borderColor: "#10b98120",
+              boxShadow: "0 0 30px #10b98108",
+            }}
+          >
+            <div className="h-[2px]" style={{ background: "linear-gradient(90deg, transparent, #10b981, transparent)" }} />
+            <div className="px-5 pt-4 pb-3 border-b border-white/[0.04] flex items-center gap-3">
+              <Users size={14} className="text-[#10b981]" />
+              <span className="text-[13px] font-semibold text-white">ذكاء نجاح العملاء</span>
+              {!loadingOps && csSummary && (
+                <span
+                  className="mr-auto text-[10px] font-bold rounded-full px-2.5 py-0.5 border"
+                  style={{
+                    color: csSummary.summaryStatus === "healthy" ? "#10b981" : csSummary.summaryStatus === "warning" ? "#f59e0b" : "#ef4444",
+                    borderColor: csSummary.summaryStatus === "healthy" ? "#10b98130" : csSummary.summaryStatus === "warning" ? "#f59e0b30" : "#ef444430",
+                    background: csSummary.summaryStatus === "healthy" ? "#10b98110" : csSummary.summaryStatus === "warning" ? "#f59e0b10" : "#ef444410",
+                  }}
+                >
+                  {csSummary.summaryStatus === "healthy" ? "سليم" : csSummary.summaryStatus === "warning" ? "تحذير" : "حرج"}
+                </span>
+              )}
+              {loadingOps && <span className="mr-auto text-[10px] text-white/20 animate-pulse">جارٍ التحميل…</span>}
+            </div>
+
+            {/* KPI row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-x-reverse divide-white/[0.04] border-b border-white/[0.04]">
+              {[
+                { label: "منشآت سليمة",   value: csSummary?.healthyOrganizations   ?? "—", color: "#10b981" },
+                { label: "قائمة متابعة",   value: csSummary?.watchlistOrganizations ?? "—", color: "#f59e0b" },
+                { label: "خطر إلغاء",      value: csSummary?.churnRiskOrganizations ?? "—", color: "#ef4444" },
+                { label: "فرص ترقية",      value: csSummary?.upgradeOpportunityOrganizations ?? "—", color: "#6366f1" },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="flex flex-col items-center justify-center py-4 px-3 gap-0.5">
+                  <p className="text-[22px] font-bold" style={{ color }}>
+                    {loadingOps ? <span className="animate-pulse text-white/20">—</span> : value}
+                  </p>
+                  <p className="text-[10px] text-white/35 text-center">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Recommended action */}
+            {!loadingOps && csSummary && (
+              <div className="px-5 py-3 border-b border-white/[0.04] flex items-start gap-2">
+                <Lightbulb size={12} className="text-[#10b981]/60 mt-0.5 flex-shrink-0" />
+                <p className="text-[11.5px] text-white/55">
+                  <span className="text-white/30 text-[10px] uppercase font-mono tracking-wider ml-1">الإجراء الموصى به:</span>
+                  {csSummary.recommendedAction}
+                  {csSummary.approximate && <span className="mr-1 text-[9.5px] text-white/25">(تقريبي)</span>}
+                </p>
+              </div>
+            )}
+
+            {/* Top 5 tenant watchlist */}
+            {!loadingOps && tenantHealthList.length > 0 && (
+              <div className="px-5 py-3">
+                <p className="text-[10px] text-white/25 uppercase font-mono tracking-widest mb-2.5">أعلى المنشآت التي تحتاج متابعة</p>
+                <div className="space-y-1.5">
+                  {tenantHealthList
+                    .filter(t => t.riskLevel === "high" || t.riskLevel === "medium" || t.opportunityLevel !== "none")
+                    .slice(0, 5)
+                    .map(t => (
+                      <div key={t.organization_id} className="flex items-center gap-2.5 rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2">
+                        <span
+                          className="h-2 w-2 rounded-full flex-shrink-0"
+                          style={{ background: t.riskLevel === "high" ? "#ef4444" : t.riskLevel === "medium" ? "#f59e0b" : "#10b981" }}
+                        />
+                        <span className="text-[11.5px] text-white/75 truncate flex-1">{t.organization_name}</span>
+                        {t.openTickets > 0 && (
+                          <span className="text-[9.5px] text-[#f87171] border border-[#ef444430] rounded-full px-1.5 py-0.5 flex-shrink-0">{t.openTickets} تذكرة</span>
+                        )}
+                        {t.opportunityLevel === "strong" && (
+                          <span className="text-[9.5px] text-[#818cf8] border border-[#6366f130] rounded-full px-1.5 py-0.5 flex-shrink-0">ترقية</span>
+                        )}
+                        <span className="text-[10px] text-white/30 flex-shrink-0 hidden sm:block">{t.recommendedAction}</span>
+                      </div>
+                    ))}
+                </div>
+                {tenantHealthList.filter(t => t.riskLevel === "high" || t.riskLevel === "medium" || t.opportunityLevel !== "none").length === 0 && (
+                  <p className="text-[11px] text-white/25">جميع المنشآت في حالة جيدة — لا إجراء مطلوب حالياً.</p>
+                )}
+              </div>
+            )}
+
+            {loadingOps && (
+              <div className="px-5 py-6 text-center">
+                <p className="text-[11px] text-white/20 animate-pulse">جارٍ تحليل بيانات العملاء…</p>
               </div>
             )}
           </div>
