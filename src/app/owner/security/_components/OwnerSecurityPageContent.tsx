@@ -49,6 +49,7 @@ import {
   fetchOrgStatusSummary,
   fetchSubStatusSummary,
   type AuditLog,
+  type AuditLogFilters,
   type OrgStatusSummary,
   type SubStatusSummary,
 } from "../../_lib/ownerTruthQueries";
@@ -946,14 +947,15 @@ const SUPPORT_RESPONSES: Record<string, string> = {
 // ─── 1000-Customer Readiness ───────────────────────────────────────────────────
 
 const READINESS_ITEMS: { area: string; status: "جاهز" | "جزئي" | "غير جاهز"; note: string }[] = [
-  { area: "فلترة السجلات من جانب الخادم", status: "غير جاهز", note: "الفلترة تتم على الجانب العميل — غير مناسب لأكثر من 10,000 سجل" },
-  { area: "فهارس قاعدة البيانات", status: "غير جاهز", note: "يُنصح بإضافة فهارس على owner_audit_logs.created_at, target_type, action" },
+  { area: "فلترة السجلات من جانب الخادم", status: "جاهز", note: "الفلترة تتم على الخادم (target_type، نطاق التاريخ، مجموعات الإجراءات للخطورة، البحث النصي) — جاهز لـ 10,000+ سجل" },
+  { area: "فهارس قاعدة البيانات", status: "جاهز", note: "تمت إضافة 5 فهارس على owner_audit_logs (created_at، target_type، action، وفهارسين مركّبين) في migration C2" },
+  { area: "ترقيم الصفحات من الخادم", status: "جاهز", note: "الجلب يستخدم range() من Supabase — الخادم يُعيد الصفحة الصحيحة مع الفلاتر المطبقة" },
+  { area: "استعلامات العدّ المحسّنة", status: "جاهز", note: "ملخص المنشآت والاشتراكات يستخدم طلبات HEAD بالعدّ الدقيق بدل تحميل جميع الصفوف" },
   { area: "حدود معدل الطلبات للعمليات الحساسة", status: "غير جاهز", note: "لا توجد حدود معدل للعمليات الحساسة مثل الحذف وتغيير الأدوار" },
   { area: "جدول تذاكر الدعم الفني", status: "غير جاهز", note: "لا يوجد جدول قاعدة بيانات لتذاكر الدعم — موصى به لـ 1000+ عميل" },
   { area: "مراقبة الأخطاء والاستثناءات", status: "غير جاهز", note: "لا يوجد جدول لتسجيل الأخطاء — يصعب تشخيص المشاكل على نطاق واسع" },
   { area: "بيانات استخدام الميزات", status: "جزئي", note: "بيانات جزئية في سجل التدقيق — لا يوجد جدول استخدام مخصص" },
   { area: "واجهة مستخدم الجوال", status: "جاهز", note: "الواجهة متجاوبة مع الشاشات الصغيرة" },
-  { area: "قابلية توسع التدقيق", status: "جزئي", note: "الصفحة محدودة بـ 100 سجل — ترقيم الصفحات يعمل لكنه يعتمد على الجانب العميل" },
   { area: "جاهزية الدعم الفني", status: "جزئي", note: "دليل استكشاف الأخطاء متاح — لكن لا يوجد نظام تذاكر أو إشعارات آلية" },
 ];
 
@@ -1380,6 +1382,33 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "ops",        label: "العمليات",        icon: Target         },
 ];
 
+// ─── Server-side filter builder ────────────────────────────────────────────────
+
+function buildAuditFilters(
+  timeRange: TimeRange,
+  targetFilter: TargetFilter,
+  sevFilter: SeverityFilter,
+  search: string,
+): AuditLogFilters {
+  const f: AuditLogFilters = {};
+  if (targetFilter !== "all") f.targetType = targetFilter;
+  if (timeRange !== "all") {
+    const now = Date.now();
+    const cutoff =
+      timeRange === "today" ? new Date().setHours(0, 0, 0, 0)
+      : timeRange === "7d"  ? now - 7 * 86400000
+      :                        now - 30 * 86400000;
+    f.dateFrom = new Date(cutoff).toISOString();
+  }
+  if (sevFilter === "critical") f.actions = Array.from(CRITICAL_ACTIONS);
+  else if (sevFilter === "high") f.actions = Array.from(HIGH_ACTIONS);
+  else if (sevFilter === "medium") f.actions = Array.from(MEDIUM_ACTIONS);
+  else if (sevFilter === "low")
+    f.excludeActions = [...Array.from(CRITICAL_ACTIONS), ...Array.from(HIGH_ACTIONS), ...Array.from(MEDIUM_ACTIONS)];
+  if (search.trim()) f.search = search.trim();
+  return f;
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 100;
@@ -1401,6 +1430,8 @@ export default function OwnerSecurityPageContent() {
 
   const [activeTab, setActiveTab] = useState<Tab>("monitoring");
   const [search, setSearch] = useState("");
+  // Debounced search value — server re-fetch triggers on this, not raw `search`
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
   const [targetFilter, setTargetFilter] = useState<TargetFilter>("all");
   const [sevFilter, setSevFilter] = useState<SeverityFilter>("all");
@@ -1413,14 +1444,20 @@ export default function OwnerSecurityPageContent() {
   const [scanReport, setScanReport] = useState<ScanReport | null>(null);
   const [expandedScanIssue, setExpandedScanIssue] = useState<string | null>(null);
 
-  const load = useCallback(async (reset = true) => {
+  // Debounce search input — 400 ms delay before triggering server re-fetch
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const load = useCallback(async (reset: boolean, filters: AuditLogFilters) => {
     if (reset) { setLoading(true); setError(null); setOffset(0); }
     else setLoadingMore(true);
     const currentOffset = reset ? 0 : offset;
     try {
       const [rows, count] = await Promise.all([
-        fetchAuditCenterLogs(PAGE_SIZE, currentOffset),
-        reset ? fetchOwnerAuditLogCount() : Promise.resolve(null),
+        fetchAuditCenterLogs(PAGE_SIZE, currentOffset, filters),
+        reset ? fetchOwnerAuditLogCount(filters) : Promise.resolve(null),
       ]);
       if (reset) {
         setLogs(rows);
@@ -1439,8 +1476,9 @@ export default function OwnerSecurityPageContent() {
     }
   }, [offset]);
 
+  // Initial load
   useEffect(() => {
-    void load(true);
+    void load(true, {});
     void Promise.all([fetchOrgStatusSummary(), fetchSubStatusSummary()]).then(([org, sub]) => {
       setOrgSummary(org);
       setSubSummary(sub);
@@ -1448,31 +1486,19 @@ export default function OwnerSecurityPageContent() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Client-side filters
+  // Re-fetch on filter change (server-side)
+  useEffect(() => {
+    const filters = buildAuditFilters(timeRange, targetFilter, sevFilter, debouncedSearch);
+    void load(true, filters);
+  }, [timeRange, targetFilter, sevFilter, debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Server already applies all filters — minimal client-side pass only for
+  // Arabic action-label text matching (not possible server-side)
   const filtered = useMemo(() => {
-    let result = logs;
-    if (timeRange !== "all") {
-      const now = Date.now();
-      const cutoff =
-        timeRange === "today" ? new Date().setHours(0, 0, 0, 0)
-        : timeRange === "7d"  ? now - 7 * 86400000
-        :                        now - 30 * 86400000;
-      result = result.filter((l) => new Date(l.createdAt).getTime() >= cutoff);
-    }
-    if (targetFilter !== "all") result = result.filter((l) => l.targetType === targetFilter);
-    if (sevFilter !== "all") result = result.filter((l) => getSeverity(l.action) === sevFilter);
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      result = result.filter((l) =>
-        l.action.toLowerCase().includes(q) ||
-        actionLabel(l.action).includes(q) ||
-        l.ownerEmail.toLowerCase().includes(q) ||
-        (l.targetType ?? "").includes(q) ||
-        (l.targetId ?? "").toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [logs, timeRange, targetFilter, sevFilter, search]);
+    if (!search.trim()) return logs;
+    const q = search.trim().toLowerCase();
+    return logs.filter((l) => actionLabel(l.action).includes(q));
+  }, [logs, search]);
 
   // KPI counts
   const todayCount    = useMemo(() => logs.filter((l) => isToday(l.createdAt)).length, [logs]);
@@ -1512,6 +1538,8 @@ export default function OwnerSecurityPageContent() {
 
   function resetFilters() {
     setSearch(""); setTimeRange("all"); setTargetFilter("all"); setSevFilter("all");
+    // Trigger immediate server re-fetch with no filters
+    void load(true, {});
   }
 
   async function handleSmartScan() {
@@ -1520,7 +1548,7 @@ export default function OwnerSecurityPageContent() {
     setScanReport(null);
 
     // Safe client-side actions: refresh data + reset filters
-    await load(true);
+    await load(true, {});
     const [org, sub] = await Promise.all([fetchOrgStatusSummary(), fetchSubStatusSummary()]);
     setOrgSummary(org);
     setSubSummary(sub);
@@ -1606,7 +1634,7 @@ export default function OwnerSecurityPageContent() {
               <span className="hidden sm:inline">تصدير CSV</span>
             </button>
             <button
-              onClick={() => void load(true)}
+              onClick={() => void load(true, buildAuditFilters(timeRange, targetFilter, sevFilter, debouncedSearch))}
               disabled={loading}
               className="flex items-center gap-2 rounded-xl border border-[#22d3ee]/30 bg-[#22d3ee]/10 text-[#22d3ee] text-[12.5px] px-3.5 py-2.5 hover:bg-[#22d3ee]/15 transition-colors disabled:opacity-50"
             >
@@ -2220,7 +2248,7 @@ export default function OwnerSecurityPageContent() {
                     <p className="text-[12px] text-white/30 mt-1">{error}</p>
                   </div>
                   <button
-                    onClick={() => void load(true)}
+                    onClick={() => void load(true, buildAuditFilters(timeRange, targetFilter, sevFilter, debouncedSearch))}
                     className="text-[12.5px] text-[#22d3ee] border border-[#22d3ee]/25 bg-[#22d3ee]/08 rounded-xl px-4 py-2 hover:bg-[#22d3ee]/12 transition-colors"
                   >
                     إعادة المحاولة
@@ -2294,7 +2322,7 @@ export default function OwnerSecurityPageContent() {
                   {hasMore && (
                     <div className="py-5 flex justify-center border-t border-white/[0.04]">
                       <button
-                        onClick={() => void load(false)}
+                        onClick={() => void load(false, buildAuditFilters(timeRange, targetFilter, sevFilter, debouncedSearch))}
                         disabled={loadingMore}
                         className="flex items-center gap-2 rounded-xl border border-[#22d3ee]/20 bg-[#22d3ee]/06 text-[#22d3ee]/70 text-[12.5px] px-6 py-2.5 hover:bg-[#22d3ee]/10 transition-colors disabled:opacity-50"
                       >

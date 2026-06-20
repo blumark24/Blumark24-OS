@@ -197,10 +197,24 @@ export async function fetchOwnerAuditTimeline(limit = 8): Promise<OwnerAuditEntr
   return (data ?? []).map((row) => mapAuditRow(row));
 }
 
-export async function fetchOwnerAuditLogCount(): Promise<number | null> {
-  const { count, error } = await supabase
+export async function fetchOwnerAuditLogCount(
+  filters: AuditLogFilters = {},
+): Promise<number | null> {
+  let q = supabase
     .from("owner_audit_logs")
     .select("*", { count: "exact", head: true });
+
+  if (filters.targetType) q = q.eq("target_type", filters.targetType);
+  if (filters.actions?.length) q = q.in("action", filters.actions);
+  if (filters.excludeActions?.length)
+    q = q.not("action", "in", `(${filters.excludeActions.map((a) => `"${a}"`).join(",")})`);
+  if (filters.dateFrom) q = q.gte("created_at", filters.dateFrom);
+  if (filters.search?.trim()) {
+    const t = filters.search.trim();
+    q = q.or(`owner_email.ilike.%${t}%,action.ilike.%${t}%,target_type.ilike.%${t}%,target_id.ilike.%${t}%`);
+  }
+
+  const { count, error } = await q;
 
   if (error) {
     if (isMissingTableError(error)) return null;
@@ -307,13 +321,42 @@ export interface AuditLog {
   createdAt: string;
 }
 
+// Server-side filter params for audit log queries (C2 scale hardening).
+// All fields are optional — omit to fetch without that filter.
+export interface AuditLogFilters {
+  // Exact match on target_type column
+  targetType?: string;
+  // IN filter — pass action list for severity-tier filtering
+  actions?: string[];
+  // NOT IN filter — pass action list to exclude (e.g. for "low" severity tier)
+  excludeActions?: string[];
+  // Lower bound on created_at (ISO string, inclusive)
+  dateFrom?: string;
+  // Free-text: OR search across owner_email, action, target_type, target_id
+  search?: string;
+}
+
 export async function fetchAuditCenterLogs(
   limit = 100,
   offset = 0,
+  filters: AuditLogFilters = {},
 ): Promise<AuditLog[]> {
-  const { data, error } = await supabase
+  // Start with select; apply filters before order/range so PostgREST WHERE is correct
+  let q = supabase
     .from("owner_audit_logs")
-    .select("id, owner_email, action, target_type, target_id, metadata, created_at")
+    .select("id, owner_email, action, target_type, target_id, metadata, created_at");
+
+  if (filters.targetType) q = q.eq("target_type", filters.targetType);
+  if (filters.actions?.length) q = q.in("action", filters.actions);
+  if (filters.excludeActions?.length)
+    q = q.not("action", "in", `(${filters.excludeActions.map((a) => `"${a}"`).join(",")})`);
+  if (filters.dateFrom) q = q.gte("created_at", filters.dateFrom);
+  if (filters.search?.trim()) {
+    const t = filters.search.trim();
+    q = q.or(`owner_email.ilike.%${t}%,action.ilike.%${t}%,target_type.ilike.%${t}%,target_id.ilike.%${t}%`);
+  }
+
+  const { data, error } = await q
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -355,45 +398,51 @@ export interface SubStatusSummary {
 const EMPTY_ORG: OrgStatusSummary = { total: 0, active: 0, suspended: 0, deleted: 0 };
 const EMPTY_SUB: SubStatusSummary = { total: 0, active: 0, cancelled: 0, suspended: 0, trialing: 0 };
 
+// Uses parallel server-side count queries instead of fetching all rows client-side.
+// At 1000+ orgs/subs, loading all rows just to count statuses is wasteful.
 export async function fetchOrgStatusSummary(): Promise<OrgStatusSummary> {
-  const { data, error } = await supabase
-    .from("organizations")
-    .select("status, deleted_at")
-    .eq("is_internal", false);
+  const [total, active, suspended, deleted] = await Promise.all([
+    supabase.from("organizations").select("*", { count: "exact", head: true }).eq("is_internal", false),
+    supabase.from("organizations").select("*", { count: "exact", head: true }).eq("is_internal", false).is("deleted_at", null).eq("status", "active"),
+    supabase.from("organizations").select("*", { count: "exact", head: true }).eq("is_internal", false).is("deleted_at", null).eq("status", "suspended"),
+    supabase.from("organizations").select("*", { count: "exact", head: true }).eq("is_internal", false).not("deleted_at", "is", null),
+  ]);
 
-  if (error) {
-    if (isMissingTableError(error)) return EMPTY_ORG;
-    console.warn("[owner] org summary failed:", error.message);
+  if (total.error) {
+    if (isMissingTableError(total.error)) return EMPTY_ORG;
+    console.warn("[owner] org summary failed:", total.error.message);
     return EMPTY_ORG;
   }
 
-  const rows = (data ?? []) as { status: string; deleted_at: string | null }[];
   return {
-    total:     rows.length,
-    active:    rows.filter((r) => !r.deleted_at && r.status === "active").length,
-    suspended: rows.filter((r) => !r.deleted_at && r.status === "suspended").length,
-    deleted:   rows.filter((r) => !!r.deleted_at).length,
+    total:     total.count     ?? 0,
+    active:    active.count    ?? 0,
+    suspended: suspended.count ?? 0,
+    deleted:   deleted.count   ?? 0,
   };
 }
 
 export async function fetchSubStatusSummary(): Promise<SubStatusSummary> {
-  const { data, error } = await supabase
-    .from("subscriptions")
-    .select("status")
-    .neq("billing_cycle", "internal");
+  const [total, active, cancelled, canceled, suspended, trialing] = await Promise.all([
+    supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal"),
+    supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal").eq("status", "active"),
+    supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal").eq("status", "cancelled"),
+    supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal").eq("status", "canceled"),
+    supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal").eq("status", "suspended"),
+    supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal").eq("status", "trialing"),
+  ]);
 
-  if (error) {
-    if (isMissingTableError(error)) return EMPTY_SUB;
-    console.warn("[owner] sub summary failed:", error.message);
+  if (total.error) {
+    if (isMissingTableError(total.error)) return EMPTY_SUB;
+    console.warn("[owner] sub summary failed:", total.error.message);
     return EMPTY_SUB;
   }
 
-  const rows = (data ?? []) as { status: string }[];
   return {
-    total:     rows.length,
-    active:    rows.filter((r) => r.status === "active").length,
-    cancelled: rows.filter((r) => r.status === "cancelled" || r.status === "canceled").length,
-    suspended: rows.filter((r) => r.status === "suspended").length,
-    trialing:  rows.filter((r) => r.status === "trialing").length,
+    total:     total.count     ?? 0,
+    active:    active.count    ?? 0,
+    cancelled: (cancelled.count ?? 0) + (canceled.count ?? 0),
+    suspended: suspended.count ?? 0,
+    trialing:  trialing.count  ?? 0,
   };
 }
