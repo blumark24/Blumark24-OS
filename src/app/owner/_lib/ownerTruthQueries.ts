@@ -982,7 +982,7 @@ export async function fetchCustomerSuccessSummary(): Promise<CustomerSuccessSumm
     churnRiskOrganizations:          churnRisk,
     upgradeOpportunityOrganizations: upgradeOpps,
     inactiveOrganizations30d:        inactiveCount,
-    highUsageOrganizations7d:        anyUsageOrgs,
+    highUsageOrganizations7d:        highUsageOrgs,
     openSupportTickets:              openT,
     highPrioritySupportTickets:      highPrioT,
     latestUsageEventAt:              latestRow[0]?.created_at ?? null,
