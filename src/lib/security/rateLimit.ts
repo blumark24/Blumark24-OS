@@ -119,12 +119,20 @@ export async function checkRateLimit(config: RateLimitConfig): Promise<RateLimit
     }) as { data: number | null; error: { message: string } | null };
 
     if (error) {
-      // Table or RPC missing → allow and warn (migration not yet applied)
       if (
         error.message.includes("does not exist") ||
         error.message.includes("could not find")
       ) {
         console.warn("[rateLimit] rate_limits table/RPC not found — allowing (migration pending)");
+        return ALLOW_ON_ERROR;
+      }
+      if (
+        error.message.includes("permission denied") ||
+        error.message.includes("not authorized") ||
+        error.message.includes("insufficient privilege")
+      ) {
+        // Missing GRANT EXECUTE on upsert_rate_limit for service_role (C5 migration fix)
+        console.warn("[rateLimit] RPC permission denied — check C5 grants: GRANT EXECUTE ON FUNCTION public.upsert_rate_limit(...) TO service_role;");
         return ALLOW_ON_ERROR;
       }
       console.warn("[rateLimit] upsert failed:", error.message);

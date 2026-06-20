@@ -97,9 +97,12 @@ BEGIN
 END;
 $$;
 
--- Only service role and owner may call this RPC
+-- Restrict: revoke broad access, grant only to service_role (used by the utility)
+-- and postgres (superuser, for maintenance). anon and PUBLIC are NOT granted.
 REVOKE ALL ON FUNCTION public.upsert_rate_limit(text,text,uuid,text,text,text,text,timestamptz,timestamptz,jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.upsert_rate_limit(text,text,uuid,text,text,text,text,timestamptz,timestamptz,jsonb) FROM anon;
+GRANT  EXECUTE ON FUNCTION public.upsert_rate_limit(text,text,uuid,text,text,text,text,timestamptz,timestamptz,jsonb) TO service_role;
+GRANT  EXECUTE ON FUNCTION public.upsert_rate_limit(text,text,uuid,text,text,text,text,timestamptz,timestamptz,jsonb) TO postgres;
 
 -- Helper: increment blocked_count for a key's current active window
 CREATE OR REPLACE FUNCTION public.increment_rate_limit_blocked(p_key text)
@@ -118,6 +121,8 @@ $$;
 
 REVOKE ALL ON FUNCTION public.increment_rate_limit_blocked(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.increment_rate_limit_blocked(text) FROM anon;
+GRANT  EXECUTE ON FUNCTION public.increment_rate_limit_blocked(text) TO service_role;
+GRANT  EXECUTE ON FUNCTION public.increment_rate_limit_blocked(text) TO postgres;
 
 -- ── F. Indexes ────────────────────────────────────────────────────────────────
 
@@ -156,5 +161,28 @@ CREATE INDEX IF NOT EXISTS idx_rate_limits_window_end
 --
 -- E4. Indexes:
 --   SELECT indexname FROM pg_indexes WHERE tablename = 'rate_limits' ORDER BY indexname;
+--
+-- E5. RPC grants — verify service_role can execute, anon/PUBLIC cannot:
+--
+--   -- Should return rows for service_role and postgres only:
+--   SELECT grantee, privilege_type
+--   FROM information_schema.routine_privileges
+--   WHERE routine_name IN ('upsert_rate_limit', 'increment_rate_limit_blocked')
+--     AND routine_schema = 'public'
+--   ORDER BY routine_name, grantee;
+--
+--   -- Expected output (two functions × two grantees):
+--   --  grantee       | privilege_type
+--   --  --------------|----------------
+--   --  postgres      | EXECUTE
+--   --  service_role  | EXECUTE
+--   --  (no row for anon, authenticated, or PUBLIC)
+--
+-- E6. Smoke-test via service role (run in Supabase SQL editor as service_role):
+--   SELECT public.upsert_rate_limit(
+--     'test_key', 'test_scope', NULL, '1.2.3.4', '/test',
+--     NULL, NULL, now(), now() + interval '10 minutes', '{}'::jsonb
+--   );
+--   -- Expected: returns 1 (first hit)
 --
 -- ── End of C5 migration ───────────────────────────────────────────────────────
