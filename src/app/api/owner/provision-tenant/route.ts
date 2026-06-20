@@ -14,6 +14,7 @@ import {
   writeOwnerAuditLog,
 } from "@/lib/api/ownerServerCommon";
 import { logAndAlert, normalizeError, generateRequestId } from "@/lib/monitoring/server";
+import { getClientIp, buildRateLimitKey, checkRateLimit, rateLimitResponse } from "@/lib/security/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -243,6 +244,31 @@ export async function POST(req: NextRequest) {
       );
     }
     const callerEmail = ownerCheck.callerEmail;
+
+    // Rate limit: 5 per owner per 10 min + 20 per IP per hour
+    const ip = getClientIp(req);
+    const [rlUser, rlIp] = await Promise.all([
+      checkRateLimit({
+        scope:    "owner_provision_tenant_user",
+        key:      buildRateLimitKey({ scope: "owner_provision_tenant_user", user_id: callerEmail, ip }),
+        limit:    5,
+        windowMs: 10 * 60 * 1000,
+        ip,
+        route:    "/api/owner/provision-tenant",
+        metadata: {},
+      }),
+      checkRateLimit({
+        scope:    "owner_provision_tenant_ip",
+        key:      buildRateLimitKey({ scope: "owner_provision_tenant_ip", ip }),
+        limit:    20,
+        windowMs: 60 * 60 * 1000,
+        ip,
+        route:    "/api/owner/provision-tenant",
+        metadata: {},
+      }),
+    ]);
+    if (!rlUser.allowed) return NextResponse.json({ success: false, error: "تجاوزت الحد المسموح به — يرجى الانتظار قبل المحاولة مجدداً", request_id: rlUser.requestId }, { status: 429 });
+    if (!rlIp.allowed)   return NextResponse.json({ success: false, error: "تجاوزت الحد المسموح به — يرجى الانتظار قبل المحاولة مجدداً", request_id: rlIp.requestId  }, { status: 429 });
 
     const body = (await req.json()) as Record<string, unknown>;
     const name = typeof body.name === "string" ? body.name.trim() : "";

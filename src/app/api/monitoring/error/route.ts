@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { logSystemError, generateRequestId } from "@/lib/monitoring/server";
+import { getClientIp, buildRateLimitKey, checkRateLimit } from "@/lib/security/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,6 +45,34 @@ export async function POST(req: NextRequest) {
   const { data: { user }, error: authErr } = await authClient.auth.getUser(token);
   if (authErr || !user) {
     return json({ success: false, error: "Unauthorized" }, 401);
+  }
+
+  // 1b. Rate limit: 20 per user per 10 min + 60 per IP per hour
+  const ip = getClientIp(req);
+  const [rlUser, rlIp] = await Promise.all([
+    checkRateLimit({
+      scope:    "monitoring_error_user",
+      key:      buildRateLimitKey({ scope: "monitoring_error_user", user_id: user.id, ip }),
+      limit:    20,
+      windowMs: 10 * 60 * 1000,
+      user_id:  user.id,
+      ip,
+      route:    "/api/monitoring/error",
+      metadata: {},
+    }),
+    checkRateLimit({
+      scope:    "monitoring_error_ip",
+      key:      buildRateLimitKey({ scope: "monitoring_error_ip", ip }),
+      limit:    60,
+      windowMs: 60 * 60 * 1000,
+      ip,
+      route:    "/api/monitoring/error",
+      metadata: {},
+    }),
+  ]);
+  if (!rlUser.allowed || !rlIp.allowed) {
+    const rl = !rlUser.allowed ? rlUser : rlIp;
+    return json({ success: false, error: "Too many requests", request_id: rl.requestId }, 429);
   }
 
   // 2. Parse and validate body
