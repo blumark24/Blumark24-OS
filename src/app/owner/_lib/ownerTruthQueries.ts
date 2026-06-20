@@ -397,3 +397,128 @@ export async function fetchSubStatusSummary(): Promise<SubStatusSummary> {
     trialing:  rows.filter((r) => r.status === "trialing").length,
   };
 }
+
+// ─── C3 Operations monitoring summaries ───────────────────────────────────────
+// Read-only HEAD count queries for the new C3 foundation tables.
+// Each returns null fields when the table doesn't exist yet.
+
+export interface SystemErrorSummary {
+  total: number | null;
+  open: number | null;
+  critical: number | null;
+  latestAt: string | null;
+}
+
+export interface SystemAlertSummary {
+  total: number | null;
+  open: number | null;
+  critical: number | null;
+  latestAt: string | null;
+}
+
+export interface SupportTicketSummary {
+  total: number | null;
+  open: number | null;
+  highPriority: number | null;
+  latestAt: string | null;
+}
+
+export interface FeatureUsageSummary {
+  todayCount: number | null;
+  totalCount: number | null;
+}
+
+const EMPTY_ERROR_SUMMARY: SystemErrorSummary   = { total: null, open: null, critical: null, latestAt: null };
+const EMPTY_ALERT_SUMMARY: SystemAlertSummary   = { total: null, open: null, critical: null, latestAt: null };
+const EMPTY_TICKET_SUMMARY: SupportTicketSummary = { total: null, open: null, highPriority: null, latestAt: null };
+const EMPTY_USAGE_SUMMARY: FeatureUsageSummary   = { todayCount: null, totalCount: null };
+
+export async function fetchSystemErrorSummary(): Promise<SystemErrorSummary> {
+  const [total, open, critical, latest] = await Promise.all([
+    supabase.from("system_errors").select("*", { count: "exact", head: true }),
+    supabase.from("system_errors").select("*", { count: "exact", head: true }).is("resolved_at", null),
+    supabase.from("system_errors").select("*", { count: "exact", head: true }).eq("severity", "critical").is("resolved_at", null),
+    supabase.from("system_errors").select("created_at").order("created_at", { ascending: false }).limit(1),
+  ]);
+
+  if (total.error) {
+    if (isMissingTableError(total.error)) return EMPTY_ERROR_SUMMARY;
+    console.warn("[owner] system_errors summary failed:", total.error.message);
+    return EMPTY_ERROR_SUMMARY;
+  }
+
+  const latestRow = (latest.data ?? []) as { created_at: string }[];
+  return {
+    total:    total.count   ?? 0,
+    open:     open.count    ?? 0,
+    critical: critical.count ?? 0,
+    latestAt: latestRow[0]?.created_at ?? null,
+  };
+}
+
+export async function fetchSystemAlertSummary(): Promise<SystemAlertSummary> {
+  const [total, open, critical, latest] = await Promise.all([
+    supabase.from("system_alerts").select("*", { count: "exact", head: true }),
+    supabase.from("system_alerts").select("*", { count: "exact", head: true }).eq("status", "open"),
+    supabase.from("system_alerts").select("*", { count: "exact", head: true }).eq("severity", "critical").eq("status", "open"),
+    supabase.from("system_alerts").select("created_at").order("created_at", { ascending: false }).limit(1),
+  ]);
+
+  if (total.error) {
+    if (isMissingTableError(total.error)) return EMPTY_ALERT_SUMMARY;
+    console.warn("[owner] system_alerts summary failed:", total.error.message);
+    return EMPTY_ALERT_SUMMARY;
+  }
+
+  const latestRow = (latest.data ?? []) as { created_at: string }[];
+  return {
+    total:    total.count   ?? 0,
+    open:     open.count    ?? 0,
+    critical: critical.count ?? 0,
+    latestAt: latestRow[0]?.created_at ?? null,
+  };
+}
+
+export async function fetchSupportTicketSummary(): Promise<SupportTicketSummary> {
+  const [total, open, highPriority, latest] = await Promise.all([
+    supabase.from("support_tickets").select("*", { count: "exact", head: true }),
+    supabase.from("support_tickets").select("*", { count: "exact", head: true }).eq("status", "open"),
+    supabase.from("support_tickets").select("*", { count: "exact", head: true }).eq("priority", "high").eq("status", "open"),
+    supabase.from("support_tickets").select("created_at").order("created_at", { ascending: false }).limit(1),
+  ]);
+
+  if (total.error) {
+    if (isMissingTableError(total.error)) return EMPTY_TICKET_SUMMARY;
+    console.warn("[owner] support_tickets summary failed:", total.error.message);
+    return EMPTY_TICKET_SUMMARY;
+  }
+
+  const latestRow = (latest.data ?? []) as { created_at: string }[];
+  return {
+    total:       total.count       ?? 0,
+    open:        open.count        ?? 0,
+    highPriority: highPriority.count ?? 0,
+    latestAt:    latestRow[0]?.created_at ?? null,
+  };
+}
+
+export async function fetchFeatureUsageSummary(): Promise<FeatureUsageSummary> {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [total, today] = await Promise.all([
+    supabase.from("feature_usage_events").select("*", { count: "exact", head: true }),
+    supabase.from("feature_usage_events").select("*", { count: "exact", head: true }).gte("created_at", todayStart.toISOString()),
+  ]);
+
+  if (total.error) {
+    if (isMissingTableError(total.error)) return EMPTY_USAGE_SUMMARY;
+    console.warn("[owner] feature_usage summary failed:", total.error.message);
+    return EMPTY_USAGE_SUMMARY;
+  }
+
+  return {
+    totalCount: total.count ?? 0,
+    todayCount: today.count ?? 0,
+  };
+}

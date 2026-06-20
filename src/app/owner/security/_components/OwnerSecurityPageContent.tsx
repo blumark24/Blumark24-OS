@@ -48,9 +48,17 @@ import {
   fetchOwnerAuditLogCount,
   fetchOrgStatusSummary,
   fetchSubStatusSummary,
+  fetchSystemErrorSummary,
+  fetchSystemAlertSummary,
+  fetchSupportTicketSummary,
+  fetchFeatureUsageSummary,
   type AuditLog,
   type OrgStatusSummary,
   type SubStatusSummary,
+  type SystemErrorSummary,
+  type SystemAlertSummary,
+  type SupportTicketSummary,
+  type FeatureUsageSummary,
 } from "../../_lib/ownerTruthQueries";
 
 // ─── Severity ──────────────────────────────────────────────────────────────────
@@ -946,15 +954,16 @@ const SUPPORT_RESPONSES: Record<string, string> = {
 // ─── 1000-Customer Readiness ───────────────────────────────────────────────────
 
 const READINESS_ITEMS: { area: string; status: "جاهز" | "جزئي" | "غير جاهز"; note: string }[] = [
-  { area: "فلترة السجلات من جانب الخادم", status: "غير جاهز", note: "الفلترة تتم على الجانب العميل — غير مناسب لأكثر من 10,000 سجل" },
-  { area: "فهارس قاعدة البيانات", status: "غير جاهز", note: "يُنصح بإضافة فهارس على owner_audit_logs.created_at, target_type, action" },
-  { area: "حدود معدل الطلبات للعمليات الحساسة", status: "غير جاهز", note: "لا توجد حدود معدل للعمليات الحساسة مثل الحذف وتغيير الأدوار" },
-  { area: "جدول تذاكر الدعم الفني", status: "غير جاهز", note: "لا يوجد جدول قاعدة بيانات لتذاكر الدعم — موصى به لـ 1000+ عميل" },
-  { area: "مراقبة الأخطاء والاستثناءات", status: "غير جاهز", note: "لا يوجد جدول لتسجيل الأخطاء — يصعب تشخيص المشاكل على نطاق واسع" },
-  { area: "بيانات استخدام الميزات", status: "جزئي", note: "بيانات جزئية في سجل التدقيق — لا يوجد جدول استخدام مخصص" },
+  { area: "فلترة السجلات من جانب الخادم", status: "جزئي", note: "C2: فلترة target_type ونطاق التاريخ والبحث النصي على الخادم — الفلترة بالخطورة جزئية" },
+  { area: "فهارس قاعدة البيانات", status: "جاهز", note: "C2: 5 فهارس على owner_audit_logs + C3: 15 فهرساً على جداول التشغيل الجديدة" },
+  { area: "جدول تذاكر الدعم الفني", status: "جاهز", note: "C3: جداول support_tickets و support_messages جاهزة مع RLS وفهارس" },
+  { area: "مراقبة الأخطاء والاستثناءات", status: "جاهز", note: "C3: جدول system_errors جاهز مع RLS وفهارس — يحتاج middleware التسجيل التلقائي" },
+  { area: "تنبيهات النظام التشغيلية", status: "جاهز", note: "C3: جدول system_alerts جاهز مع RLS وملخص مرئي في مركز التدقيق" },
+  { area: "بيانات استخدام الميزات", status: "جاهز", note: "C3: جدول feature_usage_events جاهز مع فهارس — يحتاج ربط استدعاءات التتبع" },
   { area: "واجهة مستخدم الجوال", status: "جاهز", note: "الواجهة متجاوبة مع الشاشات الصغيرة" },
-  { area: "قابلية توسع التدقيق", status: "جزئي", note: "الصفحة محدودة بـ 100 سجل — ترقيم الصفحات يعمل لكنه يعتمد على الجانب العميل" },
-  { area: "جاهزية الدعم الفني", status: "جزئي", note: "دليل استكشاف الأخطاء متاح — لكن لا يوجد نظام تذاكر أو إشعارات آلية" },
+  { area: "قابلية توسع التدقيق", status: "جزئي", note: "C2: ترقيم الصفحات من الخادم — الاستعلامات محدودة بـ 100 سجل لكل طلب" },
+  { area: "جاهزية الدعم الفني", status: "جزئي", note: "C3: هيكل قاعدة البيانات جاهز — يحتاج واجهة إدارة التذاكر وإشعارات آلية" },
+  { area: "حدود معدل الطلبات للعمليات الحساسة", status: "غير جاهز", note: "لا توجد حدود معدل للعمليات الحساسة مثل الحذف وتغيير الأدوار" },
 ];
 
 // ─── Preset questions ──────────────────────────────────────────────────────────
@@ -1399,6 +1408,13 @@ export default function OwnerSecurityPageContent() {
   const [orgSummary, setOrgSummary] = useState<OrgStatusSummary>({ total: 0, active: 0, suspended: 0, deleted: 0 });
   const [subSummary, setSubSummary] = useState<SubStatusSummary>({ total: 0, active: 0, cancelled: 0, suspended: 0, trialing: 0 });
 
+  // C3 ops monitoring summaries — null fields mean "table not yet available"
+  const [errorSummary,   setErrorSummary]   = useState<SystemErrorSummary>  ({ total: null, open: null, critical: null, latestAt: null });
+  const [alertSummary,   setAlertSummary]   = useState<SystemAlertSummary>  ({ total: null, open: null, critical: null, latestAt: null });
+  const [ticketSummary,  setTicketSummary]  = useState<SupportTicketSummary>({ total: null, open: null, highPriority: null, latestAt: null });
+  const [usageSummary,   setUsageSummary]   = useState<FeatureUsageSummary> ({ todayCount: null, totalCount: null });
+  const [loadingOps,     setLoadingOps]     = useState(true);
+
   const [activeTab, setActiveTab] = useState<Tab>("monitoring");
   const [search, setSearch] = useState("");
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
@@ -1445,6 +1461,19 @@ export default function OwnerSecurityPageContent() {
       setOrgSummary(org);
       setSubSummary(sub);
       setLoadingMeta(false);
+    });
+    // C3 ops monitoring summaries — loaded in parallel, non-blocking
+    void Promise.all([
+      fetchSystemErrorSummary(),
+      fetchSystemAlertSummary(),
+      fetchSupportTicketSummary(),
+      fetchFeatureUsageSummary(),
+    ]).then(([err, alert, ticket, usage]) => {
+      setErrorSummary(err);
+      setAlertSummary(alert);
+      setTicketSummary(ticket);
+      setUsageSummary(usage);
+      setLoadingOps(false);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2608,6 +2637,147 @@ export default function OwnerSecurityPageContent() {
             )}
           </div>
 
+          {/* C3: مؤشرات التشغيل الحية */}
+          <div
+            className="rounded-2xl border border-white/[0.07] overflow-hidden"
+            style={{ background: "linear-gradient(135deg, #091528 0%, #07111f 100%)" }}
+          >
+            <div className="h-[2px]" style={{ background: "linear-gradient(90deg, transparent, #22d3ee, transparent)" }} />
+            <div className="px-5 pt-4 pb-3 border-b border-white/[0.04] flex items-center gap-2">
+              <Activity size={14} className="text-[#22d3ee]" />
+              <span className="text-[13px] font-semibold text-white">مؤشرات التشغيل الحية</span>
+              <span className="mr-auto text-[10px] text-white/25 font-mono">C3 · قراءة فقط</span>
+            </div>
+            <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* System Errors */}
+              <div
+                className="rounded-xl border px-4 py-3.5"
+                style={{
+                  borderColor: (errorSummary?.open ?? 0) > 0 ? "#ef444425" : "rgba(255,255,255,0.06)",
+                  background: (errorSummary?.open ?? 0) > 0 ? "#ef44440a" : "rgba(255,255,255,0.02)",
+                }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="h-6 w-6 rounded-lg flex items-center justify-center" style={{ background: "#ef444412", border: "1px solid #ef444420" }}>
+                    <AlertOctagon size={11} className="text-[#f87171]" />
+                  </div>
+                  {(errorSummary?.open ?? 0) > 0 && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#ef4444] animate-pulse" />
+                  )}
+                </div>
+                <p className="text-[10px] text-white/35 mb-1">أخطاء مفتوحة</p>
+                {loadingOps ? (
+                  <div className="h-6 w-10 rounded bg-white/[0.07] animate-pulse" />
+                ) : errorSummary?.open === null ? (
+                  <p className="text-[18px] font-bold text-white/20">—</p>
+                ) : (
+                  <p className="text-[22px] font-bold leading-none" style={{ color: (errorSummary.open ?? 0) > 0 ? "#f87171" : "#10b981" }}>
+                    {errorSummary.open}
+                  </p>
+                )}
+                {!loadingOps && errorSummary?.critical !== null && (errorSummary?.critical ?? 0) > 0 && (
+                  <p className="text-[9.5px] text-[#f87171]/70 mt-1">{errorSummary.critical} حرج</p>
+                )}
+              </div>
+
+              {/* System Alerts */}
+              <div
+                className="rounded-xl border px-4 py-3.5"
+                style={{
+                  borderColor: (alertSummary?.open ?? 0) > 0 ? "#f59e0b25" : "rgba(255,255,255,0.06)",
+                  background: (alertSummary?.open ?? 0) > 0 ? "#f59e0b0a" : "rgba(255,255,255,0.02)",
+                }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="h-6 w-6 rounded-lg flex items-center justify-center" style={{ background: "#f59e0b12", border: "1px solid #f59e0b20" }}>
+                    <AlertTriangle size={11} className="text-[#fbbf24]" />
+                  </div>
+                  {(alertSummary?.open ?? 0) > 0 && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#f59e0b] animate-pulse" />
+                  )}
+                </div>
+                <p className="text-[10px] text-white/35 mb-1">تنبيهات مفتوحة</p>
+                {loadingOps ? (
+                  <div className="h-6 w-10 rounded bg-white/[0.07] animate-pulse" />
+                ) : alertSummary?.open === null ? (
+                  <p className="text-[18px] font-bold text-white/20">—</p>
+                ) : (
+                  <p className="text-[22px] font-bold leading-none" style={{ color: (alertSummary.open ?? 0) > 0 ? "#fbbf24" : "#10b981" }}>
+                    {alertSummary.open}
+                  </p>
+                )}
+                {!loadingOps && alertSummary?.critical !== null && (alertSummary?.critical ?? 0) > 0 && (
+                  <p className="text-[9.5px] text-[#fbbf24]/70 mt-1">{alertSummary.critical} حرج</p>
+                )}
+              </div>
+
+              {/* Support Tickets */}
+              <div
+                className="rounded-xl border px-4 py-3.5"
+                style={{
+                  borderColor: (ticketSummary?.open ?? 0) > 0 ? "#a855f725" : "rgba(255,255,255,0.06)",
+                  background: (ticketSummary?.open ?? 0) > 0 ? "#a855f70a" : "rgba(255,255,255,0.02)",
+                }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="h-6 w-6 rounded-lg flex items-center justify-center" style={{ background: "#a855f712", border: "1px solid #a855f720" }}>
+                    <HeadphonesIcon size={11} className="text-[#c084fc]" />
+                  </div>
+                  {(ticketSummary?.open ?? 0) > 0 && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#a855f7] animate-pulse" />
+                  )}
+                </div>
+                <p className="text-[10px] text-white/35 mb-1">تذاكر مفتوحة</p>
+                {loadingOps ? (
+                  <div className="h-6 w-10 rounded bg-white/[0.07] animate-pulse" />
+                ) : ticketSummary?.open === null ? (
+                  <p className="text-[18px] font-bold text-white/20">—</p>
+                ) : (
+                  <p className="text-[22px] font-bold leading-none" style={{ color: (ticketSummary.open ?? 0) > 0 ? "#c084fc" : "#10b981" }}>
+                    {ticketSummary.open}
+                  </p>
+                )}
+                {!loadingOps && ticketSummary?.highPriority !== null && (ticketSummary?.highPriority ?? 0) > 0 && (
+                  <p className="text-[9.5px] text-[#c084fc]/70 mt-1">{ticketSummary.highPriority} أولوية عالية</p>
+                )}
+              </div>
+
+              {/* Feature Usage Today */}
+              <div
+                className="rounded-xl border border-white/[0.06] px-4 py-3.5"
+                style={{ background: "rgba(255,255,255,0.02)" }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="h-6 w-6 rounded-lg flex items-center justify-center" style={{ background: "#22d3ee12", border: "1px solid #22d3ee20" }}>
+                    <BarChart3 size={11} className="text-[#22d3ee]" />
+                  </div>
+                </div>
+                <p className="text-[10px] text-white/35 mb-1">استخدام الميزات اليوم</p>
+                {loadingOps ? (
+                  <div className="h-6 w-10 rounded bg-white/[0.07] animate-pulse" />
+                ) : usageSummary?.todayCount === null ? (
+                  <p className="text-[18px] font-bold text-white/20">—</p>
+                ) : (
+                  <p className="text-[22px] font-bold leading-none text-[#22d3ee]">
+                    {usageSummary.todayCount}
+                  </p>
+                )}
+                {!loadingOps && usageSummary?.totalCount !== null && (
+                  <p className="text-[9.5px] text-white/25 mt-1">إجمالي: {usageSummary.totalCount}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Note when tables are empty (just created) */}
+            {!loadingOps && (errorSummary?.total ?? 1) === 0 && (alertSummary?.total ?? 1) === 0 && (ticketSummary?.total ?? 1) === 0 && (usageSummary?.totalCount ?? 1) === 0 && (
+              <div className="mx-5 mb-4 rounded-xl border border-[#22d3ee]/12 bg-[#22d3ee]/[0.04] px-3.5 py-2.5">
+                <p className="text-[11.5px] text-[#22d3ee]/60">
+                  الجداول جاهزة ومهيأة — لا توجد بيانات بعد. ستظهر المؤشرات تلقائياً عند بدء التشغيل.
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Command Brief */}
           <div
             className="rounded-2xl border overflow-hidden"
@@ -2819,7 +2989,7 @@ export default function OwnerSecurityPageContent() {
               <span className="text-[13px] font-semibold text-white">جاهزية النظام لـ 1000+ عميل</span>
             </div>
             <p className="text-[11px] text-white/30 mb-4 mr-6">
-              فجوات تقنية موثقة — لا تتطلب migrations. للمعلومات فقط.
+              حالة مكونات البنية التحتية — محدّثة بعد C1/C2/C3. للمعلومات فقط.
             </p>
             <div className="space-y-2">
               {READINESS_ITEMS.map((item, i) => {
