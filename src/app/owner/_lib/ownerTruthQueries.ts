@@ -1097,3 +1097,337 @@ export async function fetchTenantHealthSignals(): Promise<TenantHealthSignal[]> 
     };
   });
 }
+
+// ── C8: Automated Operations Intelligence ─────────────────────────────────────
+
+export type ActionPriority = "low" | "medium" | "high" | "critical";
+export type ActionCategory =
+  | "system_health"
+  | "rate_limit"
+  | "customer_success"
+  | "support"
+  | "usage"
+  | "security"
+  | "subscription";
+
+export interface OperationsActionItem {
+  id:                string;
+  priority:          ActionPriority;
+  category:          ActionCategory;
+  title:             string;
+  description:       string;
+  recommendedAction: string;
+  source:            string;
+  relatedCount?:     number;
+}
+
+export interface AutomatedOperationsIntelligence {
+  overallPriority:    ActionPriority;
+  operationStatus:    "stable" | "needs_attention" | "urgent";
+  actionQueue:        OperationsActionItem[];
+  dailyBrief:         string;
+  escalationRequired: boolean;
+  escalationReason:   string | null;
+  nextBestActions:    string[];
+  riskAreas:          string[];
+  opportunityAreas:   string[];
+  generatedAt:        string;
+}
+
+export async function fetchAutomatedOperationsIntelligence(): Promise<AutomatedOperationsIntelligence> {
+  const now          = new Date();
+  const todayStart   = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const sevenAgo     = new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000).toISOString();
+  const thirtyAgo    = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const oneHourAgo   = new Date(now.getTime() -      60 * 60 * 1000).toISOString();
+
+  // Parallel count queries — all HEAD (no row data returned)
+  const [
+    criticalErrors,
+    openErrorsToday,
+    openAlerts,
+    criticalAlerts,
+    openTickets,
+    highPrioTickets,
+    blockedRlToday,
+    inactiveOrgs,
+    usageToday,
+  ] = await Promise.all([
+    supabase.from("system_errors").select("*", { count: "exact", head: true })
+      .eq("severity", "critical").gte("created_at", sevenAgo),
+    supabase.from("system_errors").select("*", { count: "exact", head: true })
+      .gte("created_at", todayStart),
+    supabase.from("system_alerts").select("*", { count: "exact", head: true })
+      .eq("status", "open"),
+    supabase.from("system_alerts").select("*", { count: "exact", head: true })
+      .eq("status", "open").eq("severity", "critical"),
+    supabase.from("support_tickets").select("*", { count: "exact", head: true })
+      .eq("status", "open"),
+    supabase.from("support_tickets").select("*", { count: "exact", head: true })
+      .eq("status", "open").eq("priority", "high"),
+    supabase.from("rate_limits").select("*", { count: "exact", head: true })
+      .gt("blocked_count", 0).gte("window_start", todayStart),
+    supabase.from("organizations").select("*", { count: "exact", head: true })
+      .eq("is_internal", false).is("deleted_at", null).eq("status", "active")
+      .lt("updated_at", thirtyAgo),
+    supabase.from("feature_usage_events").select("*", { count: "exact", head: true })
+      .gte("created_at", todayStart),
+  ]);
+
+  // Early-exit on missing tables — graceful degradation
+  const isTableMissing = (e: { message?: string } | null) =>
+    e ? isMissingTableError(e as { code?: string; message?: string }) : false;
+
+  if (isTableMissing(criticalErrors.error) || isTableMissing(openAlerts.error)) {
+    return {
+      overallPriority: "low", operationStatus: "stable", actionQueue: [],
+      dailyBrief: "لا تتوفر بيانات تشغيلية بعد — يرجى تطبيق هجرات C3–C7 أولاً.",
+      escalationRequired: false, escalationReason: null,
+      nextBestActions: ["تطبيق هجرات قاعدة البيانات للمراحل C3–C7"],
+      riskAreas: [], opportunityAreas: [], generatedAt: now.toISOString(),
+    };
+  }
+
+  const critErr    = criticalErrors.count   ?? 0;
+  const todayErr   = openErrorsToday.count  ?? 0;
+  const openAl     = openAlerts.count       ?? 0;
+  const critAl     = criticalAlerts.count   ?? 0;
+  const openT      = openTickets.count      ?? 0;
+  const highPrioT  = highPrioTickets.count  ?? 0;
+  const rlBlocked  = blockedRlToday.count   ?? 0;
+  const inactive   = inactiveOrgs.count     ?? 0;
+  const usageTod   = usageToday.count       ?? 0;
+
+  // Build action queue — rule-based, max 10
+  const queue: OperationsActionItem[] = [];
+
+  if (critAl > 0) {
+    queue.push({
+      id: "c8_crit_alerts", priority: "critical", category: "system_health",
+      title: `${critAl} تنبيه حرج مفتوح`,
+      description: "توجد تنبيهات حرجة مفتوحة في النظام تستوجب مراجعة فورية.",
+      recommendedAction: "افتح لوحة التنبيهات وراجع كل تنبيه حرج وأغلقه أو صعّده.",
+      source: "system_alerts", relatedCount: critAl,
+    });
+  }
+  if (critErr > 0) {
+    queue.push({
+      id: "c8_crit_errors", priority: "critical", category: "system_health",
+      title: `${critErr} خطأ حرج في آخر 7 أيام`,
+      description: "سُجِّلت أخطاء بمستوى حرج خلال الأسبوع الماضي.",
+      recommendedAction: "راجع سجلات الأخطاء الحرجة وحدد السبب الجذري.",
+      source: "system_errors", relatedCount: critErr,
+    });
+  }
+  if (highPrioT > 0) {
+    queue.push({
+      id: "c8_high_tickets", priority: "high", category: "support",
+      title: `${highPrioT} تذكرة دعم عالية الأولوية`,
+      description: "تذاكر دعم مفتوحة بأولوية عالية تحتاج تدخلاً سريعاً.",
+      recommendedAction: "تعامل مع تذاكر الأولوية العالية في أقرب وقت ممكن.",
+      source: "support_tickets", relatedCount: highPrioT,
+    });
+  }
+  if (rlBlocked > 0) {
+    queue.push({
+      id: "c8_rate_blocked", priority: "high", category: "rate_limit",
+      title: `${rlBlocked} مسار تعدّى حد الطلبات اليوم`,
+      description: "حُظر عدد من الطلبات بسبب تجاوز حد المعدل اليوم.",
+      recommendedAction: "راجع سجلات rate_limits وتحقق من عدم وجود هجوم أو سوء استخدام.",
+      source: "rate_limits", relatedCount: rlBlocked,
+    });
+  }
+  if (inactive > 3) {
+    queue.push({
+      id: "c8_churn_risk", priority: "high", category: "customer_success",
+      title: `${inactive} منشأة غير نشطة أكثر من 30 يوماً`,
+      description: "منشآت نشطة لم تُحدَّث منذ 30 يوماً — مؤشر خطر تراجع.",
+      recommendedAction: "راجع قائمة المنشآت غير النشطة وابدأ حملة إعادة تفعيل.",
+      source: "organizations", relatedCount: inactive,
+    });
+  } else if (inactive > 0) {
+    queue.push({
+      id: "c8_churn_watch", priority: "medium", category: "customer_success",
+      title: `${inactive} منشأة تحتاج متابعة (غير نشطة 30 يوم)`,
+      description: "عدد محدود من المنشآت غير النشطة — متابعة وقائية موصى بها.",
+      recommendedAction: "تواصل مع هذه المنشآت للتحقق من احتياجاتها.",
+      source: "organizations", relatedCount: inactive,
+    });
+  }
+  if (openAl > 0 && critAl === 0) {
+    queue.push({
+      id: "c8_open_alerts", priority: "medium", category: "system_health",
+      title: `${openAl} تنبيه نظام مفتوح`,
+      description: "توجد تنبيهات نظام مفتوحة (غير حرجة) تستحق المراجعة.",
+      recommendedAction: "راجع التنبيهات المفتوحة وأغلق ما تم حله منها.",
+      source: "system_alerts", relatedCount: openAl,
+    });
+  }
+  if (openT > 0 && highPrioT === 0) {
+    queue.push({
+      id: "c8_open_tickets", priority: "medium", category: "support",
+      title: `${openT} تذكرة دعم مفتوحة`,
+      description: "تذاكر دعم بانتظار المعالجة بمستوى أولوية عادي.",
+      recommendedAction: "راجع قائمة تذاكر الدعم المفتوحة وحدد مواعيد للرد.",
+      source: "support_tickets", relatedCount: openT,
+    });
+  }
+  if (todayErr > 0 && critErr === 0) {
+    queue.push({
+      id: "c8_today_errors", priority: "medium", category: "system_health",
+      title: `${todayErr} خطأ نظام اليوم`,
+      description: "أخطاء غير حرجة سُجِّلت خلال اليوم الحالي.",
+      recommendedAction: "راجع سجلات الأخطاء اليومية للكشف عن أنماط متكررة.",
+      source: "system_errors", relatedCount: todayErr,
+    });
+  }
+  if (usageTod === 0) {
+    queue.push({
+      id: "c8_no_usage", priority: "low", category: "usage",
+      title: "لا توجد أحداث استخدام اليوم",
+      description: "لم يُسجَّل أي نشاط استخدام اليوم — قد يشير إلى انقطاع أو هدوء.",
+      recommendedAction: "تحقق من حالة البنية التحتية وتأكد من عمل تتبع الميزات.",
+      source: "feature_usage_events",
+    });
+  }
+
+  // Trim to max 10
+  const actionQueue = queue.slice(0, 10);
+
+  // Overall priority
+  const hasCritical = actionQueue.some(a => a.priority === "critical");
+  const hasHigh     = actionQueue.some(a => a.priority === "high");
+  const hasMedium   = actionQueue.some(a => a.priority === "medium");
+  const overallPriority: ActionPriority =
+    hasCritical ? "critical" : hasHigh ? "high" : hasMedium ? "medium" : "low";
+
+  const operationStatus: "stable" | "needs_attention" | "urgent" =
+    hasCritical ? "urgent" : hasHigh ? "needs_attention" : "stable";
+
+  // Escalation
+  const escalationRequired = hasCritical || highPrioT > 2;
+  const escalationReason = escalationRequired
+    ? (critAl > 0 ? `${critAl} تنبيه حرج مفتوح يستوجب تصعيداً فورياً`
+      : critErr > 0 ? `${critErr} خطأ حرج في آخر 7 أيام`
+      : `${highPrioT} تذكرة دعم عالية الأولوية`)
+    : null;
+
+  // Daily brief
+  const parts: string[] = [];
+  if (usageTod > 0) parts.push(`${usageTod} حدث استخدام اليوم`);
+  if (openT > 0)    parts.push(`${openT} تذكرة دعم مفتوحة`);
+  if (critErr > 0)  parts.push(`${critErr} خطأ حرج هذا الأسبوع`);
+  if (critAl > 0)   parts.push(`${critAl} تنبيه حرج مفتوح`);
+  if (inactive > 0) parts.push(`${inactive} منشأة غير نشطة 30 يوماً`);
+  const dailyBrief = parts.length > 0
+    ? `الوضع التشغيلي: ${parts.join(" · ")}.`
+    : "النظام يعمل بشكل طبيعي — لا توجد مشكلات حرجة.";
+
+  // Next best actions (max 5)
+  const nextBestActions: string[] = actionQueue
+    .slice(0, 5)
+    .map(a => a.recommendedAction);
+
+  // Risk areas
+  const riskAreas: string[] = [];
+  if (critAl > 0 || critErr > 0) riskAreas.push("صحة النظام");
+  if (highPrioT > 0)             riskAreas.push("دعم العملاء");
+  if (rlBlocked > 0)             riskAreas.push("سلامة معدل الطلبات");
+  if (inactive > 0)              riskAreas.push("خطر تراجع العملاء");
+
+  // Opportunity areas
+  const opportunityAreas: string[] = [];
+  if (usageTod > 10)  opportunityAreas.push("نشاط استخدام عالٍ — فرصة للتفاعل");
+  if (inactive === 0 && openT === 0) opportunityAreas.push("استقرار تشغيلي — وقت مناسب لترقيات الباقات");
+
+  return {
+    overallPriority,
+    operationStatus,
+    actionQueue,
+    dailyBrief,
+    escalationRequired,
+    escalationReason,
+    nextBestActions,
+    riskAreas,
+    opportunityAreas,
+    generatedAt: now.toISOString(),
+  };
+}
+
+// ── C8: Executive Operations Brief ────────────────────────────────────────────
+
+export interface ExecutiveOperationsBrief {
+  headline:       string;
+  healthText:     string;
+  customerText:   string;
+  riskText:       string;
+  opportunityText: string;
+  recommendation: string;
+  confidence:     "low" | "medium" | "high";
+}
+
+export async function fetchExecutiveOperationsBrief(): Promise<ExecutiveOperationsBrief> {
+  // Pull from existing summaries in parallel — no new raw queries
+  const [health, cs, rl, err] = await Promise.all([
+    fetchSystemHealthSummary(),
+    fetchCustomerSuccessSummary(),
+    fetchRateLimitSummary(),
+    fetchSystemErrorSummary(),
+  ]);
+
+  const score      = health?.healthScore   ?? null;
+  const status     = health?.status       ?? "unknown";
+  const churnRisk  = cs.churnRiskOrganizations      ?? 0;
+  const upgradeOpp = cs.upgradeOpportunityOrganizations ?? 0;
+  const openT      = cs.openSupportTickets          ?? 0;
+  const highPrioT  = cs.highPrioritySupportTickets  ?? 0;
+  const blocked    = rl.blockedToday                ?? 0;
+  const critErrors = err.critical                   ?? 0;
+
+  // headline
+  const headline =
+    status === "critical" || critErrors > 0 ? "النظام يحتاج تدخلاً فورياً"
+    : status === "warning"  || churnRisk > 0 ? "النظام مستقر مع بعض النقاط التي تستحق الانتباه"
+    : "النظام يعمل بشكل جيد";
+
+  // healthText
+  const healthText = score !== null
+    ? `نقاط صحة النظام: ${score}/100 — ${status === "healthy" ? "وضع سليم" : status === "warning" ? "يحتاج مراقبة" : "يحتاج تدخلاً"}.`
+    : "بيانات صحة النظام غير متاحة بعد.";
+
+  // customerText
+  const customerText = cs.totalOrganizations !== null
+    ? `${cs.healthyOrganizations ?? 0} من ${cs.totalOrganizations} منشأة في وضع سليم — ${churnRisk} في خطر تراجع.`
+    : "بيانات المنشآت غير متاحة بعد.";
+
+  // riskText
+  const riskParts: string[] = [];
+  if (critErrors > 0) riskParts.push(`${critErrors} خطأ حرج`);
+  if (blocked > 0)    riskParts.push(`${blocked} حظر معدل طلبات`);
+  if (highPrioT > 0)  riskParts.push(`${highPrioT} تذكرة دعم عالية الأولوية`);
+  const riskText = riskParts.length > 0
+    ? `مخاطر نشطة: ${riskParts.join("، ")}.`
+    : "لا توجد مخاطر حرجة نشطة حالياً.";
+
+  // opportunityText
+  const opportunityText = upgradeOpp > 0
+    ? `${upgradeOpp} منشأة ذات استخدام عالٍ قد تستفيد من ترقية الباقة.`
+    : openT === 0 && churnRisk === 0
+      ? "استقرار تام — وقت مثالي لاستعراض فرص التوسع."
+      : "لا توجد فرص واضحة للترقية في الوقت الحالي.";
+
+  // recommendation
+  const recommendation =
+    critErrors > 0 || highPrioT > 2 ? "أولوية قصوى: معالجة الأخطاء الحرجة وتذاكر الدعم العالية الأولوية فوراً."
+    : churnRisk > 3 ? "أولوية عالية: إطلاق حملة إعادة تفعيل للمنشآت غير النشطة."
+    : blocked > 0   ? "مراجعة سجلات حد الطلبات للكشف عن سوء استخدام أو هجوم."
+    : upgradeOpp > 0 ? "متابعة المنشآت النشطة ذات الاستخدام العالي لاقتراح ترقية الباقة."
+    : "المتابعة الدورية كافية — النظام مستقر.";
+
+  // confidence
+  const dataPoints = [score, cs.totalOrganizations, rl.blockedToday, err.critical].filter(v => v !== null).length;
+  const confidence: "low" | "medium" | "high" =
+    dataPoints >= 3 ? "high" : dataPoints >= 2 ? "medium" : "low";
+
+  return { headline, healthText, customerText, riskText, opportunityText, recommendation, confidence };
+}
