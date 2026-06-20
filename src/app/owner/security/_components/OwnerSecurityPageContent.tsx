@@ -53,6 +53,7 @@ import {
   fetchSupportTicketSummary,
   fetchFeatureUsageSummary,
   fetchSystemHealthSummary,
+  fetchRateLimitSummary,
   type AuditLog,
   type AuditLogFilters,
   type OrgStatusSummary,
@@ -62,6 +63,7 @@ import {
   type SupportTicketSummary,
   type FeatureUsageSummary,
   type SystemHealthSummary,
+  type RateLimitSummary,
 } from "../../_lib/ownerTruthQueries";
 
 // ─── Severity ──────────────────────────────────────────────────────────────────
@@ -1134,7 +1136,7 @@ const READINESS_ITEMS: { area: string; status: "جاهز" | "جزئي" | "غير
   { area: "تغطية تسجيل الأخطاء", status: "جزئي", note: "C4: مُفعَّل في owner API routes الحساسة — يحتاج Next.js error boundary وmiddleware شاملاً" },
   { area: "واجهة مستخدم الجوال", status: "جاهز", note: "الواجهة متجاوبة مع الشاشات الصغيرة" },
   { area: "جاهزية الدعم الفني", status: "جزئي", note: "C3: هيكل قاعدة البيانات جاهز — يحتاج واجهة إدارة التذاكر وإشعارات آلية" },
-  { area: "حدود معدل الطلبات للعمليات الحساسة", status: "غير جاهز", note: "لا توجد حدود معدل للعمليات الحساسة مثل الحذف وتغيير الأدوار" },
+  { area: "حدود معدل الطلبات للعمليات الحساسة", status: "جزئي", note: "C5: مُفعَّل في 3 مسارات (تغيير الباقة، تزويد عميل، مراقبة الأخطاء) — التغطية الكاملة لجميع المسارات الحساسة قيد التطوير" },
 ];
 
 // ─── Preset questions ──────────────────────────────────────────────────────────
@@ -1614,6 +1616,8 @@ export default function OwnerSecurityPageContent() {
   const [loadingOps,     setLoadingOps]     = useState(true);
   // C4 health engine
   const [healthSummary,  setHealthSummary]  = useState<SystemHealthSummary | null>(null);
+  // C5 rate limit summary
+  const [rlSummary, setRlSummary] = useState<RateLimitSummary>({ totalToday: null, blockedToday: null, lastBlockedAt: null, topRoute: null });
 
   const [activeTab, setActiveTab] = useState<Tab>("monitoring");
   const [search, setSearch] = useState("");
@@ -1681,12 +1685,14 @@ export default function OwnerSecurityPageContent() {
       fetchSupportTicketSummary(),
       fetchFeatureUsageSummary(),
       fetchSystemHealthSummary(),
-    ]).then(([err, alert, ticket, usage, health]) => {
+      fetchRateLimitSummary(),
+    ]).then(([err, alert, ticket, usage, health, rl]) => {
       setErrorSummary(err);
       setAlertSummary(alert);
       setTicketSummary(ticket);
       setUsageSummary(usage);
       setHealthSummary(health);
+      setRlSummary(rl);
       setLoadingOps(false);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -3265,6 +3271,37 @@ export default function OwnerSecurityPageContent() {
                     )}
                   </p>
                 )}
+              </div>
+
+              {/* C5: Rate Limit mini-row */}
+              <div className="rounded-xl border border-white/[0.06] px-4 py-3.5 col-span-2 md:col-span-3" style={{ background: "rgba(255,255,255,0.02)" }}>
+                <p className="text-[10px] text-white/35 mb-2 flex items-center gap-1.5">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#f59e0b]/60" />
+                  حدود معدل الطلبات — C5
+                </p>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <span className="text-[11px] text-white/50">
+                    {loadingOps ? "—" : <><span className="text-white/80 font-medium">{rlSummary.totalToday ?? 0}</span> حدث اليوم</>}
+                  </span>
+                  <span className="text-white/15">·</span>
+                  <span className="text-[11px] text-white/50">
+                    {loadingOps ? "—" : (rlSummary.blockedToday ?? 0) > 0
+                      ? <><span className="text-[#f87171] font-medium">{rlSummary.blockedToday}</span> محظور</>
+                      : <span className="text-[#34d399]">لا يوجد حظر اليوم</span>}
+                  </span>
+                  {!loadingOps && rlSummary.lastBlockedAt && (
+                    <>
+                      <span className="text-white/15">·</span>
+                      <span className="text-[10px] text-white/30">آخر حظر: {timeAgo(rlSummary.lastBlockedAt)}</span>
+                    </>
+                  )}
+                  {!loadingOps && rlSummary.topRoute && (
+                    <>
+                      <span className="text-white/15">·</span>
+                      <span className="text-[10px] text-white/30 font-mono">{rlSummary.topRoute}</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>

@@ -5,6 +5,7 @@ import {
   writeOwnerAuditLog,
 } from "@/lib/api/ownerServerCommon";
 import { logAndAlert, normalizeError, generateRequestId } from "@/lib/monitoring/server";
+import { getClientIp, buildRateLimitKey, checkRateLimit, rateLimitResponse } from "@/lib/security/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,20 @@ export async function POST(req: NextRequest) {
         ownerCheck.status,
       );
     }
+
+    // Rate limit: 10 per owner per 10 min
+    const ip = getClientIp(req);
+    const rl = await checkRateLimit({
+      scope:    "owner_change_plan",
+      key:      buildRateLimitKey({ scope: "owner_change_plan", user_id: ownerCheck.callerEmail, ip }),
+      limit:    10,
+      windowMs: 10 * 60 * 1000,
+      user_id:  null,
+      ip,
+      route:    "/api/owner/change-organization-plan",
+      metadata: {},
+    });
+    if (!rl.allowed) return rateLimitResponse(rl);
 
     const body = (await req.json().catch(() => ({}))) as ChangePlanPayload;
     const organizationId =

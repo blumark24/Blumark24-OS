@@ -661,3 +661,63 @@ export async function fetchSystemHealthSummary(): Promise<SystemHealthSummary> {
     recommendedFocus,
   };
 }
+
+// ── C5: Rate Limit Summary ────────────────────────────────────────────────────
+
+export interface RateLimitSummary {
+  totalToday:     number | null;
+  blockedToday:   number | null;
+  lastBlockedAt:  string | null;
+  topRoute:       string | null;
+}
+
+const EMPTY_RL_SUMMARY: RateLimitSummary = {
+  totalToday: null, blockedToday: null, lastBlockedAt: null, topRoute: null,
+};
+
+export async function fetchRateLimitSummary(): Promise<RateLimitSummary> {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [total, blocked, lastBlocked, topRouteRow] = await Promise.all([
+    supabase
+      .from("rate_limits")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", todayStart.toISOString()),
+    supabase
+      .from("rate_limits")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", todayStart.toISOString())
+      .gt("blocked_count", 0),
+    supabase
+      .from("rate_limits")
+      .select("updated_at")
+      .gt("blocked_count", 0)
+      .order("updated_at", { ascending: false })
+      .limit(1),
+    supabase
+      .from("rate_limits")
+      .select("route")
+      .gte("created_at", todayStart.toISOString())
+      .gt("blocked_count", 0)
+      .not("route", "is", null)
+      .order("blocked_count", { ascending: false })
+      .limit(1),
+  ]);
+
+  if (total.error) {
+    if (isMissingTableError(total.error)) return EMPTY_RL_SUMMARY;
+    console.warn("[owner] rate_limits summary failed:", total.error.message);
+    return EMPTY_RL_SUMMARY;
+  }
+
+  const lastRow = (lastBlocked.data ?? []) as { updated_at: string }[];
+  const topRow  = (topRouteRow.data ?? []) as { route: string }[];
+
+  return {
+    totalToday:    total.count   ?? 0,
+    blockedToday:  blocked.count ?? 0,
+    lastBlockedAt: lastRow[0]?.updated_at ?? null,
+    topRoute:      topRow[0]?.route       ?? null,
+  };
+}
