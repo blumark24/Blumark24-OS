@@ -747,15 +747,17 @@ export async function fetchFeatureAnalyticsSummary(): Promise<FeatureAnalyticsSu
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  const [eventsToday, events7d, activeOrgs7d, latestEvent, topToday, top7d, inactive30d] =
+  const [eventsToday, events7d, activeOrgs7dRows, latestEvent, topToday, top7d, inactive30d] =
     await Promise.all([
       supabase.from("feature_usage_events").select("*", { count: "exact", head: true })
         .gte("created_at", todayStart.toISOString()),
       supabase.from("feature_usage_events").select("*", { count: "exact", head: true })
         .gte("created_at", sevenDaysAgo.toISOString()),
-      supabase.from("feature_usage_events").select("organization_id", { count: "exact", head: true })
+      // Fetch up to 500 org_id values; count distinct client-side (approximate if >500 events)
+      supabase.from("feature_usage_events").select("organization_id")
         .gte("created_at", sevenDaysAgo.toISOString())
-        .not("organization_id", "is", null),
+        .not("organization_id", "is", null)
+        .limit(500),
       supabase.from("feature_usage_events").select("created_at")
         .order("created_at", { ascending: false }).limit(1),
       // Top feature today: fetch up to 200 events and tally client-side
@@ -763,7 +765,7 @@ export async function fetchFeatureAnalyticsSummary(): Promise<FeatureAnalyticsSu
         .gte("created_at", todayStart.toISOString()).limit(200),
       supabase.from("feature_usage_events").select("feature_key")
         .gte("created_at", sevenDaysAgo.toISOString()).limit(200),
-      // Inactive orgs: orgs with no usage events in last 30 days (count via subscription proxy)
+      // Churn-risk proxy: active orgs not updated in 30+ days
       supabase.from("organizations").select("*", { count: "exact", head: true })
         .eq("is_internal", false).is("deleted_at", null).eq("status", "active")
         .lt("updated_at", thirtyDaysAgo.toISOString()),
@@ -784,12 +786,18 @@ export async function fetchFeatureAnalyticsSummary(): Promise<FeatureAnalyticsSu
     return best;
   }
 
+  // Distinct active organizations from capped rows (approximate when events > 500 in window)
+  const orgIdRows = (activeOrgs7dRows.data ?? []) as { organization_id: string }[];
+  const activeOrganizations7d = new Set(
+    orgIdRows.map(r => r.organization_id).filter(Boolean)
+  ).size;
+
   const latestRow = (latestEvent.data ?? []) as { created_at: string }[];
 
   return {
     eventsToday:             eventsToday.count  ?? 0,
     events7d:                events7d.count     ?? 0,
-    activeOrganizations7d:   activeOrgs7d.count ?? 0,
+    activeOrganizations7d,   // distinct org_id count, capped at 500 events — approximate
     topFeatureToday:         topToday.data ? topFeatureFrom(topToday.data as { feature_key: string }[]) : null,
     topFeature7d:            top7d.data   ? topFeatureFrom(top7d.data   as { feature_key: string }[]) : null,
     latestEventAt:           latestRow[0]?.created_at ?? null,
