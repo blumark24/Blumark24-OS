@@ -5,6 +5,7 @@ import {
   FileText,
   TrendingUp,
   CircleDollarSign,
+  ShieldCheck,
 } from "lucide-react";
 import OwnerComingSoonBanner from "./OwnerComingSoonBanner";
 import OwnerPlaceholderCard from "./OwnerPlaceholderCard";
@@ -105,6 +106,38 @@ export default function OwnerBillingPageContent() {
               </li>
             ))}
           </ul>
+
+          <div className="mt-5 border-t border-white/[0.07] pt-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
+              <ShieldCheck size={15} className="text-[#22d3ee]" />
+              مؤشرات جاهزية C9
+            </h3>
+            <ul className="space-y-2 text-[12px]">
+              {[
+                { label: "أساس الفوترة", value: "جاهز", ok: true },
+                { label: "بوابة الدفع الحقيقية", value: "غير جاهز", ok: false },
+                { label: "Webhooks الدفع", value: "غير جاهز", ok: false },
+                { label: "واجهة دفع العميل", value: "جزئي", ok: false },
+                { label: "أتمتة دورة الاشتراك", value: "جزئي", ok: false },
+              ].map((row) => (
+                <li
+                  key={row.label}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2"
+                >
+                  <span className="text-[#8ba3c7]">{row.label}</span>
+                  <span
+                    className={
+                      row.ok
+                        ? "rounded-full border border-[#10b981]/30 bg-[#10b981]/10 px-2 py-0.5 text-[11px] text-[#34d399]"
+                        : "rounded-full border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-2 py-0.5 text-[11px] text-[#fbbf24]"
+                    }
+                  >
+                    {row.value}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
       </div>
     </div>

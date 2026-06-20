@@ -35,6 +35,22 @@ export interface OwnerAuditEntry {
   icon: LucideIcon;
 }
 
+export type BillingHealthStatus = "healthy" | "warning" | "critical";
+
+export interface BillingOperationsSummary {
+  pendingPayments: number | null;
+  paidPaymentsToday: number | null;
+  failedPaymentsToday: number | null;
+  monthlyRecurringRevenueApprox: OwnerKpiValue;
+  invoicesOpen: number | null;
+  subscriptionsActive: number | null;
+  subscriptionsPastDue: number | null;
+  latestPaymentAt: string | null;
+  latestBillingEventAt: string | null;
+  billingHealthStatus: BillingHealthStatus;
+  recommendedAction: string;
+}
+
 const ACTION_META: Record<string, { title: string; accent: Accent; icon: LucideIcon }> = {
   create_organization: { title: "تم إنشاء منشأة", accent: "cyan", icon: Building2 },
   activate_subscription: { title: "تم تفعيل اشتراك", accent: "blue", icon: ArrowUpCircle },
@@ -69,6 +85,37 @@ function isMissingTableError(error: { code?: string; message?: string }): boolea
 
 function formatSar(amount: number): string {
   return `SAR ${Math.round(amount).toLocaleString("en-US")}`;
+}
+
+async function resolveCountResult(
+  table: string,
+  result: PromiseLike<{ count: number | null; error: { code?: string; message?: string } | null }>,
+): Promise<number | null> {
+  const { count, error } = await result;
+  if (error) {
+    if (isMissingTableError(error)) return null;
+    console.warn(`[owner] ${table} count failed:`, error.message);
+    return null;
+  }
+
+  return count ?? 0;
+}
+
+async function latestCreatedAt(table: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from(table)
+    .select("created_at")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingTableError(error)) return null;
+    console.warn(`[owner] ${table} latest timestamp failed:`, error.message);
+    return null;
+  }
+
+  return typeof data?.created_at === "string" ? data.created_at : null;
 }
 
 export function computeMrr(
@@ -112,6 +159,137 @@ export function computeMrr(
   }
 
   return { display: formatSar(total), available: true, numericValue: total };
+}
+
+export async function fetchBillingOperationsSummary(): Promise<BillingOperationsSummary> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayIso = today.toISOString();
+
+  const [
+    pendingPayments,
+    paidPaymentsToday,
+    failedPaymentsToday,
+    invoicesOpen,
+    subscriptionsActive,
+    subscriptionsPastDue,
+    latestPaymentAt,
+    latestBillingEventAt,
+  ] = await Promise.all([
+    resolveCountResult(
+      "payment_transactions",
+      supabase
+        .from("payment_transactions")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending"),
+    ),
+    resolveCountResult(
+      "payment_transactions",
+      supabase
+        .from("payment_transactions")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "paid")
+        .gte("paid_at", todayIso),
+    ),
+    resolveCountResult(
+      "payment_transactions",
+      supabase
+        .from("payment_transactions")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "failed")
+        .gte("failed_at", todayIso),
+    ),
+    resolveCountResult(
+      "invoices",
+      supabase
+        .from("invoices")
+        .select("*", { count: "exact", head: true })
+        .in("status", ["open", "pending", "issued", "overdue"]),
+    ),
+    resolveCountResult(
+      "subscriptions",
+      supabase
+        .from("subscriptions")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "active"),
+    ),
+    resolveCountResult(
+      "subscriptions",
+      supabase
+        .from("subscriptions")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "past_due"),
+    ),
+    latestCreatedAt("payment_transactions"),
+    latestCreatedAt("billing_events"),
+  ]);
+
+  let monthlyRecurringRevenueApprox: OwnerKpiValue = {
+    display: OWNER_UNAVAILABLE_HINT,
+    available: false,
+    numericValue: null,
+  };
+
+  const [subsRes, orgsRes, plansRes] = await Promise.all([
+    supabase
+      .from("subscriptions")
+      .select("id, organization_id, plan_id, status, billing_cycle, started_at, ends_at")
+      .in("status", ["active", "trialing"])
+      .limit(1000),
+    supabase
+      .from("organizations")
+      .select("id, name, slug, organization_code, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at")
+      .limit(1000),
+    supabase
+      .from("plans")
+      .select("id, name, slug, price_monthly, price_annual, is_active, sort_order, created_at")
+      .limit(100),
+  ]);
+
+  if (!subsRes.error && !orgsRes.error && !plansRes.error) {
+    monthlyRecurringRevenueApprox = computeMrr(
+      (subsRes.data ?? []) as DbSubscription[],
+      (orgsRes.data ?? []) as DbOrganization[],
+      (plansRes.data ?? []) as DbPlanFull[],
+    );
+  } else {
+    if (subsRes.error && !isMissingTableError(subsRes.error)) {
+      console.warn("[owner] billing MRR subscriptions fetch failed:", subsRes.error.message);
+    }
+    if (orgsRes.error && !isMissingTableError(orgsRes.error)) {
+      console.warn("[owner] billing MRR organizations fetch failed:", orgsRes.error.message);
+    }
+    if (plansRes.error && !isMissingTableError(plansRes.error)) {
+      console.warn("[owner] billing MRR plans fetch failed:", plansRes.error.message);
+    }
+  }
+
+  const failed = failedPaymentsToday ?? 0;
+  const pending = pendingPayments ?? 0;
+  const pastDue = subscriptionsPastDue ?? 0;
+  const billingHealthStatus: BillingHealthStatus =
+    failed > 0 || pastDue > 0 ? "critical" : pending > 0 ? "warning" : "healthy";
+
+  const recommendedAction =
+    billingHealthStatus === "critical"
+      ? "راجع المدفوعات الفاشلة والاشتراكات المتأخرة قبل أي تفعيل جديد."
+      : billingHealthStatus === "warning"
+        ? "تابع المدفوعات المعلقة وأكمل الربط مع مزود دفع عند الجاهزية."
+        : "الأساس التشغيلي للفوترة مستقر، وبوابة الدفع الحقيقية ما زالت غير مفعلة.";
+
+  return {
+    pendingPayments,
+    paidPaymentsToday,
+    failedPaymentsToday,
+    monthlyRecurringRevenueApprox,
+    invoicesOpen,
+    subscriptionsActive,
+    subscriptionsPastDue,
+    latestPaymentAt,
+    latestBillingEventAt,
+    billingHealthStatus,
+    recommendedAction,
+  };
 }
 
 export async function fetchCustomerStaffCount(

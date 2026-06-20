@@ -12,7 +12,7 @@ import {
   UserCheck, DollarSign, CheckCircle, X, Sparkles, TrendingUp, Timer, Siren,
   Bot, CheckSquare, UserPlus, FileText, Wallet, BarChart3, ListChecks,
   ArrowLeft, ShieldCheck, Building2, Zap, Plus,
-  Briefcase, Network, UserCog, CalendarDays,
+  Briefcase, Network, UserCog, CalendarDays, CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency, timeAgo } from "@/lib/utils";
@@ -32,6 +32,8 @@ import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 import { useMyWorkContext } from "@/hooks/useMyWorkContext";
+import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
+import { PLAN_LABELS_AR } from "@/lib/features/packageFeatures";
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
@@ -157,7 +159,18 @@ export default function DashboardPage() {
   const { display: departmentDisplay } = useProfileOrgDepartment();
   const { name: companyName, logoUrl: companyLogoUrl, isFallback: companyIsFallback } = useTenantCompanyName();
   const { context: work, loading: workLoading } = useMyWorkContext();
+  const { planSlug, organizationStatus } = useTenantWorkspace();
   const employeeDisplayName = user?.name?.trim() || user?.email || "...";
+  const subscriptionStatusLabel =
+    organizationStatus === "active"
+      ? "نشط"
+      : organizationStatus === "trial"
+        ? "تجريبي"
+        : organizationStatus === "suspended"
+          ? "معلّق"
+          : organizationStatus === "cancelled"
+            ? "ملغي"
+            : "غير محدد";
 
   const activeEmployeeNames = useMemo(() => {
     if (!isSuperAdmin) return [];
@@ -853,6 +866,50 @@ export default function DashboardPage() {
               {QUICK_ACTIONS.map((a) => (
                 <QuickActionTile key={a.label} href={a.href} label={a.label} icon={a.icon} tint={a.tint} />
               ))}
+            </div>
+          </div>
+        </section>
+
+        <section className={cn(WS_CARD, "p-4 sm:p-5")}>
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="mb-3 flex items-center gap-2">
+                <div className={`${WS_ICON_ORB} h-9 w-9 shrink-0 bg-cyan-400/10 ring-1 ring-cyan-300/20 text-[#22d3ee]`}>
+                  <CreditCard size={16} />
+                </div>
+                <div className="min-w-0">
+                  <h2 className={`${WS_SECTION_TITLE} text-sm`}>حالة الاشتراك والدفع</h2>
+                  <p className="mt-0.5 text-xs text-[#8ba3c7]">
+                    الدفع الإلكتروني قيد التجهيز — تواصل مع الدعم لإتمام الاشتراك.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                {[
+                  { label: "حالة الاشتراك", value: subscriptionStatusLabel },
+                  { label: "آخر فاتورة", value: "—" },
+                  { label: "حالة الدفع", value: "غير مفعّل" },
+                ].map((row) => (
+                  <div key={row.label} className={cn(WS_INNER_CARD, "px-3 py-2")}>
+                    <div className="text-[11px] text-[#8ba3c7]">{row.label}</div>
+                    <div className="mt-1 truncate text-sm font-semibold text-white">{row.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 lg:w-56">
+              <span className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-[#b8c7dd]">
+                الباقة الحالية: {PLAN_LABELS_AR[planSlug]}
+              </span>
+              <button
+                type="button"
+                disabled
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#22d3ee]/20 bg-[#22d3ee]/10 px-3 text-sm font-semibold text-[#8ddff0] opacity-70"
+              >
+                <CreditCard size={15} />
+                طلب رابط الدفع
+              </button>
             </div>
           </div>
         </section>
