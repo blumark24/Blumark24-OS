@@ -865,3 +865,235 @@ export async function fetchTenantActivitySignals(): Promise<TenantActivitySignal
     partial: true, // usage-based signals are approximate from capped rows
   };
 }
+
+// ── C7: Customer Success Summary ──────────────────────────────────────────────
+
+export interface CustomerSuccessSummary {
+  totalOrganizations:           number | null;
+  healthyOrganizations:         number | null;
+  watchlistOrganizations:       number | null;
+  churnRiskOrganizations:       number | null;
+  upgradeOpportunityOrganizations: number | null;
+  inactiveOrganizations30d:     number | null;
+  highUsageOrganizations7d:     number | null;
+  openSupportTickets:           number | null;
+  highPrioritySupportTickets:   number | null;
+  latestUsageEventAt:           string | null;
+  summaryStatus:                "healthy" | "warning" | "critical";
+  recommendedAction:            string;
+  approximate:                  boolean;
+}
+
+const EMPTY_CS_SUMMARY: CustomerSuccessSummary = {
+  totalOrganizations: null, healthyOrganizations: null, watchlistOrganizations: null,
+  churnRiskOrganizations: null, upgradeOpportunityOrganizations: null,
+  inactiveOrganizations30d: null, highUsageOrganizations7d: null,
+  openSupportTickets: null, highPrioritySupportTickets: null, latestUsageEventAt: null,
+  summaryStatus: "healthy", recommendedAction: "لا توجد بيانات كافية", approximate: true,
+};
+
+export async function fetchCustomerSuccessSummary(): Promise<CustomerSuccessSummary> {
+  const now = new Date();
+  const sevenDaysAgo  = new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const [
+    totalOrgs,
+    activeOrgs,
+    inactiveOrgs30d,
+    openTickets,
+    highPriorityTickets,
+    latestUsage,
+    usageOrgs7d,      // capped 500 — for distinct high-usage orgs
+  ] = await Promise.all([
+    supabase.from("organizations").select("*", { count: "exact", head: true })
+      .eq("is_internal", false).is("deleted_at", null),
+    supabase.from("organizations").select("*", { count: "exact", head: true })
+      .eq("is_internal", false).is("deleted_at", null).eq("status", "active"),
+    // Churn-risk proxy: active orgs with no recent update in 30 days
+    supabase.from("organizations").select("*", { count: "exact", head: true })
+      .eq("is_internal", false).is("deleted_at", null).eq("status", "active")
+      .lt("updated_at", thirtyDaysAgo.toISOString()),
+    supabase.from("support_tickets").select("*", { count: "exact", head: true })
+      .eq("status", "open"),
+    supabase.from("support_tickets").select("*", { count: "exact", head: true })
+      .eq("status", "open").eq("priority", "high"),
+    supabase.from("feature_usage_events").select("created_at")
+      .order("created_at", { ascending: false }).limit(1),
+    // Capped rows: compute distinct org counts + per-org event tallies
+    supabase.from("feature_usage_events").select("organization_id")
+      .gte("created_at", sevenDaysAgo.toISOString())
+      .not("organization_id", "is", null)
+      .limit(500),
+  ]);
+
+  if (totalOrgs.error) {
+    if (isMissingTableError(totalOrgs.error)) return EMPTY_CS_SUMMARY;
+    console.warn("[owner] customer success summary failed:", totalOrgs.error.message);
+    return EMPTY_CS_SUMMARY;
+  }
+
+  const total   = totalOrgs.count    ?? 0;
+  const active  = activeOrgs.count   ?? 0;
+
+  // Count per-org events from capped rows → classify high/low usage
+  const orgEventCounts: Record<string, number> = {};
+  for (const r of (usageOrgs7d.data ?? []) as { organization_id: string }[]) {
+    orgEventCounts[r.organization_id] = (orgEventCounts[r.organization_id] ?? 0) + 1;
+  }
+  const HIGH_USAGE_THRESHOLD = 5;
+  const highUsageOrgs = Object.values(orgEventCounts).filter(c => c >= HIGH_USAGE_THRESHOLD).length;
+  const anyUsageOrgs  = Object.keys(orgEventCounts).length;
+
+  const inactiveCount   = inactiveOrgs30d.count ?? 0;
+  const openT           = openTickets.count       ?? 0;
+  const highPrioT       = highPriorityTickets.count ?? 0;
+
+  // Rule-based classification
+  // churnRisk  = inactive 30d (approx proxy)
+  // watchlist  = orgs with open support ticket OR low usage (if we have any usage data)
+  // upgrade    = high-usage orgs (approximate)
+  // healthy    = active orgs not in churn or watchlist
+  const churnRisk       = inactiveCount;
+  const upgradeOpps     = highUsageOrgs;
+  const watchlist       = Math.max(0, openT > 0 ? Math.min(active - churnRisk - upgradeOpps, openT) : 0);
+  const healthy         = Math.max(0, active - churnRisk - watchlist);
+
+  const latestRow = (latestUsage.data ?? []) as { created_at: string }[];
+
+  // Summary status
+  let summaryStatus: "healthy" | "warning" | "critical" = "healthy";
+  if (churnRisk > 0 || highPrioT > 0) summaryStatus = "warning";
+  if (churnRisk > 3 || highPrioT > 2) summaryStatus = "critical";
+
+  let recommendedAction = "جميع المنشآت تعمل بشكل جيد";
+  if (highPrioT > 0)     recommendedAction = `معالجة ${highPrioT} تذكرة دعم عالية الأولوية فوراً`;
+  else if (churnRisk > 0) recommendedAction = `متابعة ${churnRisk} منشأة غير نشطة لأكثر من 30 يوماً`;
+  else if (openT > 0)     recommendedAction = `مراجعة ${openT} تذكرة دعم مفتوحة`;
+  else if (upgradeOpps > 0) recommendedAction = `${upgradeOpps} منشأة نشطة قد تستفيد من ترقية الباقة`;
+
+  // approximate if usage data was capped (could be >500 events)
+  const approximate = (usageOrgs7d.data?.length ?? 0) >= 500;
+
+  return {
+    totalOrganizations:              total,
+    healthyOrganizations:            healthy,
+    watchlistOrganizations:          watchlist,
+    churnRiskOrganizations:          churnRisk,
+    upgradeOpportunityOrganizations: upgradeOpps,
+    inactiveOrganizations30d:        inactiveCount,
+    highUsageOrganizations7d:        highUsageOrgs,
+    openSupportTickets:              openT,
+    highPrioritySupportTickets:      highPrioT,
+    latestUsageEventAt:              latestRow[0]?.created_at ?? null,
+    summaryStatus,
+    recommendedAction,
+    approximate,
+  };
+}
+
+// ── C7: Tenant Health Signals List ────────────────────────────────────────────
+
+export type RiskLevel        = "low" | "medium" | "high";
+export type OpportunityLevel = "none" | "possible" | "strong";
+
+export interface TenantHealthSignal {
+  organization_id:    string;
+  organization_name:  string;
+  status:             string;
+  lastActivityAt:     string | null;
+  usageEvents7d:      number;
+  openTickets:        number;
+  riskLevel:          RiskLevel;
+  opportunityLevel:   OpportunityLevel;
+  recommendedAction:  string;
+  approximate:        boolean;
+}
+
+export async function fetchTenantHealthSignals(): Promise<TenantHealthSignal[]> {
+  const now = new Date();
+  const sevenDaysAgo  = new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  // Fetch top 20 active (non-deleted, non-internal) orgs by updated_at
+  const { data: orgs, error: orgsErr } = await supabase
+    .from("organizations")
+    .select("id, name, status, updated_at, deleted_at")
+    .eq("is_internal", false)
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(20);
+
+  if (orgsErr || !orgs?.length) {
+    if (orgsErr) console.warn("[owner] tenant health signals orgs failed:", orgsErr.message);
+    return [];
+  }
+
+  const orgIds = (orgs as { id: string }[]).map(o => o.id);
+
+  // Fetch usage events (last 7d) and open tickets for these orgs in parallel
+  const [usageRows, ticketRows] = await Promise.all([
+    supabase.from("feature_usage_events")
+      .select("organization_id")
+      .in("organization_id", orgIds)
+      .gte("created_at", sevenDaysAgo.toISOString())
+      .limit(500),
+    supabase.from("support_tickets")
+      .select("organization_id")
+      .in("organization_id", orgIds)
+      .eq("status", "open")
+      .limit(200),
+  ]);
+
+  // Tally per-org
+  const usageCounts: Record<string, number> = {};
+  for (const r of (usageRows.data ?? []) as { organization_id: string }[]) {
+    usageCounts[r.organization_id] = (usageCounts[r.organization_id] ?? 0) + 1;
+  }
+  const ticketCounts: Record<string, number> = {};
+  for (const r of (ticketRows.data ?? []) as { organization_id: string }[]) {
+    ticketCounts[r.organization_id] = (ticketCounts[r.organization_id] ?? 0) + 1;
+  }
+
+  const HIGH_USAGE  = 10;
+  const LOW_USAGE   = 2;
+
+  return (orgs as { id: string; name: string; status: string; updated_at: string }[]).map(org => {
+    const events7d   = usageCounts[org.id]   ?? 0;
+    const openT      = ticketCounts[org.id]  ?? 0;
+    const lastUpdate = org.updated_at;
+    const inactive30 = new Date(lastUpdate) < thirtyDaysAgo;
+
+    // Rule-based risk
+    let riskLevel: RiskLevel = "low";
+    if (inactive30 || openT > 0) riskLevel = "medium";
+    if ((inactive30 && events7d === 0) || openT > 1) riskLevel = "high";
+
+    // Rule-based opportunity
+    let opportunityLevel: OpportunityLevel = "none";
+    if (events7d >= LOW_USAGE && events7d < HIGH_USAGE) opportunityLevel = "possible";
+    if (events7d >= HIGH_USAGE && openT === 0)         opportunityLevel = "strong";
+
+    // Recommended action
+    let recommendedAction = "لا يوجد إجراء مطلوب";
+    if (riskLevel === "high" && openT > 0)  recommendedAction = "معالجة تذاكر الدعم المفتوحة فوراً";
+    else if (riskLevel === "high")          recommendedAction = "التواصل مع المنشأة لإعادة التفعيل";
+    else if (riskLevel === "medium" && openT > 0) recommendedAction = "متابعة تذاكر الدعم";
+    else if (riskLevel === "medium")        recommendedAction = "تفعيل حملة إعادة تفعيل";
+    else if (opportunityLevel === "strong") recommendedAction = "اقتراح ترقية الباقة";
+    else if (opportunityLevel === "possible") recommendedAction = "مراقبة النمو — فرصة ترقية محتملة";
+
+    return {
+      organization_id:   org.id,
+      organization_name: org.name || "—",
+      status:            org.status,
+      lastActivityAt:    lastUpdate ?? null,
+      usageEvents7d:     events7d,
+      openTickets:       openT,
+      riskLevel,
+      opportunityLevel,
+      recommendedAction,
+      approximate:       (usageRows.data?.length ?? 0) >= 500,
+    };
+  });
+}
