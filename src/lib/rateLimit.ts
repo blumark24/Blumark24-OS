@@ -26,6 +26,7 @@ export interface RateLimitResult {
   ok: boolean;
   remaining: number;
   resetInMs: number;
+  source: "memory";
 }
 
 /**
@@ -44,17 +45,17 @@ export function checkRateLimit(
   const entry = store.get(key);
   if (!entry || now - entry.windowStart >= windowMs) {
     store.set(key, { count: 1, windowStart: now });
-    return { ok: true, remaining: limit - 1, resetInMs: windowMs };
+    return { ok: true, remaining: limit - 1, resetInMs: windowMs, source: "memory" };
   }
 
   entry.count += 1;
   const resetInMs = windowMs - (now - entry.windowStart);
 
   if (entry.count > limit) {
-    return { ok: false, remaining: 0, resetInMs };
+    return { ok: false, remaining: 0, resetInMs, source: "memory" };
   }
 
-  return { ok: true, remaining: limit - entry.count, resetInMs };
+  return { ok: true, remaining: limit - entry.count, resetInMs, source: "memory" };
 }
 
 /** Extract the best available IP from a NextRequest. */
