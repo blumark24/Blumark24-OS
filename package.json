@@ -9,6 +9,9 @@
     "lint": "next lint",
     "audit": "npm audit",
     "audit:prod": "npm audit --omit=dev",
+    "load:test:health": "node scripts/load-test/load-test.mjs --scenario=health",
+    "load:test:dashboard-summary": "node scripts/load-test/load-test.mjs --scenario=dashboard-summary",
+    "load:test:smoke": "node scripts/load-test/load-test.mjs --scenario=smoke",
     "verify:isolation": "node scripts/verify-tenant-isolation.mjs"
   },
   "dependencies": {

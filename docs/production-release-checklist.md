@@ -22,6 +22,7 @@ This checklist is for controlled Blumark24 OS production releases. It is intenti
   - `npm.cmd run audit:prod -- --audit-level=high`
 - Review `docs/public-route-review.md` for route exposure expectations.
 - Review `docs/security-readiness-audit.md` for remaining release risks.
+- Review `docs/load-testing-plan.md` and attach the latest load test report for production-scale releases.
 
 ## Environment Checklist
 
@@ -115,6 +116,7 @@ Validation rule: check presence only. Never paste values in PRs, issue comments,
 - Health deep check uses a minimal service-role `head` query and should remain operational-only.
 - Full load testing for 1000 customers is a later phase.
 - Package upgrades are not performed in C11-E.
+- Load testing must run against staging or preview unless production approval is explicitly granted.
 
 ## Go / No-Go Criteria
 
@@ -124,6 +126,7 @@ Go:
 - No forbidden paths changed.
 - No migrations or auth/RLS changes were added.
 - `/api/health` returns a safe payload.
+- Required C12 load-test level has a passing report.
 - Smoke tests pass on production or preview.
 - Rollback target is known.
 
