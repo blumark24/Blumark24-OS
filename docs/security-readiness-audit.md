@@ -102,20 +102,34 @@ The helper reports booleans only and is surfaced through `/api/health` under `re
 
 ## Dependency Audit Snapshot
 
-Command run during C11-E:
+Commands run during C11-F:
 
 - `npm.cmd run audit:prod -- --audit-level=high`
+- `npm.cmd audit --json`
 
-Result:
+C11-F patch summary:
 
-- Failed with existing advisories: 1 critical, 2 high, 1 moderate.
-- Reported packages include `next`, `form-data`, `ws`, and nested `postcss`.
-- No package upgrades were applied in C11-E because dependency upgrades are outside this phase.
+- Upgraded `next` from `14.2.5` to `14.2.35` within the same major line.
+- Updated transitive `form-data` from `4.0.5` to `4.0.6`.
+- Updated transitive `ws` from `8.20.0` to `8.21.0`.
+- Critical advisories were reduced from 1 to 0.
+- Production audit improved from 4 vulnerabilities to 2 vulnerabilities.
+
+Remaining production audit result:
+
+- 0 critical
+- 1 high
+- 1 moderate
+
+Remaining packages:
+
+- `next`: remaining advisories require a major framework upgrade according to npm audit.
+- nested `postcss` under `next`: remaining advisory is tied to the same major framework upgrade path.
 
 Recommended follow-up:
 
-- Open a dedicated dependency upgrade PR.
-- Review Next.js release notes and test App Router behavior before upgrading.
+- Open a dedicated Next.js major-upgrade PR.
+- Review Next.js 15/16 release notes and test App Router behavior before upgrading.
 - Re-run `npm audit --omit=dev --audit-level=high` after upgrades.
 
 ## Release Recommendation
