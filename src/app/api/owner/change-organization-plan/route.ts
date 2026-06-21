@@ -7,6 +7,7 @@ import {
 import { logAndAlert, normalizeError, generateRequestId } from "@/lib/monitoring/server";
 import { getClientIp, buildRateLimitKey, checkRateLimit, rateLimitResponse } from "@/lib/security/rateLimit";
 import { trackFeatureUsage } from "@/lib/analytics/featureUsage";
+import { canChangePlan } from "@/lib/billing/lifecycle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,6 +92,38 @@ export async function POST(req: NextRequest) {
     }
     if (orgResp.data.is_internal === true) {
       return jsonNoStore({ success: false, error: "لا يمكن تغيير باقة المنشأة الداخلية من هنا" }, 400);
+    }
+
+    const currentSubResp = await admin
+      .from("subscriptions")
+      .select("id, status, ends_at, created_at")
+      .eq("organization_id", organizationId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (currentSubResp.error) {
+      console.error("[owner/change-plan] subscription lifecycle lookup error:", currentSubResp.error.message);
+      return jsonNoStore({ success: false, error: "Unable to verify subscription lifecycle state" }, 500);
+    }
+
+    const currentSubscription = currentSubResp.data?.[0] ?? null;
+    const lifecycleDecision = canChangePlan(
+      currentSubscription
+        ? {
+            status: currentSubscription.status as string | null,
+            endsAt: currentSubscription.ends_at as string | null,
+          }
+        : null,
+    );
+    if (!lifecycleDecision.allowed) {
+      return jsonNoStore(
+        {
+          success: false,
+          error: "Cannot change the plan for a cancelled or expired subscription",
+          reason: lifecycleDecision.reason,
+        },
+        409,
+      );
     }
 
     let planSlug: string | null = null;

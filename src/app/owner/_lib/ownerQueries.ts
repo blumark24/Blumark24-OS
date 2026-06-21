@@ -4,6 +4,12 @@
 // PR5-D: owner queries run against the isolated owner auth client so the
 // JWT they send is the owner session, never the customer session.
 import { ownerSupabase as supabase } from "@/lib/supabase/ownerClient";
+import {
+  canCancelSubscription,
+  canChangePlan,
+  canSuspendSubscription,
+  LIVE_SUBSCRIPTION_STATUSES,
+} from "@/lib/billing/lifecycle";
 import type { Accent } from "../_data";
 import {
   computeMrr,
@@ -1233,12 +1239,45 @@ async function logSubAction(
   }
 }
 
+async function fetchSubscriptionLifecycle(subscriptionId: string): Promise<
+  | { ok: true; status: string | null; endsAt: string | null }
+  | { ok: false; error: string }
+> {
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("status, ends_at")
+    .eq("id", subscriptionId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[owner] subscription lifecycle check error:", error.message);
+    return { ok: false, error: "Unable to verify subscription lifecycle state" };
+  }
+
+  return {
+    ok: true,
+    status: (data?.status as string | null | undefined) ?? null,
+    endsAt: (data?.ends_at as string | null | undefined) ?? null,
+  };
+}
+
 // Change the plan on an existing subscription. Syncs org.plan_id.
 export async function changeSubscriptionPlan(input: {
   subscriptionId: string;
   organizationId: string;
   planId: string;
 }): Promise<OwnerActionResult> {
+  const lifecycle = await fetchSubscriptionLifecycle(input.subscriptionId);
+  if (!lifecycle.ok) return lifecycle;
+
+  const decision = canChangePlan({
+    status: lifecycle.status,
+    endsAt: lifecycle.endsAt,
+  });
+  if (!decision.allowed) {
+    return { ok: false, error: decision.reason ?? "Plan change is not available for this subscription state" };
+  }
+
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("subscriptions")
@@ -1268,6 +1307,16 @@ export async function updateSubscriptionStatus(input: {
   organizationId: string;
   status: "suspended" | "cancelled";
 }): Promise<OwnerActionResult> {
+  const lifecycle = await fetchSubscriptionLifecycle(input.subscriptionId);
+  if (!lifecycle.ok) return lifecycle;
+
+  const decision = input.status === "suspended"
+    ? canSuspendSubscription({ status: lifecycle.status, endsAt: lifecycle.endsAt })
+    : canCancelSubscription({ status: lifecycle.status, endsAt: lifecycle.endsAt });
+  if (!decision.allowed) {
+    return { ok: false, error: decision.reason ?? "Subscription status change is not available" };
+  }
+
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("subscriptions")
@@ -1303,7 +1352,7 @@ export async function createSubscriptionForOrg(input: {
     .from("subscriptions")
     .select("id")
     .eq("organization_id", input.organizationId)
-    .in("status", ["active", "trialing", "past_due"])
+    .in("status", [...LIVE_SUBSCRIPTION_STATUSES])
     .limit(1);
 
   if (checkErr) {
