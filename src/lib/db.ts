@@ -1,5 +1,20 @@
 import { supabase } from "./supabase";
 
+const DEFAULT_HEADER_LIST_LIMIT = 20;
+const MAX_HEADER_LIST_LIMIT = 100;
+
+export interface HeaderListOptions {
+  limit?: number;
+  page?: number;
+}
+
+function getHeaderRange(options: HeaderListOptions = {}) {
+  const limit = Math.max(1, Math.min(options.limit ?? DEFAULT_HEADER_LIST_LIMIT, MAX_HEADER_LIST_LIMIT));
+  const page = Math.max(0, options.page ?? 0);
+  const from = page * limit;
+  return { from, to: from + limit - 1 };
+}
+
 // ─── Secure admin helpers ──────────────────────────────────────────────────────
 // Primary path: Next.js /api/admin/* routes (server-side, use SUPABASE_SERVICE_ROLE_KEY).
 // Secondary attempt: Supabase Edge Function (if fully deployed and not a placeholder).
@@ -214,7 +229,7 @@ export async function getBoardMembers(): Promise<BoardMember[]> {
 
   let query = supabase
     .from("board_members")
-    .select("*")
+    .select("id, name, role, email, phone, status")
     .eq("organization_id", orgId)
     .order("created_at", { ascending: true });
 
@@ -272,12 +287,13 @@ export interface DBMessage {
   created_at: string;
 }
 
-export async function getMessages(): Promise<DBMessage[]> {
+export async function getMessages(options?: HeaderListOptions): Promise<DBMessage[]> {
+  const { from, to } = getHeaderRange(options);
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select("id, sender_name, sender_avatar, subject, content, read, created_at")
     .order("created_at", { ascending: false })
-    .limit(20);
+    .range(from, to);
   if (error) throw new Error(error.message);
   return (data ?? []) as DBMessage[];
 }
@@ -357,16 +373,17 @@ export interface DBNotification {
   created_at: string;
 }
 
-export async function getNotifications(userId?: string): Promise<DBNotification[]> {
+export async function getNotifications(userId?: string, options?: HeaderListOptions): Promise<DBNotification[]> {
   const orgId = await resolveCurrentOrgId();
   if (!orgId) return [];
+  const { from, to } = getHeaderRange(options);
 
   let query = supabase
     .from("notifications")
-    .select("*")
+    .select("id, type, title, body, href, read, created_at, user_id, organization_id")
     .eq("organization_id", orgId)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .range(from, to);
 
   if (userId) {
     query = query.or(`user_id.eq.${userId},user_id.is.null`);
