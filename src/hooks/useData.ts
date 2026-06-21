@@ -20,8 +20,23 @@ import { ACTIVE_EMPLOYEE_STATUS_VALUES } from "@/lib/tenant/employeeStatus";
 const DB_WRITE_TIMEOUT  = 12_000; // INSERT/UPDATE/DELETE operations
 const DB_READ_TIMEOUT   = 15_000; // SELECT / initial fetch
 const REFETCH_TIMEOUT   = 6_000;  // post-write refetch (soft — resolves on expiry)
+const DEFAULT_LIST_LIMIT = 50;
+const DEFAULT_ACTIVITY_LIMIT = 20;
+const DASHBOARD_KPI_READ_LIMIT = 500;
+
+export interface DataPageOptions {
+  limit?: number;
+  page?: number;
+}
 
 type SupabaseWriteResult = { data: unknown; error: { message: string } | null };
+
+function getReadRange(options: DataPageOptions = {}, defaultLimit = DEFAULT_LIST_LIMIT) {
+  const limit = Math.max(1, Math.min(options.limit ?? defaultLimit, 500));
+  const page = Math.max(0, options.page ?? 0);
+  const from = page * limit;
+  return { from, to: from + limit - 1, limit };
+}
 
 function formatDbWriteError(entityLabel: string, message: string): string {
   const msg = String(message ?? "").trim();
@@ -286,17 +301,29 @@ function useAsyncData<T>(fetcher: () => Promise<T>, fallback: T) {
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
 
-async function fetchClients(): Promise<Client[]> {
+const CLIENT_COLUMNS = "id, name, phone, business_type, city, package_type, contract_value, status, account_manager_id, account_manager_name, notes, created_at, client_code";
+const TASK_COLUMNS = "id, title, description, status, priority, assignee_id, assignee_name, assignee_avatar, client_id, client_name, due_date, created_at, tags, task_code";
+const TRANSACTION_COLUMNS = "id, type, amount, description, category, date, funds";
+const EMPLOYEE_COLUMNS = "id, name, email, role, department, status, join_date, performance, phone, tasks, completed_tasks, avatar, salary, employee_code, job_title";
+const PROJECT_COLUMNS = "id, name, client_name, progress, budget, deadline, status, account_manager_name";
+const ACTIVITY_COLUMNS = "id, type, description, timestamp, icon";
+const STRATEGY_PHASE_COLUMNS = "id, title, description, progress, budget, start_date, end_date, target_clients, current_clients, goals, status";
+const AUTOMATION_COLUMNS = "id, title, enabled, last_run, run_count";
+const AUTOMATION_LOG_COLUMNS = "id, rule_id, rule_title, result, status, created_at";
+
+async function fetchClients(options?: DataPageOptions): Promise<Client[]> {
+  const { from, to } = getReadRange(options);
   const { data, error } = await supabase
     .from("clients")
-    .select("*")
-    .order("created_at", { ascending: false });
+    .select(CLIENT_COLUMNS)
+    .order("created_at", { ascending: false })
+    .range(from, to);
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(clientFromDB);
 }
 
-export function useClients() {
-  const result = useAsyncData<Client[]>(fetchClients, []);
+export function useClients(options?: DataPageOptions) {
+  const result = useAsyncData<Client[]>(() => fetchClients(options), []);
   const { setData, refetch } = result;
 
   useEffect(() => {
@@ -349,17 +376,19 @@ export function useClients() {
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
 
-async function fetchTasks(): Promise<Task[]> {
+async function fetchTasks(options?: DataPageOptions): Promise<Task[]> {
+  const { from, to } = getReadRange(options);
   const { data, error } = await supabase
     .from("tasks")
-    .select("*")
-    .order("created_at", { ascending: false });
+    .select(TASK_COLUMNS)
+    .order("created_at", { ascending: false })
+    .range(from, to);
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(taskFromDB);
 }
 
-export function useTasks() {
-  const result = useAsyncData<Task[]>(fetchTasks, []);
+export function useTasks(options?: DataPageOptions) {
+  const result = useAsyncData<Task[]>(() => fetchTasks(options), []);
   const { refetch } = result;
 
   useEffect(() => {
@@ -416,17 +445,19 @@ export function useTasks() {
 
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
-async function fetchTransactions(): Promise<Transaction[]> {
+async function fetchTransactions(options?: DataPageOptions): Promise<Transaction[]> {
+  const { from, to } = getReadRange(options);
   const { data, error } = await supabase
     .from("transactions")
-    .select("*")
-    .order("created_at", { ascending: false });
+    .select(TRANSACTION_COLUMNS)
+    .order("created_at", { ascending: false })
+    .range(from, to);
   if (error) throw new Error(error.message);
   return (data ?? []) as Transaction[];
 }
 
-export function useTransactions() {
-  const result = useAsyncData<Transaction[]>(fetchTransactions, []);
+export function useTransactions(options?: DataPageOptions) {
+  const result = useAsyncData<Transaction[]>(() => fetchTransactions(options), []);
   const { refetch } = result;
 
   useEffect(() => {
@@ -488,18 +519,20 @@ export function useTransactions() {
 
 // ─── Employees ────────────────────────────────────────────────────────────────
 
-async function fetchEmployees(): Promise<Employee[]> {
+async function fetchEmployees(options?: DataPageOptions): Promise<Employee[]> {
+  const { from, to } = getReadRange(options);
   const { data, error } = await supabase
     .from("employees")
-    .select("*")
+    .select(EMPLOYEE_COLUMNS)
     .in("status", [...ACTIVE_EMPLOYEE_STATUS_VALUES])
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(from, to);
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(employeeFromDB);
 }
 
-export function useEmployees() {
-  const result = useAsyncData<Employee[]>(fetchEmployees, []);
+export function useEmployees(options?: DataPageOptions) {
+  const result = useAsyncData<Employee[]>(() => fetchEmployees(options), []);
   const { refetch } = result;
 
   useEffect(() => {
@@ -563,33 +596,36 @@ export function useOrgProfileIds() {
 
 // ─── Projects ─────────────────────────────────────────────────────────────────
 
-async function fetchProjects(): Promise<Project[]> {
+async function fetchProjects(options?: DataPageOptions): Promise<Project[]> {
+  const { from, to } = getReadRange(options);
   const { data, error } = await supabase
     .from("projects")
-    .select("*")
-    .order("deadline", { ascending: true });
+    .select(PROJECT_COLUMNS)
+    .order("deadline", { ascending: true })
+    .range(from, to);
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(projectFromDB);
 }
 
-export function useProjects() {
-  return useAsyncData<Project[]>(fetchProjects, []);
+export function useProjects(options?: DataPageOptions) {
+  return useAsyncData<Project[]>(() => fetchProjects(options), []);
 }
 
 // ─── Activities ───────────────────────────────────────────────────────────────
 
-async function fetchActivities(): Promise<Activity[]> {
+async function fetchActivities(options?: DataPageOptions): Promise<Activity[]> {
+  const { from, to } = getReadRange(options, DEFAULT_ACTIVITY_LIMIT);
   const { data, error } = await supabase
     .from("activities")
-    .select("*")
+    .select(ACTIVITY_COLUMNS)
     .order("timestamp", { ascending: false })
-    .limit(10);
+    .range(from, to);
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(activityFromDB);
 }
 
-export function useActivities() {
-  return useAsyncData<Activity[]>(fetchActivities, []);
+export function useActivities(options?: DataPageOptions) {
+  return useAsyncData<Activity[]>(() => fetchActivities(options), []);
 }
 
 // ─── Board Members ────────────────────────────────────────────────────────────
@@ -700,14 +736,14 @@ async function fetchStrategyPhases(): Promise<StrategyPhase[]> {
   // Try ordering by sort_order; fall back to id if column doesn't exist yet
   const { data, error } = await supabase
     .from("strategy_phases")
-    .select("*")
+    .select(STRATEGY_PHASE_COLUMNS)
     .order("sort_order", { ascending: true });
 
   if (error) {
     if (error.message.includes("sort_order")) {
       const { data: fallback, error: fallbackError } = await supabase
         .from("strategy_phases")
-        .select("*")
+        .select(STRATEGY_PHASE_COLUMNS)
         .order("id", { ascending: true });
       if (fallbackError) throw new Error(fallbackError.message);
       return ((fallback ?? []) as Record<string, unknown>[]).map(strategyPhaseFromDB);
@@ -759,9 +795,9 @@ export function useDashboardKPI() {
   const compute = useCallback(async () => {
     try {
       const [clients, tasks, transactions] = await Promise.all([
-        fetchClients(),
-        fetchTasks(),
-        fetchTransactions(),
+        fetchClients({ limit: DASHBOARD_KPI_READ_LIMIT }),
+        fetchTasks({ limit: DASHBOARD_KPI_READ_LIMIT }),
+        fetchTransactions({ limit: DASHBOARD_KPI_READ_LIMIT }),
       ]);
 
       const today             = new Date();
@@ -818,17 +854,19 @@ function automationFromDB(row: Record<string, unknown>): AutomationRecord {
   };
 }
 
-async function fetchAutomations(): Promise<AutomationRecord[]> {
+async function fetchAutomations(options?: DataPageOptions): Promise<AutomationRecord[]> {
+  const { from, to } = getReadRange(options);
   const { data, error } = await supabase
     .from("automations")
-    .select("*")
-    .order("id");
+    .select(AUTOMATION_COLUMNS)
+    .order("id")
+    .range(from, to);
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(automationFromDB);
 }
 
-export function useAutomations() {
-  const result = useAsyncData<AutomationRecord[]>(fetchAutomations, []);
+export function useAutomations(options?: DataPageOptions) {
+  const result = useAsyncData<AutomationRecord[]>(() => fetchAutomations(options), []);
   const { refetch } = result;
 
   useEffect(() => {
@@ -882,12 +920,13 @@ export interface AutomationLog {
   createdAt: string;
 }
 
-async function fetchAutomationLogs(): Promise<AutomationLog[]> {
+async function fetchAutomationLogs(options?: DataPageOptions): Promise<AutomationLog[]> {
+  const { from, to } = getReadRange(options, 30);
   const { data, error } = await supabase
     .from("automation_logs")
-    .select("*")
+    .select(AUTOMATION_LOG_COLUMNS)
     .order("created_at", { ascending: false })
-    .limit(30);
+    .range(from, to);
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
     id:        row.id         as string,
@@ -899,8 +938,8 @@ async function fetchAutomationLogs(): Promise<AutomationLog[]> {
   }));
 }
 
-export function useAutomationLogs() {
-  const result = useAsyncData<AutomationLog[]>(fetchAutomationLogs, []);
+export function useAutomationLogs(options?: DataPageOptions) {
+  const result = useAsyncData<AutomationLog[]>(() => fetchAutomationLogs(options), []);
   const { refetch } = result;
 
   useEffect(() => {
