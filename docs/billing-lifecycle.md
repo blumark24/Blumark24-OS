@@ -101,6 +101,8 @@ Future C13 phases can add a gateway adapter behind the provider-neutral billing 
 
 C13-A intentionally does not add Stripe, Tap, Moyasar, HyperPay, checkout pages, or webhook handlers.
 
+C13-B extends this with a disabled payment provider architecture in `docs/payment-gateway-architecture.md`. The provider layer is still architecture-only and does not enable checkout, webhooks, or real charges.
+
 ## Risks Before Real Payment Integration
 
 - Subscription state changes are still mostly owner-driven.
