@@ -5,6 +5,7 @@ import {
   applyApiRateLimit,
   createApiContext,
 } from "@/lib/api/apiResponse";
+import { getReleaseEnvPresence, getReleaseReadiness } from "@/lib/env/releaseReadiness";
 import { logServerEvent } from "@/lib/monitoring/server";
 
 export const runtime = "nodejs";
@@ -12,13 +13,6 @@ export const dynamic = "force-dynamic";
 
 const APP_NAME = "Blumark24 OS";
 const ROUTE = "/api/health";
-
-const ENV_CHECKS = [
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "CRON_SECRET",
-] as const;
 
 type HealthCheckStatus = "ok" | "degraded" | "skipped";
 
@@ -38,10 +32,6 @@ function getVersionInfo() {
     version: process.env.NEXT_PUBLIC_APP_VERSION || "1.0.0",
     commit: commit ? commit.slice(0, 12) : null,
   };
-}
-
-function getEnvPresence() {
-  return Object.fromEntries(ENV_CHECKS.map((name) => [name, Boolean(process.env[name])]));
 }
 
 async function checkSupabaseConnectivity(): Promise<HealthCheck> {
@@ -109,8 +99,9 @@ export async function GET(req: NextRequest) {
     },
   };
 
-  const envPresence = getEnvPresence();
-  const requiredEnvOk = Boolean(envPresence.NEXT_PUBLIC_SUPABASE_URL && envPresence.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  const envPresence = getReleaseEnvPresence();
+  const releaseReadiness = getReleaseReadiness();
+  const requiredEnvOk = releaseReadiness.requiredCoreEnvPresent;
 
   checks.environment = {
     status: requiredEnvOk ? "ok" : "degraded",
@@ -145,6 +136,7 @@ export async function GET(req: NextRequest) {
       duration_ms: durationMs,
       deep,
       env: envPresence,
+      releaseReadiness,
       checks,
     },
     status === "ok" ? 200 : 503,
