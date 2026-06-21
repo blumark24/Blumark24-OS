@@ -3,12 +3,24 @@
 // real DB effects (late task detection, workload recalc) plus automation_logs.
 
 import { createClient } from "@supabase/supabase-js";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import {
+  apiError,
+  apiSuccess,
+  applyApiRateLimit,
+  createApiContext,
+  internalError,
+  unauthorized,
+} from "@/lib/api/apiResponse";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TAG = "[automation/run-scheduled]";
+const MAX_RULES_PER_RUN = 20;
+const MAX_ROW_BATCH = 500;
+
+let cronRunInFlight = false;
 
 // Maps rule IDs to the cron expressions that trigger them.
 // We check wall-clock time on each invocation to decide which rules to run.
@@ -35,24 +47,42 @@ function shouldRunNow(schedule: string): boolean {
 }
 
 export async function GET(req: NextRequest) {
+  const ctx = createApiContext(req, "/api/automation/run-scheduled");
+
   // Fail closed: this service-role endpoint must never run without CRON_SECRET.
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
-    console.error(`${TAG} CRON_SECRET is not configured`);
-    return NextResponse.json({ error: "Server cron auth not configured" }, { status: 500 });
+    console.error(`${TAG} request_id=${ctx.requestId} CRON_SECRET is not configured`);
+    return apiError(ctx, 500, "CRON_NOT_CONFIGURED", "Server cron auth not configured");
   }
 
   const auth = req.headers.get("authorization") ?? "";
   if (auth !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized(ctx, "Unauthorized");
+  }
+
+  const limited = await applyApiRateLimit(ctx, {
+    scope: "automation_cron",
+    limit: 20,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (limited) {
+    return limited;
+  }
+
+  if (cronRunInFlight) {
+    return apiError(ctx, 409, "CRON_RUN_IN_PROGRESS", "A scheduled automation run is already in progress");
   }
 
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
   if (!SUPABASE_URL || !SERVICE_KEY) {
-    return NextResponse.json({ error: "env missing" }, { status: 500 });
+    return apiError(ctx, 500, "ENV_MISSING", "Server environment is not configured");
   }
 
+  cronRunInFlight = true;
+
+  try {
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -61,11 +91,12 @@ export async function GET(req: NextRequest) {
   const { data: automations, error: autoErr } = await admin
     .from("automations")
     .select("id, enabled, run_count")
-    .eq("enabled", true);
+    .eq("enabled", true)
+    .limit(MAX_RULES_PER_RUN);
 
   if (autoErr) {
-    console.error(`${TAG} failed to fetch automations: ${autoErr.message}`);
-    return NextResponse.json({ error: autoErr.message }, { status: 500 });
+    console.error(`${TAG} request_id=${ctx.requestId} failed to fetch automations: ${autoErr.message}`);
+    return internalError(ctx, autoErr, TAG);
   }
 
   const results: Array<{ id: string; status: string; result: string }> = [];
@@ -85,7 +116,8 @@ export async function GET(req: NextRequest) {
           .select("id")
           .neq("status", "مكتملة")
           .neq("status", "متأخرة")
-          .lt("due_date", now);
+          .lt("due_date", now)
+          .limit(MAX_ROW_BATCH);
 
         const lateIds = (lateTasks ?? []).map((t: { id: string }) => t.id);
         if (lateIds.length > 0) {
@@ -104,7 +136,8 @@ export async function GET(req: NextRequest) {
           .from("tasks")
           .select("assignee_id")
           .neq("status", "مكتملة")
-          .not("assignee_id", "is", null);
+          .not("assignee_id", "is", null)
+          .limit(MAX_ROW_BATCH);
 
         const counts: Record<string, number> = {};
         (tasks ?? []).forEach((t: { assignee_id: string }) => {
@@ -120,7 +153,8 @@ export async function GET(req: NextRequest) {
         const { data: pending } = await admin
           .from("clients")
           .select("id, name")
-          .eq("status", "محتمل");
+          .eq("status", "محتمل")
+          .limit(MAX_ROW_BATCH);
         result = pending?.length
           ? `تم إنشاء ${pending.length} تذكير متابعة للعملاء المحتملين`
           : "لا توجد عملاء محتملين";
@@ -133,7 +167,8 @@ export async function GET(req: NextRequest) {
           .select("id")
           .neq("status", "مكتملة")
           .lt("due_date", tomorrow)
-          .gt("due_date", new Date().toISOString());
+          .gt("due_date", new Date().toISOString())
+          .limit(MAX_ROW_BATCH);
         result = `تم إرسال تنبيهات لـ ${upcoming?.length ?? 0} مهمة قادمة خلال 24 ساعة`;
       } else if (rule.id === "weekly-report") {
         const { count: clientCount } = await admin.from("clients").select("*", { count: "exact", head: true });
@@ -143,7 +178,7 @@ export async function GET(req: NextRequest) {
     } catch (err: unknown) {
       status = "error";
       result = err instanceof Error ? err.message : String(err);
-      console.error(`${TAG} rule=${rule.id} error: ${result}`);
+      console.error(`${TAG} request_id=${ctx.requestId} rule=${rule.id} error=${result}`);
     }
 
     // Update run stats
@@ -164,9 +199,14 @@ export async function GET(req: NextRequest) {
     }]);
 
     results.push({ id: rule.id, status, result });
-    console.log(`${TAG} rule=${rule.id} status=${status} result=${result}`);
+    console.log(`${TAG} request_id=${ctx.requestId} rule=${rule.id} status=${status}`);
   }
 
-  console.log(`${TAG} completed ${results.length} rules`);
-  return NextResponse.json({ ok: true, ran: results.length, results });
+  console.log(`${TAG} request_id=${ctx.requestId} completed ${results.length} rules`);
+  return apiSuccess(ctx, { ok: true, ran: results.length, results });
+  } catch (err) {
+    return internalError(ctx, err, TAG);
+  } finally {
+    cronRunInFlight = false;
+  }
 }

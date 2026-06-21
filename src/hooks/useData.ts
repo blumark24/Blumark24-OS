@@ -859,18 +859,33 @@ async function fetchDashboardSummary(): Promise<DashboardSummary> {
 export function useDashboardSummary() {
   const result = useAsyncData<DashboardSummary | null>(fetchDashboardSummary, null);
   const { refetch } = result;
+  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const scheduleRefetch = () => {
+      if (refetchTimer.current) clearTimeout(refetchTimer.current);
+      refetchTimer.current = setTimeout(() => {
+        refetchTimer.current = null;
+        void refetch();
+      }, 750);
+    };
+
     const ch = supabase
       .channel("dashboard-summary-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "clients" }, () => refetch())
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => refetch())
-      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => refetch())
-      .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, () => refetch())
-      .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, () => refetch())
-      .on("postgres_changes", { event: "*", schema: "public", table: "activities" }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "clients" }, scheduleRefetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, scheduleRefetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, scheduleRefetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, scheduleRefetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, scheduleRefetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "activities" }, scheduleRefetch)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      if (refetchTimer.current) {
+        clearTimeout(refetchTimer.current);
+        refetchTimer.current = null;
+      }
+      supabase.removeChannel(ch);
+    };
   }, [refetch]);
 
   return result;

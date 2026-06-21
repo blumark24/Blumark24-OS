@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isOwnerEmail } from "@/lib/owner";
+import { applyApiRateLimit, createApiContext } from "@/lib/api/apiResponse";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +50,8 @@ function looksLikeEmailNotConfigured(message: string, status?: number): boolean 
 }
 
 export async function POST(req: NextRequest) {
+  const ctx = createApiContext(req, "/api/owner/reset-client-password");
+
   try {
     // ── 1. env (server-only) ──────────────────────────────────────────────
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -77,6 +80,16 @@ export async function POST(req: NextRequest) {
         { success: false, error: "غير مصرح — هذه العملية مخصصة لمالك المنصة" },
         { status: 403 },
       );
+    }
+
+    const limited = await applyApiRateLimit(ctx, {
+      scope: "owner_reset_client_password",
+      limit: 8,
+      windowMs: 10 * 60 * 1000,
+      userId: callerEmail,
+    });
+    if (limited) {
+      return limited;
     }
 
     // ── 3. parse + validate input ─────────────────────────────────────────

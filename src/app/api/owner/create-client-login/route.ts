@@ -13,12 +13,15 @@ import {
   verifyOwnerBearer,
   writeOwnerAuditLog,
 } from "@/lib/api/ownerServerCommon";
+import { applyApiRateLimit, createApiContext } from "@/lib/api/apiResponse";
 import { validatePasswordForAuth } from "@/lib/security/passwordGuard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const ctx = createApiContext(req, "/api/owner/create-client-login");
+
   try {
     const svc = createServiceRoleAdmin();
     if ("error" in svc) {
@@ -34,6 +37,16 @@ export async function POST(req: NextRequest) {
       );
     }
     const callerEmail = ownerCheck.callerEmail;
+
+    const limited = await applyApiRateLimit(ctx, {
+      scope: "owner_create_client_login",
+      limit: 8,
+      windowMs: 10 * 60 * 1000,
+      userId: callerEmail,
+    });
+    if (limited) {
+      return limited;
+    }
 
     const body = (await req.json()) as Record<string, unknown>;
     const organizationId = typeof body.organizationId === "string" ? body.organizationId.trim() : "";

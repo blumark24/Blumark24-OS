@@ -1,17 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { buildDashboardSummary } from "@/lib/services/dashboardSummary";
+import {
+  apiSuccess,
+  applyApiRateLimit,
+  createApiContext,
+  internalError,
+  unauthorized,
+} from "@/lib/api/apiResponse";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const NO_STORE = {
-  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-} as const;
-
-function json(payload: unknown, status = 200) {
-  return NextResponse.json(payload, { status, headers: NO_STORE });
-}
 
 function createTenantClient(authorization: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -32,22 +31,30 @@ function createTenantClient(authorization: string) {
 }
 
 export async function GET(req: NextRequest) {
+  const ctx = createApiContext(req, "/api/tenant/dashboard-summary");
   const authorization = req.headers.get("authorization");
   if (!authorization?.startsWith("Bearer ")) {
-    return json({ error: "Authorization header missing" }, 401);
+    return unauthorized(ctx, "Authorization header missing");
+  }
+
+  const limited = await applyApiRateLimit(ctx, {
+    scope: "tenant_dashboard_summary",
+    limit: 120,
+    windowMs: 60 * 1000,
+  });
+  if (limited) {
+    return limited;
   }
 
   const supabase = createTenantClient(authorization);
   if (!supabase) {
-    return json({ error: "Supabase environment variables are not set" }, 500);
+    return internalError(ctx, new Error("Supabase environment variables are not set"), "[dashboard-summary]");
   }
 
   try {
     const summary = await buildDashboardSummary(supabase);
-    return json(summary);
+    return apiSuccess(ctx, summary);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to load dashboard summary";
-    console.error("[dashboard-summary]", message);
-    return json({ error: message }, 500);
+    return internalError(ctx, err, "[dashboard-summary]");
   }
 }
