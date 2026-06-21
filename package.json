@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "audit": "npm audit",
+    "audit:prod": "npm audit --omit=dev",
     "verify:isolation": "node scripts/verify-tenant-isolation.mjs"
   },
   "dependencies": {
