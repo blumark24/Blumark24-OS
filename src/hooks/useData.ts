@@ -15,6 +15,7 @@ import { withTimeout, withSoftTimeout } from "@/lib/asyncHelpers";
 import type { Client, Task, Transaction, Employee, Project, Activity, StrategyPhase } from "@/types";
 import type { BoardMember } from "@/lib/db";
 import { ACTIVE_EMPLOYEE_STATUS_VALUES } from "@/lib/tenant/employeeStatus";
+import type { DashboardSummary } from "@/lib/services/dashboardSummary";
 
 // Timeout constants (ms)
 const DB_WRITE_TIMEOUT  = 12_000; // INSERT/UPDATE/DELETE operations
@@ -832,6 +833,47 @@ export function useDashboardKPI() {
   }, [compute]);
 
   return { kpi, loading, error };
+}
+
+async function fetchDashboardSummary(): Promise<DashboardSummary> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) {
+    throw new Error("لم يتم تسجيل الدخول — يرجى تحديث الصفحة وإعادة المحاولة");
+  }
+
+  const response = await fetch("/api/tenant/dashboard-summary", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    cache: "no-store",
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(typeof payload?.error === "string" ? payload.error : "تعذر تحميل ملخص لوحة التحكم");
+  }
+  return payload as DashboardSummary;
+}
+
+export function useDashboardSummary() {
+  const result = useAsyncData<DashboardSummary | null>(fetchDashboardSummary, null);
+  const { refetch } = result;
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("dashboard-summary-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "clients" }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "activities" }, () => refetch())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [refetch]);
+
+  return result;
 }
 
 // ─── Automations ──────────────────────────────────────────────────────────────

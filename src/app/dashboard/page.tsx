@@ -16,8 +16,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency, timeAgo } from "@/lib/utils";
-import { useDashboardKPI, useProjects, useActivities, useTransactions, useEmployees, useClients, useTasks } from "@/hooks/useData";
-import { useMemo, useState } from "react";
+import { useDashboardSummary } from "@/hooks/useData";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions, mapAuthRoleToUserRole } from "@/contexts/PermissionsContext";
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
@@ -111,44 +111,43 @@ const WORK_IDENTITY_LABELS = {
 export default function DashboardPage() {
   const { user, loading }                      = useAuth();
   const { userRole }                           = usePermissions();
-  const { kpi, loading: kpiLoading }           = useDashboardKPI();
-  const { data: projects, loading: projLoad }  = useProjects();
-  const { data: activities, loading: actLoad } = useActivities();
-  const { data: transactions }                 = useTransactions();
-  const { data: employees }                    = useEmployees();
-  const { data: clients }                      = useClients();
-  const { data: tasks }                        = useTasks();
+  const { data: dashboardSummary, loading: summaryLoading } = useDashboardSummary();
 
   const isSuperAdmin = user
     ? mapAuthRoleToUserRole(user.role) === "super_admin"
     : userRole === "super_admin";
 
   const currentYear = new Date().getFullYear();
-
-  const salesData = useMemo(() => {
-    const byMonth: Record<number, number> = {};
-    transactions
-      .filter((t) => t.type === "دخل")
-      .forEach((t) => {
-        const m = new Date(t.date).getMonth();
-        if (!isNaN(m)) byMonth[m] = (byMonth[m] ?? 0) + t.amount;
-      });
-    return ARABIC_MONTHS.map((month, i) => ({ month, current: byMonth[i] ?? 0, previous: 0 }));
-  }, [transactions]);
-
-  const activeUsersData = useMemo(() => {
-    const depts = Array.from(new Set(employees.map((e) => e.department))).slice(0, 6);
-    return depts.map((dept) => ({
-      date: dept,
-      users: employees.filter((e) => e.department === dept && e.status === "نشط").length,
-    }));
-  }, [employees]);
-
-  const satisfactionPct = useMemo(() => {
-    if (!clients.length) return 0;
-    const active = clients.filter((c) => c.status === "نشط" || c.status === "متعاقد").length;
-    return Math.round((active / clients.length) * 100);
-  }, [clients]);
+  const kpi = dashboardSummary?.kpi ?? { activeClients: 0, completedTasksPct: 0, incompleteTasks: 0, netProfit: 0, overdueTasks: 0 };
+  const kpiLoading = summaryLoading;
+  const projLoad = summaryLoading;
+  const actLoad = summaryLoading;
+  const projects = dashboardSummary?.projects.recent ?? [];
+  const activities = dashboardSummary?.activities ?? [];
+  const salesData = dashboardSummary?.finance.monthlyTrend ?? ARABIC_MONTHS.map((month) => ({ month, current: 0, previous: 0 }));
+  const activeUsersData = dashboardSummary?.employees.activeByDepartment ?? [];
+  const totalClients = dashboardSummary?.clients.total ?? 0;
+  const activeClients = dashboardSummary?.clients.active ?? 0;
+  const potentialClients = dashboardSummary?.clients.potential ?? 0;
+  const contractedClients = dashboardSummary?.clients.contracted ?? 0;
+  const pausedClients = dashboardSummary?.clients.paused ?? 0;
+  const activeOrContractedClients = dashboardSummary?.clients.activeOrContracted ?? 0;
+  const latestClient = dashboardSummary?.clients.latest ?? null;
+  const latestFiveClients = dashboardSummary?.clients.latestFive ?? [];
+  const totalTasks = dashboardSummary?.tasks.total ?? 0;
+  const completedTasksCount = dashboardSummary?.tasks.completed ?? 0;
+  const incompleteTasksCount = dashboardSummary?.tasks.incomplete ?? 0;
+  const overdueTasksCount = dashboardSummary?.tasks.overdue ?? 0;
+  const latestCompletedTask = dashboardSummary?.tasks.latestCompleted ?? null;
+  const nearestDeadlineTask = dashboardSummary?.tasks.nearestDeadline ?? null;
+  const mostOverdueTask = dashboardSummary?.tasks.mostOverdue ?? null;
+  const latestFiveCompletedTasks = dashboardSummary?.tasks.latestFiveCompleted ?? [];
+  const topFiveIncompleteTasks = dashboardSummary?.tasks.topFiveIncomplete ?? [];
+  const topFiveOverdueTasks = dashboardSummary?.tasks.topFiveOverdue ?? [];
+  const totalEmployees = dashboardSummary?.employees.total ?? 0;
+  const activeEmployees = dashboardSummary?.employees.active ?? 0;
+  const activeEmployeeNames = isSuperAdmin ? (dashboardSummary?.employees.activeNames ?? []) : [];
+  const satisfactionPct = totalClients > 0 ? Math.round((activeOrContractedClients / totalClients) * 100) : 0;
 
   const resolvedRole = userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
   const roleLabel = resolvedRole
@@ -172,80 +171,21 @@ export default function DashboardPage() {
             ? "ملغي"
             : "غير محدد";
 
-  const activeEmployeeNames = useMemo(() => {
-    if (!isSuperAdmin) return [];
-    return employees
-      .filter((e) => e.status === "نشط")
-      .slice(0, 3)
-      .map((e) => e.name);
-  }, [employees, isSuperAdmin]);
-
-  const latestCompletedTask = useMemo(() => {
-    const completed = tasks.filter((t) => t.status === "مكتملة");
-    if (!completed.length) return null;
-    return completed
-      .slice()
-      .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))[0];
-  }, [tasks]);
-
-  const nearestDeadlineTask = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const upcoming = tasks
-      .filter((t) => t.status !== "مكتملة" && t.dueDate)
-      .filter((t) => {
-        const d = new Date(t.dueDate);
-        return !isNaN(d.getTime()) && d.getTime() >= today.getTime();
-      })
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-    return upcoming[0] ?? null;
-  }, [tasks]);
-
-  const mostOverdueTask = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const overdue = tasks
-      .filter((t) =>
-        t.status === "متأخرة" ||
-        (t.status !== "مكتملة" && t.dueDate && new Date(t.dueDate) < today)
-      )
-      .filter((t) => t.dueDate)
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-    return overdue[0] ?? null;
-  }, [tasks]);
-
   function shortArabicDate(iso: string): string {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return "—";
     return `${d.getDate()} ${ARABIC_MONTHS[d.getMonth()]}`;
   }
 
-  const totalClients = clients.length;
-  const activeClients = clients.filter((c) => c.status === "نشط").length;
-  const potentialClients = clients.filter((c) => c.status === "محتمل").length;
-  const contractedClients = clients.filter((c) => c.status === "متعاقد").length;
-  const pausedClients = clients.filter((c) => c.status === "متوقف").length;
-  const latestClient = clients.slice().sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))[0] ?? null;
-  const latestFiveClients = clients.slice().sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")).slice(0, 5);
-
-  const completedTasks = tasks.filter((t) => t.status === "مكتملة");
-  const incompleteTasks = tasks.filter((t) => t.status !== "مكتملة");
-  const overdueTasks = tasks.filter((t) => t.status === "متأخرة" || (t.status !== "مكتملة" && t.dueDate && new Date(t.dueDate) < new Date()));
-  const latestFiveCompletedTasks = completedTasks.slice().sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")).slice(0, 5);
-  const topFiveIncompleteTasks = incompleteTasks.slice().sort((a, b) => (a.dueDate || "9999-12-31").localeCompare(b.dueDate || "9999-12-31")).slice(0, 5);
-  const topFiveOverdueTasks = overdueTasks.slice().sort((a, b) => (a.dueDate || "9999-12-31").localeCompare(b.dueDate || "9999-12-31")).slice(0, 5);
-
-  const activeEmployees = employees.filter((e) => e.status === "نشط").length;
-
   // Task distribution (derived only from existing task buckets — no new data logic).
   // Plain computation: inputs are recomputed each render, so memoization adds no value.
   const taskDistribution = (() => {
-    const completed = completedTasks.length;
-    const overdue = overdueTasks.length;
-    const pending = Math.max(0, incompleteTasks.length - overdue);
-    const total = tasks.length || 1;
+    const completed = completedTasksCount;
+    const overdue = overdueTasksCount;
+    const pending = Math.max(0, incompleteTasksCount - overdue);
+    const total = totalTasks || 1;
     const pct = (n: number) => `${(n / total) * 100}%`;
-    return { completed, overdue, pending, total: tasks.length, pct };
+    return { completed, overdue, pending, total: totalTasks, pct };
   })();
 
   // Lightweight AI insight line, derived only from existing KPI values.
@@ -299,7 +239,7 @@ export default function DashboardPage() {
         latestCompletedTask ? `آخر مهمة مكتملة: ${latestCompletedTask.title}` : "آخر مهمة مكتملة: لا توجد بيانات حالياً",
       ],
       detailRows: [
-        ["عدد المهام المكتملة", String(completedTasks.length)],
+        ["عدد المهام المكتملة", String(completedTasksCount)],
         ["نسبة الإنجاز", `${kpi.completedTasksPct}%`],
       ],
       detailList: latestFiveCompletedTasks.map((t) => t.title),
@@ -367,7 +307,7 @@ export default function DashboardPage() {
       key:       "incompleteTasks" as const,
       label:     "المهام المتبقية",
       value:     kpi.incompleteTasks.toString(),
-      subtitle:  `من أصل ${tasks.length} مهمة`,
+      subtitle:  `من أصل ${totalTasks} مهمة`,
       icon:      XCircle,
       iconColor: "text-amber-300",
     },
@@ -532,8 +472,8 @@ export default function DashboardPage() {
                   card.key === "completedTasks"
                     ? kpi.completedTasksPct
                     : card.key === "incompleteTasks"
-                      ? tasks.length
-                        ? Math.round((1 - kpi.incompleteTasks / tasks.length) * 100)
+                      ? totalTasks
+                        ? Math.round((1 - kpi.incompleteTasks / totalTasks) * 100)
                         : 100
                       : card.key === "activeClients"
                         ? totalClients
@@ -556,7 +496,7 @@ export default function DashboardPage() {
                     </div>
                   ) : card.key === "incompleteTasks" ? (
                     <div className={`flex items-center gap-1.5 ${theme.accent}`}>
-                      <span className="truncate">متبقي {kpi.incompleteTasks} من {tasks.length || 0}</span>
+                      <span className="truncate">متبقي {kpi.incompleteTasks} من {totalTasks || 0}</span>
                     </div>
                   ) : (
                     <div className={`flex items-center gap-1.5 ${theme.accent}`}>
@@ -743,7 +683,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <p className="mt-3 text-center text-xs text-[#8ba3c7]">
-                  {clients.filter((c) => c.status === "نشط" || c.status === "متعاقد").length} من {clients.length} عميل نشط/متعاقد
+                  {activeOrContractedClients} من {totalClients} عميل نشط/متعاقد
                 </p>
               </>
             )}
@@ -758,7 +698,7 @@ export default function DashboardPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
                 <span className="text-xs text-[#8ba3c7]">إجمالي الموظفين</span>
-                <span className="text-sm font-bold text-white">{employees.length}</span>
+                <span className="text-sm font-bold text-white">{totalEmployees}</span>
               </div>
               <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
                 <span className="text-xs text-[#8ba3c7]">الموظفون النشطون</span>
@@ -766,7 +706,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
                 <span className="text-xs text-[#8ba3c7]">إجمالي العملاء</span>
-                <span className="text-sm font-bold text-[#22d3ee]">{clients.length}</span>
+                <span className="text-sm font-bold text-[#22d3ee]">{totalClients}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-[#8ba3c7]">صافي الدخل</span>
