@@ -221,3 +221,58 @@ export async function logAndAlert(
 
   return requestId;
 }
+
+type ServerLogLevel = "info" | "warn" | "error";
+
+type SafeMetadataValue = string | number | boolean | null;
+
+export interface ServerLogInput {
+  event: string;
+  route?: string | null;
+  requestId?: string | null;
+  durationMs?: number | null;
+  status?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+const SENSITIVE_LOG_KEY = /(authorization|bearer|token|secret|password|apikey|api_key|service_role|cookie|email|phone)/i;
+
+function toSafeMetadataValue(key: string, value: unknown): SafeMetadataValue {
+  if (SENSITIVE_LOG_KEY.test(key)) return "[redacted]";
+  if (value === null) return null;
+  if (typeof value === "boolean" || typeof value === "number") return value;
+  if (typeof value === "string") {
+    if (value.length > 160) return `${value.slice(0, 157)}...`;
+    return value;
+  }
+  return "[omitted]";
+}
+
+function sanitizeLogMetadata(metadata?: Record<string, unknown>): Record<string, SafeMetadataValue> | undefined {
+  if (!metadata) return undefined;
+  return Object.fromEntries(
+    Object.entries(metadata).map(([key, value]) => [key, toSafeMetadataValue(key, value)]),
+  );
+}
+
+export function logServerEvent(level: ServerLogLevel, input: ServerLogInput): void {
+  const payload = {
+    level,
+    event: input.event,
+    route: input.route ?? null,
+    request_id: input.requestId ?? null,
+    duration_ms: input.durationMs ?? null,
+    status: input.status ?? null,
+    metadata: sanitizeLogMetadata(input.metadata) ?? {},
+    timestamp: new Date().toISOString(),
+  };
+
+  const line = JSON.stringify(payload);
+  if (level === "error") {
+    console.error(line);
+  } else if (level === "warn") {
+    console.warn(line);
+  } else {
+    console.info(line);
+  }
+}
