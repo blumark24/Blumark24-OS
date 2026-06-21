@@ -88,21 +88,22 @@ export default function MobileBottomNav() {
       </CommandOrbPanel>
 
       <div
-        className="lg:hidden fixed inset-x-0 bottom-0 z-40 pointer-events-none flex justify-center px-3"
-        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+        className="lg:hidden fixed inset-x-0 bottom-0 z-40 pointer-events-none flex justify-center px-4"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 5px)" }}
         dir="rtl"
       >
-        <div className="relative w-full max-w-md pointer-events-auto">
-          {/* Center FAB — floats above the glass bar */}
-          <div className="absolute left-1/2 -translate-x-1/2 -top-7 z-[2]">
+        <div className="relative w-full max-w-sm pointer-events-auto">
+          {/* Center FAB — elegant glowing orb, slightly embedded into the dock */}
+          <div className="absolute left-1/2 -translate-x-1/2 -top-5 z-[2]">
             <button
               type="button"
               onClick={() => setQuickOpen((v) => !v)}
               className={cn(
-                "relative flex h-[3.35rem] w-[3.35rem] items-center justify-center rounded-full",
-                "bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white",
-                "shadow-[0_0_0_1px_rgba(255,255,255,0.25),0_12px_40px_-8px_rgba(34,211,238,0.75),0_0_48px_-12px_rgba(124,58,237,0.9)]",
-                "transition-transform active:scale-95",
+                "relative flex h-[3.375rem] w-[3.375rem] items-center justify-center rounded-full",
+                "bg-gradient-to-br from-[#3B82F6] to-[#22D3EE] text-white",
+                "ring-1 ring-white/20",
+                "shadow-[0_8px_24px_-10px_rgba(34,211,238,0.55)]",
+                "transition-transform duration-200 ease-out active:scale-95 motion-reduce:transition-none",
                 quickOpen && "rotate-45 scale-105",
               )}
               aria-label={quickOpen ? "إغلاق الإنشاء السريع" : "إنشاء جديد"}
@@ -110,30 +111,30 @@ export default function MobileBottomNav() {
             >
               <span
                 className={cn(
-                  "absolute inset-0 rounded-full transition-opacity",
-                  quickOpen ? "opacity-60" : "opacity-40 animate-pulse",
+                  "absolute -inset-1 rounded-full blur-md transition-opacity",
+                  quickOpen ? "opacity-50" : "opacity-30",
                 )}
                 style={{
                   background:
-                    "radial-gradient(circle at 50% 50%, rgba(34,211,238,0.55), transparent 70%)",
+                    "radial-gradient(circle at 50% 50%, rgba(34,211,238,0.45), transparent 70%)",
                 }}
                 aria-hidden
               />
               {quickOpen ? (
                 <X size={22} className="relative z-[1]" />
               ) : (
-                <Plus size={24} className="relative z-[1]" strokeWidth={2.5} />
+                <Plus size={24} className="relative z-[1]" strokeWidth={2.4} />
               )}
             </button>
           </div>
 
-          {/* Floating glass bar */}
+          {/* Floating Apple-style glass dock */}
           <nav
             className={cn(
-              "grid grid-cols-5 items-end gap-0 rounded-[1.35rem] border border-white/[0.12]",
-              "bg-[rgba(6,14,28,0.88)] backdrop-blur-3xl",
-              "shadow-[0_-8px_40px_-12px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.08)]",
-              "px-2 pt-2.5 pb-2.5 min-h-[4rem]",
+              "grid grid-cols-5 items-center gap-0 rounded-[1.85rem] border border-white/[0.08]",
+              "bg-[rgba(4,12,28,0.72)] backdrop-blur-2xl",
+              "shadow-[0_10px_30px_-14px_rgba(0,0,0,0.55),0_0_22px_-14px_rgba(34,211,238,0.45),inset_0_1px_0_rgba(255,255,255,0.06)]",
+              "px-2 h-16",
             )}
             aria-label="التنقل السريع"
           >
@@ -146,19 +147,24 @@ export default function MobileBottomNav() {
                   key={route.id}
                   href={route.href}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition-all min-h-[44px] touch-manipulation",
-                    active
-                      ? "text-[#22d3ee]"
-                      : "text-white/50 hover:text-white/80",
+                    "flex flex-col items-center justify-center gap-0.5 rounded-xl min-h-[44px] touch-manipulation",
+                    "transition-transform duration-200 ease-out active:scale-[0.96] motion-reduce:transition-none",
+                    active ? "text-[#22d3ee]" : "text-white/50 hover:text-white/80",
                   )}
                 >
-                  <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
+                  <span
+                    className={cn(
+                      "flex items-center justify-center rounded-full px-3 py-0.5 transition-all duration-200 ease-out motion-reduce:transition-none",
+                      active
+                        ? "bg-cyan-400/10 shadow-[0_0_14px_-3px_rgba(34,211,238,0.55)]"
+                        : "bg-transparent",
+                    )}
+                  >
+                    <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
+                  </span>
                   <span className="text-[9.5px] font-medium leading-none truncate max-w-[3.25rem] text-center leading-tight">
                     {label}
                   </span>
-                  {active && (
-                    <span className="w-1 h-1 rounded-full bg-[#22d3ee] shadow-[0_0_8px_#22d3ee]" />
-                  )}
                 </Link>
               );
             })}
@@ -175,19 +181,24 @@ export default function MobileBottomNav() {
                   key={route.id}
                   href={route.href}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition-all min-h-[44px] touch-manipulation",
-                    active
-                      ? "text-[#22d3ee]"
-                      : "text-white/50 hover:text-white/80",
+                    "flex flex-col items-center justify-center gap-0.5 rounded-xl min-h-[44px] touch-manipulation",
+                    "transition-transform duration-200 ease-out active:scale-[0.96] motion-reduce:transition-none",
+                    active ? "text-[#22d3ee]" : "text-white/50 hover:text-white/80",
                   )}
                 >
-                  <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
+                  <span
+                    className={cn(
+                      "flex items-center justify-center rounded-full px-3 py-0.5 transition-all duration-200 ease-out motion-reduce:transition-none",
+                      active
+                        ? "bg-cyan-400/10 shadow-[0_0_14px_-3px_rgba(34,211,238,0.55)]"
+                        : "bg-transparent",
+                    )}
+                  >
+                    <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
+                  </span>
                   <span className="text-[9.5px] font-medium leading-none truncate max-w-[3.25rem] text-center leading-tight">
                     {label}
                   </span>
-                  {active && (
-                    <span className="w-1 h-1 rounded-full bg-[#22d3ee] shadow-[0_0_8px_#22d3ee]" />
-                  )}
                 </Link>
               );
             })}
@@ -198,6 +209,6 @@ export default function MobileBottomNav() {
   );
 }
 
-/** Bottom inset so charts/content clear the floating bar (mobile only). */
+/** Bottom inset so charts/content clear the floating dock + FAB (mobile only). */
 export const MOBILE_BOTTOM_NAV_INSET =
-  "pb-[calc(7.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0";
+  "pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] lg:pb-0";
