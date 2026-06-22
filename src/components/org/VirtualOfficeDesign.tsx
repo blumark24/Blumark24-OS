@@ -516,6 +516,39 @@ function mappingSourceValue(source: MappingSource | null): string {
   return UNAVAILABLE_LABEL;
 }
 
+function mappingSourceTone(source: MappingSource | null) {
+  if (source === "saved") {
+    return {
+      color: "#67e8f9",
+      border: "1px solid rgba(34,211,238,0.30)",
+      background: "rgba(34,211,238,0.10)",
+      glow: "0 0 24px rgba(34,211,238,0.10)",
+    };
+  }
+  if (source === "preview") {
+    return {
+      color: "#86efac",
+      border: "1px solid rgba(16,185,129,0.30)",
+      background: "rgba(16,185,129,0.10)",
+      glow: "0 0 24px rgba(16,185,129,0.10)",
+    };
+  }
+  if (source === "auto") {
+    return {
+      color: "#d8b4fe",
+      border: "1px solid rgba(168,85,247,0.28)",
+      background: "rgba(168,85,247,0.10)",
+      glow: "0 0 24px rgba(168,85,247,0.10)",
+    };
+  }
+  return {
+    color: "#94a3b8",
+    border: "1px solid rgba(148,163,184,0.18)",
+    background: "rgba(148,163,184,0.07)",
+    glow: "none",
+  };
+}
+
 function operationalMetric(value: number | null | undefined): string | number {
   return typeof value === "number" ? value : UNAVAILABLE_LABEL;
 }
@@ -667,6 +700,9 @@ function MappingPreviewModal({
   const selectedUnit = units.find((unit) => unit.id === selectedUnitId) ?? null;
   const officeNumberLabel = room.officeNumber ? officeLabel(room.officeNumber) : "مكتب";
   const currentSourceLabel = mappingSourceValue(currentSource);
+  const currentTone = mappingSourceTone(currentSource);
+  const previewTone = mappingSourceTone("preview");
+  const selectedIsCurrent = Boolean(selectedUnit && currentUnit?.id === selectedUnit.id);
 
   return (
     <div
@@ -729,17 +765,39 @@ function MappingPreviewModal({
               <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 800, color: "#dff7ff" }}>{officeNumberLabel}</p>
               <p style={{ margin: "3px 0 0", fontSize: 11, color: "#7a9ab8" }}>{room.name}</p>
             </div>
-            <div style={{ borderRadius: 14, border: "1px solid rgba(168,85,247,0.18)", background: "rgba(168,85,247,0.06)", padding: 12 }}>
+            <div style={{ borderRadius: 14, border: currentTone.border, background: currentTone.background, boxShadow: currentTone.glow, padding: 12 }}>
               <p style={{ margin: 0, fontSize: 10, color: "#5a7a9a" }}>الربط الحالي</p>
               <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 700, color: currentUnit ? "#e9d5ff" : "#64748b" }}>
                 {currentUnit ? currentUnit.name : "غير متاح"}
               </p>
               {currentUnit && (
-                <p style={{ margin: "3px 0 0", fontSize: 10, color: "#9d8bc0" }}>
+                <p style={{ margin: "3px 0 0", fontSize: 10, color: currentTone.color }}>
                   {currentUnit.typeLabel ?? "غير متاح"}{currentSourceLabel ? ` · ${currentSourceLabel}` : ""}
                 </p>
               )}
             </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 14 }}>
+            {[
+              { step: "01", label: "اختر الوحدة", active: true },
+              { step: "02", label: "عاين الربط", active: Boolean(selectedUnit) },
+              { step: "03", label: "احفظ عند الاعتماد", active: Boolean(selectedUnit && !selectedIsCurrent) },
+            ].map((item) => (
+              <div
+                key={item.step}
+                style={{
+                  borderRadius: 12,
+                  border: item.active ? previewTone.border : "1px solid rgba(148,163,184,0.14)",
+                  background: item.active ? "rgba(16,185,129,0.07)" : "rgba(148,163,184,0.04)",
+                  padding: "9px 10px",
+                  minWidth: 0,
+                }}
+              >
+                <span style={{ display: "block", color: item.active ? previewTone.color : "#64748b", fontSize: 10, fontWeight: 900 }}>{item.step}</span>
+                <span style={{ display: "block", marginTop: 2, color: item.active ? "#d1fae5" : "#8ba3c7", fontSize: 10.5, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
+              </div>
+            ))}
           </div>
 
           {units.length === 0 ? (
@@ -793,7 +851,7 @@ function MappingPreviewModal({
               </div>
 
               {selectedUnit && (
-                <div style={{ marginTop: 14, borderRadius: 14, border: "1px solid rgba(16,185,129,0.22)", background: "rgba(16,185,129,0.07)", padding: 12 }}>
+                <div style={{ marginTop: 14, borderRadius: 14, border: previewTone.border, background: "linear-gradient(135deg, rgba(16,185,129,0.09), rgba(34,211,238,0.06))", boxShadow: previewTone.glow, padding: 12 }}>
                   <p style={{ margin: 0, color: "#6ee7b7", fontSize: 10, fontWeight: 850 }}>
                     الوحدة المحددة للمعاينة أو الحفظ
                   </p>
@@ -1698,8 +1756,9 @@ function OfficeControlPanel({
             const mapped = Boolean(mappingUnit);
             const isDeleting = deletingRoomKey === room.fixedRoomKey;
             const canClear = mappingSource === "saved" || mappingSource === "preview";
+            const sourceTone = mappingSourceTone(mappingSource);
             return (
-              <article key={room.id} style={{ borderRadius: 13, border: mapped ? `1px solid ${room.accentColor}30` : "1px solid rgba(245,158,11,0.20)", background: mapped ? "rgba(255,255,255,0.035)" : "rgba(245,158,11,0.055)", padding: 11, minWidth: 0 }}>
+              <article key={room.id} style={{ borderRadius: 13, border: mapped ? sourceTone.border : "1px solid rgba(245,158,11,0.20)", background: mapped ? `linear-gradient(135deg, ${sourceTone.background}, rgba(255,255,255,0.025))` : "rgba(245,158,11,0.055)", boxShadow: mapped ? sourceTone.glow : "none", padding: 11, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -1716,7 +1775,7 @@ function OfficeControlPanel({
                     {mapped ? (
                       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 5 }}>
                         <span style={{ fontSize: 9.5, color: "#d8b4fe", border: "1px solid rgba(168,85,247,0.22)", background: "rgba(168,85,247,0.07)", borderRadius: 999, padding: "1px 7px" }}>{mappingUnit?.typeLabel ?? "غير متاح"}</span>
-                        {mappingSource && <span style={{ fontSize: 9.5, color: "#67e8f9", border: "1px solid rgba(34,211,238,0.22)", background: "rgba(34,211,238,0.07)", borderRadius: 999, padding: "1px 7px" }}>{mappingSourceValue(mappingSource)}</span>}
+                        {mappingSource && <span style={{ fontSize: 9.5, color: sourceTone.color, border: sourceTone.border, background: sourceTone.background, borderRadius: 999, padding: "1px 7px" }}>{mappingSourceValue(mappingSource)}</span>}
                       </div>
                     ) : (
                       <p style={{ margin: "5px 0 0", fontSize: 10.5, lineHeight: 1.55, color: "#d8c7a3" }}>
