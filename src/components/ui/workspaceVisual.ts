@@ -4,7 +4,7 @@
  */
 
 export const WS_PAGE =
-  "space-y-5 sm:space-y-6 min-w-0 max-w-full lg:pb-6";
+  "space-y-4 sm:space-y-6 min-w-0 max-w-full lg:pb-6";
 
 export const WS_CARD =
   "relative overflow-hidden rounded-[22px] border border-[rgba(148,163,184,0.14)] " +
@@ -42,6 +42,12 @@ export const WS_STATUS_CHIP =
   "inline-flex items-center gap-1.5 min-h-[26px] px-2.5 py-0.5 rounded-full " +
   "text-xs font-semibold text-[rgba(226,232,240,0.92)] " +
   "bg-[rgba(15,35,65,0.58)] border border-[rgba(148,163,184,0.14)]";
+
+export const WS_MOBILE_PAGE =
+  "mx-auto w-full max-w-md space-y-3 sm:max-w-none sm:space-y-5";
+
+export const WS_MOBILE_TOUCH_TARGET =
+  "min-h-[44px] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70";
 
 export const WS_ICON_ORB =
   "grid place-items-center rounded-[15px] " +

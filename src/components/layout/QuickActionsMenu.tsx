@@ -116,9 +116,9 @@ export function QuickActionsList({
           onClick={() => go(item)}
           className={cn(
             "w-full flex items-center gap-2.5 rounded-xl text-right transition-all",
-            compact ? "px-2.5 py-2" : "px-3 py-2.5",
+            compact ? "min-h-[44px] px-2.5 py-2" : "min-h-[46px] px-3 py-2.5",
             item.enabled
-              ? "hover:bg-white/[0.06] text-white active:scale-[0.99]"
+              ? "hover:bg-white/[0.06] text-white active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
               : "opacity-40 cursor-not-allowed text-white/55",
           )}
         >

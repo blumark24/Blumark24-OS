@@ -191,7 +191,7 @@ export function CommandFloatingOverlay({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[#8ba3c7] hover:bg-white/[0.06] hover:text-white transition-colors"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-[#8ba3c7] transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
                     aria-label="إغلاق"
                   >
                     <X size={16} />

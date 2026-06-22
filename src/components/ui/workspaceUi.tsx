@@ -9,6 +9,7 @@ import {
   WS_INNER_CARD,
   WS_METRIC_LABEL,
   WS_METRIC_VALUE,
+  WS_MOBILE_TOUCH_TARGET,
   WS_MUTED,
   WS_SECTION_TITLE,
   WS_STATUS_CHIP,
@@ -286,3 +287,33 @@ export function GlassPanel({
 }
 
 export type { KpiTheme };
+
+export type MobileShellStatus = "جاهز" | "يحتاج ربط" | "قيد التجهيز" | "غير متاح";
+
+const MOBILE_STATUS_STYLES: Record<MobileShellStatus, string> = {
+  "جاهز": "border-emerald-300/25 bg-emerald-400/10 text-emerald-200",
+  "يحتاج ربط": "border-amber-300/25 bg-amber-400/10 text-amber-200",
+  "قيد التجهيز": "border-cyan-300/25 bg-cyan-400/10 text-cyan-100",
+  "غير متاح": "border-slate-300/16 bg-slate-400/10 text-slate-300",
+};
+
+export function MobileStatusBadge({
+  status,
+  className,
+}: {
+  status: MobileShellStatus;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        WS_MOBILE_TOUCH_TARGET,
+        "inline-flex min-h-[28px] items-center justify-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold leading-none",
+        MOBILE_STATUS_STYLES[status],
+        className,
+      )}
+    >
+      {status}
+    </span>
+  );
+}

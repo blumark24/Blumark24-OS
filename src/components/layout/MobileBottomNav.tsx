@@ -100,12 +100,12 @@ export default function MobileBottomNav() {
               onClick={() => setQuickOpen((v) => !v)}
               className={cn(
                 "relative flex h-[3.35rem] w-[3.35rem] items-center justify-center rounded-full",
-                "bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white",
-                "shadow-[0_0_0_1px_rgba(255,255,255,0.25),0_12px_40px_-8px_rgba(34,211,238,0.75),0_0_48px_-12px_rgba(124,58,237,0.9)]",
-                "transition-transform active:scale-95",
+                "bg-gradient-to-br from-[#1E6FD9] via-[#2563EB] to-[#22D3EE] text-white",
+                "shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_12px_40px_-8px_rgba(34,211,238,0.68),0_0_38px_-12px_rgba(30,111,217,0.85)]",
+                "transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/80",
                 quickOpen && "rotate-45 scale-105",
               )}
-              aria-label={quickOpen ? "إغلاق الإنشاء السريع" : "إنشاء جديد"}
+              aria-label={quickOpen ? "إغلاق الإجراءات السريعة" : "فتح الإجراءات السريعة"}
               aria-expanded={quickOpen}
             >
               <span
@@ -130,10 +130,10 @@ export default function MobileBottomNav() {
           {/* Floating glass bar */}
           <nav
             className={cn(
-              "grid grid-cols-5 items-end gap-0 rounded-[1.35rem] border border-white/[0.12]",
-              "bg-[rgba(6,14,28,0.88)] backdrop-blur-3xl",
-              "shadow-[0_-8px_40px_-12px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.08)]",
-              "px-2 pt-2.5 pb-2.5 min-h-[4rem]",
+              "grid grid-cols-5 items-end gap-0 rounded-[1.35rem] border border-cyan-300/[0.14]",
+              "bg-[linear-gradient(180deg,rgba(9,22,43,0.94),rgba(4,11,24,0.92))] backdrop-blur-3xl",
+              "shadow-[0_-8px_42px_-12px_rgba(0,0,0,0.68),0_0_28px_-18px_rgba(34,211,238,0.45),inset_0_1px_0_rgba(255,255,255,0.08)]",
+              "px-2 pt-2.5 pb-2.5 min-h-[4.35rem]",
             )}
             aria-label="التنقل السريع"
           >
@@ -146,14 +146,14 @@ export default function MobileBottomNav() {
                   key={route.id}
                   href={route.href}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition-all min-h-[44px] touch-manipulation",
+                    "flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition-all min-h-[46px] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70",
                     active
-                      ? "text-[#22d3ee]"
-                      : "text-white/50 hover:text-white/80",
+                      ? "bg-cyan-300/[0.08] text-[#22d3ee]"
+                      : "text-white/55 hover:bg-white/[0.04] hover:text-white/80",
                   )}
                 >
                   <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
-                  <span className="text-[9.5px] font-medium leading-none truncate max-w-[3.25rem] text-center leading-tight">
+                  <span className="max-w-[3.35rem] truncate text-center text-[9.5px] font-medium leading-tight">
                     {label}
                   </span>
                   {active && (
@@ -175,14 +175,14 @@ export default function MobileBottomNav() {
                   key={route.id}
                   href={route.href}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition-all min-h-[44px] touch-manipulation",
+                    "flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition-all min-h-[46px] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70",
                     active
-                      ? "text-[#22d3ee]"
-                      : "text-white/50 hover:text-white/80",
+                      ? "bg-cyan-300/[0.08] text-[#22d3ee]"
+                      : "text-white/55 hover:bg-white/[0.04] hover:text-white/80",
                   )}
                 >
                   <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
-                  <span className="text-[9.5px] font-medium leading-none truncate max-w-[3.25rem] text-center leading-tight">
+                  <span className="max-w-[3.35rem] truncate text-center text-[9.5px] font-medium leading-tight">
                     {label}
                   </span>
                   {active && (
@@ -200,4 +200,4 @@ export default function MobileBottomNav() {
 
 /** Bottom inset so charts/content clear the floating bar (mobile only). */
 export const MOBILE_BOTTOM_NAV_INSET =
-  "pb-[calc(7.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0";
+  "pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0";
