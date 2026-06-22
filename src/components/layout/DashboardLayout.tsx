@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import MobileShellContext from "./MobileShellContext";
 import MobileBottomNav, { MOBILE_BOTTOM_NAV_INSET } from "./MobileBottomNav";
 import WorkspaceRouteGuard from "@/components/ui/WorkspaceRouteGuard";
 import { useAuth } from "@/contexts/AuthContext";
@@ -62,8 +63,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         )}
 
+        <MobileShellContext />
+
         <main
-          className={`flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6 ${MOBILE_BOTTOM_NAV_INSET}`}
+          className={`flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4 lg:p-6 ${MOBILE_BOTTOM_NAV_INSET}`}
         >
           {/*
             Defense-in-depth: every workspace page also wraps itself in
