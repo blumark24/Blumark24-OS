@@ -22,7 +22,7 @@ const STATUS_CONFIG = {
   "قادمة":  { class: "status-inactive",  color: "#8ba3c7", icon: Target },
 } as const;
 
-// AI recommendations computed from phase data
+// Suggested guidance computed from existing phase data only.
 function buildRecommendations(phases: StrategyPhase[]) {
   const active = phases.find((p) => p.status === "جارية");
   const totalBudget = phases.reduce((s, p) => s + p.budget, 0);
@@ -44,7 +44,7 @@ function buildRecommendations(phases: StrategyPhase[]) {
     },
     {
       icon: "⚡", title: "الميزانية الإجمالية",
-      desc: `إجمالي ميزانية الخطة الاستراتيجية: ${formatCurrency(totalBudget)} SAR عبر ${phases.length} مراحل.`,
+      desc: `إجمالي ميزانية خطة النمو: ${formatCurrency(totalBudget)} SAR عبر ${phases.length} مراحل.`,
     },
     {
       icon: "📈", title: "التقدم الإجمالي",
@@ -153,6 +153,19 @@ function StrategyContent() {
     ? Math.round(phases.reduce((s, p) => s + p.progress, 0) / phases.length)
     : 0;
 
+  const currentPhase =
+    phases.find((p) => p.status === "جارية") ??
+    phases.find((p) => p.status !== "مكتملة") ??
+    phases[0] ??
+    null;
+  const monthlyGoal =
+    currentPhase?.goals?.[0] ||
+    currentPhase?.description ||
+    "حدّد هدفاً واحداً لهذا الشهر وابدأ بأول إجراء.";
+  const nextAction =
+    currentPhase?.goals?.[1] ||
+    currentPhase?.goals?.[0] ||
+    "راجع المرحلة الحالية وحدّث التقدم.";
   const recommendations = buildRecommendations(phases);
 
   const handleSave = async (changes: Partial<StrategyPhase>) => {
@@ -167,16 +180,16 @@ function StrategyContent() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5 sm:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-heading font-bold text-white flex items-center gap-2">
             <Map size={24} className="text-[#22d3ee]" />
-            استراتيجية المنشأة
+            خطة النمو
           </h1>
-          <p className="text-[#8ba3c7] text-sm mt-1">تخطيط ومتابعة أهداف منشأتك</p>
+          <p className="text-[#8ba3c7] text-sm mt-1">ماذا أفعل هذا الشهر لنمو منشأتي؟</p>
         </div>
-        <div className="glass-card px-4 py-2">
+        <div className="glass-card px-4 py-2 self-start sm:self-auto">
           <div className="text-xs text-[#8ba3c7] mb-1">التقدم الإجمالي</div>
           <div className="flex items-center gap-2">
             <div className="progress-bar w-32">
@@ -191,12 +204,54 @@ function StrategyContent() {
         <div className="glass-card p-4 border border-red-500/30 text-red-400 text-sm">{error}</div>
       )}
 
-      {/* AI Recommendations */}
+      <div className="glass-card p-4 sm:p-5 border border-[#22d3ee]/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_35%)]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#22d3ee]/20 bg-[#22d3ee]/10 px-3 py-1 text-xs font-medium text-[#22d3ee]">
+              خطة هذا الشهر
+            </div>
+            <h2 className="mt-3 text-xl font-heading font-bold text-white">ماذا أفعل هذا الشهر؟</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#8ba3c7]">
+              ركّز على هدف واحد، نفّذ الإجراءات القصيرة، ثم حدّث التقدم عند نهاية الأسبوع.
+            </p>
+          </div>
+
+          <div className="grid min-w-0 gap-3 sm:grid-cols-3 lg:w-[min(620px,55%)]">
+            <div className="rounded-2xl border border-[#1e3a5f] bg-[#0d1f3c]/60 p-3">
+              <div className="text-xs text-[#8ba3c7]">المرحلة الحالية</div>
+              <div className="mt-1 truncate text-sm font-bold text-white">
+                {currentPhase?.title ?? "لا توجد مرحلة بعد"}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-[#1e3a5f] bg-[#0d1f3c]/60 p-3">
+              <div className="text-xs text-[#8ba3c7]">هدف الشهر</div>
+              <div className="mt-1 line-clamp-2 text-sm font-bold text-white">{monthlyGoal}</div>
+            </div>
+            <div className="rounded-2xl border border-[#1e3a5f] bg-[#0d1f3c]/60 p-3">
+              <div className="text-xs text-[#8ba3c7]">الإجراء التالي</div>
+              <div className="mt-1 line-clamp-2 text-sm font-bold text-white">{nextAction}</div>
+            </div>
+          </div>
+        </div>
+
+        {currentPhase && canEdit && (
+          <button
+            type="button"
+            onClick={() => setEditingPhase(currentPhase)}
+            className="mt-4 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#22d3ee] px-4 py-2 text-sm font-semibold text-[#061224] transition hover:bg-[#67e8f9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+          >
+            <Edit2 size={15} />
+            حدّث تقدم هذا الشهر
+          </button>
+        )}
+      </div>
+
+      {/* Suggested recommendations */}
       <div className="glass-card p-5 border border-[#22d3ee]/20">
         <div className="flex items-center gap-2 mb-4">
           <Lightbulb size={18} className="text-[#22d3ee]" />
-          <h3 className="text-white font-medium">توصيات الذكاء الاصطناعي</h3>
-          <span className="badge bg-[#22d3ee]/20 text-[#22d3ee] text-xs mr-auto">محدّث تلقائياً</span>
+          <h3 className="text-white font-medium">توصيات مقترحة</h3>
+          <span className="badge bg-[#22d3ee]/20 text-[#22d3ee] text-xs mr-auto">من بيانات الخطة</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {recommendations.map((rec) => (
@@ -209,7 +264,7 @@ function StrategyContent() {
         </div>
       </div>
 
-      {/* Timeline */}
+      {/* Growth phases */}
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 size={32} className="animate-spin text-[#22d3ee]" />
@@ -221,14 +276,14 @@ function StrategyContent() {
         </div>
       ) : (
         <div className="relative">
-          <div className="absolute right-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#22d3ee] via-[#1e6fd9] to-[#1e3a5f]" />
-          <div className="space-y-6">
+          <div className="absolute right-8 top-0 bottom-0 hidden w-0.5 bg-gradient-to-b from-[#22d3ee] via-[#1e6fd9] to-[#1e3a5f] sm:block" />
+          <div className="space-y-4 sm:space-y-6">
             {phases.map((phase, i) => {
               const statusConf = STATUS_CONFIG[phase.status];
               const Icon = statusConf.icon;
               return (
-                <div key={phase.id} className="flex gap-6 relative">
-                  <div className="flex-shrink-0 w-16 flex flex-col items-center">
+                <div key={phase.id} className="relative flex flex-col gap-3 sm:flex-row sm:gap-6">
+                  <div className="hidden w-16 flex-shrink-0 flex-col items-center sm:flex">
                     <div
                       className="w-10 h-10 rounded-full flex items-center justify-center z-10 border-2"
                       style={{
@@ -241,17 +296,19 @@ function StrategyContent() {
                     <div className="text-xs text-[#8ba3c7] mt-1">م{i + 1}</div>
                   </div>
 
-                  <div className={cn("flex-1 glass-card glass-card-hover p-5", phase.status === "جارية" && "border-[#f59e0b]/30")}>
+                  <div className={cn("flex-1 glass-card glass-card-hover p-4 sm:p-5", phase.status === "جارية" && "border-[#f59e0b]/30")}>
                     <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
                       <div>
                         <h3 className="text-white font-heading font-bold text-lg">{phase.title}</h3>
                         <p className="text-[#8ba3c7] text-sm mt-0.5">{phase.description}</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className={`badge ${statusConf.class}`}>{phase.status}</span>
-                        <span className="text-xs text-[#8ba3c7] bg-[#1a3356]/50 px-2 py-1 rounded-lg">
-                          {phase.startDate} → {phase.endDate}
-                        </span>
+                        {(phase.startDate || phase.endDate) && (
+                          <span className="text-xs text-[#8ba3c7] bg-[#1a3356]/50 px-2 py-1 rounded-lg">
+                            {phase.startDate || "غير محدد"} → {phase.endDate || "غير محدد"}
+                          </span>
+                        )}
                         {canEdit && (
                           <button
                             onClick={() => setEditingPhase(phase)}
@@ -264,7 +321,7 @@ function StrategyContent() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="grid grid-cols-2 gap-3 mb-4 sm:gap-4">
                       <div>
                         <div className="text-xs text-[#8ba3c7] mb-1">التقدم</div>
                         <div className="flex items-center gap-2">
@@ -293,12 +350,12 @@ function StrategyContent() {
                     </div>
 
                     <div>
-                      <div className="text-xs text-[#8ba3c7] mb-2">الأهداف الرئيسية:</div>
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="text-xs text-[#8ba3c7] mb-2">إجراءات قصيرة لهذا الشهر:</div>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {phase.goals.map((goal) => (
-                          <div key={goal} className="flex items-center gap-2 text-xs text-[#8ba3c7]">
+                          <div key={goal} className="flex items-center gap-2 rounded-xl border border-[#1e3a5f]/70 bg-[#0d1f3c]/40 px-3 py-2 text-xs text-[#cbd5e1]">
                             <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: statusConf.color }} />
-                            {goal}
+                            <span className="min-w-0">{goal}</span>
                           </div>
                         ))}
                       </div>
