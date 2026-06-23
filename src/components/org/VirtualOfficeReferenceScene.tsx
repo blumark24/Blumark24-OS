@@ -64,14 +64,14 @@ interface SlotPos {
   isMeeting?: boolean;
 }
 const SLOT_POSITIONS: SlotPos[] = [
-  { top: "63%", left: "4%",  width: "29%", height: "32%" },
-  { top: "3%",  left: "5%",  width: "31%", height: "27%" },
-  { top: "3%",  left: "39%", width: "22%", height: "27%" },
-  { top: "34%", left: "4%",  width: "29%", height: "27%" },
-  { top: "35%", left: "39%", width: "22%", height: "24%", isMeeting: true },
-  { top: "34%", left: "69%", width: "27%", height: "27%" },
-  { top: "65%", left: "38%", width: "26%", height: "29%" },
-  { top: "64%", left: "69%", width: "27%", height: "31%" },
+  { top: "63%", left: "4%",  width: "29%", height: "32%" }, // 0 = sales      (bottom-left)
+  { top: "3%",  left: "4%",  width: "32%", height: "30%" }, // 1 = executive  (top-left)
+  { top: "3%",  left: "37%", width: "59%", height: "30%" }, // 2 = support    (top-center + top-right — covers former dead zone)
+  { top: "34%", left: "4%",  width: "29%", height: "27%" }, // 3 = marketing  (mid-left)
+  { top: "35%", left: "39%", width: "22%", height: "24%", isMeeting: true }, // 4 = meetings (center)
+  { top: "34%", left: "69%", width: "27%", height: "27%" }, // 5 = finance    (mid-right)
+  { top: "65%", left: "38%", width: "26%", height: "29%" }, // 6 = execution  (bottom-center)
+  { top: "64%", left: "69%", width: "27%", height: "31%" }, // 7 = ai         (bottom-right)
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -402,15 +402,16 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1.12fr 1fr", gridTemplateRows: "minmax(155px,auto) minmax(172px,auto) minmax(148px,auto)", gap: 4, background: "rgba(16,28,50,0.55)", borderRadius: 14, overflow: "hidden" }}>
-      {[0, 1, 2].map((i) => (
-        <div key={`r${i}`} style={{ ...G(i + 1, 1), ...bg(slots[i]) }} onClick={() => slots[i] && onRoomClick(slots[i]!)}>
-          {slots[i] && <Inner room={slots[i]!} />}
-        </div>
-      ))}
+      {/* Row 1: executive (top-left) | execution (top-center) | support (top-right)
+          — matches image visual positions; execution goes top-center since bottom-center
+            is occupied by the meeting room span in this CSS grid. */}
+      <div style={{ ...G(1, 1), ...bg(slots[1]) }} onClick={() => slots[1] && onRoomClick(slots[1]!)}>{slots[1] && <Inner room={slots[1]!} />}</div>
+      <div style={{ ...G(2, 1), ...bg(slots[6]) }} onClick={() => slots[6] && onRoomClick(slots[6]!)}>{slots[6] && <Inner room={slots[6]!} />}</div>
+      <div style={{ ...G(3, 1), ...bg(slots[2]) }} onClick={() => slots[2] && onRoomClick(slots[2]!)}>{slots[2] && <Inner room={slots[2]!} />}</div>
       <div style={{ ...G(1, 2), ...bg(slots[3]) }} onClick={() => slots[3] && onRoomClick(slots[3]!)}>{slots[3] && <Inner room={slots[3]} />}</div>
       <div style={{ ...G(2, "2 / 4"), ...bg(slots[4]), alignItems: "center", justifyContent: "center" }} onClick={() => slots[4] && onRoomClick(slots[4]!)}>{slots[4] && <Inner room={slots[4]} />}</div>
       <div style={{ ...G(3, 2), ...bg(slots[5]) }} onClick={() => slots[5] && onRoomClick(slots[5]!)}>{slots[5] && <Inner room={slots[5]} />}</div>
-      <div style={{ ...G(1, 3), ...bg(slots[6]) }} onClick={() => slots[6] && onRoomClick(slots[6]!)}>{slots[6] && <Inner room={slots[6]} />}</div>
+      <div style={{ ...G(1, 3), ...bg(slots[0]) }} onClick={() => slots[0] && onRoomClick(slots[0]!)}>{slots[0] && <Inner room={slots[0]} />}</div>
       <div style={{ ...G(3, 3), ...bg(slots[7]), alignItems: "center", justifyContent: "center" }} onClick={() => slots[7] && onRoomClick(slots[7]!)}>{slots[7] && <Inner room={slots[7]} />}</div>
     </div>
   );

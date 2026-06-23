@@ -41,14 +41,14 @@ export interface MobileSelectedRoom extends SceneRoom {
 
 interface ChipPos { top: string; left: string; }
 const CHIP_POSITIONS: ChipPos[] = [
-  { top: "79%", left: "19%" }, // 0 Sales
-  { top: "18%", left: "20%" }, // 1 Exec
-  { top: "18%", left: "50%" }, // 2 Support
-  { top: "48%", left: "19%" }, // 3 Marketing
-  { top: "48%", left: "50%" }, // 4 Meeting (center)
-  { top: "48%", left: "82%" }, // 5 Finance
-  { top: "80%", left: "51%" }, // 6 Execution
-  { top: "79%", left: "82%" }, // 7 AI
+  { top: "79%", left: "19%" }, // 0 Sales      — bottom-left
+  { top: "18%", left: "20%" }, // 1 Exec       — top-left
+  { top: "18%", left: "82%" }, // 2 Support    — top-right (was 50%; moved to match image hotspot)
+  { top: "48%", left: "19%" }, // 3 Marketing  — mid-left
+  { top: "48%", left: "50%" }, // 4 Meeting    — center
+  { top: "48%", left: "82%" }, // 5 Finance    — mid-right
+  { top: "80%", left: "51%" }, // 6 Execution  — bottom-center
+  { top: "79%", left: "82%" }, // 7 AI         — bottom-right
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
