@@ -55,23 +55,24 @@ const AVATAR_COLORS = [
 ];
 const DEMO_LETTERS = ["م", "أ", "ع", "س", "ر"];
 
-// Slot positions covering each room in the image (3×3 grid layout).
-// meeting room (slot 4) spans rows 2+3 in the center column.
+// Slot positions covering each room in the image (9-room layout).
+// slot 4 = board room (center), slot 8 = meetings (top-right, 9th room).
 interface SlotPos {
   top?: string; bottom?: string;
   left?: string; right?: string;
   width: string; height: string;
-  isMeeting?: boolean;
+  isBoard?: boolean;
 }
 const SLOT_POSITIONS: SlotPos[] = [
-  { top: "63%", left: "4%",  width: "29%", height: "32%" },
-  { top: "3%",  left: "5%",  width: "31%", height: "27%" },
-  { top: "3%",  left: "39%", width: "22%", height: "27%" },
-  { top: "34%", left: "4%",  width: "29%", height: "27%" },
-  { top: "35%", left: "39%", width: "22%", height: "24%", isMeeting: true },
-  { top: "34%", left: "69%", width: "27%", height: "27%" },
-  { top: "65%", left: "38%", width: "26%", height: "29%" },
-  { top: "64%", left: "69%", width: "27%", height: "31%" },
+  { top: "63%", left: "4%",  width: "29%", height: "32%" }, // 0 sales (bottom-left)
+  { top: "3%",  left: "5%",  width: "31%", height: "27%" }, // 1 executive (top-left)
+  { top: "3%",  left: "39%", width: "22%", height: "27%" }, // 2 support (top-center)
+  { top: "34%", left: "4%",  width: "29%", height: "27%" }, // 3 marketing (mid-left)
+  { top: "35%", left: "39%", width: "22%", height: "24%", isBoard: true }, // 4 board (center)
+  { top: "34%", left: "69%", width: "27%", height: "27%" }, // 5 finance (mid-right)
+  { top: "65%", left: "38%", width: "26%", height: "29%" }, // 6 execution (bottom-center)
+  { top: "64%", left: "69%", width: "27%", height: "31%" }, // 7 ai (bottom-right)
+  { top: "3%",  left: "64%", width: "32%", height: "27%" }, // 8 meetings (top-right, new 9th)
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -401,16 +402,18 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1.12fr 1fr", gridTemplateRows: "minmax(155px,auto) minmax(172px,auto) minmax(148px,auto)", gap: 4, background: "rgba(16,28,50,0.55)", borderRadius: 14, overflow: "hidden" }}>
-      {[0, 1, 2].map((i) => (
-        <div key={`r${i}`} style={{ ...G(i + 1, 1), ...bg(slots[i]) }} onClick={() => slots[i] && onRoomClick(slots[i]!)}>
-          {slots[i] && <Inner room={slots[i]!} />}
-        </div>
-      ))}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1.12fr 1fr", gridTemplateRows: "minmax(140px,auto) minmax(172px,auto) minmax(140px,auto)", gap: 4, background: "rgba(16,28,50,0.55)", borderRadius: 14, overflow: "hidden" }}>
+      {/* Row 1: exec(1) | support(2) | meetings(8) */}
+      <div style={{ ...G(1, 1), ...bg(slots[1]) }} onClick={() => slots[1] && onRoomClick(slots[1]!)}>{slots[1] && <Inner room={slots[1]} />}</div>
+      <div style={{ ...G(2, 1), ...bg(slots[2]) }} onClick={() => slots[2] && onRoomClick(slots[2]!)}>{slots[2] && <Inner room={slots[2]} />}</div>
+      <div style={{ ...G(3, 1), ...bg(slots[8]) }} onClick={() => slots[8] && onRoomClick(slots[8]!)}>{slots[8] && <Inner room={slots[8]} />}</div>
+      {/* Row 2: marketing(3) | board(4) | finance(5) */}
       <div style={{ ...G(1, 2), ...bg(slots[3]) }} onClick={() => slots[3] && onRoomClick(slots[3]!)}>{slots[3] && <Inner room={slots[3]} />}</div>
-      <div style={{ ...G(2, "2 / 4"), ...bg(slots[4]), alignItems: "center", justifyContent: "center" }} onClick={() => slots[4] && onRoomClick(slots[4]!)}>{slots[4] && <Inner room={slots[4]} />}</div>
+      <div style={{ ...G(2, 2), ...bg(slots[4]), alignItems: "center", justifyContent: "center" }} onClick={() => slots[4] && onRoomClick(slots[4]!)}>{slots[4] && <Inner room={slots[4]} />}</div>
       <div style={{ ...G(3, 2), ...bg(slots[5]) }} onClick={() => slots[5] && onRoomClick(slots[5]!)}>{slots[5] && <Inner room={slots[5]} />}</div>
-      <div style={{ ...G(1, 3), ...bg(slots[6]) }} onClick={() => slots[6] && onRoomClick(slots[6]!)}>{slots[6] && <Inner room={slots[6]} />}</div>
+      {/* Row 3: sales(0) | execution(6) | ai(7) */}
+      <div style={{ ...G(1, 3), ...bg(slots[0]) }} onClick={() => slots[0] && onRoomClick(slots[0]!)}>{slots[0] && <Inner room={slots[0]} />}</div>
+      <div style={{ ...G(2, 3), ...bg(slots[6]) }} onClick={() => slots[6] && onRoomClick(slots[6]!)}>{slots[6] && <Inner room={slots[6]} />}</div>
       <div style={{ ...G(3, 3), ...bg(slots[7]), alignItems: "center", justifyContent: "center" }} onClick={() => slots[7] && onRoomClick(slots[7]!)}>{slots[7] && <Inner room={slots[7]} />}</div>
     </div>
   );
@@ -419,15 +422,15 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
 // ─── Slot builder ─────────────────────────────────────────────────────────────
 
 function buildSlots(rooms: SceneRoom[]): (SceneRoom | null)[] {
-  const s: (SceneRoom | null)[] = Array(8).fill(null);
+  const s: (SceneRoom | null)[] = Array(9).fill(null);
   const used = new Set<number>();
   const ci = rooms.findIndex((r) => r.isCenter);
   const ai = rooms.findIndex((r) => r.isAI && !r.isCenter);
   if (ci >= 0) { s[4] = rooms[ci]; used.add(ci); }
   if (ai >= 0) { s[7] = rooms[ai]; used.add(ai); }
   const rem = rooms.filter((_, i) => !used.has(i));
-  [0, 1, 2, 3, 5, 6].filter((p) => !s[p]).forEach((pos, i) => { if (rem[i]) s[pos] = rem[i]; });
-  if (!s[4]) { const fb = rem[6] ?? rooms[Math.floor(rooms.length / 2)]; if (fb) s[4] = { ...fb, isCenter: true }; }
+  [0, 1, 2, 3, 5, 6, 8].filter((p) => !s[p]).forEach((pos, i) => { if (rem[i]) s[pos] = rem[i]; });
+  if (!s[4]) { const fb = rem[7] ?? rooms[Math.floor(rooms.length / 2)]; if (fb) s[4] = { ...fb, isCenter: true }; }
   return s;
 }
 
@@ -505,7 +508,7 @@ export default function VirtualOfficeReferenceScene({
                 ...(pos.bottom != null ? { bottom: pos.bottom } : {}),
                 ...(pos.left   != null ? { left:   pos.left   } : {}),
                 ...(pos.right  != null ? { right:  pos.right  } : {}),
-                zIndex: pos.isMeeting ? 10 : 5,
+                zIndex: pos.isBoard ? 10 : 5,
               };
               return (
                 <div key={room.id} style={ps}>

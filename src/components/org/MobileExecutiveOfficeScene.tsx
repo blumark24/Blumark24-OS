@@ -45,10 +45,11 @@ const CHIP_POSITIONS: ChipPos[] = [
   { top: "18%", left: "20%" }, // 1 Exec
   { top: "18%", left: "50%" }, // 2 Support
   { top: "48%", left: "19%" }, // 3 Marketing
-  { top: "48%", left: "50%" }, // 4 Meeting (center)
+  { top: "48%", left: "50%" }, // 4 Board (center)
   { top: "48%", left: "82%" }, // 5 Finance
   { top: "80%", left: "51%" }, // 6 Execution
   { top: "79%", left: "82%" }, // 7 AI
+  { top: "18%", left: "82%" }, // 8 Meetings (top-right, new 9th)
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

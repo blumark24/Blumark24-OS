@@ -9,9 +9,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight, RefreshCw, BrainCircuit, Users,
-  AlertCircle, Clock, Activity, Calendar, Sparkles, Heart,
+  AlertCircle, Clock, Activity, Calendar, Heart,
   AlertTriangle, LayoutGrid, X, Building2, Shield,
-  Layers, MapPin, Crown, ChevronDown, DoorOpen, Archive, Settings2,
+  Layers, MapPin, ChevronDown, DoorOpen, Archive, Settings2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { OrgStructureSnapshot } from "@/lib/org/types";
@@ -25,11 +25,11 @@ import type {
 } from "@/lib/tenant/executiveOfficeRoomMappings";
 import VirtualOfficeReferenceScene, { type SceneRoom, formatOfficeNumber } from "./VirtualOfficeReferenceScene";
 import MobileExecutiveOfficeScene from "./MobileExecutiveOfficeScene";
+import OfficeControlModal, { type OfficeRoomState } from "./OfficeControlModal";
 
 // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
-// The Board / Executive panel (BoardExecutiveOffice) is the 9th office —
-// مكتب 09 — but is rendered as a separate panel, not as a scene room.
-const BOARD_OFFICE_NUMBER = 9;
+// 9 real office slots (01–09). Slot 4 (office 05) = مكتب مجلس الإدارة (board).
+// Slot 8 (office 09) = meetings (top-right). No separate board panel.
 const OFFICE_LABEL_PREFIX = "مكتب";
 const officeLabel = (n: number) => `${OFFICE_LABEL_PREFIX} ${formatOfficeNumber(n)}`;
 const UNASSIGNED_LABEL = "غير مخصص";
@@ -73,28 +73,29 @@ export interface VirtualOfficeDesignProps {
   isRefreshing?: boolean;
 }
 
-// Executive Office Template — fixed 8 zones, mapped 1:1 to slot index.
-// TODO: EXECUTIVE-OFFICE-MAPPING-2 will replace the keyword auto-assignment
-//       with manager-controlled mapping (zone → department/management/team).
+// Executive Office Template — fixed 9 zones (C14-L2), mapped 1:1 to slot index.
+// Slot 4 = board (center, مكتب مجلس الإدارة). Slot 8 = meetings (top-right, 9th room).
 const EXECUTIVE_TEMPLATE_ZONES = [
   "المبيعات",
   "الإدارة العليا",
   "الدعم",
   "التسويق",
-  "الاجتماعات",
+  "مجلس الإدارة",
   "المالية",
   "التنفيذ",
   "غرفة الذكاء الاصطناعي",
+  "الاجتماعات",
 ] as const;
 const ROOM_KEYS_BY_SLOT: readonly ExecutiveOfficeFixedRoomKey[] = [
   "sales",
   "executive",
   "support",
   "marketing",
-  "meetings",
+  "board",
   "finance",
   "execution",
   "ai",
+  "meetings",
 ] as const;
 const EXECUTIVE_TEMPLATE_LABEL = "Executive Office";
 const EXECUTIVE_TEMPLATE_LABEL_AR = "قالب المكتب التنفيذي";
@@ -115,29 +116,18 @@ const LEVEL_LABELS: Record<string, string> = {
   agency: "جناح", management: "غرفة إدارة", department: "مساحة عمل",
 };
 
-// Demo rooms matching the approved visual reference
-const DEMO_DEF = [
-  { name: "غرفة المبيعات",         emp: 3, open: 5, overdue: 1, hp: 74, center: false, ai: false },
-  { name: "غرفة الإدارة العليا",   emp: 5, open: 2, overdue: 0, hp: 91, center: false, ai: false },
-  { name: "غرفة الدعم",            emp: 4, open: 3, overdue: 0, hp: 88, center: false, ai: false },
-  { name: "غرفة التسويق",          emp: 3, open: 4, overdue: 1, hp: 69, center: false, ai: false },
-  { name: "غرفة الاجتماعات",       emp: 0, open: 0, overdue: 0, hp:  0, center: true,  ai: false },
-  { name: "غرفة المالية",          emp: 2, open: 2, overdue: 0, hp: 81, center: false, ai: false },
-  { name: "غرفة التنفيذ",          emp: 3, open: 3, overdue: 0, hp: 76, center: false, ai: false },
-  { name: "غرفة الذكاء الاصطناعي", emp: 1, open: 0, overdue: 0, hp: 94, center: false, ai: true  },
-] as const;
-
 // Slot assignment keywords — maps Arabic/English room names to fixed visual slots.
-// Slot 0=sales, 1=executive, 2=support, 3=marketing, 4=meeting, 5=finance, 6=execution, 7=AI
+// Slot 0=sales, 1=executive, 2=support, 3=marketing, 4=board(center), 5=finance, 6=execution, 7=AI, 8=meetings
 const SLOT_KEYWORDS: Record<number, string[]> = {
   0: ["مبيعات", "بيع", "sales", "revenue", "تجار"],
   1: ["إدار", "executive", "عليا", "رئيس", "عام", "قياد", "تنفيذي"],
   2: ["دعم", "support", "خدمة عملاء", "service", "customer"],
-  3: ["تسويق", "market", "إعلان", "brand", "تواصل", "홍보"],
-  4: ["اجتماع", "meeting", "conference", "مؤتمر", "قاعة"],
+  3: ["تسويق", "market", "إعلان", "brand", "تواصل"],
+  4: ["مجلس", "board", "chairman", "رئاسة"],
   5: ["مال", "محاسب", "finance", "account", "خزين", "بنك", "حساب"],
   6: ["تنفيذ", "operat", "لوجست", "مشاريع", "project", "عمليات", "إنتاج"],
   7: ["ذكاء", "ai", "تقني", "tech", "برمجة", "software", "بيانات", "data"],
+  8: ["اجتماع", "meeting", "conference", "مؤتمر", "قاعة"],
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -282,7 +272,7 @@ function assignSlot(name: string, level: string, isCenter: boolean, isAI: boolea
     if (keywords.some((kw) => nameLower.includes(kw))) return slotNum;
   }
   // Fill any remaining slot
-  for (const s of [0, 1, 2, 3, 5, 6, 7]) {
+  for (const s of [0, 1, 2, 3, 5, 6, 7, 8]) {
     if (!usedSlots.has(s)) return s;
   }
   return -1;
@@ -314,10 +304,9 @@ function buildOfficeRooms(
 
   const empById  = new Map(safeEmp.map((e) => [e.id, e]));
   const usedSlots = new Set<number>();
-  const slotArr: (OfficeRoom | null)[] = Array(8).fill(null);
+  const slotArr: (OfficeRoom | null)[] = Array(9).fill(null);
 
   function makePlaceholder(slot: number): OfficeRoom {
-    const def = DEMO_DEF[slot];
     return {
       id: `pad-${slot}`,
       fixedRoomKey: ROOM_KEYS_BY_SLOT[slot] ?? "sales",
@@ -330,26 +319,24 @@ function buildOfficeRooms(
       isAI:     slot === 7,
       isDemo: true,
       deptCode: null,
-      type:  slot === 4 ? "قاعة اجتماعات" : slot === 7 ? "غرفة AI" : "مساحة عمل",
-      level: slot === 4 ? "management"     : "department",
+      type:  slot === 4 ? "مجلس الإدارة" : slot === 7 ? "غرفة AI" : slot === 8 ? "غرفة اجتماعات" : "مساحة عمل",
+      level: slot === 4 ? "management" : "department",
       teamCount: 0, teams: [], managerName: null,
       officeNumber: slot + 1,
       isUnassigned: true,
-      // keep def around so we don't have to remove it (consistency with prior shape)
-      ...(def ? {} : {}),
     };
   }
 
-  // Empty-org default: 8 stable numbered empty offices.
+  // Empty-org default: 9 stable numbered empty offices.
   if (depts.length === 0) {
     return {
       isDemo: true,
-      rooms: Array.from({ length: 8 }, (_, i) => makePlaceholder(i)),
+      rooms: Array.from({ length: 9 }, (_, i) => makePlaceholder(i)),
     };
   }
 
   // Place real depts.
-  for (const dept of depts.slice(0, 8)) {
+  for (const dept of depts.slice(0, 9)) {
     if (!dept) continue;
     const deptRels    = rels.filter((r) => r?.department_id === dept.id);
     const empIds      = new Set(deptRels.map((r) => r.employee_id).filter((x): x is string => typeof x === "string"));
@@ -366,7 +353,7 @@ function buildOfficeRooms(
     const manager     = dept.manager_id ? (empById.get(dept.manager_id)?.name ?? null) : null;
 
     const slotIdx = assignSlot(name, level, deptIsCenter, deptIsAI, usedSlots);
-    if (slotIdx < 0) continue;            // no free slot — skip (cap at 8).
+    if (slotIdx < 0) continue;            // no free slot — skip (cap at 9).
     if (usedSlots.has(slotIdx)) continue; // belt-and-braces against duplicate.
     usedSlots.add(slotIdx);
 
@@ -408,6 +395,7 @@ const ORG_UNIT_LABELS: Record<PreviewOrgUnitType, string> = {
 };
 
 const ROOM_MAPPINGS_API = "/api/tenant/executive-office/room-mappings";
+const VIRTUAL_OFFICE_ROOMS_API = "/api/tenant/virtual-office/rooms";
 
 function buildPreviewOrgUnits(
   snapshot: OrgStructureSnapshot | null,
@@ -1457,120 +1445,6 @@ function AIAlertsPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] })
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-// ─── Board / Executive office (EXECUTIVE-OFFICE-9-ROOMS-FOUNDATION-2) ────────────
-// The 9th office: the center Board / Executive Management office. Rendered as a
-// dedicated OFF-MAP panel/card (no map hotspot/coordinate changes). It is never
-// a persisted department mapping — purely an executive summary built from the
-// existing in-memory snapshot/employees/tasks. No DB, no API, no AI calls.
-function BoardExecutiveOffice({
-  orgName,
-  managerName,
-  linkedOfficeCount,
-  unassignedOfficeCount,
-  mappingCompletionPct,
-  executiveBrain,
-}: {
-  orgName: string;
-  managerName: string | null;
-  linkedOfficeCount: number;
-  unassignedOfficeCount: number;
-  mappingCompletionPct: number;
-  executiveBrain: ExecutiveBrainSnapshot;
-}) {
-  const [open, setOpen] = useState(false);
-  const accent = "#a855f7";
-  const managerInitials = managerName ? nameInitials(managerName) : "؟";
-  const metrics = [
-    { label: "عدد المكاتب المرتبطة", value: linkedOfficeCount, color: "#22d3ee" },
-    { label: "عدد المكاتب غير المخصصة", value: unassignedOfficeCount, color: "#f59e0b" },
-    { label: "نسبة اكتمال الربط", value: `${mappingCompletionPct}%`, color: "#10b981" },
-  ];
-
-  return (
-    <section style={{ borderRadius: 18, border: `1px solid ${accent}40`, background: "linear-gradient(150deg, rgba(28,8,58,0.92), rgba(10,6,26,0.96))", overflow: "hidden", boxShadow: `0 0 36px ${accent}12` }}>
-      {/* Card / toggle */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "transparent", border: "none", cursor: "pointer", textAlign: "start" }}
-      >
-        <span style={{ width: 42, height: 42, borderRadius: 13, display: "grid", placeItems: "center", flexShrink: 0, background: `radial-gradient(circle at 30% 20%, rgba(255,255,255,0.16), transparent 40%), linear-gradient(135deg, ${accent}33, ${accent}14)`, border: `1px solid ${accent}55` }}>
-          <Crown size={20} color="#d8b4fe" />
-        </span>
-        <span style={{ minWidth: 0, flex: 1 }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{
-              display: "inline-flex", alignItems: "center", justifyContent: "center",
-              minWidth: 28, height: 20, padding: "0 7px",
-              borderRadius: 7,
-              background: `${accent}1c`, border: `1px solid ${accent}4a`,
-              color: "#ede9fe", fontSize: 10.5, fontWeight: 800, lineHeight: 1,
-              fontVariantNumeric: "tabular-nums",
-            }}>{officeLabel(BOARD_OFFICE_NUMBER)}</span>
-            <span style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>مجلس الإدارة / المكتب التنفيذي</span>
-            <span style={{ fontSize: 9.5, fontWeight: 700, color: "#d8b4fe", background: `${accent}1c`, border: `1px solid ${accent}3a`, padding: "1px 8px", borderRadius: 999 }}>المكتب التنفيذي</span>
-          </span>
-          <span style={{ display: "block", fontSize: 11, color: "#9d8bc0", marginTop: 2 }}>مركز قيادة المنشأة · {orgName}</span>
-        </span>
-        <ChevronDown size={18} color="#9d8bc0" style={{ flexShrink: 0, transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "none" }} />
-      </button>
-
-      {/* Panel */}
-      {open && (
-        <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* Manager */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, borderRadius: 12, border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.03)", padding: "10px 12px" }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: accent, display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{managerInitials}</div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 9.5, color: "#9d8bc0" }}>مدير المنشأة</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#ede9fe", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{managerName ?? "مدير المنشأة"}</div>
-            </div>
-          </div>
-
-          {/* Executive metrics */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-            {metrics.map((m) => (
-              <div key={m.label} style={{ borderRadius: 11, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(255,255,255,0.03)", padding: "9px 12px", textAlign: "center" }}>
-                <div style={{ fontSize: 19, fontWeight: 800, color: m.color, lineHeight: 1 }}>{m.value}</div>
-                <div style={{ fontSize: 10, color: "#9d8bc0", marginTop: 3 }}>{m.label}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Executive snapshot note */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 11, border: "1px solid rgba(34,211,238,0.18)", background: "rgba(34,211,238,0.05)", padding: "9px 12px" }}>
-            <Activity size={14} color="#67e8f9" style={{ flexShrink: 0 }} />
-            <span style={{ fontSize: 11.5, color: "#bae6fd" }}>
-              لقطة تنفيذية محسوبة من حالة ربط المكاتب الحالية فقط.
-            </span>
-          </div>
-
-          <ExecutiveBrainPanel brain={executiveBrain} />
-
-          {/* Future AI agent placeholder — visual only, no logic/API */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, borderRadius: 12, border: "1px dashed rgba(139,92,246,0.30)", background: "rgba(139,92,246,0.06)", padding: "10px 12px" }}>
-            <span style={{ width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", flexShrink: 0, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)" }}>
-              <BrainCircuit size={15} color="#c4b5fd" />
-            </span>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#ddd6fe" }}>غرفة المساعد الذكي</span>
-                <span style={{ fontSize: 8.5, fontWeight: 700, color: "#c4b5fd", background: "rgba(139,92,246,0.14)", border: "1px solid rgba(139,92,246,0.3)", padding: "1px 7px", borderRadius: 999 }}>قريبًا</span>
-              </div>
-              <div style={{ fontSize: 10.5, color: "#9d8bc0", marginTop: 2 }}>قريبًا: وكيل ذكاء اصطناعي خاص بهذه المنشأة</div>
-            </div>
-          </div>
-
-          <p style={{ margin: 0, fontSize: 9.5, color: "#6b5a8a", textAlign: "center" }}>
-            عرض تنفيذي للقراءة فقط — لا يتم حفظ أي ربط لمكتب مجلس الإدارة.
-          </p>
-        </div>
-      )}
-    </section>
-  );
-}
-
 type OfficeControlEntry = {
   room: OfficeRoom;
   mappingUnit: PreviewOrgUnit | null;
@@ -1665,12 +1539,6 @@ function OfficeControlPanel({
   onClearSaved: (room: OfficeRoom) => void;
 }) {
   const [open, setOpen] = useState(true);
-  const boardAccent = "#a855f7";
-  const boardMetrics = [
-    { label: "عدد المكاتب المرتبطة", value: linkedOfficeCount, color: "#22d3ee" },
-    { label: "عدد المكاتب غير المخصصة", value: unassignedOfficeCount, color: "#f59e0b" },
-    { label: "نسبة اكتمال الربط", value: `${mappingCompletionPct}%`, color: "#10b981" },
-  ];
 
   return (
     <section style={{ borderRadius: 18, border: "1px solid rgba(34,211,238,0.18)", background: "rgba(6,14,28,0.88)", overflow: "hidden", boxShadow: "0 18px 42px rgba(0,0,0,0.25)" }}>
@@ -1758,26 +1626,6 @@ function OfficeControlPanel({
             );
           })}
 
-          <article style={{ borderRadius: 13, border: `1px solid ${boardAccent}35`, background: "linear-gradient(135deg, rgba(168,85,247,0.12), rgba(34,211,238,0.05))", padding: 11, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 10, fontWeight: 900, color: "#ede9fe", background: `${boardAccent}1c`, border: `1px solid ${boardAccent}40`, borderRadius: 8, padding: "2px 7px" }}>
-                {officeLabel(BOARD_OFFICE_NUMBER)}
-              </span>
-              <span style={{ fontSize: 12.5, fontWeight: 850, color: "#fff" }}>مجلس الإدارة / المكتب التنفيذي</span>
-              <span style={{ fontSize: 9.5, color: "#d8b4fe", border: `1px solid ${boardAccent}30`, background: `${boardAccent}12`, borderRadius: 999, padding: "1px 7px" }}>قراءة فقط</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7 }}>
-              {boardMetrics.map((metric) => (
-                <div key={metric.label} style={{ borderRadius: 9, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(255,255,255,0.03)", padding: "7px 6px", textAlign: "center", minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: metric.color, lineHeight: 1 }}>{metric.value}</div>
-                  <div style={{ fontSize: 9, color: "#9d8bc0", marginTop: 4 }}>{metric.label}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: 9 }}>
-              <ExecutiveBrainPanel brain={executiveBrain} compact />
-            </div>
-          </article>
         </div>
       )}
     </section>
@@ -1790,12 +1638,17 @@ export default function VirtualOfficeDesign({
 }: VirtualOfficeDesignProps) {
   const { user } = useAuth();
   const [selectedRoom, setSelectedRoom] = useState<OfficeRoom | null>(null);
+  const [controlModalRoom, setControlModalRoom] = useState<OfficeRoom | null>(null);
   const [mappingModalRoom, setMappingModalRoom] = useState<OfficeRoom | null>(null);
   const [previewMappings, setPreviewMappings] = useState<Record<string, PreviewOrgUnit>>({});
   const [savedMappings, setSavedMappings] = useState<ExecutiveOfficeRoomMappingByRoom>({});
   const [mappingErrorByRoom, setMappingErrorByRoom] = useState<Record<string, string>>({});
   const [savingRoomKey, setSavingRoomKey] = useState<ExecutiveOfficeFixedRoomKey | null>(null);
   const [deletingRoomKey, setDeletingRoomKey] = useState<ExecutiveOfficeFixedRoomKey | null>(null);
+  const [roomStates, setRoomStates] = useState<Record<string, OfficeRoomState>>({});
+  const [updatingRoomKey, setUpdatingRoomKey] = useState<string | null>(null);
+
+  const isManager = user?.role === "organization_manager" || user?.role === "super_admin";
 
   const { rooms, isDemo } = useMemo(
     () => buildOfficeRooms(snapshot, employees, tasks),
@@ -1971,9 +1824,59 @@ export default function VirtualOfficeDesign({
     void handleDeleteSavedMapping(room);
   }, [handleDeleteSavedMapping]);
 
+  // Load room open/close states from DB.
+  useEffect(() => {
+    let alive = true;
+    async function loadRoomStates() {
+      try {
+        const token = await getRoomMappingAccessToken();
+        if (!token || !alive) return;
+        const res = await fetch(VIRTUAL_OFFICE_ROOMS_API, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (!alive || !res.ok) return;
+        const data = (await res.json()) as { rooms?: Array<{ room_key: string; is_open: boolean }> };
+        if (!alive) return;
+        const states: Record<string, OfficeRoomState> = {};
+        for (const r of data.rooms ?? []) {
+          states[r.room_key] = { is_open: r.is_open };
+        }
+        setRoomStates(states);
+      } catch {
+        // Non-critical — rooms default to open
+      }
+    }
+    void loadRoomStates();
+    return () => { alive = false; };
+  }, []);
+
+  const handleToggleRoomOpen = useCallback(async (room: OfficeRoom, is_open: boolean) => {
+    setUpdatingRoomKey(room.fixedRoomKey);
+    try {
+      const token = await getRoomMappingAccessToken();
+      if (!token) return;
+      const res = await fetch(`${VIRTUAL_OFFICE_ROOMS_API}/${room.fixedRoomKey}`, {
+        method: "PATCH",
+        headers: mappingHeaders(token),
+        cache: "no-store",
+        body: JSON.stringify({ is_open }),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { room?: { room_key: string; is_open: boolean } };
+      if (data.room) {
+        setRoomStates((prev) => ({ ...prev, [data.room!.room_key]: { is_open: data.room!.is_open } }));
+      }
+    } catch {
+      // Non-critical
+    } finally {
+      setUpdatingRoomKey(null);
+    }
+  }, []);
+
   const overdueTasks = safeTasks.filter((t) => t?.status === "متأخرة").length;
   const activeEmps   = safeRels.length;
-  const deptCount    = isDemo ? DEMO_DEF.length : safeDepts.length;
+  const deptCount    = safeDepts.length;
 
   const avgHealth = useMemo(() => {
     const hr = rooms.filter((r) => r.healthPct > 0);
@@ -1983,17 +1886,12 @@ export default function VirtualOfficeDesign({
   const kpis = [
     { label: "صحة المكتب",       value: `${avgHealth}%`, sub: hpLabel(avgHealth),                          Icon: Heart,        iconBg: "rgba(16,185,129,0.28)" },
     { label: "الوحدات",          value: deptCount,        sub: undefined,                                   Icon: LayoutGrid,   iconBg: "rgba(34,211,238,0.25)" },
-    { label: "الموظفون النشطون", value: isDemo ? 18 : activeEmps, sub: `من ${isDemo ? 24 : safeEmps.length}`, Icon: Users, iconBg: "rgba(59,130,246,0.25)" },
-    { label: "المهام المتأخرة",  value: isDemo ? 6  : overdueTasks, sub: "مهمة",                           Icon: AlertCircle,  iconBg: "rgba(245,158,11,0.28)" },
+    { label: "الموظفون النشطون", value: activeEmps, sub: `من ${safeEmps.length}`,                           Icon: Users,        iconBg: "rgba(59,130,246,0.25)" },
+    { label: "المهام المتأخرة",  value: overdueTasks, sub: "مهمة",                                         Icon: AlertCircle,  iconBg: "rgba(245,158,11,0.28)" },
   ];
 
   const isEmpty = safeDepts.length === 0 && !isDemo;
 
-  // Board/Executive office summary inputs (in-memory only; no persistence).
-  // The signed-in organization manager is shown when available; otherwise a
-  // safe role fallback is used inside the panel.
-  const boardManagerName =
-    user && user.role === "organization_manager" ? (user.name ?? null) : null;
   const linkedOfficeCount = roomsWithPresence.filter((room) => !room.isUnassigned).length;
   const unassignedOfficeCount = roomsWithPresence.filter((room) => room.isUnassigned).length;
   const mappingCompletionPct = roomsWithPresence.length > 0
@@ -2109,7 +2007,6 @@ export default function VirtualOfficeDesign({
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: "rgba(245,158,11,0.20)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.32)" }}>BETA</span>
-              {isDemo && <span style={{ fontSize: 10, fontWeight: 500, padding: "2px 8px", borderRadius: 20, background: "rgba(245,158,11,0.12)", color: "#fcd34d", border: "1px solid rgba(245,158,11,0.22)", display: "inline-flex", alignItems: "center", gap: 4 }}><Sparkles size={9} color="#fcd34d" />عرض توضيحي</span>}
             </div>
             <h1 style={{ fontSize: "clamp(22px,4vw,30px)", fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.2 }}>المكتب التنفيذي الافتراضي</h1>
             <p style={{ fontSize: 13, color: "#7a9ab8", marginTop: 8, maxWidth: 560, lineHeight: 1.6 }}>مساحة عمل تفاعلية مستوحاة من أسلوب المكاتب الافتراضية، مبنية من هيكل منشأتك.</p>
@@ -2148,16 +2045,6 @@ export default function VirtualOfficeDesign({
         onClearSaved={(room) => confirmDeleteSavedMapping(room)}
       />
 
-      {/* ── Board / Executive office (9th office — off-map, no coordinate change) ── */}
-      <BoardExecutiveOffice
-        orgName={orgName}
-        managerName={boardManagerName}
-        linkedOfficeCount={linkedOfficeCount}
-        unassignedOfficeCount={unassignedOfficeCount}
-        mappingCompletionPct={mappingCompletionPct}
-        executiveBrain={executiveBrain}
-      />
-
       {/* ── Empty State ── */}
       {isEmpty ? (
         <div style={{ borderRadius: 20, border: "1px dashed rgba(34,211,238,0.25)", padding: "48px 24px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, background: "rgba(10,22,40,0.5)" }}>
@@ -2186,7 +2073,11 @@ export default function VirtualOfficeDesign({
             <VirtualOfficeReferenceScene
               rooms={roomsWithPresence}
               selectedRoomId={selectedRoom?.id ?? null}
-              onRoomClick={(r) => setSelectedRoom(prev => prev?.id === r.id ? null : r as OfficeRoom)}
+              onRoomClick={(r) => {
+                const officeRoom = r as OfficeRoom;
+                setSelectedRoom(prev => prev?.id === r.id ? null : officeRoom);
+                setControlModalRoom(officeRoom);
+              }}
             />
             {selectedRoom && (
               <RoomDetailPanel
@@ -2244,6 +2135,29 @@ export default function VirtualOfficeDesign({
       <p style={{ fontSize: 10, color: "#1e3050", textAlign: "center", paddingBottom: 8 }}>
         محاكاة للقراءة فقط · لا تغييرات في البيانات · مبني من الهيكل الإداري
       </p>
+      {controlModalRoom && !mappingModalRoom && (
+        <OfficeControlModal
+          key={controlModalRoom.id}
+          room={controlModalRoom}
+          roomState={roomStates[controlModalRoom.fixedRoomKey] ?? null}
+          isManager={isManager}
+          mappingUnit={(() => {
+            const m = resolveRoomMapping({ room: controlModalRoom, units: previewOrgUnits, savedMappings, previewMappings });
+            return m.unit;
+          })()}
+          mappingSource={(() => {
+            const m = resolveRoomMapping({ room: controlModalRoom, units: previewOrgUnits, savedMappings, previewMappings });
+            return m.source;
+          })()}
+          isUpdating={updatingRoomKey === controlModalRoom.fixedRoomKey}
+          onClose={() => setControlModalRoom(null)}
+          onOpenMapping={() => {
+            clearRoomMappingError(controlModalRoom);
+            setMappingModalRoom(controlModalRoom);
+          }}
+          onToggleOpen={(is_open) => void handleToggleRoomOpen(controlModalRoom, is_open)}
+        />
+      )}
       {mappingModalRoom && (
         <MappingPreviewModal
           key={mappingModalRoom.id}
