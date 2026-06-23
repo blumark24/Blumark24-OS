@@ -439,14 +439,14 @@ function StartHereEmptyState() {
 
         <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#22d3ee]/24 bg-[#22d3ee]/12 px-3 py-1 text-xs font-semibold text-[#22d3ee]">
-              <Sparkles size={13} />
-              ابدأ هنا
-            </div>
-            <p className="mt-4 text-sm font-semibold text-[#22d3ee]">مركز قيادة النمو</p>
+            <p className="text-sm font-semibold text-[#22d3ee]">مركز قيادة النمو</p>
             <h2 className="mt-2 max-w-3xl text-2xl font-heading font-black leading-tight text-white sm:text-3xl">
               ماذا أفعل هذا الشهر لنمو منشأتي؟
             </h2>
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#22d3ee]/24 bg-[#22d3ee]/12 px-3 py-1 text-xs font-semibold text-[#22d3ee]">
+              <Sparkles size={13} />
+              ابدأ هنا
+            </div>
             <div className="mt-5 rounded-2xl border border-[#1e3a5f]/80 bg-[#0d1f3c]/58 p-4">
               <h3 className="text-lg font-bold text-white">لم تبدأ خطة النمو بعد</h3>
               <p className="mt-2 text-sm leading-relaxed text-[#8ba3c7]">
@@ -459,9 +459,9 @@ function StartHereEmptyState() {
           </div>
 
           <div className="hidden rounded-[1.4rem] border border-cyan-300/18 bg-[#071426]/68 p-4 lg:block">
-            <div className="grid h-40 place-items-center rounded-[1.1rem] border border-[#1e3a5f]/70 bg-[linear-gradient(135deg,rgba(34,211,238,0.08),rgba(30,111,217,0.06))]">
-              <div className="grid h-20 w-20 rotate-45 place-items-center rounded-2xl border border-cyan-300/24 bg-cyan-400/10 shadow-[0_0_34px_-18px_rgba(34,211,238,0.9)]">
-                <span className="-rotate-45 text-sm font-bold text-white">ابدأ</span>
+              <div className="grid h-40 place-items-center rounded-[1.1rem] border border-[#1e3a5f]/70 bg-[linear-gradient(135deg,rgba(34,211,238,0.08),rgba(30,111,217,0.06))]">
+                <div className="grid h-20 w-20 rotate-45 place-items-center rounded-2xl border border-cyan-300/24 bg-cyan-400/10 shadow-[0_0_34px_-18px_rgba(34,211,238,0.9)]">
+                <span className="-rotate-45 text-sm font-bold text-white">نمو</span>
               </div>
             </div>
           </div>
@@ -633,14 +633,6 @@ function StrategyContent() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-heading font-bold text-white">
-          <Map size={24} className="text-[#22d3ee]" />
-          خطة النمو
-        </h1>
-        <p className="mt-1 text-sm text-[#8ba3c7]">خطة نمو شهرية لمنشأتك</p>
-      </div>
-
       {error && (
         <div className="glass-card border border-red-500/30 p-4 text-sm text-red-400">{error}</div>
       )}
