@@ -24,6 +24,10 @@ export async function PATCH(
       return json({ error: "مفتاح الغرفة غير صالح" }, 400);
     }
 
+    if (roomKey === "board") {
+      return json({ error: "لا يمكن إغلاق مكتب مجلس الإدارة." }, 400);
+    }
+
     const session = await resolveTenantSession(req);
     if (!session.ok) {
       return json({ error: session.error, code: session.code }, session.status);

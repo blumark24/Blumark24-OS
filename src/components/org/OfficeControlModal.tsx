@@ -14,6 +14,14 @@ export interface OfficeRoomState {
   is_open: boolean;
 }
 
+export interface BoardOfficeStats {
+  totalOffices: number;
+  linkedOfficeCount: number;
+  unassignedOfficeCount: number;
+  openCount: number;
+  closedCount: number;
+}
+
 export interface OfficeControlModalProps {
   room: OfficeRoom;
   roomState: OfficeRoomState | null;
@@ -21,9 +29,13 @@ export interface OfficeControlModalProps {
   mappingUnit: PreviewOrgUnit | null;
   mappingSource: MappingSource | null;
   isUpdating: boolean;
+  boardStats?: BoardOfficeStats | null;
   onClose: () => void;
   onOpenMapping: () => void;
   onToggleOpen: (is_open: boolean) => void;
+  onOpenAll?: () => void;
+  onCloseAll?: () => void;
+  onReviewUnassigned?: () => void;
 }
 
 function hpStyle(pct: number) {
@@ -39,9 +51,13 @@ export default function OfficeControlModal({
   mappingUnit,
   mappingSource,
   isUpdating,
+  boardStats,
   onClose,
   onOpenMapping,
   onToggleOpen,
+  onOpenAll,
+  onCloseAll,
+  onReviewUnassigned,
 }: OfficeControlModalProps) {
   const label = room.officeNumber ? officeLabel(room.officeNumber) : "مكتب";
   const isOpen = roomState?.is_open ?? true;
@@ -105,50 +121,76 @@ export default function OfficeControlModal({
 
         {/* Body */}
         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* Status row */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 5,
-              borderRadius: 999, padding: "4px 12px",
-              border: isOpen ? "1px solid rgba(16,185,129,0.35)" : "1px solid rgba(100,116,139,0.30)",
-              background: isOpen ? "rgba(16,185,129,0.10)" : "rgba(100,116,139,0.08)",
-              color: isOpen ? "#6ee7b7" : "#94a3b8",
-              fontSize: 12, fontWeight: 700,
-            }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: isOpen ? "#10b981" : "#64748b", boxShadow: isOpen ? "0 0 8px #10b981" : undefined }} />
-              {isOpen ? "مفتوح" : "مغلق"}
-            </span>
-            {room.healthPct > 0 && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, borderRadius: 999, padding: "4px 10px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: hp.color, fontSize: 12, fontWeight: 700 }}>
-                <CheckCircle2 size={12} /> {room.healthPct}%
-              </span>
-            )}
-          </div>
-
-          {/* Linked unit */}
-          <div style={{ borderRadius: 14, border: "1px solid rgba(34,211,238,0.14)", background: "rgba(34,211,238,0.05)", padding: "11px 14px" }}>
-            <div style={{ fontSize: 10, color: "#4a6a8a", marginBottom: 4 }}>الربط الإداري {sourceTag}</div>
-            {linkedName ? (
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#dff7ff" }}>{linkedName}</div>
-            ) : (
-              <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>لا يوجد ربط حالي</div>
-            )}
-          </div>
-
-          {/* Metrics */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-            {[
-              { Icon: Users, color: "#22d3ee", label: "الأعضاء", value: room.employeeCount },
-              { Icon: CheckCircle2, color: "#10b981", label: "المهام", value: room.openTasks },
-              { Icon: AlertCircle, color: "#f59e0b", label: "المتأخرة", value: room.overdueTasks },
-            ].map(({ Icon, color, label: l, value }) => (
-              <div key={l} style={{ borderRadius: 12, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", padding: "10px 12px", textAlign: "center" }}>
-                <Icon size={14} color={color} style={{ marginBottom: 4 }} />
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#fff", lineHeight: 1 }}>{value}</div>
-                <div style={{ fontSize: 10, color: "#6b87ab", marginTop: 3 }}>{l}</div>
+          {room.isCenter && boardStats ? (
+            /* Board (slot 4) — office-wide stats, no personal mapping */
+            <>
+              <p style={{ margin: 0, fontSize: 12, color: "#7a9ab8", lineHeight: 1.6 }}>
+                مكتب مركزي لمتابعة وتشغيل مكاتب المنشأة
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+                {[
+                  { label: "عدد المكاتب", value: boardStats.totalOffices, color: "#22d3ee" },
+                  { label: "المكاتب المرتبطة", value: boardStats.linkedOfficeCount, color: "#10b981" },
+                  { label: "المكاتب غير المخصصة", value: boardStats.unassignedOfficeCount, color: "#f59e0b" },
+                  { label: "المكاتب المفتوحة", value: boardStats.openCount, color: "#6ee7b7" },
+                  { label: "المكاتب المغلقة", value: boardStats.closedCount, color: "#94a3b8" },
+                ].map(({ label: l, value, color }) => (
+                  <div key={l} style={{ borderRadius: 12, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", padding: "10px 12px", textAlign: "center" }}>
+                    <div style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+                    <div style={{ fontSize: 10, color: "#6b87ab", marginTop: 3 }}>{l}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            /* Regular office */
+            <>
+              {/* Status row */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  borderRadius: 999, padding: "4px 12px",
+                  border: isOpen ? "1px solid rgba(16,185,129,0.35)" : "1px solid rgba(100,116,139,0.30)",
+                  background: isOpen ? "rgba(16,185,129,0.10)" : "rgba(100,116,139,0.08)",
+                  color: isOpen ? "#6ee7b7" : "#94a3b8",
+                  fontSize: 12, fontWeight: 700,
+                }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: isOpen ? "#10b981" : "#64748b", boxShadow: isOpen ? "0 0 8px #10b981" : undefined }} />
+                  {isOpen ? "مفتوح" : "مغلق"}
+                </span>
+                {room.healthPct > 0 && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, borderRadius: 999, padding: "4px 10px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: hp.color, fontSize: 12, fontWeight: 700 }}>
+                    <CheckCircle2 size={12} /> {room.healthPct}%
+                  </span>
+                )}
+              </div>
+
+              {/* Linked unit */}
+              <div style={{ borderRadius: 14, border: "1px solid rgba(34,211,238,0.14)", background: "rgba(34,211,238,0.05)", padding: "11px 14px" }}>
+                <div style={{ fontSize: 10, color: "#4a6a8a", marginBottom: 4 }}>الربط الإداري {sourceTag}</div>
+                {linkedName ? (
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#dff7ff" }}>{linkedName}</div>
+                ) : (
+                  <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>لا يوجد ربط حالي</div>
+                )}
+              </div>
+
+              {/* Metrics */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                {[
+                  { Icon: Users, color: "#22d3ee", label: "الأعضاء", value: room.employeeCount },
+                  { Icon: CheckCircle2, color: "#10b981", label: "المهام", value: room.openTasks },
+                  { Icon: AlertCircle, color: "#f59e0b", label: "المتأخرة", value: room.overdueTasks },
+                ].map(({ Icon, color, label: l, value }) => (
+                  <div key={l} style={{ borderRadius: 12, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", padding: "10px 12px", textAlign: "center" }}>
+                    <Icon size={14} color={color} style={{ marginBottom: 4 }} />
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "#fff", lineHeight: 1 }}>{value}</div>
+                    <div style={{ fontSize: 10, color: "#6b87ab", marginTop: 3 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Actions */}
@@ -158,23 +200,84 @@ export default function OfficeControlModal({
               ليست لديك صلاحية إدارة المكاتب.
             </p>
           )}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              disabled={!isManager}
-              onClick={() => onOpenMapping()}
-              style={{
-                flex: 1, minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-                borderRadius: 12, border: "1px solid rgba(34,211,238,0.30)", background: "rgba(34,211,238,0.10)", color: "#22d3ee",
-                fontSize: 13, fontWeight: 600, cursor: isManager ? "pointer" : "not-allowed",
-                opacity: isManager ? 1 : 0.4,
-              }}
-            >
-              <MapPin size={14} />
-              {linkedName ? "تغيير الربط" : "ربط المكتب"}
-            </button>
+          {room.isCenter ? (
+            /* Board bulk actions */
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  disabled={!isManager || isUpdating}
+                  onClick={onOpenAll}
+                  style={{
+                    flex: 1, minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    borderRadius: 12, border: "1px solid rgba(16,185,129,0.30)", background: "rgba(16,185,129,0.08)", color: "#6ee7b7",
+                    fontSize: 13, fontWeight: 600, cursor: (isManager && !isUpdating) ? "pointer" : "not-allowed",
+                    opacity: (isManager && !isUpdating) ? 1 : 0.4,
+                  }}
+                >
+                  <DoorOpen size={14} />
+                  {isUpdating ? "جارٍ التحديث..." : "فتح جميع المكاتب"}
+                </button>
+                <button
+                  type="button"
+                  disabled={!isManager || isUpdating}
+                  onClick={onCloseAll}
+                  style={{
+                    flex: 1, minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    borderRadius: 12, border: "1px solid rgba(239,68,68,0.30)", background: "rgba(239,68,68,0.08)", color: "#fca5a5",
+                    fontSize: 13, fontWeight: 600, cursor: (isManager && !isUpdating) ? "pointer" : "not-allowed",
+                    opacity: (isManager && !isUpdating) ? 1 : 0.4,
+                  }}
+                >
+                  <Archive size={14} />
+                  {isUpdating ? "جارٍ التحديث..." : "إغلاق جميع المكاتب"}
+                </button>
+              </div>
+              {boardStats && boardStats.unassignedOfficeCount > 0 && (
+                <button
+                  type="button"
+                  disabled={!isManager}
+                  onClick={onReviewUnassigned}
+                  style={{
+                    minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    borderRadius: 12, border: "1px solid rgba(245,158,11,0.30)", background: "rgba(245,158,11,0.08)", color: "#fbbf24",
+                    fontSize: 13, fontWeight: 600, cursor: isManager ? "pointer" : "not-allowed",
+                    opacity: isManager ? 1 : 0.4,
+                  }}
+                >
+                  <MapPin size={14} />
+                  مراجعة المكاتب غير المخصصة ({boardStats.unassignedOfficeCount})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7",
+                  fontSize: 13, cursor: "pointer",
+                }}
+              >
+                إغلاق
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                disabled={!isManager}
+                onClick={() => onOpenMapping()}
+                style={{
+                  flex: 1, minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  borderRadius: 12, border: "1px solid rgba(34,211,238,0.30)", background: "rgba(34,211,238,0.10)", color: "#22d3ee",
+                  fontSize: 13, fontWeight: 600, cursor: isManager ? "pointer" : "not-allowed",
+                  opacity: isManager ? 1 : 0.4,
+                }}
+              >
+                <MapPin size={14} />
+                {linkedName ? "تغيير الربط" : "ربط المكتب"}
+              </button>
 
-            {!room.isCenter && (
               <button
                 type="button"
                 disabled={!isManager || isUpdating}
@@ -193,20 +296,20 @@ export default function OfficeControlModal({
                 {isOpen ? <Archive size={14} /> : <DoorOpen size={14} />}
                 {isUpdating ? "جارٍ التحديث..." : isOpen ? "إغلاق المكتب" : "فتح المكتب"}
               </button>
-            )}
 
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-                borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7",
-                fontSize: 13, cursor: "pointer", padding: "0 16px",
-              }}
-            >
-              إغلاق
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7",
+                  fontSize: 13, cursor: "pointer", padding: "0 16px",
+                }}
+              >
+                إغلاق
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

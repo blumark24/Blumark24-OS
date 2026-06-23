@@ -10,8 +10,7 @@
 //
 // Read-only · isolated from /org · no DB writes.
 
-import { useState, useMemo } from "react";
-import Image from "next/image";
+import { useMemo } from "react";
 import { BrainCircuit, MessageSquare } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -43,10 +42,6 @@ export interface VirtualOfficeReferenceSceneProps {
   onRoomClick?: (room: SceneRoom) => void;
 }
 
-// ─── Asset path ───────────────────────────────────────────────────────────────
-const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
-const IMAGE_ASPECT_RATIO = "1672 / 941";
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
@@ -54,26 +49,6 @@ const AVATAR_COLORS = [
   "#3b82f6", "#f97316", "#ec4899", "#14b8a6",
 ];
 const DEMO_LETTERS = ["م", "أ", "ع", "س", "ر"];
-
-// Slot positions covering each room in the image (9-room layout).
-// slot 4 = board room (center), slot 8 = meetings (top-right, 9th room).
-interface SlotPos {
-  top?: string; bottom?: string;
-  left?: string; right?: string;
-  width: string; height: string;
-  isBoard?: boolean;
-}
-const SLOT_POSITIONS: SlotPos[] = [
-  { top: "63%", left: "4%",  width: "29%", height: "32%" }, // 0 sales (bottom-left)
-  { top: "3%",  left: "5%",  width: "31%", height: "27%" }, // 1 executive (top-left)
-  { top: "3%",  left: "39%", width: "22%", height: "27%" }, // 2 support (top-center)
-  { top: "34%", left: "4%",  width: "29%", height: "27%" }, // 3 marketing (mid-left)
-  { top: "35%", left: "39%", width: "22%", height: "24%", isBoard: true }, // 4 board (center)
-  { top: "34%", left: "69%", width: "27%", height: "27%" }, // 5 finance (mid-right)
-  { top: "65%", left: "38%", width: "26%", height: "29%" }, // 6 execution (bottom-center)
-  { top: "64%", left: "69%", width: "27%", height: "31%" }, // 7 ai (bottom-right)
-  { top: "3%",  left: "64%", width: "32%", height: "27%" }, // 8 meetings (top-right, new 9th)
-];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -354,15 +329,12 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
     if (room.isCenter) return (
       <div style={{ padding: 12, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, position: "relative" }}>
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 90% 80% at 50% 50%, rgba(139,92,246,0.18), transparent)", pointerEvents: "none" }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#a78bfa" }} />
-          <span style={{ fontSize: 10, color: "#c4b5fd", fontWeight: 600 }}>مشغولة الآن</span>
-        </div>
+        <NumberBadge n={room.officeNumber} accent="#a855f7" />
         <div style={{ width: 44, height: 44, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle, rgba(139,92,246,0.35), rgba(139,92,246,0.06))", border: "1px solid rgba(139,92,246,0.42)", boxShadow: sel ? "0 0 30px rgba(139,92,246,0.35)" : "0 0 20px rgba(139,92,246,0.25)" }}>
           <MessageSquare size={19} color="#c4b5fd" />
         </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4" }}>{room.name}</span>
-        {room.isDemo && <span style={{ fontSize: 12, color: "#c4b5fd", fontWeight: 600 }}>11:00 – 11:30</span>}
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4", textAlign: "center" }}>مكتب مجلس الإدارة</span>
+        <span style={{ fontSize: 9, color: "#9d8bc0", textAlign: "center" }}>المكتب المركزي</span>
         <AvatarRow room={room} />
       </div>
     );
@@ -441,7 +413,6 @@ export default function VirtualOfficeReferenceScene({
   selectedRoomId = null,
   onRoomClick,
 }: VirtualOfficeReferenceSceneProps) {
-  const [imgFailed, setImgFailed] = useState(false);
   const slots = useMemo(() => buildSlots(rooms), [rooms]);
   const handleClick = (room: SceneRoom) => onRoomClick?.(room);
 
@@ -457,7 +428,7 @@ export default function VirtualOfficeReferenceScene({
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px #10b981" }} />
           <span style={{ fontSize: 11, color: "rgba(80,120,160,0.85)", fontWeight: 500 }}>مخطط الطابق الرئيسي</span>
-          {!imgFailed && <span style={{ fontSize: 9, color: "rgba(34,211,238,0.40)" }}>· انقر على غرفة للتفاصيل</span>}
+          <span style={{ fontSize: 9, color: "rgba(34,211,238,0.40)" }}>· انقر على غرفة للتفاصيل</span>
         </div>
         <div style={{ display: "flex", gap: 14 }}>
           {[{ c: "#10b981", l: `${rooms.filter((r) => !r.isCenter && !r.isAI).length} غرفة` }, { c: "#a855f7", l: "قاعة اجتماعات" }, { c: "#22d3ee", l: "غرفة AI" }].map((x) => (
@@ -469,61 +440,9 @@ export default function VirtualOfficeReferenceScene({
         </div>
       </div>
 
-      {/* ── Desktop scene ── */}
+      {/* ── Desktop scene — CSS 3×3 grid is the primary interactive UX ── */}
       <div className="hidden sm:block">
-        {!imgFailed ? (
-          <div style={{
-            position: "relative",
-            borderRadius: 14,
-            overflow: "hidden",
-            // Match the final asset aspect ratio (1672x941). No crop.
-            aspectRatio: IMAGE_ASPECT_RATIO,
-            // Cap so it doesn't dominate the page on very wide screens.
-            maxHeight: 700,
-            margin: "0 auto",
-            background: "#06111f",
-          }}>
-            {/* Image base — contain to show full floor plan, no cropping */}
-            <Image
-              src={IMAGE_SRC}
-              alt="Office floor plan"
-              fill
-              sizes="(min-width: 1024px) 1100px, 100vw"
-              style={{ objectFit: "contain", objectPosition: "center" }}
-              onError={() => setImgFailed(true)}
-              priority
-            />
-            {/* Vignette */}
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 90% 90% at 50% 50%, transparent 55%, rgba(0,0,0,0.45) 100%)" }} />
-            {/* Glow */}
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 50% 30% at 10% 10%, rgba(34,211,238,0.06), transparent), radial-gradient(ellipse 45% 30% at 90% 90%, rgba(139,92,246,0.07), transparent)" }} />
-            {/* Room overlays */}
-            {slots.map((room, i) => {
-              if (!room) return null;
-              const pos = SLOT_POSITIONS[i];
-              if (!pos) return null;
-              const ps: React.CSSProperties = {
-                position: "absolute", width: pos.width, height: pos.height,
-                ...(pos.top    != null ? { top:    pos.top    } : {}),
-                ...(pos.bottom != null ? { bottom: pos.bottom } : {}),
-                ...(pos.left   != null ? { left:   pos.left   } : {}),
-                ...(pos.right  != null ? { right:  pos.right  } : {}),
-                zIndex: pos.isBoard ? 10 : 5,
-              };
-              return (
-                <div key={room.id} style={ps}>
-                  {room.isCenter
-                    ? <MeetingOverlay room={room} selected={room.id === selectedRoomId} onClick={() => handleClick(room)} />
-                    : room.isAI
-                      ? <AIOverlay room={room} selected={room.id === selectedRoomId} onClick={() => handleClick(room)} />
-                      : <RoomOverlay room={room} selected={room.id === selectedRoomId} onClick={() => handleClick(room)} />}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <CSSFloor slots={slots} selectedRoomId={selectedRoomId ?? ""} onRoomClick={handleClick} />
-        )}
+        <CSSFloor slots={slots} selectedRoomId={selectedRoomId ?? ""} onRoomClick={handleClick} />
       </div>
 
       {/* ── Mobile stacked ── */}

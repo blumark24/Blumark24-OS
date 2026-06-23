@@ -25,7 +25,7 @@ import type {
 } from "@/lib/tenant/executiveOfficeRoomMappings";
 import VirtualOfficeReferenceScene, { type SceneRoom, formatOfficeNumber } from "./VirtualOfficeReferenceScene";
 import MobileExecutiveOfficeScene from "./MobileExecutiveOfficeScene";
-import OfficeControlModal, { type OfficeRoomState } from "./OfficeControlModal";
+import OfficeControlModal, { type OfficeRoomState, type BoardOfficeStats } from "./OfficeControlModal";
 
 // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
 // 9 real office slots (01–09). Slot 4 (office 05) = مكتب مجلس الإدارة (board).
@@ -257,11 +257,9 @@ function resolveRoomPeople(
   return people;
 }
 
-// Smart keyword-based slot assignment
-function assignSlot(name: string, level: string, isCenter: boolean, isAI: boolean, usedSlots: Set<number>): number {
-  if (isCenter || level === "management") {
-    if (!usedSlots.has(4)) return 4;
-  }
+// Smart keyword-based slot assignment. Slot 4 is pre-reserved for board —
+// never assigned here regardless of dept level or name.
+function assignSlot(name: string, _level: string, _isCenter: boolean, isAI: boolean, usedSlots: Set<number>): number {
   if (isAI) {
     if (!usedSlots.has(7)) return 7;
   }
@@ -306,24 +304,29 @@ function buildOfficeRooms(
   const usedSlots = new Set<number>();
   const slotArr: (OfficeRoom | null)[] = Array(9).fill(null);
 
+  // Slot 4 is always reserved for مكتب مجلس الإدارة — never overwritten by depts.
+  slotArr[4] = makePlaceholder(4);
+  usedSlots.add(4);
+
   function makePlaceholder(slot: number): OfficeRoom {
+    const isBoard = slot === 4;
     return {
       id: `pad-${slot}`,
       fixedRoomKey: ROOM_KEYS_BY_SLOT[slot] ?? "sales",
       deptId: `pad-${slot}`,
-      name: officeLabel(slot + 1),
+      name: isBoard ? "مكتب مجلس الإدارة" : officeLabel(slot + 1),
       accentColor: ACCENT_CYCLE[slot % ACCENT_CYCLE.length] ?? "#22d3ee",
       employeeCount: 0, avatars: [],
       openTasks: 0, overdueTasks: 0, healthPct: 0,
-      isCenter: slot === 4,
+      isCenter: isBoard,
       isAI:     slot === 7,
       isDemo: true,
       deptCode: null,
-      type:  slot === 4 ? "مجلس الإدارة" : slot === 7 ? "غرفة AI" : slot === 8 ? "غرفة اجتماعات" : "مساحة عمل",
-      level: slot === 4 ? "management" : "department",
+      type:  isBoard ? "مجلس الإدارة" : slot === 7 ? "غرفة AI" : slot === 8 ? "غرفة اجتماعات" : "مساحة عمل",
+      level: isBoard ? "management" : "department",
       teamCount: 0, teams: [], managerName: null,
       officeNumber: slot + 1,
-      isUnassigned: true,
+      isUnassigned: !isBoard,
     };
   }
 
@@ -352,7 +355,7 @@ function buildOfficeRooms(
     const deptIsAI     = name.includes("ذكاء") || name.toUpperCase().includes("AI");
     const manager     = dept.manager_id ? (empById.get(dept.manager_id)?.name ?? null) : null;
 
-    const slotIdx = assignSlot(name, level, deptIsCenter, deptIsAI, usedSlots);
+    const slotIdx = assignSlot(name, level, deptIsCenter, deptIsAI, usedSlots); // slot 4 already in usedSlots
     if (slotIdx < 0) continue;            // no free slot — skip (cap at 9).
     if (usedSlots.has(slotIdx)) continue; // belt-and-braces against duplicate.
     usedSlots.add(slotIdx);
@@ -1483,7 +1486,7 @@ function ExecutiveBrainPanel({
           العقل التنفيذي
         </span>
         <span style={{ fontSize: 9, color: "#93c5fd", border: "1px solid rgba(147,197,253,0.22)", background: "rgba(147,197,253,0.08)", borderRadius: 999, padding: "1px 7px" }}>
-          قراءة فقط
+          تحكم آمن
         </span>
       </div>
 
@@ -1676,8 +1679,11 @@ export default function VirtualOfficeDesign({
     return rooms.map((room) => {
       const { unit } = resolveRoomMapping({ room, units: previewOrgUnits, savedMappings, previewMappings });
       const hasMapping = Boolean(unit);
-      const isUnassigned = !hasMapping && room.isDemo === true;
-      const displayName = unit?.name ?? (isUnassigned ? UNASSIGNED_LABEL : room.name);
+      // Board (slot 4) always keeps its fixed name regardless of any mapping.
+      const isUnassigned = !room.isCenter && !hasMapping && room.isDemo === true;
+      const displayName = room.isCenter
+        ? "مكتب مجلس الإدارة"
+        : (unit?.name ?? (isUnassigned ? UNASSIGNED_LABEL : room.name));
 
       const base: OfficeRoom = {
         ...room,
@@ -1867,6 +1873,36 @@ export default function VirtualOfficeDesign({
       if (data.room) {
         setRoomStates((prev) => ({ ...prev, [data.room!.room_key]: { is_open: data.room!.is_open } }));
       }
+    } catch {
+      // Non-critical
+    } finally {
+      setUpdatingRoomKey(null);
+    }
+  }, []);
+
+  const handleBulkToggle = useCallback(async (is_open: boolean) => {
+    const nonBoardKeys = ROOM_KEYS_BY_SLOT.filter((k) => k !== "board");
+    setUpdatingRoomKey("bulk");
+    try {
+      const token = await getRoomMappingAccessToken();
+      if (!token) return;
+      await Promise.all(
+        nonBoardKeys.map((key) =>
+          fetch(`${VIRTUAL_OFFICE_ROOMS_API}/${key}`, {
+            method: "PATCH",
+            headers: mappingHeaders(token),
+            cache: "no-store",
+            body: JSON.stringify({ is_open }),
+          }).then(async (res) => {
+            if (res.ok) {
+              const data = (await res.json()) as { room?: { room_key: string; is_open: boolean } };
+              if (data.room) {
+                setRoomStates((prev) => ({ ...prev, [data.room!.room_key]: { is_open: data.room!.is_open } }));
+              }
+            }
+          }).catch(() => undefined),
+        ),
+      );
     } catch {
       // Non-critical
     } finally {
@@ -2133,31 +2169,41 @@ export default function VirtualOfficeDesign({
       </div>
 
       <p style={{ fontSize: 10, color: "#1e3050", textAlign: "center", paddingBottom: 8 }}>
-        محاكاة للقراءة فقط · لا تغييرات في البيانات · مبني من الهيكل الإداري
+        حالة المكتب محفوظة · إدارة المكاتب · يعتمد على بيانات المنشأة
       </p>
-      {controlModalRoom && !mappingModalRoom && (
-        <OfficeControlModal
-          key={controlModalRoom.id}
-          room={controlModalRoom}
-          roomState={roomStates[controlModalRoom.fixedRoomKey] ?? null}
-          isManager={isManager}
-          mappingUnit={(() => {
-            const m = resolveRoomMapping({ room: controlModalRoom, units: previewOrgUnits, savedMappings, previewMappings });
-            return m.unit;
-          })()}
-          mappingSource={(() => {
-            const m = resolveRoomMapping({ room: controlModalRoom, units: previewOrgUnits, savedMappings, previewMappings });
-            return m.source;
-          })()}
-          isUpdating={updatingRoomKey === controlModalRoom.fixedRoomKey}
-          onClose={() => setControlModalRoom(null)}
-          onOpenMapping={() => {
-            clearRoomMappingError(controlModalRoom);
-            setMappingModalRoom(controlModalRoom);
-          }}
-          onToggleOpen={(is_open) => void handleToggleRoomOpen(controlModalRoom, is_open)}
-        />
-      )}
+      {controlModalRoom && !mappingModalRoom && (() => {
+        const controlMapping = resolveRoomMapping({ room: controlModalRoom, units: previewOrgUnits, savedMappings, previewMappings });
+        const openCount = ROOM_KEYS_BY_SLOT.filter((k) => k !== "board").filter((k) => (roomStates[k]?.is_open ?? true)).length;
+        const closedCount = ROOM_KEYS_BY_SLOT.filter((k) => k !== "board").length - openCount;
+        const boardStats: BoardOfficeStats = {
+          totalOffices: roomsWithPresence.length,
+          linkedOfficeCount,
+          unassignedOfficeCount,
+          openCount,
+          closedCount,
+        };
+        return (
+          <OfficeControlModal
+            key={controlModalRoom.id}
+            room={controlModalRoom}
+            roomState={roomStates[controlModalRoom.fixedRoomKey] ?? null}
+            isManager={isManager}
+            mappingUnit={controlMapping.unit}
+            mappingSource={controlMapping.source}
+            isUpdating={updatingRoomKey === controlModalRoom.fixedRoomKey || updatingRoomKey === "bulk"}
+            boardStats={controlModalRoom.isCenter ? boardStats : null}
+            onClose={() => setControlModalRoom(null)}
+            onOpenMapping={() => {
+              clearRoomMappingError(controlModalRoom);
+              setMappingModalRoom(controlModalRoom);
+            }}
+            onToggleOpen={(is_open) => void handleToggleRoomOpen(controlModalRoom, is_open)}
+            onOpenAll={() => void handleBulkToggle(true)}
+            onCloseAll={() => void handleBulkToggle(false)}
+            onReviewUnassigned={() => setControlModalRoom(null)}
+          />
+        );
+      })()}
       {mappingModalRoom && (
         <MappingPreviewModal
           key={mappingModalRoom.id}
