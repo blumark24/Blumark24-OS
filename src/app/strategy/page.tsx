@@ -17,6 +17,7 @@ import {
   Map,
   Network,
   Save,
+  Sparkles,
   Target,
   TrendingUp,
   UserCircle,
@@ -182,16 +183,21 @@ function GrowthTwinLite({ hasPhases }: { hasPhases: boolean }) {
   ];
 
   return (
-    <section className="glass-card overflow-hidden border border-[#22d3ee]/16 p-4 sm:p-5">
+    <section className="glass-card overflow-hidden border border-[#22d3ee]/18 bg-[radial-gradient(circle_at_16%_10%,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_82%_0%,rgba(30,111,217,0.12),transparent_32%),rgba(7,20,38,0.68)] p-4 sm:p-5">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-heading font-bold text-white">توأم النمو الذكي</h2>
-          <p className="mt-1 text-sm text-[#8ba3c7]">خريطة بصرية خفيفة لما يمكن ربطه بخطة النمو لاحقاً.</p>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[#8ba3c7]">نموذج بصري خفيف يوضح حالة منشأتك، وما يحتاج ربط أو متابعة.</p>
         </div>
-        <StatusPill status={hasPhases ? "جاهز" : "قيد التجهيز"} />
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-[#22d3ee]/18 bg-[#22d3ee]/8 px-3 py-1 text-[11px] font-semibold text-cyan-100">
+            خريطة خفيفة - بدون 3D
+          </span>
+          <StatusPill status={hasPhases ? "جاهز" : "قيد التجهيز"} />
+        </div>
       </div>
 
-      <div className="relative hidden min-h-[360px] rounded-[1.5rem] border border-[#1e3a5f]/70 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.12),transparent_36%),linear-gradient(145deg,rgba(6,18,38,0.78),rgba(8,20,42,0.62))] p-5 lg:block">
+      <div className="relative hidden min-h-[360px] rounded-[1.5rem] border border-[#1e3a5f]/70 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.13),transparent_36%),linear-gradient(145deg,rgba(6,18,38,0.84),rgba(8,20,42,0.66))] p-5 lg:block">
         <div className="absolute inset-x-12 top-1/2 h-px bg-gradient-to-l from-transparent via-cyan-300/25 to-transparent" />
         <div className="absolute inset-y-12 right-1/2 w-px bg-gradient-to-b from-transparent via-cyan-300/20 to-transparent" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(30,111,217,0.12),transparent_28%),radial-gradient(circle_at_82%_78%,rgba(34,211,238,0.10),transparent_30%)]" />
@@ -252,6 +258,164 @@ function GrowthTwinLite({ hasPhases }: { hasPhases: boolean }) {
                 <StatusPill status={node.status} />
               </div>
               <p className="mt-2 text-xs leading-relaxed text-[#8ba3c7]">{node.hint}</p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function TwinSkillsSection({ hasPhases }: { hasPhases: boolean }) {
+  const skills: {
+    title: string;
+    desc: string;
+    status: GrowthStatus;
+    icon: React.ElementType;
+  }[] = [
+    {
+      title: "قراءة حالة المنشأة",
+      desc: "يوضح الصورة العامة من خطة النمو الحالية.",
+      status: hasPhases ? "جاهز" : "قيد التجهيز",
+      icon: Map,
+    },
+    {
+      title: "ربط الهيكل الإداري",
+      desc: "يساعدك على متابعة جاهزية الأقسام والمسؤوليات.",
+      status: "يحتاج ربط",
+      icon: Network,
+    },
+    {
+      title: "متابعة خطة النمو",
+      desc: "يوضح المرحلة الحالية والإجراء التالي.",
+      status: hasPhases ? "جاهز" : "قيد التجهيز",
+      icon: Target,
+    },
+    {
+      title: "كشف نقاط التعطّل",
+      desc: "يقترح أين تحتاج الخطة إلى متابعة أو تحديث.",
+      status: "قيد التجهيز",
+      icon: Lightbulb,
+    },
+    {
+      title: "توجيه الإجراء التالي",
+      desc: "يساعدك على اختيار خطوة شهرية واضحة.",
+      status: hasPhases ? "جاهز" : "قيد التجهيز",
+      icon: CheckSquare,
+    },
+    {
+      title: "تجهيز المكتب الافتراضي",
+      desc: "يوضح ما يحتاج ربط قبل تشغيل تجربة المكتب.",
+      status: "يحتاج ربط",
+      icon: Building2,
+    },
+  ];
+
+  return (
+    <section className="glass-card border border-[#1e3a5f]/80 p-4 sm:p-5">
+      <div className="mb-4 flex items-start gap-3">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-cyan-300/18 bg-cyan-400/10 text-cyan-200">
+          <Sparkles size={18} />
+        </div>
+        <div>
+          <h2 className="text-lg font-heading font-bold text-white">مهارات التوأم الذكي</h2>
+          <p className="mt-1 text-sm leading-relaxed text-[#8ba3c7]">
+            قدرات خفيفة تقرأ الخطة وتساعدك على المتابعة دون تنفيذ تلقائي أو وعود غير مدعومة.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {skills.map((skill) => {
+          const Icon = skill.icon;
+          return (
+            <div
+              key={skill.title}
+              className="rounded-2xl border border-[#1e3a5f]/78 bg-[#0d1f3c]/52 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:border-cyan-300/22 hover:bg-[#102848]/58"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-cyan-400/10 text-cyan-200">
+                  <Icon size={16} />
+                </div>
+                <StatusPill status={skill.status} />
+              </div>
+              <h3 className="mt-3 text-sm font-bold text-white">{skill.title}</h3>
+              <p className="mt-1 text-xs leading-relaxed text-[#8ba3c7]">{skill.desc}</p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function TwinScaleTiers() {
+  const tiers: {
+    title: string;
+    label: string;
+    forText: string;
+    experience: string;
+    icon: React.ElementType;
+  }[] = [
+    {
+      title: "منشأة صغيرة",
+      label: "خفيف وسريع",
+      forText: "محل، كوفي، عيادة صغيرة، متجر",
+      experience: "خطة نمو بسيطة + إجراءات شهرية + مؤشرات أساسية",
+      icon: Building2,
+    },
+    {
+      title: "منشأة متوسطة",
+      label: "تشغيلي",
+      forText: "شركة صغيرة، مطعم بعدة أقسام، عيادة بفريق",
+      experience: "خريطة تشغيل + أقسام + مهام + حالات ربط",
+      icon: Network,
+    },
+    {
+      title: "منشأة كبيرة",
+      label: "متقدم لاحقاً",
+      forText: "فندق، شركة، عدة فروع، فريق كبير",
+      experience: "Digital Twin متقدم + غرف تشغيل + مؤشرات متعددة",
+      icon: BarChart3,
+    },
+  ];
+
+  return (
+    <section className="glass-card overflow-hidden border border-[#22d3ee]/16 bg-[linear-gradient(145deg,rgba(8,20,42,0.82),rgba(6,16,32,0.72))] p-4 sm:p-5">
+      <div className="mb-4">
+        <h2 className="text-lg font-heading font-bold text-white">مستويات التوأم حسب حجم المنشأة</h2>
+        <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[#8ba3c7]">
+          نفس الفكرة تتدرج حسب حجم العمل: تبدأ بسيطة، ثم تصبح خريطة تشغيل أعمق عندما تتوفر البيانات والربط.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        {tiers.map((tier) => {
+          const Icon = tier.icon;
+          return (
+            <div
+              key={tier.title}
+              className="rounded-[1.35rem] border border-[#1e3a5f]/80 bg-[#0a1b34]/72 p-4 shadow-[0_18px_42px_rgba(0,0,0,0.18)]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl border border-cyan-300/18 bg-cyan-400/10 text-cyan-200">
+                  <Icon size={18} />
+                </div>
+                <span className="rounded-full border border-cyan-300/18 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold text-cyan-100">
+                  {tier.label}
+                </span>
+              </div>
+              <h3 className="mt-4 text-base font-bold text-white">{tier.title}</h3>
+              <div className="mt-3 space-y-2 text-xs leading-relaxed text-[#8ba3c7]">
+                <p>
+                  <span className="font-semibold text-cyan-100">يناسب: </span>
+                  {tier.forText}
+                </p>
+                <p>
+                  <span className="font-semibold text-cyan-100">التجربة: </span>
+                  {tier.experience}
+                </p>
+              </div>
             </div>
           );
         })}
@@ -428,13 +592,16 @@ function StrategyContent() {
       ) : null}
 
       {hasPhases && (
-        <section className="glass-card overflow-hidden border border-[#22d3ee]/20 bg-[radial-gradient(circle_at_12%_8%,rgba(34,211,238,0.14),transparent_30%),radial-gradient(circle_at_88%_25%,rgba(30,111,217,0.16),transparent_32%),linear-gradient(145deg,rgba(8,20,42,0.96),rgba(6,16,32,0.88))] p-4 sm:p-5 lg:p-6">
+        <section className="glass-card relative overflow-hidden border border-[#22d3ee]/22 bg-[radial-gradient(circle_at_14%_8%,rgba(34,211,238,0.18),transparent_30%),radial-gradient(circle_at_88%_20%,rgba(30,111,217,0.18),transparent_34%),linear-gradient(145deg,rgba(8,20,42,0.98),rgba(5,14,30,0.92))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] sm:p-5 lg:p-6">
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-l from-transparent via-cyan-200/55 to-transparent" />
+          <div className="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
             <div className="min-w-0">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#22d3ee]/20 bg-[#22d3ee]/10 px-3 py-1 text-xs font-medium text-[#22d3ee]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#22d3ee]/24 bg-[#22d3ee]/12 px-3 py-1 text-xs font-medium text-[#22d3ee]">
+                <Sparkles size={13} />
                 مركز قيادة النمو
               </div>
-              <h2 className="mt-3 text-2xl font-heading font-black text-white sm:text-3xl">
+              <h2 className="mt-3 max-w-3xl text-2xl font-heading font-black leading-tight text-white sm:text-3xl">
                 ماذا أفعل هذا الشهر لنمو منشأتي؟
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#8ba3c7]">
@@ -442,15 +609,15 @@ function StrategyContent() {
               </p>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-[#1e3a5f] bg-[#0d1f3c]/60 p-3">
+                <div className="rounded-2xl border border-[#1e3a5f] bg-[#0d1f3c]/64 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   <div className="text-xs text-[#8ba3c7]">المرحلة الحالية</div>
                   <div className="mt-1 truncate text-sm font-bold text-white">{currentPhase?.title}</div>
                 </div>
-                <div className="rounded-2xl border border-[#1e3a5f] bg-[#0d1f3c]/60 p-3">
+                <div className="rounded-2xl border border-[#1e3a5f] bg-[#0d1f3c]/64 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   <div className="text-xs text-[#8ba3c7]">هدف الشهر</div>
                   <div className="mt-1 line-clamp-2 text-sm font-bold text-white">{monthlyGoal}</div>
                 </div>
-                <div className="rounded-2xl border border-[#1e3a5f] bg-[#0d1f3c]/60 p-3">
+                <div className="rounded-2xl border border-[#1e3a5f] bg-[#0d1f3c]/64 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   <div className="text-xs text-[#8ba3c7]">الإجراء التالي</div>
                   <div className="mt-1 line-clamp-2 text-sm font-bold text-white">{nextAction}</div>
                 </div>
@@ -483,6 +650,8 @@ function StrategyContent() {
       )}
 
       <GrowthTwinLite hasPhases={hasPhases} />
+      <TwinSkillsSection hasPhases={hasPhases} />
+      <TwinScaleTiers />
 
       {hasPhases && (
         <section className="glass-card border border-[#22d3ee]/20 p-5">
