@@ -86,16 +86,31 @@ function VirtualOfficeContent({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <VirtualOfficeDesign
-      snapshot={snapshot}
-      employees={employees ?? []}
-      tasks={tasks ?? []}
-      orgName={orgName}
-      orgCode={orgCode}
-      onBackToOrg={onBack}
-      onRefresh={() => void handleRefresh()}
-      isRefreshing={refreshing}
-    />
+    <div className="space-y-4">
+      <section className="rounded-2xl border border-[#22d3ee]/18 bg-[#0d1f3c]/45 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" dir="rtl">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-white">مرتبط بخطة النمو</h2>
+            <p className="mt-1 text-xs leading-relaxed text-[#8ba3c7]">
+              يمكن استخدام المكتب الافتراضي لمتابعة اجتماعات ومهام مراحل النمو بعد تحديدها في خطة النمو.
+            </p>
+          </div>
+          <span className="w-fit rounded-full border border-cyan-300/22 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold text-cyan-100">
+            متابعة اجتماعات ومهام النمو
+          </span>
+        </div>
+      </section>
+      <VirtualOfficeDesign
+        snapshot={snapshot}
+        employees={employees ?? []}
+        tasks={tasks ?? []}
+        orgName={orgName}
+        orgCode={orgCode}
+        onBackToOrg={onBack}
+        onRefresh={() => void handleRefresh()}
+        isRefreshing={refreshing}
+      />
+    </div>
   );
 }
 
