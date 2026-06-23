@@ -89,7 +89,7 @@ export const MOBILE_ROUTE_LABELS: Partial<Record<WorkspaceRouteId, string>> = {
   org: "الهيكل",
   employees: "الفريق",
   finance: "المالية",
-  strategy: "الاستراتيجية",
+  strategy: "خطة النمو",
   reports: "التقارير",
   settings: "الإعدادات",
   ai: "المساعد",

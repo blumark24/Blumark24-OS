@@ -21,7 +21,7 @@ const ROUTE_HINTS: Partial<Record<WorkspaceRouteId, string>> = {
   ai: "مساعد تشغيلي للقراءة والتحليل",
   automation: "إجراءات تشغيل ذكية",
   employees: "الفريق والصلاحيات",
-  strategy: "التخطيط والنمو",
+  strategy: "خطة نمو شهرية لمنشأتك",
 };
 
 function routeMatches(pathname: string, href: string) {
