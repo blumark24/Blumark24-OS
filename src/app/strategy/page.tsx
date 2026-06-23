@@ -37,10 +37,11 @@ const STATUS_CONFIG = {
   "قادمة": { class: "status-inactive", color: "#8ba3c7", icon: Target },
 } as const;
 
-type GrowthStatus = "جاهز" | "يحتاج ربط" | "قيد التجهيز" | "غير متاح";
+type GrowthStatus = "جاهز" | "جاهز للمتابعة" | "يحتاج ربط" | "قيد التجهيز" | "غير متاح";
 
 const TWIN_STATUS_STYLES: Record<GrowthStatus, string> = {
   "جاهز": "border-emerald-300/25 bg-emerald-400/10 text-emerald-200",
+  "جاهز للمتابعة": "border-cyan-300/25 bg-cyan-400/10 text-cyan-100",
   "يحتاج ربط": "border-amber-300/25 bg-amber-400/10 text-amber-200",
   "قيد التجهيز": "border-cyan-300/25 bg-cyan-400/10 text-cyan-100",
   "غير متاح": "border-slate-300/16 bg-slate-400/10 text-slate-300",
@@ -150,9 +151,10 @@ const GROWTH_TWIN_NODES: GrowthTwinNode[] = [
   },
   {
     label: "المكتب الافتراضي",
-    status: "يحتاج ربط",
+    status: "جاهز للمتابعة",
     icon: Building2,
-    hint: "يرتبط لاحقاً بخريطة التشغيل.",
+    hint: "استخدم المكتب الافتراضي لاحقاً لمتابعة الاجتماعات والمهام المرتبطة بالنمو.",
+    href: "/virtual-office",
   },
   {
     label: "العملاء",
@@ -219,6 +221,35 @@ function OrgLinkCard({ currentPhaseTitle }: { currentPhaseTitle?: string }) {
           className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-[#22d3ee] px-4 py-2 text-sm font-semibold text-[#061224] transition hover:bg-[#67e8f9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
         >
           فتح الهيكل الإداري
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function VirtualOfficeLinkCard({ currentPhaseTitle }: { currentPhaseTitle?: string }) {
+  return (
+    <section className="glass-card border border-cyan-300/18 bg-[linear-gradient(145deg,rgba(10,31,58,0.82),rgba(7,20,38,0.72))] p-4 sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="mb-2 inline-flex items-center rounded-full border border-cyan-300/22 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold text-cyan-100">
+            جاهز للمتابعة
+          </div>
+          <h2 className="text-lg font-heading font-bold text-white">ربط المكتب الافتراضي</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[#8ba3c7]">
+            افتح المكتب الافتراضي لمتابعة اجتماعات ومهام النمو مع فريقك بشكل أوضح.
+          </p>
+          {currentPhaseTitle ? (
+            <p className="mt-2 text-xs leading-relaxed text-cyan-100">
+              المرحلة الحالية: <span className="font-semibold text-white">{currentPhaseTitle}</span>
+            </p>
+          ) : null}
+        </div>
+        <Link
+          href="/virtual-office"
+          className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-cyan-300/24 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/45 hover:bg-cyan-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+        >
+          فتح المكتب الافتراضي
         </Link>
       </div>
     </section>
@@ -518,6 +549,9 @@ function StartHereEmptyState() {
             <p className="mt-3 text-xs leading-relaxed text-[#8ba3c7]">
               بعد إضافة أول مرحلة، يمكنك ربطها بالهيكل الإداري.
             </p>
+            <p className="mt-1 text-xs leading-relaxed text-[#8ba3c7]">
+              بعد إضافة أول مرحلة، يمكنك متابعة العمل من المكتب الافتراضي.
+            </p>
           </div>
 
           <div className="hidden rounded-[1.4rem] border border-cyan-300/18 bg-[#071426]/68 p-4 lg:block">
@@ -751,6 +785,7 @@ function StrategyContent() {
       )}
 
       {hasPhases && <OrgLinkCard currentPhaseTitle={currentPhase?.title} />}
+      {hasPhases && <VirtualOfficeLinkCard currentPhaseTitle={currentPhase?.title} />}
 
       {hasPhases && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
