@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import {
@@ -131,18 +132,49 @@ function KpiCard({
   );
 }
 
+function OrgLinkCard({ currentPhaseTitle }: { currentPhaseTitle?: string }) {
+  return (
+    <section className="glass-card border border-amber-300/18 bg-[linear-gradient(145deg,rgba(15,28,50,0.82),rgba(7,20,38,0.72))] p-4 sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="mb-2 inline-flex items-center rounded-full border border-amber-300/22 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold text-amber-200">
+            يحتاج ربط
+          </div>
+          <h2 className="text-lg font-heading font-bold text-white">ربط الهيكل الإداري</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[#8ba3c7]">
+            حدد الجهة أو المسؤول المرتبط بهذه المرحلة حتى تتحول خطة النمو إلى تنفيذ واضح.
+          </p>
+          {currentPhaseTitle ? (
+            <p className="mt-2 text-xs leading-relaxed text-cyan-100">
+              المرحلة الحالية: <span className="font-semibold text-white">{currentPhaseTitle}</span>
+            </p>
+          ) : null}
+        </div>
+        <Link
+          href="/org"
+          className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-[#22d3ee] px-4 py-2 text-sm font-semibold text-[#061224] transition hover:bg-[#67e8f9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+        >
+          فتح الهيكل الإداري
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 function GrowthTwinLite({ hasPhases }: { hasPhases: boolean }) {
   const nodes: {
     label: string;
     status: GrowthStatus;
     icon: React.ElementType;
     hint: string;
+    href?: string;
   }[] = [
     {
       label: "الهيكل الإداري",
       status: "يحتاج ربط",
       icon: Network,
-      hint: "يرتبط لاحقاً بجاهزية الفرق والمسؤوليات.",
+      hint: "اربط المسؤوليات لاحقاً من الهيكل الإداري.",
+      href: "/org",
     },
     {
       label: "المكتب الافتراضي",
@@ -221,11 +253,13 @@ function GrowthTwinLite({ hasPhases }: { hasPhases: boolean }) {
             "left-1/2 top-6 -translate-x-1/2",
           ];
           const Icon = node.icon;
-          return (
-            <div
-              key={node.label}
-              className={cn("absolute z-10 w-44 rounded-2xl border border-[#1e3a5f]/80 bg-[#091a33]/92 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)]", positions[index])}
-            >
+          const cardClass = cn(
+            "absolute z-10 w-44 rounded-2xl border border-[#1e3a5f]/80 bg-[#091a33]/92 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)]",
+            node.href && "transition hover:border-amber-300/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200",
+            positions[index],
+          );
+          const cardContent = (
+            <>
               <div className="flex items-start justify-between gap-2">
                 <div className="grid h-9 w-9 place-items-center rounded-xl border border-cyan-300/15 bg-cyan-400/10 text-cyan-200">
                   <Icon size={17} />
@@ -234,6 +268,15 @@ function GrowthTwinLite({ hasPhases }: { hasPhases: boolean }) {
               </div>
               <div className="mt-2 text-sm font-semibold text-white">{node.label}</div>
               <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-[#8ba3c7]">{node.hint}</p>
+            </>
+          );
+          return node.href ? (
+            <Link key={node.label} href={node.href} className={cardClass}>
+              {cardContent}
+            </Link>
+          ) : (
+            <div key={node.label} className={cardClass}>
+              {cardContent}
             </div>
           );
         })}
@@ -246,8 +289,12 @@ function GrowthTwinLite({ hasPhases }: { hasPhases: boolean }) {
         </div>
         {nodes.map((node) => {
           const Icon = node.icon;
-          return (
-            <div key={node.label} className="rounded-2xl border border-[#1e3a5f]/80 bg-[#0d1f3c]/58 p-3">
+          const cardClass = cn(
+            "rounded-2xl border border-[#1e3a5f]/80 bg-[#0d1f3c]/58 p-3",
+            node.href && "transition hover:border-amber-300/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200",
+          );
+          const cardContent = (
+            <>
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="grid h-8 w-8 place-items-center rounded-xl bg-cyan-400/10 text-cyan-200">
@@ -258,6 +305,15 @@ function GrowthTwinLite({ hasPhases }: { hasPhases: boolean }) {
                 <StatusPill status={node.status} />
               </div>
               <p className="mt-2 text-xs leading-relaxed text-[#8ba3c7]">{node.hint}</p>
+            </>
+          );
+          return node.href ? (
+            <Link key={node.label} href={node.href} className={cardClass}>
+              {cardContent}
+            </Link>
+          ) : (
+            <div key={node.label} className={cardClass}>
+              {cardContent}
             </div>
           );
         })}
@@ -456,6 +512,9 @@ function StartHereEmptyState() {
             <div className="mt-5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#22d3ee] px-4 py-2 text-sm font-semibold text-[#061224] shadow-[0_16px_34px_rgba(34,211,238,0.18)]">
               أضف أول مرحلة نمو
             </div>
+            <p className="mt-3 text-xs leading-relaxed text-[#8ba3c7]">
+              بعد إضافة أول مرحلة، يمكنك ربطها بالهيكل الإداري.
+            </p>
           </div>
 
           <div className="hidden rounded-[1.4rem] border border-cyan-300/18 bg-[#071426]/68 p-4 lg:block">
@@ -687,6 +746,8 @@ function StrategyContent() {
           </div>
         </section>
       )}
+
+      {hasPhases && <OrgLinkCard currentPhaseTitle={currentPhase?.title} />}
 
       {hasPhases && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

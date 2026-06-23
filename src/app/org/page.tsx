@@ -38,6 +38,19 @@ export default function OrgPage() {
               <span>هيكل رقمي معزول</span>
             </div>
           </PageHero>
+          <section className="rounded-2xl border border-[#22d3ee]/18 bg-[#0d1f3c]/45 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-white">مرتبط بخطة النمو</h2>
+                <p className="mt-1 text-xs leading-relaxed text-[#8ba3c7]">
+                  بعد تحديد الأقسام والمسؤولين، يمكن استخدام الهيكل الإداري لمتابعة تنفيذ مراحل النمو.
+                </p>
+              </div>
+              <span className="w-fit rounded-full border border-amber-300/22 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold text-amber-200">
+                المسؤول عن التنفيذ
+              </span>
+            </div>
+          </section>
           <TenantOrgWorkspace
             canManage={canManageStructure}
             orgLabel="منشأتك"
