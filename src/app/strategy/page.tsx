@@ -37,11 +37,12 @@ const STATUS_CONFIG = {
   "قادمة": { class: "status-inactive", color: "#8ba3c7", icon: Target },
 } as const;
 
-type GrowthStatus = "جاهز" | "جاهز للمتابعة" | "يحتاج ربط" | "قيد التجهيز" | "غير متاح";
+type GrowthStatus = "جاهز" | "جاهز للمتابعة" | "جاهز للتحليل" | "يحتاج ربط" | "قيد التجهيز" | "غير متاح";
 
 const TWIN_STATUS_STYLES: Record<GrowthStatus, string> = {
   "جاهز": "border-emerald-300/25 bg-emerald-400/10 text-emerald-200",
   "جاهز للمتابعة": "border-cyan-300/25 bg-cyan-400/10 text-cyan-100",
+  "جاهز للتحليل": "border-violet-300/25 bg-violet-400/10 text-violet-100",
   "يحتاج ربط": "border-amber-300/25 bg-amber-400/10 text-amber-200",
   "قيد التجهيز": "border-cyan-300/25 bg-cyan-400/10 text-cyan-100",
   "غير متاح": "border-slate-300/16 bg-slate-400/10 text-slate-300",
@@ -182,9 +183,10 @@ const GROWTH_TWIN_NODES: GrowthTwinNode[] = [
   },
   {
     label: "المساعد الذكي",
-    status: "غير متاح",
+    status: "جاهز للتحليل",
     icon: Bot,
-    hint: "اقتراحات قراءة فقط في مرحلة لاحقة.",
+    hint: "استخدم المساعد الذكي لاحقاً لفهم المرحلة واقتراح الخطوة التالية.",
+    href: "/ai",
   },
 ];
 
@@ -250,6 +252,35 @@ function VirtualOfficeLinkCard({ currentPhaseTitle }: { currentPhaseTitle?: stri
           className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-cyan-300/24 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/45 hover:bg-cyan-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
         >
           فتح المكتب الافتراضي
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function AiAssistantLinkCard({ currentPhaseTitle }: { currentPhaseTitle?: string }) {
+  return (
+    <section className="glass-card border border-violet-300/18 bg-[linear-gradient(145deg,rgba(32,24,66,0.76),rgba(7,20,38,0.72))] p-4 sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="mb-2 inline-flex items-center rounded-full border border-violet-300/22 bg-violet-400/10 px-3 py-1 text-[11px] font-semibold text-violet-100">
+            جاهز للتحليل
+          </div>
+          <h2 className="text-lg font-heading font-bold text-white">ربط المساعد الذكي</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[#8ba3c7]">
+            افتح المساعد الذكي لتحليل مرحلة النمو واقتراح الخطوة التالية بشكل أوضح.
+          </p>
+          {currentPhaseTitle ? (
+            <p className="mt-2 text-xs leading-relaxed text-violet-100">
+              المرحلة الحالية: <span className="font-semibold text-white">{currentPhaseTitle}</span>
+            </p>
+          ) : null}
+        </div>
+        <Link
+          href="/ai"
+          className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-violet-300/24 bg-violet-400/10 px-4 py-2 text-sm font-semibold text-violet-100 transition hover:border-violet-200/45 hover:bg-violet-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-200"
+        >
+          فتح المساعد الذكي
         </Link>
       </div>
     </section>
@@ -547,7 +578,7 @@ function StartHereEmptyState() {
               أضف أول مرحلة نمو
             </div>
             <p className="mt-3 text-xs leading-relaxed text-[#8ba3c7]">
-              بعد إضافة أول مرحلة، يمكنك ربطها بالهيكل الإداري ومتابعة العمل من المكتب الافتراضي.
+              بعد إضافة أول مرحلة، يمكنك ربطها بالهيكل الإداري ومتابعة العمل من المكتب الافتراضي ثم تحليلها بالمساعد الذكي.
             </p>
           </div>
 
@@ -783,6 +814,7 @@ function StrategyContent() {
 
       {hasPhases && <OrgLinkCard currentPhaseTitle={currentPhase?.title} />}
       {hasPhases && <VirtualOfficeLinkCard currentPhaseTitle={currentPhase?.title} />}
+      {hasPhases && <AiAssistantLinkCard currentPhaseTitle={currentPhase?.title} />}
 
       {hasPhases && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
