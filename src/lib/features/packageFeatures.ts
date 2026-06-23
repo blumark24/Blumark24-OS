@@ -259,7 +259,7 @@ const ROUTE_LABELS_AR: Record<WorkspaceRouteId, string> = {
   tasks: "المهام",
   clients: "العملاء CRM",
   finance: "مالية المنشأة",
-  strategy: "استراتيجية المنشأة",
+  strategy: "خطة النمو",
   org: "الهيكل الإداري للمنشأة",
   virtual_office: "المكتب الافتراضي",
   automation: "مركز الأتمتة",

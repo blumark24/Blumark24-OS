@@ -13,7 +13,6 @@ import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { useStrategyPhases } from "@/hooks/useData";
 import { usePermissions } from "@/contexts/PermissionsContext";
-import { TENANT_EMPTY_STATE_MSG, TENANT_EMPTY_STATE_HINT } from "@/lib/features/packageFeatures";
 import { useToast } from "@/contexts/ToastContext";
 
 const STATUS_CONFIG = {
@@ -152,6 +151,7 @@ function StrategyContent() {
   const overallProgress = phases.length > 0
     ? Math.round(phases.reduce((s, p) => s + p.progress, 0) / phases.length)
     : 0;
+  const hasPhases = phases.length > 0;
 
   const currentPhase =
     phases.find((p) => p.status === "جارية") ??
@@ -189,21 +189,39 @@ function StrategyContent() {
           </h1>
           <p className="text-[#8ba3c7] text-sm mt-1">ماذا أفعل هذا الشهر لنمو منشأتي؟</p>
         </div>
-        <div className="glass-card px-4 py-2 self-start sm:self-auto">
-          <div className="text-xs text-[#8ba3c7] mb-1">التقدم الإجمالي</div>
-          <div className="flex items-center gap-2">
-            <div className="progress-bar w-32">
-              <div className="progress-fill" style={{ width: `${overallProgress}%` }} />
+        {hasPhases && (
+          <div className="glass-card px-4 py-2 self-start sm:self-auto">
+            <div className="text-xs text-[#8ba3c7] mb-1">التقدم الإجمالي</div>
+            <div className="flex items-center gap-2">
+              <div className="progress-bar w-32">
+                <div className="progress-fill" style={{ width: `${overallProgress}%` }} />
+              </div>
+              <span className="text-[#22d3ee] font-bold text-sm">{overallProgress}%</span>
             </div>
-            <span className="text-[#22d3ee] font-bold text-sm">{overallProgress}%</span>
           </div>
-        </div>
+        )}
       </div>
 
       {error && (
         <div className="glass-card p-4 border border-red-500/30 text-red-400 text-sm">{error}</div>
       )}
 
+      {!loading && !hasPhases ? (
+        <div className="glass-card p-8 sm:p-10 text-center border border-[#22d3ee]/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_35%)]">
+          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-[#22d3ee]/20 bg-[#22d3ee]/10">
+            <Target size={22} className="text-[#22d3ee]" />
+          </div>
+          <h2 className="text-xl font-heading font-bold text-white">لم تبدأ خطة النمو بعد</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-[#8ba3c7]">
+            أضف أول مرحلة نمو وحدّد هدف هذا الشهر.
+          </p>
+          <div className="mt-5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/10 px-4 py-2 text-sm font-semibold text-[#22d3ee]">
+            أضف أول مرحلة نمو
+          </div>
+        </div>
+      ) : null}
+
+      {hasPhases && (
       <div className="glass-card p-4 sm:p-5 border border-[#22d3ee]/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_35%)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:justify-between">
           <div className="min-w-0 flex-1">
@@ -245,8 +263,10 @@ function StrategyContent() {
           </button>
         )}
       </div>
+      )}
 
       {/* Suggested recommendations */}
+      {hasPhases && (
       <div className="glass-card p-5 border border-[#22d3ee]/20">
         <div className="flex items-center gap-2 mb-4">
           <Lightbulb size={18} className="text-[#22d3ee]" />
@@ -263,18 +283,14 @@ function StrategyContent() {
           ))}
         </div>
       </div>
+      )}
 
       {/* Growth phases */}
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 size={32} className="animate-spin text-[#22d3ee]" />
         </div>
-      ) : phases.length === 0 ? (
-        <div className="glass-card p-10 text-center border border-[#1e3a5f]">
-          <p className="text-[#8ba3c7] text-sm">{TENANT_EMPTY_STATE_MSG}</p>
-          <p className="text-[#6b87ab] text-xs mt-2">{TENANT_EMPTY_STATE_HINT}</p>
-        </div>
-      ) : (
+      ) : hasPhases ? (
         <div className="relative">
           <div className="absolute right-8 top-0 bottom-0 hidden w-0.5 bg-gradient-to-b from-[#22d3ee] via-[#1e6fd9] to-[#1e3a5f] sm:block" />
           <div className="space-y-4 sm:space-y-6">
@@ -366,7 +382,7 @@ function StrategyContent() {
             })}
           </div>
         </div>
-      )}
+      ) : null}
 
       {editingPhase && (
         <EditModal
