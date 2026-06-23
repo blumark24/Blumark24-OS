@@ -547,10 +547,7 @@ function StartHereEmptyState() {
               أضف أول مرحلة نمو
             </div>
             <p className="mt-3 text-xs leading-relaxed text-[#8ba3c7]">
-              بعد إضافة أول مرحلة، يمكنك ربطها بالهيكل الإداري.
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-[#8ba3c7]">
-              بعد إضافة أول مرحلة، يمكنك متابعة العمل من المكتب الافتراضي.
+              بعد إضافة أول مرحلة، يمكنك ربطها بالهيكل الإداري ومتابعة العمل من المكتب الافتراضي.
             </p>
           </div>
 
