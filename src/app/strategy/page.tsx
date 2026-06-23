@@ -424,6 +424,84 @@ function TwinScaleTiers() {
   );
 }
 
+function StartHereEmptyState() {
+  const previewNodes = [
+    { label: "خطة النمو", className: "right-4 top-5 sm:right-8" },
+    { label: "الهيكل الإداري", className: "left-4 top-5 sm:left-8" },
+    { label: "المكتب الافتراضي", className: "left-1/2 bottom-5 -translate-x-1/2" },
+  ];
+
+  return (
+    <div className="space-y-4 sm:space-y-5">
+      <section className="glass-card relative overflow-hidden border border-[#22d3ee]/22 bg-[radial-gradient(circle_at_18%_0%,rgba(34,211,238,0.16),transparent_32%),radial-gradient(circle_at_88%_12%,rgba(30,111,217,0.15),transparent_36%),linear-gradient(145deg,rgba(8,20,42,0.98),rgba(5,14,30,0.92))] p-5 text-right shadow-[0_24px_70px_rgba(0,0,0,0.28)] sm:p-7">
+        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-l from-transparent via-cyan-200/55 to-transparent" />
+        <div className="pointer-events-none absolute -left-20 -top-20 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
+
+        <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#22d3ee]/24 bg-[#22d3ee]/12 px-3 py-1 text-xs font-semibold text-[#22d3ee]">
+              <Sparkles size={13} />
+              ابدأ هنا
+            </div>
+            <p className="mt-4 text-sm font-semibold text-[#22d3ee]">مركز قيادة النمو</p>
+            <h2 className="mt-2 max-w-3xl text-2xl font-heading font-black leading-tight text-white sm:text-3xl">
+              ماذا أفعل هذا الشهر لنمو منشأتي؟
+            </h2>
+            <div className="mt-5 rounded-2xl border border-[#1e3a5f]/80 bg-[#0d1f3c]/58 p-4">
+              <h3 className="text-lg font-bold text-white">لم تبدأ خطة النمو بعد</h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#8ba3c7]">
+                أضف أول مرحلة نمو وحدّد هدف هذا الشهر.
+              </p>
+            </div>
+            <div className="mt-5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#22d3ee] px-4 py-2 text-sm font-semibold text-[#061224] shadow-[0_16px_34px_rgba(34,211,238,0.18)]">
+              أضف أول مرحلة نمو
+            </div>
+          </div>
+
+          <div className="hidden rounded-[1.4rem] border border-cyan-300/18 bg-[#071426]/68 p-4 lg:block">
+            <div className="grid h-40 place-items-center rounded-[1.1rem] border border-[#1e3a5f]/70 bg-[linear-gradient(135deg,rgba(34,211,238,0.08),rgba(30,111,217,0.06))]">
+              <div className="grid h-20 w-20 rotate-45 place-items-center rounded-2xl border border-cyan-300/24 bg-cyan-400/10 shadow-[0_0_34px_-18px_rgba(34,211,238,0.9)]">
+                <span className="-rotate-45 text-sm font-bold text-white">ابدأ</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="glass-card overflow-hidden border border-[#1e3a5f]/80 p-4 sm:p-5">
+        <div className="mb-4">
+          <h2 className="text-lg font-heading font-bold text-white">الخريطة الذكية للمنشأة</h2>
+          <p className="mt-1 text-sm leading-relaxed text-[#8ba3c7]">
+            ستظهر خريطة منشأتك بعد إضافة أول مرحلة وربط بياناتك.
+          </p>
+        </div>
+
+        <div className="relative min-h-[220px] rounded-[1.4rem] border border-[#1e3a5f]/75 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.10),transparent_34%),linear-gradient(145deg,rgba(6,18,38,0.78),rgba(8,20,42,0.62))] p-4">
+          <div className="absolute inset-x-8 top-1/2 h-px bg-gradient-to-l from-transparent via-cyan-300/18 to-transparent" />
+          <div className="absolute inset-y-8 right-1/2 w-px bg-gradient-to-b from-transparent via-cyan-300/16 to-transparent" />
+          <div className="absolute left-1/2 top-1/2 z-10 w-28 -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-cyan-300/24 bg-[#071426]/90 p-3 text-center shadow-[0_0_38px_-20px_rgba(34,211,238,0.9)]">
+            <div className="mx-auto mb-2 grid h-9 w-9 place-items-center rounded-xl bg-cyan-400/12 text-cyan-200">
+              <Map size={17} />
+            </div>
+            <div className="text-sm font-bold text-white">منشأتك</div>
+          </div>
+          {previewNodes.map((node) => (
+            <div
+              key={node.label}
+              className={cn(
+                "absolute z-10 rounded-2xl border border-[#1e3a5f]/70 bg-[#0d1f3c]/52 px-3 py-2 text-xs font-semibold text-[#8ba3c7] opacity-75",
+                node.className,
+              )}
+            >
+              {node.label}
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function EditModal({
   phase,
   onSave,
@@ -567,29 +645,7 @@ function StrategyContent() {
         <div className="glass-card border border-red-500/30 p-4 text-sm text-red-400">{error}</div>
       )}
 
-      {!loading && !hasPhases ? (
-        <div className="glass-card overflow-hidden border border-[#22d3ee]/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_35%)] p-8 text-center sm:p-10">
-          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-[#22d3ee]/20 bg-[#22d3ee]/10">
-            <Target size={24} className="text-[#22d3ee]" />
-          </div>
-          <p className="text-xs font-semibold text-[#22d3ee]">مركز قيادة النمو</p>
-          <h2 className="mt-2 text-2xl font-heading font-bold text-white">لم تبدأ خطة النمو بعد</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-[#8ba3c7]">
-            أضف أول مرحلة نمو وحدّد هدف هذا الشهر.
-          </p>
-          <div className="mt-5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/10 px-4 py-2 text-sm font-semibold text-[#22d3ee]">
-            أضف أول مرحلة نمو
-          </div>
-          <div className="mx-auto mt-6 grid max-w-lg grid-cols-2 gap-3 text-right sm:grid-cols-4">
-            {["المرحلة", "هدف الشهر", "الإجراء التالي", "التقدم"].map((item) => (
-              <div key={item} className="rounded-2xl border border-[#1e3a5f]/70 bg-[#0d1f3c]/45 p-3">
-                <div className="text-xs font-semibold text-white">{item}</div>
-                <div className="mt-1 text-[11px] text-[#8ba3c7]">قيد التجهيز</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {!loading && !hasPhases ? <StartHereEmptyState /> : null}
 
       {hasPhases && (
         <section className="glass-card relative overflow-hidden border border-[#22d3ee]/22 bg-[radial-gradient(circle_at_14%_8%,rgba(34,211,238,0.18),transparent_30%),radial-gradient(circle_at_88%_20%,rgba(30,111,217,0.18),transparent_34%),linear-gradient(145deg,rgba(8,20,42,0.98),rgba(5,14,30,0.92))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] sm:p-5 lg:p-6">
@@ -649,9 +705,13 @@ function StrategyContent() {
         </div>
       )}
 
-      <GrowthTwinLite hasPhases={hasPhases} />
-      <TwinSkillsSection hasPhases={hasPhases} />
-      <TwinScaleTiers />
+      {hasPhases && (
+        <>
+          <GrowthTwinLite hasPhases={hasPhases} />
+          <TwinSkillsSection hasPhases={hasPhases} />
+          <TwinScaleTiers />
+        </>
+      )}
 
       {hasPhases && (
         <section className="glass-card border border-[#22d3ee]/20 p-5">
@@ -678,15 +738,17 @@ function StrategyContent() {
         </section>
       )}
 
-      <section className="glass-card border border-[#1e3a5f]/80 p-4 sm:p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-heading font-bold text-white">النشاط الحديث</h2>
-            <p className="mt-1 text-sm text-[#8ba3c7]">لا يوجد نشاط حديث بعد</p>
+      {hasPhases && (
+        <section className="glass-card border border-[#1e3a5f]/80 p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-heading font-bold text-white">النشاط الحديث</h2>
+              <p className="mt-1 text-sm text-[#8ba3c7]">لا يوجد نشاط حديث بعد</p>
+            </div>
+            <StatusPill status="قيد التجهيز" />
           </div>
-          <StatusPill status="قيد التجهيز" />
-        </div>
-      </section>
+        </section>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12">
