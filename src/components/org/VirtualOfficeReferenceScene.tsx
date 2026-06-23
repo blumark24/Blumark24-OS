@@ -34,6 +34,8 @@ export interface SceneRoom {
   // True when no saved/preview/auto mapping is resolved AND there's no real
   // department backing the room — i.e. show "غير مخصص" instead of a name.
   isUnassigned?: boolean;
+  // Live open/closed state from DB (undefined = open by default)
+  isOpen?: boolean;
 }
 
 export interface VirtualOfficeReferenceSceneProps {
