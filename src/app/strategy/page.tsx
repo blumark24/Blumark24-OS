@@ -132,6 +132,70 @@ function KpiCard({
   );
 }
 
+type GrowthTwinNode = {
+  label: string;
+  status: GrowthStatus;
+  icon: React.ElementType;
+  hint: string;
+  href?: string;
+};
+
+const GROWTH_TWIN_NODES: GrowthTwinNode[] = [
+  {
+    label: "الهيكل الإداري",
+    status: "يحتاج ربط",
+    icon: Network,
+    hint: "اربط المسؤوليات لاحقاً من الهيكل الإداري.",
+    href: "/org",
+  },
+  {
+    label: "المكتب الافتراضي",
+    status: "يحتاج ربط",
+    icon: Building2,
+    hint: "يرتبط لاحقاً بخريطة التشغيل.",
+  },
+  {
+    label: "العملاء",
+    status: "قيد التجهيز",
+    icon: UserCircle,
+    hint: "لا نعرض أرقاماً هنا دون مصدر مباشر.",
+  },
+  {
+    label: "المهام",
+    status: "قيد التجهيز",
+    icon: CheckSquare,
+    hint: "إشارة تشغيل مستقبلية من المهام.",
+  },
+  {
+    label: "المالية",
+    status: "قيد التجهيز",
+    icon: DollarSign,
+    hint: "تظهر لاحقاً من بيانات مالية حقيقية.",
+  },
+  {
+    label: "التقارير",
+    status: "قيد التجهيز",
+    icon: BarChart3,
+    hint: "تتحول لاحقاً إلى قراءة أداء.",
+  },
+  {
+    label: "المساعد الذكي",
+    status: "غير متاح",
+    icon: Bot,
+    hint: "اقتراحات قراءة فقط في مرحلة لاحقة.",
+  },
+];
+
+const GROWTH_TWIN_DESKTOP_POSITIONS = [
+  "right-7 top-7",
+  "left-7 top-7",
+  "right-10 top-[42%]",
+  "left-10 top-[42%]",
+  "right-7 bottom-7",
+  "left-7 bottom-7",
+  "left-1/2 top-6 -translate-x-1/2",
+];
+
 function OrgLinkCard({ currentPhaseTitle }: { currentPhaseTitle?: string }) {
   return (
     <section className="glass-card border border-amber-300/18 bg-[linear-gradient(145deg,rgba(15,28,50,0.82),rgba(7,20,38,0.72))] p-4 sm:p-5">
@@ -162,58 +226,6 @@ function OrgLinkCard({ currentPhaseTitle }: { currentPhaseTitle?: string }) {
 }
 
 function GrowthTwinLite({ hasPhases }: { hasPhases: boolean }) {
-  const nodes: {
-    label: string;
-    status: GrowthStatus;
-    icon: React.ElementType;
-    hint: string;
-    href?: string;
-  }[] = [
-    {
-      label: "الهيكل الإداري",
-      status: "يحتاج ربط",
-      icon: Network,
-      hint: "اربط المسؤوليات لاحقاً من الهيكل الإداري.",
-      href: "/org",
-    },
-    {
-      label: "المكتب الافتراضي",
-      status: "يحتاج ربط",
-      icon: Building2,
-      hint: "يرتبط لاحقاً بخريطة التشغيل.",
-    },
-    {
-      label: "العملاء",
-      status: "قيد التجهيز",
-      icon: UserCircle,
-      hint: "لا نعرض أرقاماً هنا دون مصدر مباشر.",
-    },
-    {
-      label: "المهام",
-      status: "قيد التجهيز",
-      icon: CheckSquare,
-      hint: "إشارة تشغيل مستقبلية من المهام.",
-    },
-    {
-      label: "المالية",
-      status: "قيد التجهيز",
-      icon: DollarSign,
-      hint: "تظهر لاحقاً من بيانات مالية حقيقية.",
-    },
-    {
-      label: "التقارير",
-      status: "قيد التجهيز",
-      icon: BarChart3,
-      hint: "تتحول لاحقاً إلى قراءة أداء.",
-    },
-    {
-      label: "المساعد الذكي",
-      status: "غير متاح",
-      icon: Bot,
-      hint: "اقتراحات قراءة فقط في مرحلة لاحقة.",
-    },
-  ];
-
   return (
     <section className="glass-card overflow-hidden border border-[#22d3ee]/18 bg-[radial-gradient(circle_at_16%_10%,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_82%_0%,rgba(30,111,217,0.12),transparent_32%),rgba(7,20,38,0.68)] p-4 sm:p-5">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -242,21 +254,12 @@ function GrowthTwinLite({ hasPhases }: { hasPhases: boolean }) {
           <div className="mt-1 text-[11px] text-[#8ba3c7]">مركز النمو</div>
         </div>
 
-        {nodes.map((node, index) => {
-          const positions = [
-            "right-7 top-7",
-            "left-7 top-7",
-            "right-10 top-[42%]",
-            "left-10 top-[42%]",
-            "right-7 bottom-7",
-            "left-7 bottom-7",
-            "left-1/2 top-6 -translate-x-1/2",
-          ];
+        {GROWTH_TWIN_NODES.map((node, index) => {
           const Icon = node.icon;
           const cardClass = cn(
             "absolute z-10 w-44 rounded-2xl border border-[#1e3a5f]/80 bg-[#091a33]/92 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)]",
             node.href && "transition hover:border-amber-300/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200",
-            positions[index],
+            GROWTH_TWIN_DESKTOP_POSITIONS[index],
           );
           const cardContent = (
             <>
@@ -287,7 +290,7 @@ function GrowthTwinLite({ hasPhases }: { hasPhases: boolean }) {
           <div className="font-bold text-white">منشأتك</div>
           <p className="mt-1 text-xs text-[#8ba3c7]">مركز النمو وخطوات الشهر.</p>
         </div>
-        {nodes.map((node) => {
+        {GROWTH_TWIN_NODES.map((node) => {
           const Icon = node.icon;
           const cardClass = cn(
             "rounded-2xl border border-[#1e3a5f]/80 bg-[#0d1f3c]/58 p-3",
