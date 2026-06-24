@@ -14,6 +14,7 @@ import {
   X,
   DollarSign,
 } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import {
@@ -47,10 +48,17 @@ function isRouteActive(pathname: string, href: string) {
     : pathname.startsWith(href);
 }
 
+// Shared spring for the sliding active pill layout transition
+const PILL_SPRING = { type: "spring" as const, stiffness: 420, damping: 38, mass: 0.8 };
+
+// Fast ease for tap press/release
+const TAP_EASE = [0.4, 0, 0.2, 1] as const;
+
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const { navRoutes, loading } = useTenantWorkspace();
   const [quickOpen, setQuickOpen] = useState(false);
+  const reducedMotion = useReducedMotion() ?? false;
 
   const tabRoutes = useMemo(() => {
     if (loading) return [];
@@ -109,44 +117,78 @@ export default function MobileBottomNav() {
             {leftTabs.map((route) => {
               const Icon = ICON_BY_NAME[route.iconName] ?? LayoutDashboard;
               const active = isRouteActive(pathname, route.href);
-              const label = MOBILE_ROUTE_LABELS[route.id] ?? getRouteLabel(route.id);
+              const label =
+                MOBILE_ROUTE_LABELS[route.id as WorkspaceRouteId] ??
+                getRouteLabel(route.id as WorkspaceRouteId);
               return (
-                <Link
+                <motion.div
                   key={route.id}
-                  href={route.href}
-                  className={cn(
-                    "relative flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1",
-                    "touch-manipulation transition-[opacity,transform,background-color,color] duration-100 active:scale-[0.97] active:opacity-75",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent-teal)]/70",
-                    active
-                      ? "bg-[color:color-mix(in_srgb,var(--accent-teal)_10%,transparent)] text-[color:var(--accent-teal)]"
-                      : "text-[color:var(--text-muted)] hover:bg-white/[0.035]",
-                  )}
-                  aria-current={active ? "page" : undefined}
+                  style={{ position: "relative" }}
+                  whileTap={reducedMotion ? {} : { scale: 0.93, opacity: 0.82 }}
+                  transition={{ duration: 0.14, ease: TAP_EASE }}
                 >
-                  {active && (
-                    <span className="absolute top-0 h-0.5 w-6 rounded-full bg-[color:var(--accent-teal)] opacity-80" />
-                  )}
-                  <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
-                  <span className="max-w-[3.8rem] truncate text-center text-[10px] font-semibold leading-tight">
-                    {label}
-                  </span>
-                </Link>
+                  <Link
+                    href={route.href}
+                    className={cn(
+                      "relative flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1",
+                      "touch-manipulation transition-colors duration-150",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent-teal)]/70",
+                      active
+                        ? "text-[color:var(--accent-teal)]"
+                        : "text-[color:var(--text-muted)] hover:bg-white/[0.035]",
+                    )}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    {active && (
+                      <>
+                        <motion.span
+                          layoutId="dock-active-pill"
+                          className="absolute inset-0 rounded-2xl"
+                          style={{ background: "color-mix(in srgb, var(--accent-teal) 10%, transparent)" }}
+                          transition={reducedMotion ? { duration: 0 } : PILL_SPRING}
+                          aria-hidden
+                        />
+                        <motion.span
+                          layoutId="dock-active-bar"
+                          className="absolute top-0 h-0.5 w-6 rounded-full opacity-80"
+                          style={{ background: "var(--accent-teal)" }}
+                          transition={reducedMotion ? { duration: 0 } : PILL_SPRING}
+                          aria-hidden
+                        />
+                      </>
+                    )}
+                    <Icon
+                      size={22}
+                      strokeWidth={active ? 2.25 : 1.75}
+                      className="relative z-[1] transition-[stroke-width] duration-150"
+                    />
+                    <span className="relative z-[1] max-w-[3.8rem] truncate text-center text-[10px] font-semibold leading-tight">
+                      {label}
+                    </span>
+                  </Link>
+                </motion.div>
               );
             })}
 
+            {/* Center FAB — inline in dock */}
             <div className="flex min-h-[44px] items-center justify-center">
-              <button
+              <motion.button
                 type="button"
                 onClick={() => setQuickOpen((v) => !v)}
+                whileTap={reducedMotion ? {} : { scale: 0.90, opacity: 0.85 }}
+                animate={
+                  reducedMotion
+                    ? {}
+                    : { rotate: quickOpen ? 45 : 0, scale: quickOpen ? 0.98 : 1 }
+                }
+                transition={{ duration: 0.16, ease: TAP_EASE }}
                 className={cn(
                   "relative flex h-11 w-11 items-center justify-center rounded-full",
                   "border border-[color:color-mix(in_srgb,var(--accent-teal)_38%,transparent)]",
                   "bg-[color:color-mix(in_srgb,var(--accent-blue)_72%,var(--accent-teal)_28%)] text-white",
                   "shadow-[0_8px_18px_-16px_rgba(34,211,238,0.9)]",
-                  "touch-manipulation transition-[opacity,transform] duration-100 active:scale-[0.96] active:opacity-80",
+                  "touch-manipulation",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent-teal)]/75",
-                  quickOpen && "scale-[0.98]",
                 )}
                 aria-label={quickOpen ? "إغلاق الإجراءات السريعة" : "فتح الإجراءات السريعة"}
                 aria-expanded={quickOpen}
@@ -156,35 +198,62 @@ export default function MobileBottomNav() {
                 ) : (
                   <Plus size={24} className="relative z-[1]" strokeWidth={2.4} />
                 )}
-              </button>
+              </motion.button>
             </div>
 
             {rightTabs.map((route) => {
               const Icon = ICON_BY_NAME[route.iconName] ?? LayoutDashboard;
               const active = isRouteActive(pathname, route.href);
-              const label = MOBILE_ROUTE_LABELS[route.id] ?? getRouteLabel(route.id);
+              const label =
+                MOBILE_ROUTE_LABELS[route.id as WorkspaceRouteId] ??
+                getRouteLabel(route.id as WorkspaceRouteId);
               return (
-                <Link
+                <motion.div
                   key={route.id}
-                  href={route.href}
-                  className={cn(
-                    "relative flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1",
-                    "touch-manipulation transition-[opacity,transform,background-color,color] duration-100 active:scale-[0.97] active:opacity-75",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent-teal)]/70",
-                    active
-                      ? "bg-[color:color-mix(in_srgb,var(--accent-teal)_10%,transparent)] text-[color:var(--accent-teal)]"
-                      : "text-[color:var(--text-muted)] hover:bg-white/[0.035]",
-                  )}
-                  aria-current={active ? "page" : undefined}
+                  style={{ position: "relative" }}
+                  whileTap={reducedMotion ? {} : { scale: 0.93, opacity: 0.82 }}
+                  transition={{ duration: 0.14, ease: TAP_EASE }}
                 >
-                  {active && (
-                    <span className="absolute top-0 h-0.5 w-6 rounded-full bg-[color:var(--accent-teal)] opacity-80" />
-                  )}
-                  <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
-                  <span className="max-w-[3.8rem] truncate text-center text-[10px] font-semibold leading-tight">
-                    {label}
-                  </span>
-                </Link>
+                  <Link
+                    href={route.href}
+                    className={cn(
+                      "relative flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1",
+                      "touch-manipulation transition-colors duration-150",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent-teal)]/70",
+                      active
+                        ? "text-[color:var(--accent-teal)]"
+                        : "text-[color:var(--text-muted)] hover:bg-white/[0.035]",
+                    )}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    {active && (
+                      <>
+                        <motion.span
+                          layoutId="dock-active-pill"
+                          className="absolute inset-0 rounded-2xl"
+                          style={{ background: "color-mix(in srgb, var(--accent-teal) 10%, transparent)" }}
+                          transition={reducedMotion ? { duration: 0 } : PILL_SPRING}
+                          aria-hidden
+                        />
+                        <motion.span
+                          layoutId="dock-active-bar"
+                          className="absolute top-0 h-0.5 w-6 rounded-full opacity-80"
+                          style={{ background: "var(--accent-teal)" }}
+                          transition={reducedMotion ? { duration: 0 } : PILL_SPRING}
+                          aria-hidden
+                        />
+                      </>
+                    )}
+                    <Icon
+                      size={22}
+                      strokeWidth={active ? 2.25 : 1.75}
+                      className="relative z-[1] transition-[stroke-width] duration-150"
+                    />
+                    <span className="relative z-[1] max-w-[3.8rem] truncate text-center text-[10px] font-semibold leading-tight">
+                      {label}
+                    </span>
+                  </Link>
+                </motion.div>
               );
             })}
           </nav>
