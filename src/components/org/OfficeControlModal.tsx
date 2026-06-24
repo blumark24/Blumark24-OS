@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { OfficeRoom, MappingSource, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
 import { formatOfficeNumber } from "./VirtualOfficeReferenceScene";
+import VirtualOfficeRooms from "./VirtualOfficeRooms";
 
 const officeLabel = (n: number) => `مكتب ${formatOfficeNumber(n)}`;
 
@@ -281,6 +282,15 @@ export default function OfficeControlModal({
               ))}
             </div>
           )}
+
+          {/* 4b ── مساحات العمل والغرف — C15 */}
+          <div style={{ ...SECTION_CARD, padding: "10px 12px" }}>
+            <VirtualOfficeRooms
+              isBoard={room.isCenter}
+              isLinked={!room.isUnassigned && !room.isCenter}
+              officeName={room.isCenter ? "مكتب مجلس الإدارة" : (room.name ?? `مكتب ${room.officeNumber ?? ""}`)}
+            />
+          </div>
 
           {/* 5 ── الموظفون في المكتب — C14-M7 */}
           {!room.isCenter && !room.isUnassigned && (

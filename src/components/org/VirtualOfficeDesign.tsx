@@ -1104,12 +1104,12 @@ export default function VirtualOfficeDesign({
               <GitMerge size={14} color="#22d3ee" style={{ flexShrink: 0 }} />
               <div>
                 <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#c0d4ee", lineHeight: 1.2 }}>التوأم الرقمي للمقر</p>
-                <p style={{ margin: 0, fontSize: 10, color: "#3a5570", lineHeight: 1.4 }}>يربط بين الهيكل الإداري والمكاتب والموظفين والمهام ليعكس صورة تشغيلية واضحة لشركتك.</p>
+                <p style={{ margin: 0, fontSize: 10, color: "#3a5570", lineHeight: 1.4 }}>يربط بين الهيكل الإداري، المكاتب، الغرف، الموظفين، والمهام لتكوين صورة تشغيلية أوضح للمقر.</p>
               </div>
             </div>
             {/* Relationship chain */}
             <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
-              {["الهيكل الإداري", "المكاتب", "الموظفون", "المهام"].map((node, i, arr) => (
+              {["الهيكل الإداري", "المكاتب", "الغرف", "الموظفون", "المهام"].map((node, i, arr) => (
                 <span key={node} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                   <span style={{ fontSize: 9.5, fontWeight: 700, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(34,211,238,0.20)", background: "rgba(34,211,238,0.06)", color: "#5a9abf" }}>{node}</span>
                   {i < arr.length - 1 && <span style={{ fontSize: 9, color: "#1e3050" }}>←</span>}
@@ -1139,7 +1139,7 @@ export default function VirtualOfficeDesign({
                 <BrainCircuit size={14} color="#a855f7" style={{ flexShrink: 0 }} />
                 <div style={{ minWidth: 0 }}>
                   <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#c4b5fd", lineHeight: 1.2 }}>مساعد تشغيل المقر</p>
-                  <p style={{ margin: 0, fontSize: 10, color: "#3a3060", lineHeight: 1.4 }}>يساعدك على فهم حالة المقر بعد ربط المكاتب والبيانات التشغيلية.</p>
+                  <p style={{ margin: 0, fontSize: 10, color: "#3a3060", lineHeight: 1.4 }}>يساعدك لاحقاً على فهم حالة المكاتب والغرف بعد ربط البيانات التشغيلية.</p>
                 </div>
               </div>
               <a
