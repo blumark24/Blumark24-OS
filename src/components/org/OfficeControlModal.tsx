@@ -62,20 +62,21 @@ const TYPE_TABS: Array<{ key: TypeFilter; label: string }> = [
 
 const OVERLAY: React.CSSProperties = {
   position: "fixed", inset: 0, zIndex: 90,
-  display: "flex", alignItems: "center", justifyContent: "center",
-  padding: 16,
-  background: "rgba(2,6,18,0.80)",
+  display: "flex", alignItems: "flex-end", justifyContent: "center",
+  padding: "0 0 0 0",
+  background: "rgba(2,6,18,0.78)",
   backdropFilter: "blur(14px)",
   WebkitBackdropFilter: "blur(14px)",
 };
 
 const MODAL: React.CSSProperties = {
-  width: "min(560px, 100%)",
-  maxHeight: "min(740px, calc(100vh - 32px))",
-  borderRadius: 26,
-  background: "rgba(8,16,36,0.98)",
-  border: "1px solid rgba(148,163,184,0.14)",
-  boxShadow: "0 32px 80px rgba(0,0,0,0.60), 0 0 0 1px rgba(255,255,255,0.04) inset",
+  width: "min(540px, 100%)",
+  maxHeight: "72dvh",
+  borderRadius: "24px 24px 0 0",
+  background: "rgba(8,16,36,0.99)",
+  border: "1px solid rgba(148,163,184,0.12)",
+  borderBottom: "none",
+  boxShadow: "0 -8px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset",
   overflow: "hidden",
   display: "flex",
   flexDirection: "column",
@@ -90,14 +91,14 @@ const CLOSE_BTN: React.CSSProperties = {
 };
 
 const SECTION_CARD: React.CSSProperties = {
-  borderRadius: 14,
+  borderRadius: 12,
   border: "1px solid rgba(255,255,255,0.07)",
   background: "rgba(255,255,255,0.03)",
-  padding: "10px 14px",
+  padding: "8px 12px",
 };
 
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 10, color: "#4a6a8a", marginBottom: 4, fontWeight: 600,
+  fontSize: 9.5, color: "#4a6a8a", marginBottom: 3, fontWeight: 600,
 };
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
@@ -137,9 +138,8 @@ function OfficeInsight({ room, isOpen }: { room: OfficeRoom; isOpen: boolean }) 
   else text = "هذا المكتب مرتبط ويعمل حالياً.";
 
   return (
-    <div style={{ ...SECTION_CARD, border: "1px solid rgba(34,211,238,0.10)", background: "rgba(34,211,238,0.04)", display: "flex", alignItems: "flex-start", gap: 8 }}>
-      <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0, marginTop: 1 }}>💡</span>
-      <span style={{ fontSize: 11, color: "#6b87ab", lineHeight: 1.6 }}>{text}</span>
+    <div style={{ ...SECTION_CARD, border: "1px solid rgba(34,211,238,0.08)", background: "rgba(34,211,238,0.03)" }}>
+      <span style={{ fontSize: 10.5, color: "#5a7a9a", lineHeight: 1.55 }}>{text}</span>
     </div>
   );
 }
@@ -202,32 +202,26 @@ export default function OfficeControlModal({
       <div style={MODAL} dir="rtl">
 
         {/* ══ HEADER ══════════════════════════════════════════════════════════ */}
-        <div style={{ padding: "18px 20px 14px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, borderBottom: "1px solid rgba(255,255,255,0.05)", flexShrink: 0 }}>
+        <div style={{ padding: "14px 16px 10px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, borderBottom: "1px solid rgba(255,255,255,0.05)", flexShrink: 0 }}>
           <div style={{ minWidth: 0, flex: 1 }}>
             {/* Badge row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7, flexWrap: "wrap" }}>
-              <span style={{ borderRadius: 999, border: `1px solid ${typeAccent}40`, background: `${typeAccent}12`, color: typeAccent, fontSize: 11, fontWeight: 800, padding: "3px 10px", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 5, flexWrap: "wrap" }}>
+              <span style={{ borderRadius: 999, border: `1px solid ${typeAccent}40`, background: `${typeAccent}12`, color: typeAccent, fontSize: 10, fontWeight: 800, padding: "2px 8px", flexShrink: 0 }}>
                 {label}
-              </span>
-              <span style={{ borderRadius: 999, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7", fontSize: 10, fontWeight: 600, padding: "3px 9px", flexShrink: 0 }}>
-                {typeLabel}
               </span>
               <StatusBadge room={room} isOpen={isOpen} />
             </div>
-            <h2 style={{ margin: 0, color: "#fff", fontSize: 18, fontWeight: 800, lineHeight: 1.2 }}>
-              إدارة المكتب
-            </h2>
-            <p style={{ margin: "4px 0 0", color: "#6b87ab", fontSize: 12, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <h2 style={{ margin: 0, color: "#fff", fontSize: 15, fontWeight: 800, lineHeight: 1.2 }}>
               {subtitle}
-            </p>
+            </h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="إغلاق" style={CLOSE_BTN}>
-            <X size={16} />
+          <button type="button" onClick={onClose} aria-label="إغلاق" style={{ ...CLOSE_BTN, width: 30, height: 30, borderRadius: 10 }}>
+            <X size={14} />
           </button>
         </div>
 
         {/* ══ BODY ════════════════════════════════════════════════════════════ */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "10px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
 
           {/* 1 ── حالة المكتب (smart insight) */}
           <OfficeInsight room={room} isOpen={isOpen} />
@@ -255,35 +249,34 @@ export default function OfficeControlModal({
             </div>
           </div>
 
-          {/* 4 ── الموظفون + المهام */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
-            {[
-              { Icon: Users,        color: "#22d3ee", label: "الموظفون", value: room.isCenter ? (boardStats?.totalOffices ?? 0) : room.employeeCount, emptyLabel: "لا يوجد موظفون" },
-              { Icon: CheckCircle2, color: "#10b981", label: "المهام",   value: room.isCenter ? (boardStats ? boardStats.openCount + boardStats.closedCount : 0) : room.openTasks,   emptyLabel: "لا توجد مهام"     },
-            ].map(({ Icon, color, label: l, value, emptyLabel }) => (
-              <div key={l} style={{ ...SECTION_CARD, textAlign: "center" }}>
-                <Icon size={13} color={color} style={{ marginBottom: 4 }} />
-                {value > 0 ? (
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{value}</div>
-                ) : (
-                  <div style={{ fontSize: 10, color: "#64748b", lineHeight: 1.3 }}>{emptyLabel}</div>
-                )}
-                <div style={{ fontSize: 10, color: "#6b87ab", marginTop: 3 }}>{l}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* ── Board-specific stats ── */}
-          {room.isCenter && boardStats && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+          {/* 4 ── Metrics row */}
+          {!room.isCenter ? (
+            <div style={{ display: "flex", gap: 6 }}>
+              {[
+                { Icon: Users,        color: "#22d3ee", label: "الموظفون", value: room.employeeCount, emptyLabel: "لا يوجد" },
+                { Icon: CheckCircle2, color: "#10b981", label: "المهام",   value: room.openTasks,     emptyLabel: "لا توجد"  },
+              ].map(({ Icon, color, label: l, value, emptyLabel }) => (
+                <div key={l} style={{ ...SECTION_CARD, flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                  <Icon size={12} color={color} style={{ flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: value > 0 ? 14 : 10, fontWeight: 700, color: value > 0 ? "#fff" : "#64748b", lineHeight: 1 }}>
+                      {value > 0 ? value : emptyLabel}
+                    </div>
+                    <div style={{ fontSize: 9.5, color: "#6b87ab", marginTop: 2 }}>{l}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : boardStats && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
               {([
-                { label: "المكاتب",          value: boardStats.totalOffices,          color: "#22d3ee" },
-                { label: "مرتبطة",           value: boardStats.linkedOfficeCount,     color: "#10b981" },
-                { label: "جاهزة للتشغيل",   value: boardStats.unassignedOfficeCount, color: "#f59e0b" },
+                { label: "المكاتب",        value: boardStats.totalOffices,          color: "#22d3ee" },
+                { label: "مرتبطة",         value: boardStats.linkedOfficeCount,     color: "#10b981" },
+                { label: "جاهزة للتشغيل", value: boardStats.unassignedOfficeCount, color: "#f59e0b" },
               ] as const).map(({ label: l, value, color }) => (
                 <div key={l} style={{ ...SECTION_CARD, textAlign: "center" }}>
-                  <div style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
-                  <div style={{ fontSize: 10, color: "#6b87ab", marginTop: 3 }}>{l}</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+                  <div style={{ fontSize: 9.5, color: "#6b87ab", marginTop: 3 }}>{l}</div>
                 </div>
               ))}
             </div>
@@ -340,11 +333,11 @@ export default function OfficeControlModal({
 
                   {/* اختيار الجهة */}
                   {filteredUnits.length === 0 ? (
-                    <p style={{ margin: 0, fontSize: 12, color: "#64748b", textAlign: "center", padding: "8px 0" }}>
-                      لا توجد إدارات أو أقسام متاحة حالياً.
+                    <p style={{ margin: 0, fontSize: 11, color: "#64748b", textAlign: "center", padding: "6px 0" }}>
+                      لا توجد إدارات أو أقسام متاحة.
                     </p>
                   ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 180, overflowY: "auto" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 150, overflowY: "auto" }}>
                       {filteredUnits.map((unit) => {
                         const sel = unit.id === selectedUnitId;
                         return (
@@ -353,18 +346,18 @@ export default function OfficeControlModal({
                             type="button"
                             onClick={() => setSelectedUnitId(unit.id)}
                             style={{
-                              width: "100%", textAlign: "right", borderRadius: 10,
+                              width: "100%", textAlign: "right", borderRadius: 9,
                               border: sel ? "1px solid rgba(139,92,246,0.55)" : "1px solid rgba(255,255,255,0.07)",
                               background: sel ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.03)",
-                              padding: "8px 10px", cursor: "pointer",
-                              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+                              padding: "6px 9px", cursor: "pointer",
+                              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
                             }}
                           >
-                            <span style={{ fontSize: 12, fontWeight: 700, color: sel ? "#e9d5ff" : "#c0d4ee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: sel ? "#e9d5ff" : "#c0d4ee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {unit.name}
                             </span>
-                            <span style={{ fontSize: 10, color: "#6b87ab", flexShrink: 0 }}>
-                              {unit.typeLabel} · {unit.employeeCount > 0 ? `${unit.employeeCount} موظف` : "—"}
+                            <span style={{ fontSize: 9.5, color: "#6b87ab", flexShrink: 0 }}>
+                              {unit.typeLabel}
                             </span>
                           </button>
                         );
@@ -426,8 +419,8 @@ export default function OfficeControlModal({
         </div>
 
         {/* ══ FOOTER ══════════════════════════════════════════════════════════ */}
-        <div style={{ padding: "12px 20px 20px", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ padding: "10px 16px calc(16px + env(safe-area-inset-bottom))", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "column", gap: 7, flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
 
             {/* Board actions */}
             {room.isCenter && isManager && (
@@ -436,19 +429,19 @@ export default function OfficeControlModal({
                   type="button"
                   disabled={isUpdating}
                   onClick={onOpenAll}
-                  style={{ flex: 1, minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 12, border: "1px solid rgba(16,185,129,0.30)", background: "rgba(16,185,129,0.08)", color: "#6ee7b7", fontSize: 13, fontWeight: 600, cursor: isUpdating ? "not-allowed" : "pointer", opacity: isUpdating ? 0.4 : 1 }}
+                  style={{ flex: 1, minHeight: 36, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, borderRadius: 10, border: "1px solid rgba(16,185,129,0.30)", background: "rgba(16,185,129,0.08)", color: "#6ee7b7", fontSize: 12, fontWeight: 600, cursor: isUpdating ? "not-allowed" : "pointer", opacity: isUpdating ? 0.4 : 1 }}
                 >
-                  <DoorOpen size={14} />
-                  {isUpdating ? "جارٍ..." : "فتح جميع المكاتب"}
+                  <DoorOpen size={13} />
+                  {isUpdating ? "جارٍ..." : "فتح الجميع"}
                 </button>
                 <button
                   type="button"
                   disabled={isUpdating}
                   onClick={onCloseAll}
-                  style={{ flex: 1, minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 12, border: "1px solid rgba(239,68,68,0.30)", background: "rgba(239,68,68,0.08)", color: "#fca5a5", fontSize: 13, fontWeight: 600, cursor: isUpdating ? "not-allowed" : "pointer", opacity: isUpdating ? 0.4 : 1 }}
+                  style={{ flex: 1, minHeight: 36, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, borderRadius: 10, border: "1px solid rgba(239,68,68,0.30)", background: "rgba(239,68,68,0.08)", color: "#fca5a5", fontSize: 12, fontWeight: 600, cursor: isUpdating ? "not-allowed" : "pointer", opacity: isUpdating ? 0.4 : 1 }}
                 >
-                  <Archive size={14} />
-                  {isUpdating ? "جارٍ..." : "إغلاق جميع المكاتب"}
+                  <Archive size={13} />
+                  {isUpdating ? "جارٍ..." : "إغلاق الجميع"}
                 </button>
               </>
             )}
@@ -460,16 +453,16 @@ export default function OfficeControlModal({
                 disabled={isUpdating}
                 onClick={() => onToggleOpen(!isOpen)}
                 style={{
-                  flex: 1, minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 12,
+                  flex: 1, minHeight: 36, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, borderRadius: 10,
                   border: isOpen ? "1px solid rgba(239,68,68,0.30)" : "1px solid rgba(16,185,129,0.30)",
                   background: isOpen ? "rgba(239,68,68,0.08)" : "rgba(16,185,129,0.08)",
                   color: isOpen ? "#fca5a5" : "#6ee7b7",
-                  fontSize: 13, fontWeight: 600,
+                  fontSize: 12, fontWeight: 600,
                   cursor: isUpdating ? "not-allowed" : "pointer",
                   opacity: isUpdating ? 0.5 : 1,
                 }}
               >
-                {isOpen ? <Archive size={14} /> : <DoorOpen size={14} />}
+                {isOpen ? <Archive size={13} /> : <DoorOpen size={13} />}
                 {isUpdating ? "جارٍ..." : isOpen ? "إغلاق المكتب" : "فتح المكتب"}
               </button>
             )}
@@ -480,13 +473,13 @@ export default function OfficeControlModal({
                 type="button"
                 onClick={() => setShowResetConfirm(true)}
                 style={{
-                  minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-                  borderRadius: 12, border: "1px solid rgba(245,158,11,0.28)", background: "rgba(245,158,11,0.06)", color: "#fbbf24",
-                  fontSize: 13, fontWeight: 600, padding: "0 14px", cursor: "pointer",
+                  minHeight: 36, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  borderRadius: 10, border: "1px solid rgba(245,158,11,0.28)", background: "rgba(245,158,11,0.06)", color: "#fbbf24",
+                  fontSize: 12, fontWeight: 600, padding: "0 12px", cursor: "pointer",
                 }}
               >
-                <X size={13} />
-                إلغاء ارتباط المكتب
+                <X size={12} />
+                إلغاء الارتباط
               </button>
             )}
 
@@ -495,9 +488,9 @@ export default function OfficeControlModal({
               <button
                 type="button"
                 onClick={onReviewUnassigned}
-                style={{ width: "100%", minHeight: 38, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 12, border: "1px solid rgba(245,158,11,0.30)", background: "rgba(245,158,11,0.08)", color: "#fbbf24", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                style={{ width: "100%", minHeight: 34, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, borderRadius: 10, border: "1px solid rgba(245,158,11,0.30)", background: "rgba(245,158,11,0.08)", color: "#fbbf24", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
               >
-                <Building2 size={13} />
+                <Building2 size={12} />
                 مراجعة المكاتب الجاهزة للتشغيل ({boardStats.unassignedOfficeCount})
               </button>
             )}
@@ -508,7 +501,7 @@ export default function OfficeControlModal({
                 type="button"
                 disabled={isResettingOffice}
                 onClick={() => setShowOfficeResetConfirm(true)}
-                style={{ width: "100%", minHeight: 38, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 12, border: "1px solid rgba(100,116,139,0.25)", background: "rgba(100,116,139,0.06)", color: "#94a3b8", fontSize: 12, fontWeight: 600, cursor: isResettingOffice ? "not-allowed" : "pointer", opacity: isResettingOffice ? 0.5 : 1 }}
+                style={{ width: "100%", minHeight: 34, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, borderRadius: 10, border: "1px solid rgba(100,116,139,0.22)", background: "rgba(100,116,139,0.05)", color: "#94a3b8", fontSize: 11, fontWeight: 600, cursor: isResettingOffice ? "not-allowed" : "pointer", opacity: isResettingOffice ? 0.5 : 1 }}
               >
                 {isResettingOffice ? "جارٍ إعادة الضبط..." : "إعادة ضبط المكتب الافتراضي"}
               </button>
@@ -549,7 +542,7 @@ export default function OfficeControlModal({
             <button
               type="button"
               onClick={onClose}
-              style={{ minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7", fontSize: 13, cursor: "pointer", padding: "0 16px" }}
+              style={{ minHeight: 36, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7", fontSize: 12, cursor: "pointer", padding: "0 14px" }}
             >
               إغلاق
             </button>
