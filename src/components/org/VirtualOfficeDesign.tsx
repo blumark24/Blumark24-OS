@@ -300,7 +300,7 @@ function buildOfficeRooms(
       isAI:     slot === 7,
       isDemo: true,
       deptCode: null,
-      type:  isBoard ? "مجلس الإدارة" : slot === 7 ? "غرفة AI" : slot === 8 ? "غرفة اجتماعات" : "مساحة عمل",
+      type:  isBoard ? "مجلس الإدارة" : slot === 7 ? "مكتب الذكاء الاصطناعي" : slot === 8 ? "مكتب الاجتماعات" : "مساحة عمل",
       level: isBoard ? "management" : "department",
       teamCount: 0, teams: [], managerName: null,
       officeNumber: slot + 1,
@@ -921,19 +921,8 @@ export default function VirtualOfficeDesign({
           >
             <MobileExecutiveOfficeScene
               rooms={roomsWithPresence}
-              selectedRoom={null}
-              people={[]}
+              selectedRoomId={controlModalRoom?.id ?? null}
               onRoomClick={(r) => setControlModalRoom(r as OfficeRoom)}
-              mappingUnit={null}
-              mappingSource={null}
-              mappingError={null}
-              isDeletingSaved={false}
-              onOpenMapping={() => undefined}
-              onClearPreview={() => undefined}
-              onClearSaved={() => undefined}
-              activity={[]}
-              meetings={[]}
-              alerts={[]}
             />
           </div>
         </>

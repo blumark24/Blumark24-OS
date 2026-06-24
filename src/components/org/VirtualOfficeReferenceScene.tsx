@@ -436,7 +436,7 @@ export default function VirtualOfficeReferenceScene({
           <span style={{ fontSize: 9, color: "rgba(34,211,238,0.40)" }}>· اضغط على أي مكتب لإدارته</span>
         </div>
         <div style={{ display: "flex", gap: 14 }}>
-          {[{ c: "#10b981", l: `${rooms.filter((r) => !r.isCenter && !r.isAI).length} غرفة` }, { c: "#a855f7", l: "قاعة اجتماعات" }, { c: "#22d3ee", l: "غرفة AI" }].map((x) => (
+          {[{ c: "#10b981", l: `${rooms.filter((r) => !r.isCenter && !r.isAI).length} مكتب` }, { c: "#a855f7", l: "مكتب الاجتماعات" }, { c: "#22d3ee", l: "مكتب الذكاء" }].map((x) => (
             <span key={x.l} style={{ fontSize: 10, color: "rgba(60,90,130,0.7)", display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: x.c, display: "inline-block" }} />
               {x.l}
