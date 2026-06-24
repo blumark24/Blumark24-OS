@@ -44,6 +44,9 @@ export interface OfficeControlModalProps {
   onOpenAll?: () => void;
   onCloseAll?: () => void;
   onReviewUnassigned?: () => void;
+  onResetVirtualOffice?: () => void;
+  isResettingOffice?: boolean;
+  resetOfficeError?: string | null;
 }
 
 type TypeFilter = "all" | "management" | "department" | "team";
@@ -148,11 +151,13 @@ export default function OfficeControlModal({
   managerName, units, isSaving, isUpdating, boardStats,
   onClose, onSave, onToggleOpen, onReset,
   onOpenAll, onCloseAll, onReviewUnassigned,
+  onResetVirtualOffice, isResettingOffice, resetOfficeError,
 }: OfficeControlModalProps) {
   const [selectedUnitId, setSelectedUnitId] = useState(mappingUnit?.id ?? "");
   const [typeFilter, setTypeFilter]         = useState<TypeFilter>("all");
   const [assignOpen, setAssignOpen]         = useState(room.isUnassigned);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showOfficeResetConfirm, setShowOfficeResetConfirm] = useState(false);
 
   const label  = room.officeNumber ? officeLabel(room.officeNumber) : "مكتب";
   const isOpen = roomState?.is_open ?? true;
@@ -495,6 +500,50 @@ export default function OfficeControlModal({
                 <Building2 size={13} />
                 مراجعة المكاتب الجاهزة للتشغيل ({boardStats.unassignedOfficeCount})
               </button>
+            )}
+
+            {/* Board: reset virtual office */}
+            {room.isCenter && isManager && !showOfficeResetConfirm && (
+              <button
+                type="button"
+                disabled={isResettingOffice}
+                onClick={() => setShowOfficeResetConfirm(true)}
+                style={{ width: "100%", minHeight: 38, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 12, border: "1px solid rgba(100,116,139,0.25)", background: "rgba(100,116,139,0.06)", color: "#94a3b8", fontSize: 12, fontWeight: 600, cursor: isResettingOffice ? "not-allowed" : "pointer", opacity: isResettingOffice ? 0.5 : 1 }}
+              >
+                {isResettingOffice ? "جارٍ إعادة الضبط..." : "إعادة ضبط المكتب الافتراضي"}
+              </button>
+            )}
+
+            {/* Reset confirmation */}
+            {room.isCenter && showOfficeResetConfirm && (
+              <div style={{ borderRadius: 14, border: "1px solid rgba(100,116,139,0.28)", background: "rgba(15,20,35,0.95)", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+                <p style={{ margin: 0, fontSize: 12, color: "#cbd5e1", lineHeight: 1.65, fontWeight: 600 }}>
+                  هل تريد إعادة ضبط المكتب الافتراضي؟
+                </p>
+                <p style={{ margin: 0, fontSize: 11, color: "#6b87ab", lineHeight: 1.65 }}>
+                  سيتم إلغاء ربط المكاتب فقط دون حذف أي بيانات. لن يتأثر أي موظف أو قسم أو مهمة.
+                </p>
+                {resetOfficeError && (
+                  <p style={{ margin: 0, fontSize: 11, color: "#fca5a5", lineHeight: 1.5 }}>{resetOfficeError}</p>
+                )}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    disabled={isResettingOffice}
+                    onClick={() => { onResetVirtualOffice?.(); setShowOfficeResetConfirm(false); }}
+                    style={{ flex: 1, minHeight: 36, borderRadius: 10, border: "1px solid rgba(100,116,139,0.40)", background: "rgba(100,116,139,0.12)", color: "#e2e8f0", fontSize: 12, fontWeight: 700, cursor: isResettingOffice ? "not-allowed" : "pointer", opacity: isResettingOffice ? 0.5 : 1 }}
+                  >
+                    {isResettingOffice ? "جارٍ..." : "تأكيد إعادة الضبط"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowOfficeResetConfirm(false)}
+                    style={{ flex: 1, minHeight: 36, borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7", fontSize: 12, cursor: "pointer" }}
+                  >
+                    إلغاء
+                  </button>
+                </div>
+              </div>
             )}
 
             <button

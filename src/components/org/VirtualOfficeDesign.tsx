@@ -618,6 +618,8 @@ export default function VirtualOfficeDesign({
   const [deletingRoomKey, setDeletingRoomKey] = useState<ExecutiveOfficeFixedRoomKey | null>(null);
   const [roomStates, setRoomStates] = useState<Record<string, OfficeRoomState>>({});
   const [updatingRoomKey, setUpdatingRoomKey] = useState<string | null>(null);
+  const [isResettingOffice, setIsResettingOffice] = useState(false);
+  const [resetOfficeError, setResetOfficeError] = useState<string | null>(null);
 
   const isManager = user?.role === "organization_manager" || user?.role === "super_admin";
 
@@ -846,6 +848,36 @@ export default function VirtualOfficeDesign({
     }
   }, []);
 
+  const handleResetVirtualOffice = useCallback(async () => {
+    setIsResettingOffice(true);
+    setResetOfficeError(null);
+    try {
+      const token = await getRoomMappingAccessToken();
+      if (!token) { setResetOfficeError("تعذر التحقق من الصلاحية."); return; }
+      const res = await fetch("/api/tenant/virtual-office/reset", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setResetOfficeError(data.error ?? "تعذر إعادة ضبط المكتب الافتراضي حالياً.");
+        return;
+      }
+      // Clear all local mapping + room state after reset
+      setSavedMappings({});
+      setRoomStates((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((k) => { if (k !== "board") next[k] = { is_open: true }; });
+        return next;
+      });
+    } catch {
+      setResetOfficeError("تعذر إعادة ضبط المكتب الافتراضي حالياً.");
+    } finally {
+      setIsResettingOffice(false);
+    }
+  }, []);
+
   const isEmpty = safeDepts.length === 0 && !isDemo;
 
   const linkedOfficeCount = roomsWithPresence.filter((room) => !room.isUnassigned).length;
@@ -976,6 +1008,9 @@ export default function VirtualOfficeDesign({
             onOpenAll={() => void handleBulkToggle(true)}
             onCloseAll={() => void handleBulkToggle(false)}
             onReviewUnassigned={() => setControlModalRoom(null)}
+            onResetVirtualOffice={() => void handleResetVirtualOffice()}
+            isResettingOffice={isResettingOffice}
+            resetOfficeError={resetOfficeError}
           />
         );
       })()}
