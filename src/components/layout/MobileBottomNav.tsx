@@ -133,11 +133,10 @@ export default function MobileBottomNav() {
           {/* Floating glass bar */}
           <nav
             className={cn(
-              hideFab ? "grid-cols-4" : "grid-cols-5",
-              "items-end gap-0 rounded-[1.35rem] border border-cyan-300/[0.14]",
+              hideFab ? "grid-cols-4 h-[52px] items-center px-2 py-1.5" : "grid-cols-5 items-end px-2 pt-2.5 pb-2.5 min-h-[4.35rem]",
+              "gap-0 rounded-[1.35rem] border border-cyan-300/[0.14]",
               "bg-[linear-gradient(180deg,rgba(9,22,43,0.94),rgba(4,11,24,0.92))] backdrop-blur-3xl",
               "shadow-[0_-8px_42px_-12px_rgba(0,0,0,0.68),0_0_28px_-18px_rgba(34,211,238,0.45),inset_0_1px_0_rgba(255,255,255,0.08)]",
-              "px-2 pt-2.5 pb-2.5 min-h-[4.35rem]",
             )}
             aria-label="التنقل السريع"
           >
@@ -150,17 +149,18 @@ export default function MobileBottomNav() {
                   key={route.id}
                   href={route.href}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition-all min-h-[46px] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70",
+                    "flex flex-col items-center justify-center gap-0.5 rounded-xl px-1 transition-all min-h-[44px] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70",
+                    hideFab ? "py-1" : "py-1.5",
                     active
                       ? "bg-cyan-300/[0.08] text-[#22d3ee]"
                       : "text-white/55 hover:bg-white/[0.04] hover:text-white/80",
                   )}
                 >
-                  <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
-                  <span className="max-w-[3.35rem] truncate text-center text-[9.5px] font-medium leading-tight">
+                  <Icon size={hideFab ? 22 : 20} strokeWidth={active ? 2.2 : 1.6} />
+                  <span className="max-w-[3.5rem] truncate text-center text-[9px] font-medium leading-tight">
                     {label}
                   </span>
-                  {active && (
+                  {active && !hideFab && (
                     <span className="w-1 h-1 rounded-full bg-[#22d3ee] shadow-[0_0_8px_#22d3ee]" />
                   )}
                 </Link>
@@ -179,17 +179,18 @@ export default function MobileBottomNav() {
                   key={route.id}
                   href={route.href}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition-all min-h-[46px] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70",
+                    "flex flex-col items-center justify-center gap-0.5 rounded-xl px-1 transition-all min-h-[44px] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70",
+                    hideFab ? "py-1" : "py-1.5",
                     active
                       ? "bg-cyan-300/[0.08] text-[#22d3ee]"
                       : "text-white/55 hover:bg-white/[0.04] hover:text-white/80",
                   )}
                 >
-                  <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
-                  <span className="max-w-[3.35rem] truncate text-center text-[9.5px] font-medium leading-tight">
+                  <Icon size={hideFab ? 22 : 20} strokeWidth={active ? 2.2 : 1.6} />
+                  <span className="max-w-[3.5rem] truncate text-center text-[9px] font-medium leading-tight">
                     {label}
                   </span>
-                  {active && (
+                  {active && !hideFab && (
                     <span className="w-1 h-1 rounded-full bg-[#22d3ee] shadow-[0_0_8px_#22d3ee]" />
                   )}
                 </Link>

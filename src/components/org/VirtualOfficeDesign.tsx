@@ -5,12 +5,12 @@
 // Fixed 8-zone Executive Office Template with API-backed room mapping.
 // Isolated from /org. Client writes go through the tenant API route only.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight, RefreshCw, Users,
   LayoutGrid, Building2,
-  Layers, MapPin, Globe, Zap,
+  Layers, MapPin, Globe, Zap, BrainCircuit, GitMerge,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { OrgStructureSnapshot } from "@/lib/org/types";
@@ -541,11 +541,12 @@ interface HQCommandHeaderProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   onOpenBoard?: () => void;
+  onScrollToDT?: () => void;
 }
 
 function HQCommandHeader({
   orgName, linkedCount, unassignedCount, totalOffices,
-  onBackToOrg, onRefresh, isRefreshing, onOpenBoard,
+  onBackToOrg, onRefresh, isRefreshing, onOpenBoard, onScrollToDT,
 }: HQCommandHeaderProps) {
   return (
     <section style={{
@@ -615,10 +616,13 @@ function HQCommandHeader({
         {/* ── Quick action chips — horizontally scrollable on mobile ── */}
         <div style={{ display: "flex", gap: 5, marginTop: 7, overflowX: "auto", WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"], scrollbarWidth: "none", paddingBottom: 1 }}>
           {([
-            { label: "الموظفون",    Icon: Users,      action: undefined as (() => void) | undefined },
-            { label: "المهام",      Icon: Zap,        action: undefined as (() => void) | undefined },
-            { label: "مجلس الإدارة", Icon: Building2, action: onOpenBoard },
-            { label: "تشغيل المقر", Icon: Layers,     action: undefined as (() => void) | undefined },
+            { label: "المكاتب",       Icon: LayoutGrid,    action: undefined as (() => void) | undefined },
+            { label: "الموظفون",      Icon: Users,         action: undefined as (() => void) | undefined },
+            { label: "المهام",        Icon: Zap,           action: undefined as (() => void) | undefined },
+            { label: "التوأم الرقمي", Icon: GitMerge,      action: onScrollToDT },
+            { label: "المساعد الذكي", Icon: BrainCircuit,  action: undefined as (() => void) | undefined },
+            { label: "مجلس الإدارة",  Icon: Building2,     action: onOpenBoard },
+            { label: "تشغيل المقر",  Icon: Layers,         action: undefined as (() => void) | undefined },
           ]).map(({ label, Icon, action }) => (
             <button
               key={label}
@@ -1004,6 +1008,11 @@ export default function VirtualOfficeDesign({
     [roomsWithPresence],
   );
 
+  const dtRef = useRef<HTMLDivElement>(null);
+  const scrollToDT = useCallback(() => {
+    dtRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   return (
     <div className="space-y-4 min-w-0" dir="rtl">
 
@@ -1017,6 +1026,7 @@ export default function VirtualOfficeDesign({
         onRefresh={onRefresh}
         isRefreshing={isRefreshing}
         onOpenBoard={boardRoom ? () => setControlModalRoom(boardRoom) : undefined}
+        onScrollToDT={scrollToDT}
       />
 
       {/* ── Empty State ── */}
@@ -1086,6 +1096,63 @@ export default function VirtualOfficeDesign({
             <span style={{ fontSize: 9, color: "#1e3050", lineHeight: 1.4 }}>
               النقاط توضّح حالة ربط المكتب، وليست حضور الموظفين
             </span>
+          </div>
+
+          {/* ── Digital Twin command layer — C14-M7.2 ── */}
+          <div ref={dtRef} style={{ scrollMarginTop: 12, borderRadius: 14, border: "1px solid rgba(34,211,238,0.12)", background: "rgba(34,211,238,0.03)", padding: "12px 14px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <GitMerge size={14} color="#22d3ee" style={{ flexShrink: 0 }} />
+              <div>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#c0d4ee", lineHeight: 1.2 }}>التوأم الرقمي للمقر</p>
+                <p style={{ margin: 0, fontSize: 10, color: "#3a5570", lineHeight: 1.4 }}>يربط بين الهيكل الإداري والمكاتب والموظفين والمهام ليعكس صورة تشغيلية واضحة لشركتك.</p>
+              </div>
+            </div>
+            {/* Relationship chain */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+              {["الهيكل الإداري", "المكاتب", "الموظفون", "المهام"].map((node, i, arr) => (
+                <span key={node} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 9.5, fontWeight: 700, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(34,211,238,0.20)", background: "rgba(34,211,238,0.06)", color: "#5a9abf" }}>{node}</span>
+                  {i < arr.length - 1 && <span style={{ fontSize: 9, color: "#1e3050" }}>←</span>}
+                </span>
+              ))}
+            </div>
+            {/* Real counts */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {([
+                { label: "أقسام",    value: safeDepts.length > 0 ? `${safeDepts.length}` : null },
+                { label: "مكاتب مرتبطة", value: linkedOfficeCount > 0 ? `${linkedOfficeCount}` : null },
+                { label: "موظفون",   value: safeEmps.length  > 0 ? `${safeEmps.length}`  : null },
+                { label: "مهام",     value: safeTasks.length > 0 ? `${safeTasks.length}` : null },
+              ] as const).map(({ label, value }) => (
+                <div key={label} style={{ fontSize: 10, color: "#4a6a8a" }}>
+                  <span style={{ fontWeight: 700, color: value ? "#7ab4d4" : "#1e3050" }}>{value ?? "غير متاح"}</span>
+                  {" "}{label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── AI command layer — C14-M7.2 ── */}
+          <div style={{ borderRadius: 14, border: "1px solid rgba(168,85,247,0.12)", background: "rgba(168,85,247,0.03)", padding: "12px 14px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <BrainCircuit size={14} color="#a855f7" style={{ flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#c4b5fd", lineHeight: 1.2 }}>مساعد تشغيل المقر</p>
+                  <p style={{ margin: 0, fontSize: 10, color: "#3a3060", lineHeight: 1.4 }}>يساعدك على فهم حالة المقر بعد ربط المكاتب والبيانات التشغيلية.</p>
+                </div>
+              </div>
+              <a
+                href="/ai"
+                style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 9, border: "1px solid rgba(168,85,247,0.30)", background: "rgba(168,85,247,0.08)", color: "#c4b5fd", fontSize: 10, fontWeight: 700, textDecoration: "none", flexShrink: 0, whiteSpace: "nowrap" }}
+              >
+                <BrainCircuit size={10} />
+                فتح المساعد
+              </a>
+            </div>
+            <p style={{ margin: "6px 0 0", fontSize: 9.5, color: "#2a2050", lineHeight: 1.4 }}>
+              المساعد الذكي يعرض التوصيات بعد تفعيل وربط البيانات التشغيلية. · جاهز بعد ربط البيانات
+            </p>
           </div>
 
           {/* Bottom padding — ensures content clears fixed bottom nav + safe area */}

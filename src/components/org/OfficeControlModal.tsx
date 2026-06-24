@@ -7,7 +7,7 @@
 import { useState } from "react";
 import {
   X, Users, CheckCircle2, DoorOpen, Archive,
-  MapPin, ChevronDown, ChevronUp, Building2,
+  MapPin, ChevronDown, ChevronUp, Building2, GitMerge, BrainCircuit,
 } from "lucide-react";
 import type { OfficeRoom, MappingSource, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
 import { formatOfficeNumber } from "./VirtualOfficeReferenceScene";
@@ -314,7 +314,39 @@ export default function OfficeControlModal({
             </div>
           )}
 
-          {/* 5b ── Board roadmap — C14-M7 */}
+          {/* 5b-i ── Board: Digital Twin — C14-M7.2 */}
+          {room.isCenter && (
+            <div style={{ ...SECTION_CARD, border: "1px solid rgba(34,211,238,0.10)", background: "rgba(34,211,238,0.02)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+                <GitMerge size={12} color="#22d3ee" />
+                <div style={{ ...SECTION_LABEL, marginBottom: 0 }}>التوأم الرقمي</div>
+              </div>
+              <p style={{ margin: 0, fontSize: 10.5, color: "#4a6a8a", lineHeight: 1.5 }}>
+                يعكس ارتباط المكاتب بالهيكل الإداري والفرق والمهام.
+              </p>
+              <p style={{ margin: "4px 0 0", fontSize: 9.5, color: "#1e3050" }}>
+                الحالة: جاهز بعد ربط المكاتب
+              </p>
+            </div>
+          )}
+
+          {/* 5b-ii ── Board: AI assistant — C14-M7.2 */}
+          {room.isCenter && (
+            <div style={{ ...SECTION_CARD, border: "1px solid rgba(168,85,247,0.10)", background: "rgba(168,85,247,0.02)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+                <BrainCircuit size={12} color="#a855f7" />
+                <div style={{ ...SECTION_LABEL, marginBottom: 0 }}>مساعد تشغيل المقر</div>
+              </div>
+              <p style={{ margin: 0, fontSize: 10.5, color: "#4a4a8a", lineHeight: 1.5 }}>
+                يدعم قراءة حالة المقر واقتراح الخطوات التالية بعد توفر البيانات.
+              </p>
+              <p style={{ margin: "4px 0 0", fontSize: 9.5, color: "#1e1e40" }}>
+                الحالة: غير مفعّل تشغيلياً
+              </p>
+            </div>
+          )}
+
+          {/* 5b-iii ── Board roadmap — C14-M7 */}
           {room.isCenter && (
             <div style={{ ...SECTION_CARD, border: "1px solid rgba(139,92,246,0.12)", background: "rgba(139,92,246,0.03)" }}>
               <div style={{ ...SECTION_LABEL, marginBottom: 6 }}>خارطة طريق التفعيل</div>
