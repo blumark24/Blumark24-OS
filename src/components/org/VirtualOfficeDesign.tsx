@@ -905,6 +905,15 @@ export default function VirtualOfficeDesign({
               </div>
               <span style={{ fontSize: 11, color: "#5a7a9a" }}>اضغط على أي مكتب لإدارته.</span>
             </div>
+            {unassignedOfficeCount > 0 && (
+              <div style={{ borderRadius: 12, border: "1px solid rgba(245,158,11,0.18)", background: "rgba(245,158,11,0.04)", padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <span style={{ fontSize: 11, color: "#6b87ab", lineHeight: 1.4 }}>اضغط على أي مكتب غير مخصص لربطه بإدارة أو قسم.</span>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#f59e0b" }}>{unassignedOfficeCount}</span>
+                  <span style={{ fontSize: 10, color: "#78716c" }}>جاهزة للتشغيل</span>
+                </div>
+              </div>
+            )}
             <VirtualOfficeReferenceScene
               rooms={roomsWithPresence}
               selectedRoomId={controlModalRoom?.id ?? null}
@@ -924,6 +933,25 @@ export default function VirtualOfficeDesign({
               selectedRoomId={controlModalRoom?.id ?? null}
               onRoomClick={(r) => setControlModalRoom(r as OfficeRoom)}
             />
+            {/* Compact operational strip — mobile */}
+            <div style={{ marginTop: 12, borderRadius: 14, border: "1px solid rgba(245,158,11,0.18)", background: "rgba(245,158,11,0.04)", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#fbbf24" }}>تشغيل المكاتب</span>
+                <span style={{ fontSize: 10, color: "#64748b", lineHeight: 1.4 }}>اضغط على أي مكتب غير مخصص لربطه.</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                {unassignedOfficeCount > 0 && (
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: "#f59e0b", lineHeight: 1 }}>{unassignedOfficeCount}</div>
+                    <div style={{ fontSize: 9, color: "#78716c" }}>جاهزة للتشغيل</div>
+                  </div>
+                )}
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#10b981", lineHeight: 1 }}>{linkedOfficeCount}</div>
+                  <div style={{ fontSize: 9, color: "#78716c" }}>مرتبطة</div>
+                </div>
+              </div>
+            </div>
           </div>
         </>
       )}

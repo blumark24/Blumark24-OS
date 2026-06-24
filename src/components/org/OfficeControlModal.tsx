@@ -88,7 +88,7 @@ export default function OfficeControlModal({
 }: OfficeControlModalProps) {
   const [selectedUnitId, setSelectedUnitId] = useState(mappingUnit?.id ?? "");
   const [typeFilter, setTypeFilter]         = useState<TypeFilter>("all");
-  const [assignOpen, setAssignOpen]         = useState(false);
+  const [assignOpen, setAssignOpen]         = useState(room.isUnassigned);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const label  = room.officeNumber ? officeLabel(room.officeNumber) : "مكتب";
@@ -192,7 +192,7 @@ export default function OfficeControlModal({
                 style={{ minHeight: 38, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 12, border: "1px solid rgba(245,158,11,0.30)", background: "rgba(245,158,11,0.08)", color: "#fbbf24", fontSize: 12, fontWeight: 600, cursor: isManager ? "pointer" : "not-allowed", opacity: isManager ? 1 : 0.4 }}
               >
                 <MapPin size={13} />
-                مراجعة غير المخصص ({boardStats.unassignedOfficeCount})
+                مراجعة المكاتب الجاهزة للتشغيل ({boardStats.unassignedOfficeCount})
               </button>
             )}
             <button type="button" onClick={onClose} style={{ minHeight: 38, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7", fontSize: 13, cursor: "pointer" }}>
@@ -219,16 +219,23 @@ export default function OfficeControlModal({
               <span style={{ borderRadius: 999, border: `1px solid ${room.accentColor}40`, background: `${room.accentColor}12`, color: room.accentColor, fontSize: 11, fontWeight: 800, padding: "3px 10px" }}>
                 {label}
               </span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, borderRadius: 999, padding: "3px 10px", border: isOpen ? "1px solid rgba(16,185,129,0.35)" : "1px solid rgba(100,116,139,0.30)", background: isOpen ? "rgba(16,185,129,0.10)" : "rgba(100,116,139,0.08)", color: isOpen ? "#6ee7b7" : "#94a3b8", fontSize: 11, fontWeight: 700 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: isOpen ? "#10b981" : "#64748b", boxShadow: isOpen ? "0 0 6px #10b981" : undefined }} />
-                {isOpen ? "مفتوح" : "مغلق"}
-              </span>
+              {room.isUnassigned ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, borderRadius: 999, padding: "3px 10px", border: "1px solid rgba(245,158,11,0.40)", background: "rgba(245,158,11,0.10)", color: "#fbbf24", fontSize: 11, fontWeight: 700 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", boxShadow: "0 0 6px #f59e0b" }} />
+                  جاهز للتشغيل
+                </span>
+              ) : (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, borderRadius: 999, padding: "3px 10px", border: isOpen ? "1px solid rgba(16,185,129,0.35)" : "1px solid rgba(100,116,139,0.30)", background: isOpen ? "rgba(16,185,129,0.10)" : "rgba(100,116,139,0.08)", color: isOpen ? "#6ee7b7" : "#94a3b8", fontSize: 11, fontWeight: 700 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: isOpen ? "#10b981" : "#64748b", boxShadow: isOpen ? "0 0 6px #10b981" : undefined }} />
+                  {isOpen ? "مفتوح" : "مغلق"}
+                </span>
+              )}
             </div>
             <h2 style={{ margin: 0, color: "#fff", fontSize: 18, fontWeight: 800, lineHeight: 1.2 }}>
               إدارة المكتب
             </h2>
             <p style={{ margin: "4px 0 0", color: "#6b87ab", fontSize: 12, lineHeight: 1.5 }}>
-              {room.isUnassigned ? "غير مخصص" : room.name} · أدر الربط والحالة من نافذة واحدة.
+              {room.isUnassigned ? "مكتب غير مخصص · جاهز للتشغيل" : `${room.name} · أدر الربط والحالة من نافذة واحدة.`}
             </p>
           </div>
           <button type="button" onClick={onClose} aria-label="إغلاق" style={CLOSE_BTN}>
@@ -301,7 +308,7 @@ export default function OfficeControlModal({
               {assignOpen && (
                 <div style={{ padding: "0 12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
                   <p style={{ margin: 0, fontSize: 11, color: "#6b87ab", lineHeight: 1.5 }}>
-                    اختر إدارة أو قسم أو فريق لربط هذا المكتب.
+                    {room.isUnassigned ? "اختر إدارة أو قسم أو فريق لتشغيل هذا المكتب." : "اختر إدارة أو قسم أو فريق لربط هذا المكتب."}
                   </p>
 
                   {/* Type filter tabs */}
@@ -367,7 +374,7 @@ export default function OfficeControlModal({
                       opacity: (!hasNewSelection || isSaving) ? 0.5 : 1,
                     }}
                   >
-                    {isSaving ? "جارٍ الحفظ..." : "حفظ الربط"}
+                    {isSaving ? "جارٍ الحفظ..." : room.isUnassigned ? "ربط المكتب وتشغيله" : "حفظ الربط"}
                   </button>
                 </div>
               )}

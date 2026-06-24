@@ -72,14 +72,13 @@ function OfficeChip({ room, selected, onClick, position }: {
         zIndex: 2,
       }}
     >
-      {/* Presence dot */}
-      {room.healthPct > 0 && (
-        <span style={{
-          width: 5, height: 5, borderRadius: "50%",
-          background: hpColor(room.healthPct),
-          flexShrink: 0,
-        }} />
-      )}
+      {/* Status dot */}
+      <span style={{
+        width: 5, height: 5, borderRadius: "50%",
+        background: room.isUnassigned ? "#f59e0b" : room.isOpen === false ? "#64748b" : hpColor(room.healthPct),
+        flexShrink: 0,
+        boxShadow: room.isUnassigned ? "0 0 4px #f59e0b" : undefined,
+      }} />
 
       {/* Office number badge */}
       {room.officeNumber != null && (

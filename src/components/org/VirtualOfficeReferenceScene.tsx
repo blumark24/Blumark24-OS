@@ -320,6 +320,7 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
     const sel = r.id === selectedRoomId;
     if (r.isCenter) return { background: sel ? "rgba(50,15,85,0.97)" : "linear-gradient(160deg, rgba(28,8,58,0.96), rgba(14,5,38,0.98))", border: sel ? "2px solid rgba(139,92,246,0.70)" : "2px solid rgba(139,92,246,0.40)", boxShadow: sel ? "0 0 60px rgba(139,92,246,0.22)" : "0 0 44px rgba(139,92,246,0.14)" };
     if (r.isAI) return { background: sel ? "rgba(5,18,40,0.99)" : "linear-gradient(160deg, rgba(3,10,24,0.98), rgba(5,14,32,0.99))", border: sel ? "2px solid rgba(34,211,238,0.55)" : "1px solid rgba(34,211,238,0.24)", boxShadow: sel ? "0 0 50px rgba(34,211,238,0.22)" : "0 0 36px rgba(34,211,238,0.10)" };
+    if (r.isUnassigned) return { background: sel ? "rgba(30,20,5,0.98)" : "linear-gradient(160deg, rgba(20,14,3,0.97), rgba(15,10,2,0.98))", border: sel ? "1px dashed rgba(245,158,11,0.60)" : "1px dashed rgba(245,158,11,0.30)", boxShadow: sel ? "0 0 24px rgba(245,158,11,0.18)" : "0 0 14px rgba(245,158,11,0.07)" };
     return { background: sel ? `rgba(8,18,40,0.99)` : "linear-gradient(160deg, rgba(5,13,26,0.97), rgba(8,18,36,0.99))", borderTop: `2px solid ${r.accentColor}${sel ? "99" : "55"}`, border: sel ? `1px solid ${r.accentColor}55` : "1px solid rgba(255,255,255,0.045)", boxShadow: sel ? `0 0 30px ${r.accentColor}22` : "none" };
   }
 
@@ -350,7 +351,17 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
         <div style={{ width: 44, height: 44, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle, rgba(34,211,238,0.26), rgba(34,211,238,0.04))", border: "1px solid rgba(34,211,238,0.32)", boxShadow: sel ? "0 0 30px rgba(34,211,238,0.30)" : "0 0 20px rgba(34,211,238,0.20)" }}>
           <BrainCircuit size={20} color="#22d3ee" />
         </div>
-        <span style={{ fontSize: 9, color: "rgba(34,211,238,0.45)" }}>{room.isDemo ? "AI Engine Active" : room.employeeCount > 0 ? `${room.employeeCount} موظف` : "—"}</span>
+        <span style={{ fontSize: 9, color: "rgba(34,211,238,0.45)" }}>{room.employeeCount > 0 ? `${room.employeeCount} موظف` : "—"}</span>
+      </div>
+    );
+    if (room.isUnassigned) return (
+      <div style={{ padding: "8px 10px", height: "100%", display: "flex", flexDirection: "column", gap: 5, position: "relative", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(245,158,11,0.07), transparent)", pointerEvents: "none" }} />
+        <NumberBadge n={room.officeNumber} accent="#f59e0b" />
+        <div style={{ width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(245,158,11,0.10)", border: "1px dashed rgba(245,158,11,0.35)" }}>
+          <span style={{ fontSize: 18, lineHeight: 1, color: "#f59e0b" }}>+</span>
+        </div>
+        <span style={{ fontSize: 9, color: "#f59e0b", fontWeight: 700, textAlign: "center" }}>جاهز للتشغيل</span>
       </div>
     );
     return (
@@ -365,6 +376,13 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
             {room.overdueTasks > 0 && <span style={{ width: 16, height: 16, borderRadius: "50%", background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{room.overdueTasks}</span>}
             {pct > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: hp.color, background: hp.bg, border: `1px solid ${hp.border}`, padding: "1px 5px", borderRadius: 14 }}>{pct}%</span>}
           </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {room.isOpen === false ? (
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#94a3b8", background: "rgba(100,116,139,0.12)", border: "1px solid rgba(100,116,139,0.22)", padding: "1px 6px", borderRadius: 10 }}>مغلق</span>
+          ) : (
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.10)", border: "1px solid rgba(16,185,129,0.22)", padding: "1px 6px", borderRadius: 10 }}>مفتوح</span>
+          )}
         </div>
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 5 }}>
           {[0, 1].map((d) => <div key={d} style={{ width: 32, height: 14, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 3 }} />)}
