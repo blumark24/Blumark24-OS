@@ -22,7 +22,7 @@ import type {
   ExecutiveOfficeRoomMapping,
   ExecutiveOfficeRoomMappingByRoom,
 } from "@/lib/tenant/executiveOfficeRoomMappings";
-import VirtualOfficeReferenceScene, { type SceneRoom, formatOfficeNumber } from "./VirtualOfficeReferenceScene";
+import { type SceneRoom, formatOfficeNumber } from "./VirtualOfficeReferenceScene";
 import MobileExecutiveOfficeScene from "./MobileExecutiveOfficeScene";
 import OfficeControlModal, { type OfficeRoomState, type BoardOfficeStats } from "./OfficeControlModal";
 
@@ -896,8 +896,9 @@ export default function VirtualOfficeDesign({
         </div>
       ) : (
         <>
-          {/* ── Desktop scene (sm+) ── */}
-          <div className="hidden sm:block space-y-5">
+          {/* ── Unified office map — all screen sizes ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Header row */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <LayoutGrid size={15} color="#22d3ee" />
@@ -905,54 +906,36 @@ export default function VirtualOfficeDesign({
               </div>
               <span style={{ fontSize: 11, color: "#5a7a9a" }}>اضغط على أي مكتب لإدارته.</span>
             </div>
+
+            {/* Activation strip — above map, only when unassigned exist */}
             {unassignedOfficeCount > 0 && (
-              <div style={{ borderRadius: 12, border: "1px solid rgba(245,158,11,0.18)", background: "rgba(245,158,11,0.04)", padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <span style={{ fontSize: 11, color: "#6b87ab", lineHeight: 1.4 }}>اضغط على أي مكتب غير مخصص لربطه بإدارة أو قسم.</span>
-                <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: "#f59e0b" }}>{unassignedOfficeCount}</span>
-                  <span style={{ fontSize: 10, color: "#78716c" }}>جاهزة للتشغيل</span>
+              <div style={{ borderRadius: 12, border: "1px solid rgba(245,158,11,0.25)", background: "rgba(245,158,11,0.06)", padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <span style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.4 }}>اضغط على أي مكتب غير مخصص لربطه وتشغيله.</span>
+                <div style={{ display: "flex", gap: 10, flexShrink: 0, alignItems: "center" }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: "#f59e0b", lineHeight: 1 }}>{unassignedOfficeCount}</span>
+                    <span style={{ fontSize: 9, color: "#78716c" }}>جاهزة للتشغيل</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: "#10b981", lineHeight: 1 }}>{linkedOfficeCount}</span>
+                    <span style={{ fontSize: 9, color: "#78716c" }}>مرتبطة</span>
+                  </div>
                 </div>
               </div>
             )}
-            <VirtualOfficeReferenceScene
-              rooms={roomsWithPresence}
-              selectedRoomId={controlModalRoom?.id ?? null}
-              onRoomClick={(r) => {
-                setControlModalRoom(r as OfficeRoom);
-              }}
-            />
-          </div>
 
-          {/* ── Mobile console (xs only) ── */}
-          <div
-            className="sm:hidden"
-            style={{ paddingBottom: "calc(120px + env(safe-area-inset-bottom))" }}
-          >
-            <MobileExecutiveOfficeScene
-              rooms={roomsWithPresence}
-              selectedRoomId={controlModalRoom?.id ?? null}
-              onRoomClick={(r) => setControlModalRoom(r as OfficeRoom)}
-            />
-            {/* Compact operational strip — mobile */}
-            <div style={{ marginTop: 12, borderRadius: 14, border: "1px solid rgba(245,158,11,0.18)", background: "rgba(245,158,11,0.04)", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#fbbf24" }}>تشغيل المكاتب</span>
-                <span style={{ fontSize: 10, color: "#64748b", lineHeight: 1.4 }}>اضغط على أي مكتب غير مخصص لربطه.</span>
-              </div>
-              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                {unassignedOfficeCount > 0 && (
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: "#f59e0b", lineHeight: 1 }}>{unassignedOfficeCount}</div>
-                    <div style={{ fontSize: 9, color: "#78716c" }}>جاهزة للتشغيل</div>
-                  </div>
-                )}
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "#10b981", lineHeight: 1 }}>{linkedOfficeCount}</div>
-                  <div style={{ fontSize: 9, color: "#78716c" }}>مرتبطة</div>
-                </div>
-              </div>
+            {/* Image map — centered, max 860px, same visual for all screen sizes */}
+            <div style={{ maxWidth: 860, width: "100%", margin: "0 auto" }}>
+              <MobileExecutiveOfficeScene
+                rooms={roomsWithPresence}
+                selectedRoomId={controlModalRoom?.id ?? null}
+                onRoomClick={(r) => setControlModalRoom(r as OfficeRoom)}
+              />
             </div>
           </div>
+
+          {/* Bottom padding — keeps content above bottom nav on mobile */}
+          <div style={{ height: "calc(72px + env(safe-area-inset-bottom))" }} />
         </>
       )}
 
