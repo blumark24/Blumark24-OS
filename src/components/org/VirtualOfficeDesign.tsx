@@ -10,7 +10,7 @@ import Link from "next/link";
 import {
   ArrowRight, RefreshCw, Users,
   LayoutGrid, Building2,
-  Layers, MapPin,
+  Layers, MapPin, Globe, Zap,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { OrgStructureSnapshot } from "@/lib/org/types";
@@ -530,6 +530,125 @@ function normalizeSavedMappings(value: unknown): ExecutiveOfficeRoomMappingByRoo
 }
 
 
+// ─── HQ Command Header — C14-M7 ──────────────────────────────────────────────
+
+interface HQCommandHeaderProps {
+  orgName: string;
+  linkedCount: number;
+  unassignedCount: number;
+  totalOffices: number;
+  onBackToOrg: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+  onOpenBoard?: () => void;
+}
+
+function HQCommandHeader({
+  orgName, linkedCount, unassignedCount, totalOffices,
+  onBackToOrg, onRefresh, isRefreshing, onOpenBoard,
+}: HQCommandHeaderProps) {
+  return (
+    <section style={{
+      position: "relative", overflow: "hidden", borderRadius: 18,
+      border: "1px solid rgba(34,211,238,0.18)",
+      padding: "14px 18px 12px",
+      background: "linear-gradient(135deg, rgba(6,15,30,0.99) 0%, rgba(14,28,58,0.98) 60%, rgba(30,10,55,0.12) 100%)",
+      boxShadow: "0 0 40px rgba(34,211,238,0.03)",
+    }}>
+      {/* Subtle radial accent */}
+      <div style={{ position: "absolute", top: -50, right: -50, width: 180, height: 180, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,238,0.06), transparent)", pointerEvents: "none" }} />
+      <div style={{ position: "relative" }}>
+
+        {/* ── Top row: identity + nav ── */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ minWidth: 0 }}>
+            {/* Badge row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5, flexWrap: "wrap" }}>
+              <Globe size={12} color="#22d3ee" style={{ flexShrink: 0 }} />
+              {orgName && (
+                <span style={{ fontSize: 11, color: "#5a7a9a", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>
+                  {orgName}
+                </span>
+              )}
+              <span style={{ fontSize: 9.5, fontWeight: 800, padding: "2px 7px", borderRadius: 5, background: "rgba(34,211,238,0.14)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.30)", flexShrink: 0, letterSpacing: 0.3 }}>
+                مقر سحابي
+              </span>
+              <span style={{ fontSize: 9.5, fontWeight: 700, padding: "2px 6px", borderRadius: 5, background: "rgba(245,158,11,0.16)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.28)", flexShrink: 0 }}>
+                BETA
+              </span>
+            </div>
+            {/* Main title */}
+            <h1 style={{ margin: 0, fontSize: "clamp(17px,3.8vw,22px)", fontWeight: 800, color: "#fff", lineHeight: 1.1, letterSpacing: -0.2 }}>
+              مقر الشركة السحابي
+            </h1>
+            <p style={{ margin: "2px 0 0", fontSize: 11, color: "#3a6080", fontWeight: 500, fontFamily: "inherit", letterSpacing: 0.2 }}>
+              Blumark24 Cloud Office
+            </p>
+            <p style={{ margin: "3px 0 0", fontSize: 11, color: "#4a6a8a", lineHeight: 1.4 }}>
+              مساحة تشغيل رقمية لمكاتب شركتك وفرقك عن بعد
+            </p>
+          </div>
+
+          {/* Nav buttons */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <button type="button" onClick={onBackToOrg} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7", fontSize: 12, cursor: "pointer" }}>
+              <ArrowRight size={13} /> رجوع
+            </button>
+            <button type="button" onClick={onRefresh} disabled={isRefreshing || !onRefresh} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(34,211,238,0.25)", background: "rgba(34,211,238,0.08)", color: "#22d3ee", fontSize: 12, cursor: "pointer", opacity: (isRefreshing || !onRefresh) ? 0.5 : 1 }}>
+              <RefreshCw size={13} style={isRefreshing ? { animation: "spin 1s linear infinite" } : undefined} /> مزامنة
+            </button>
+          </div>
+        </div>
+
+        {/* ── Status row ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 0, marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.05)", flexWrap: "wrap", rowGap: 4 }}>
+          {([
+            { label: `${totalOffices} مكاتب`,           color: "#22d3ee" },
+            { label: `${linkedCount} مرتبطة`,            color: "#10b981" },
+            { label: `${unassignedCount} تحتاج ربط`,    color: "#f59e0b" },
+            { label: "الحضور: غير مفعّل",                color: "#4a6a8a" },
+            { label: "آخر تحديث: غير متاح",             color: "#2a4462" },
+          ] as const).map(({ label, color }, i) => (
+            <span key={label} style={{ display: "inline-flex", alignItems: "center", gap: 0 }}>
+              <span style={{ fontSize: 10, color, fontWeight: 600 }}>{label}</span>
+              {i < 4 && <span style={{ fontSize: 10, color: "#1a2e48", margin: "0 8px" }}>·</span>}
+            </span>
+          ))}
+        </div>
+
+        {/* ── Quick action chips ── */}
+        <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+          {([
+            { label: "الموظفون",    Icon: Users,      action: undefined },
+            { label: "المهام",      Icon: Zap,        action: undefined },
+            { label: "مجلس الإدارة", Icon: Building2, action: onOpenBoard },
+            { label: "تشغيل المقر", Icon: Layers,     action: undefined },
+          ] as const).map(({ label, Icon, action }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={action}
+              disabled={!action}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px",
+                borderRadius: 999, fontSize: 11, fontWeight: 600, cursor: action ? "pointer" : "default",
+                border: "1px solid rgba(148,163,184,0.15)",
+                background: action ? "rgba(34,211,238,0.07)" : "rgba(255,255,255,0.03)",
+                color: action ? "#5a9abf" : "#2a4462",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <Icon size={11} />
+              {label}
+            </button>
+          ))}
+        </div>
+
+      </div>
+    </section>
+  );
+}
+
 // ─── Workspace Identity Strip ─────────────────────────────────────────────────
 
 function WorkspaceIdentityStrip({ orgName, orgCode, snapshot, employees }: {
@@ -883,27 +1002,25 @@ export default function VirtualOfficeDesign({
   const linkedOfficeCount = roomsWithPresence.filter((room) => !room.isUnassigned).length;
   const unassignedOfficeCount = roomsWithPresence.filter((room) => room.isUnassigned).length;
 
+  const boardRoom = useMemo(
+    () => roomsWithPresence.find((r) => r.isCenter) ?? null,
+    [roomsWithPresence],
+  );
+
   return (
     <div className="space-y-4 min-w-0" dir="rtl">
 
-      {/* ── Header ── */}
-      <section style={{ position: "relative", overflow: "hidden", borderRadius: 18, border: "1px solid rgba(34,211,238,0.16)", padding: "14px 18px", background: "linear-gradient(135deg, rgba(6,15,30,0.98) 0%, rgba(18,36,68,0.96) 55%, rgba(50,16,80,0.14) 100%)", boxShadow: "0 0 50px rgba(34,211,238,0.04)" }}>
-        <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,238,0.07), transparent)", pointerEvents: "none" }} />
-        <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: "rgba(245,158,11,0.20)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.32)", flexShrink: 0 }}>BETA</span>
-            <h1 style={{ fontSize: "clamp(16px,3.5vw,24px)", fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>المكتب التنفيذي الافتراضي</h1>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <button type="button" onClick={onBackToOrg} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.05)", color: "#8ba3c7", fontSize: 12, cursor: "pointer" }}>
-              <ArrowRight size={13} /> رجوع
-            </button>
-            <button type="button" onClick={onRefresh} disabled={isRefreshing || !onRefresh} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(34,211,238,0.25)", background: "rgba(34,211,238,0.08)", color: "#22d3ee", fontSize: 12, cursor: "pointer", opacity: (isRefreshing || !onRefresh) ? 0.5 : 1 }}>
-              <RefreshCw size={13} style={isRefreshing ? { animation: "spin 1s linear infinite" } : undefined} /> مزامنة
-            </button>
-          </div>
-        </div>
-      </section>
+      {/* ── HQ Command Header — C14-M7 ── */}
+      <HQCommandHeader
+        orgName={orgName}
+        linkedCount={linkedOfficeCount}
+        unassignedCount={unassignedOfficeCount}
+        totalOffices={roomsWithPresence.length}
+        onBackToOrg={onBackToOrg}
+        onRefresh={onRefresh}
+        isRefreshing={isRefreshing}
+        onOpenBoard={boardRoom ? () => setControlModalRoom(boardRoom) : undefined}
+      />
 
       {/* ── Empty State ── */}
       {isEmpty ? (
@@ -980,6 +1097,9 @@ export default function VirtualOfficeDesign({
           closedCount,
         };
         const managerRoom = roomsWithPresence.find((r) => r.id === controlModalRoom.id) ?? controlModalRoom;
+        const officePeople = (managerRoom.isCenter || managerRoom.isUnassigned)
+          ? []
+          : resolveRoomPeople(controlModalRoom, controlMapping.unit, snapshot, safeEmps);
         return (
           <OfficeControlModal
             key={controlModalRoom.id}
@@ -990,6 +1110,7 @@ export default function VirtualOfficeDesign({
             mappingSource={controlMapping.source}
             managerName={managerRoom.managerName}
             units={previewOrgUnits}
+            officePeople={officePeople}
             isSaving={savingRoomKey === controlModalRoom.fixedRoomKey}
             isUpdating={updatingRoomKey === controlModalRoom.fixedRoomKey || updatingRoomKey === "bulk"}
             boardStats={controlModalRoom.isCenter ? boardStats : null}
