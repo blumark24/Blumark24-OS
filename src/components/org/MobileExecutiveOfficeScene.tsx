@@ -43,10 +43,29 @@ function OfficeChip({ room, selected, onClick, position }: {
   onClick: () => void;
   position: ChipPos;
 }) {
-  const accent = room.isCenter ? "#a855f7" : room.isAI ? "#22d3ee" : (room.accentColor ?? "#22d3ee");
-  const label  = room.isUnassigned
-    ? "غير مخصص"
-    : (room.name?.replace(/^مكتب\s+\d+\s*/, "").trim() || room.name || "—");
+  const accent = room.isCenter
+    ? "#a855f7"
+    : room.isUnassigned
+    ? "#f59e0b"
+    : room.isAI
+    ? "#22d3ee"
+    : (room.accentColor ?? "#22d3ee");
+
+  const statusText = room.isCenter
+    ? "مجلس الإدارة"
+    : room.isUnassigned
+    ? "جاهز للتشغيل"
+    : room.isOpen === false
+    ? "مغلق"
+    : (room.name?.replace(/^مكتب\s+\d+\s*/, "").trim() || room.name || "مفتوح");
+
+  const dotColor = room.isCenter
+    ? "#a855f7"
+    : room.isUnassigned
+    ? "#f59e0b"
+    : room.isOpen === false
+    ? "#64748b"
+    : hpColor(room.healthPct);
 
   return (
     <button
@@ -57,46 +76,32 @@ function OfficeChip({ room, selected, onClick, position }: {
         position: "absolute",
         top: position.top, left: position.left,
         transform: "translate(-50%, -50%)",
-        display: "inline-flex", alignItems: "center", gap: 4,
-        padding: "3px 7px 3px 5px",
-        borderRadius: 999,
-        background: selected ? `${accent}28` : "rgba(2,8,23,0.82)",
+        display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2,
+        padding: "4px 8px",
+        borderRadius: 10,
+        background: selected ? `${accent}28` : "rgba(2,8,23,0.85)",
         backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
         border: selected ? `1px solid ${accent}` : `1px solid ${accent}55`,
         boxShadow: selected ? `0 0 14px ${accent}55` : "0 1px 4px rgba(0,0,0,0.55)",
-        color: "#e5edf8",
-        fontSize: 9, fontWeight: 700,
-        whiteSpace: "nowrap", cursor: "pointer",
-        maxWidth: "44%",
+        cursor: "pointer",
+        maxWidth: "42%",
         transition: "all 0.15s ease",
         zIndex: 2,
       }}
     >
-      {/* Status dot */}
+      {/* Number + dot row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+        <span style={{ width: 5, height: 5, borderRadius: "50%", background: dotColor, flexShrink: 0, boxShadow: room.isUnassigned ? `0 0 4px ${dotColor}` : undefined }} />
+        <span style={{ fontSize: 8, fontWeight: 800, color: "#cbd5e1", background: "rgba(255,255,255,0.10)", border: "1px solid rgba(148,163,184,0.25)", padding: "0 4px", borderRadius: 4, lineHeight: 1.5, fontVariantNumeric: "tabular-nums" }}>
+          {formatOfficeNumber(room.officeNumber)}
+        </span>
+      </div>
+      {/* Status / name */}
       <span style={{
-        width: 5, height: 5, borderRadius: "50%",
-        background: room.isUnassigned ? "#f59e0b" : room.isOpen === false ? "#64748b" : hpColor(room.healthPct),
-        flexShrink: 0,
-        boxShadow: room.isUnassigned ? "0 0 4px #f59e0b" : undefined,
-      }} />
-
-      {/* Office number badge */}
-      {room.officeNumber != null && (
-        <span style={{
-          fontSize: 7.5, fontWeight: 800, color: "#cbd5e1",
-          background: "rgba(255,255,255,0.10)",
-          border: "1px solid rgba(148,163,184,0.25)",
-          padding: "0 4px", borderRadius: 4, lineHeight: 1.5,
-          fontVariantNumeric: "tabular-nums", flexShrink: 0,
-        }}>{formatOfficeNumber(room.officeNumber)}</span>
-      )}
-
-      {/* Name */}
-      <span style={{
-        overflow: "hidden", textOverflow: "ellipsis", maxWidth: 62,
-        opacity: room.isUnassigned ? 0.75 : 1,
-        fontStyle: room.isUnassigned ? "italic" : "normal",
-      }}>{label}</span>
+        fontSize: 8, fontWeight: 700,
+        color: room.isUnassigned ? "#f59e0b" : room.isCenter ? "#c4b5fd" : "#e5edf8",
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 60,
+      }}>{statusText}</span>
     </button>
   );
 }
