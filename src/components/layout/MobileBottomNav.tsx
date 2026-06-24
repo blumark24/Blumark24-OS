@@ -51,6 +51,7 @@ export default function MobileBottomNav() {
   const pathname = usePathname();
   const { navRoutes, loading } = useTenantWorkspace();
   const [quickOpen, setQuickOpen] = useState(false);
+  const hideFab = pathname.startsWith("/virtual-office");
 
   const tabRoutes = useMemo(() => {
     if (loading) return [];
@@ -93,44 +94,47 @@ export default function MobileBottomNav() {
         dir="rtl"
       >
         <div className="relative w-full max-w-md pointer-events-auto">
-          {/* Center FAB — floats above the glass bar */}
-          <div className="absolute left-1/2 -translate-x-1/2 -top-7 z-[2]">
-            <button
-              type="button"
-              onClick={() => setQuickOpen((v) => !v)}
-              className={cn(
-                "relative flex h-[3.35rem] w-[3.35rem] items-center justify-center rounded-full",
-                "bg-gradient-to-br from-[#1E6FD9] via-[#2563EB] to-[#22D3EE] text-white",
-                "shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_12px_40px_-8px_rgba(34,211,238,0.68),0_0_38px_-12px_rgba(30,111,217,0.85)]",
-                "transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/80",
-                quickOpen && "rotate-45 scale-105",
-              )}
-              aria-label={quickOpen ? "إغلاق الإجراءات السريعة" : "فتح الإجراءات السريعة"}
-              aria-expanded={quickOpen}
-            >
-              <span
+          {/* Center FAB — hidden on /virtual-office to avoid covering office map */}
+          {!hideFab && (
+            <div className="absolute left-1/2 -translate-x-1/2 -top-7 z-[2]">
+              <button
+                type="button"
+                onClick={() => setQuickOpen((v) => !v)}
                 className={cn(
-                  "absolute inset-0 rounded-full transition-opacity",
-                  quickOpen ? "opacity-60" : "opacity-40 animate-pulse",
+                  "relative flex h-[3.35rem] w-[3.35rem] items-center justify-center rounded-full",
+                  "bg-gradient-to-br from-[#1E6FD9] via-[#2563EB] to-[#22D3EE] text-white",
+                  "shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_12px_40px_-8px_rgba(34,211,238,0.68),0_0_38px_-12px_rgba(30,111,217,0.85)]",
+                  "transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/80",
+                  quickOpen && "rotate-45 scale-105",
                 )}
-                style={{
-                  background:
-                    "radial-gradient(circle at 50% 50%, rgba(34,211,238,0.55), transparent 70%)",
-                }}
-                aria-hidden
-              />
-              {quickOpen ? (
-                <X size={22} className="relative z-[1]" />
-              ) : (
-                <Plus size={24} className="relative z-[1]" strokeWidth={2.5} />
-              )}
-            </button>
-          </div>
+                aria-label={quickOpen ? "إغلاق الإجراءات السريعة" : "فتح الإجراءات السريعة"}
+                aria-expanded={quickOpen}
+              >
+                <span
+                  className={cn(
+                    "absolute inset-0 rounded-full transition-opacity",
+                    quickOpen ? "opacity-60" : "opacity-40 animate-pulse",
+                  )}
+                  style={{
+                    background:
+                      "radial-gradient(circle at 50% 50%, rgba(34,211,238,0.55), transparent 70%)",
+                  }}
+                  aria-hidden
+                />
+                {quickOpen ? (
+                  <X size={22} className="relative z-[1]" />
+                ) : (
+                  <Plus size={24} className="relative z-[1]" strokeWidth={2.5} />
+                )}
+              </button>
+            </div>
+          )}
 
           {/* Floating glass bar */}
           <nav
             className={cn(
-              "grid grid-cols-5 items-end gap-0 rounded-[1.35rem] border border-cyan-300/[0.14]",
+              hideFab ? "grid-cols-4" : "grid-cols-5",
+              "items-end gap-0 rounded-[1.35rem] border border-cyan-300/[0.14]",
               "bg-[linear-gradient(180deg,rgba(9,22,43,0.94),rgba(4,11,24,0.92))] backdrop-blur-3xl",
               "shadow-[0_-8px_42px_-12px_rgba(0,0,0,0.68),0_0_28px_-18px_rgba(34,211,238,0.45),inset_0_1px_0_rgba(255,255,255,0.08)]",
               "px-2 pt-2.5 pb-2.5 min-h-[4.35rem]",
@@ -163,8 +167,8 @@ export default function MobileBottomNav() {
               );
             })}
 
-            {/* Center spacer for FAB */}
-            <div className="min-h-[44px]" aria-hidden />
+            {/* Center spacer for FAB — omitted on /virtual-office */}
+            {!hideFab && <div className="min-h-[44px]" aria-hidden />}
 
             {rightTabs.map((route) => {
               const Icon = ICON_BY_NAME[route.iconName] ?? LayoutDashboard;

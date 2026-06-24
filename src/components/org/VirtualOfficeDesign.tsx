@@ -549,96 +549,93 @@ function HQCommandHeader({
 }: HQCommandHeaderProps) {
   return (
     <section style={{
-      position: "relative", overflow: "hidden", borderRadius: 18,
-      border: "1px solid rgba(34,211,238,0.18)",
-      padding: "14px 18px 12px",
-      background: "linear-gradient(135deg, rgba(6,15,30,0.99) 0%, rgba(14,28,58,0.98) 60%, rgba(30,10,55,0.12) 100%)",
-      boxShadow: "0 0 40px rgba(34,211,238,0.03)",
+      position: "relative", overflow: "hidden", borderRadius: 16,
+      border: "1px solid rgba(34,211,238,0.16)",
+      padding: "10px 14px 8px",
+      background: "linear-gradient(135deg, rgba(6,15,30,0.99) 0%, rgba(14,28,58,0.98) 60%, rgba(30,10,55,0.10) 100%)",
     }}>
-      {/* Subtle radial accent */}
-      <div style={{ position: "absolute", top: -50, right: -50, width: 180, height: 180, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,238,0.06), transparent)", pointerEvents: "none" }} />
       <div style={{ position: "relative" }}>
 
         {/* ── Top row: identity + nav ── */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
             {/* Badge row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5, flexWrap: "wrap" }}>
-              <Globe size={12} color="#22d3ee" style={{ flexShrink: 0 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <Globe size={11} color="#22d3ee" style={{ flexShrink: 0 }} />
               {orgName && (
-                <span style={{ fontSize: 11, color: "#5a7a9a", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>
+                <span style={{ fontSize: 10.5, color: "#4a6a8a", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 130 }}>
                   {orgName}
                 </span>
               )}
-              <span style={{ fontSize: 9.5, fontWeight: 800, padding: "2px 7px", borderRadius: 5, background: "rgba(34,211,238,0.14)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.30)", flexShrink: 0, letterSpacing: 0.3 }}>
+              <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: "rgba(34,211,238,0.12)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.26)", flexShrink: 0 }}>
                 مقر سحابي
               </span>
-              <span style={{ fontSize: 9.5, fontWeight: 700, padding: "2px 6px", borderRadius: 5, background: "rgba(245,158,11,0.16)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.28)", flexShrink: 0 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: "rgba(245,158,11,0.14)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.24)", flexShrink: 0 }}>
                 BETA
               </span>
             </div>
-            {/* Main title */}
-            <h1 style={{ margin: 0, fontSize: "clamp(17px,3.8vw,22px)", fontWeight: 800, color: "#fff", lineHeight: 1.1, letterSpacing: -0.2 }}>
-              مقر الشركة السحابي
-            </h1>
-            <p style={{ margin: "2px 0 0", fontSize: 11, color: "#3a6080", fontWeight: 500, fontFamily: "inherit", letterSpacing: 0.2 }}>
-              Blumark24 Cloud Office
-            </p>
-            <p style={{ margin: "3px 0 0", fontSize: 11, color: "#4a6a8a", lineHeight: 1.4 }}>
-              مساحة تشغيل رقمية لمكاتب شركتك وفرقك عن بعد
-            </p>
+            {/* Titles inline */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 3, flexWrap: "wrap" }}>
+              <h1 style={{ margin: 0, fontSize: "clamp(15px,3.5vw,20px)", fontWeight: 800, color: "#fff", lineHeight: 1.15, letterSpacing: -0.2, whiteSpace: "nowrap" }}>
+                مقر الشركة السحابي
+              </h1>
+              <span style={{ fontSize: 10, color: "#2a4060", fontWeight: 500, whiteSpace: "nowrap" }}>
+                Blumark24 Cloud Office
+              </span>
+            </div>
           </div>
 
           {/* Nav buttons */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <button type="button" onClick={onBackToOrg} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7", fontSize: 12, cursor: "pointer" }}>
-              <ArrowRight size={13} /> رجوع
+          <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+            <button type="button" onClick={onBackToOrg} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 9, border: "1px solid rgba(255,255,255,0.09)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7", fontSize: 11, cursor: "pointer" }}>
+              <ArrowRight size={12} /> رجوع
             </button>
-            <button type="button" onClick={onRefresh} disabled={isRefreshing || !onRefresh} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(34,211,238,0.25)", background: "rgba(34,211,238,0.08)", color: "#22d3ee", fontSize: 12, cursor: "pointer", opacity: (isRefreshing || !onRefresh) ? 0.5 : 1 }}>
-              <RefreshCw size={13} style={isRefreshing ? { animation: "spin 1s linear infinite" } : undefined} /> مزامنة
+            <button type="button" onClick={onRefresh} disabled={isRefreshing || !onRefresh} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 9, border: "1px solid rgba(34,211,238,0.22)", background: "rgba(34,211,238,0.07)", color: "#22d3ee", fontSize: 11, cursor: "pointer", opacity: (isRefreshing || !onRefresh) ? 0.5 : 1 }}>
+              <RefreshCw size={12} style={isRefreshing ? { animation: "spin 1s linear infinite" } : undefined} /> مزامنة
             </button>
           </div>
         </div>
 
-        {/* ── Status row ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 0, marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.05)", flexWrap: "wrap", rowGap: 4 }}>
+        {/* ── Status row — single compact line ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 0, marginTop: 7, paddingTop: 6, borderTop: "1px solid rgba(255,255,255,0.05)", overflowX: "auto", WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"], scrollbarWidth: "none" }}>
           {([
-            { label: `${totalOffices} مكاتب`,           color: "#22d3ee" },
-            { label: `${linkedCount} مرتبطة`,            color: "#10b981" },
-            { label: `${unassignedCount} تحتاج ربط`,    color: "#f59e0b" },
-            { label: "الحضور: غير مفعّل",                color: "#4a6a8a" },
-            { label: "آخر تحديث: غير متاح",             color: "#2a4462" },
+            { label: `${totalOffices} مكاتب`,        color: "#22d3ee" },
+            { label: `${linkedCount} مرتبطة`,         color: "#10b981" },
+            { label: `${unassignedCount} تحتاج ربط`, color: "#f59e0b" },
+            { label: "الحضور: غير مفعّل",             color: "#3a5570" },
+            { label: "آخر تحديث: غير متاح",          color: "#1e3050" },
           ] as const).map(({ label, color }, i) => (
-            <span key={label} style={{ display: "inline-flex", alignItems: "center", gap: 0 }}>
-              <span style={{ fontSize: 10, color, fontWeight: 600 }}>{label}</span>
-              {i < 4 && <span style={{ fontSize: 10, color: "#1a2e48", margin: "0 8px" }}>·</span>}
+            <span key={label} style={{ display: "inline-flex", alignItems: "center", gap: 0, flexShrink: 0 }}>
+              <span style={{ fontSize: 9.5, color, fontWeight: 600, whiteSpace: "nowrap" }}>{label}</span>
+              {i < 4 && <span style={{ fontSize: 9.5, color: "#1a2e48", margin: "0 6px" }}>·</span>}
             </span>
           ))}
         </div>
 
-        {/* ── Quick action chips ── */}
-        <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+        {/* ── Quick action chips — horizontally scrollable on mobile ── */}
+        <div style={{ display: "flex", gap: 5, marginTop: 7, overflowX: "auto", WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"], scrollbarWidth: "none", paddingBottom: 1 }}>
           {([
-            { label: "الموظفون",    Icon: Users,      action: undefined },
-            { label: "المهام",      Icon: Zap,        action: undefined },
+            { label: "الموظفون",    Icon: Users,      action: undefined as (() => void) | undefined },
+            { label: "المهام",      Icon: Zap,        action: undefined as (() => void) | undefined },
             { label: "مجلس الإدارة", Icon: Building2, action: onOpenBoard },
-            { label: "تشغيل المقر", Icon: Layers,     action: undefined },
-          ] as const).map(({ label, Icon, action }) => (
+            { label: "تشغيل المقر", Icon: Layers,     action: undefined as (() => void) | undefined },
+          ]).map(({ label, Icon, action }) => (
             <button
               key={label}
               type="button"
               onClick={action}
               disabled={!action}
               style={{
-                display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px",
-                borderRadius: 999, fontSize: 11, fontWeight: 600, cursor: action ? "pointer" : "default",
-                border: "1px solid rgba(148,163,184,0.15)",
-                background: action ? "rgba(34,211,238,0.07)" : "rgba(255,255,255,0.03)",
-                color: action ? "#5a9abf" : "#2a4462",
+                display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px",
+                borderRadius: 999, fontSize: 10, fontWeight: 600, cursor: action ? "pointer" : "default",
+                border: "1px solid rgba(148,163,184,0.13)",
+                background: action ? "rgba(34,211,238,0.07)" : "rgba(255,255,255,0.02)",
+                color: action ? "#4a8aaa" : "#1e3050",
+                flexShrink: 0,
                 transition: "all 0.15s ease",
               }}
             >
-              <Icon size={11} />
+              <Icon size={10} />
               {label}
             </button>
           ))}
@@ -1072,11 +1069,27 @@ export default function VirtualOfficeDesign({
             </div>
           </div>
 
-          {/* ── Secondary info — below the map ── */}
-          <WorkspaceIdentityStrip orgName={orgName} orgCode={orgCode} snapshot={snapshot} employees={safeEmps} />
+          {/* ── Dot legend — clarify dots are linkage state, not presence ── */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              {([
+                { color: "#10b981", label: "مرتبط" },
+                { color: "#f59e0b", label: "جاهز للتشغيل" },
+                { color: "#a855f7", label: "مجلس الإدارة" },
+              ] as const).map(({ color, label }) => (
+                <span key={label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9.5, color: "#3a5570" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                  {label}
+                </span>
+              ))}
+            </div>
+            <span style={{ fontSize: 9, color: "#1e3050", lineHeight: 1.4 }}>
+              النقاط توضّح حالة ربط المكتب، وليست حضور الموظفين
+            </span>
+          </div>
 
-          {/* Bottom padding — keeps content above bottom nav on mobile */}
-          <div style={{ height: "calc(72px + env(safe-area-inset-bottom))" }} />
+          {/* Bottom padding — ensures content clears fixed bottom nav + safe area */}
+          <div style={{ height: "calc(9rem + env(safe-area-inset-bottom, 0px))" }} />
         </>
       )}
 
