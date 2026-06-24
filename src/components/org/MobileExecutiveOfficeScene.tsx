@@ -25,6 +25,11 @@ const OFFICE_LABEL_PREFIX = "مكتب";
 const UNASSIGNED_LABEL = "غير مخصص";
 const UNASSIGNED_HINT_LONG = "اربط هذا المكتب بإدارة أو قسم من الهيكل الإداري لتفعيل التوأم الرقمي.";
 const UNAVAILABLE_LABEL = "غير متاح";
+const NOT_LINKED_LABEL = "غير مرتبط";
+const NO_EMPLOYEES_LABEL = "لا يوجد موظفون";
+const NO_TASKS_LABEL = "لا توجد مهام";
+const BOARD_CONTROL_LABEL = "مكتب مجلس الإدارة والتحكم";
+const BOARD_CONTROL_DESCRIPTION = "مركز متابعة وتشغيل المكاتب داخل المنشأة.";
 const officeLabel = (n: number) => `${OFFICE_LABEL_PREFIX} ${formatOfficeNumber(n)}`;
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
@@ -35,6 +40,7 @@ export interface MobileSelectedRoom extends SceneRoom {
   type?: string;
   teamCount?: number;
   deptCode?: string | null;
+  managerName?: string | null;
 }
 
 // ─── Chip positions over the office image (slot-ordered) ──────────────────────
@@ -61,6 +67,16 @@ function hpStyle(pct: number) {
 
 function shortName(name: string): string {
   return (name ?? "").replace(/^غرفة\s+/, "").trim() || "—";
+}
+
+function roomDisplayName(room: SceneRoom): string {
+  if (room.fixedRoomKey === "meetings") return BOARD_CONTROL_LABEL;
+  if (room.isUnassigned) return UNASSIGNED_LABEL;
+  return room.name;
+}
+
+function compactRoomName(room: SceneRoom): string {
+  return shortName(roomDisplayName(room));
 }
 
 function hpLabel(pct: number): string {
@@ -93,18 +109,18 @@ function Chip({ room, selected, onClick, position }: {
         top: position.top, left: position.left,
         transform: "translate(-50%, -50%)",
         display: "inline-flex", alignItems: "center", gap: 4,
-        padding: "2px 6px 2px 5px",
+        padding: "2px 6px 2px 4px",
         borderRadius: 999,
-        background: selected ? `${accent}33` : "rgba(2,8,23,0.80)",
+        background: selected ? "linear-gradient(135deg, rgba(88,28,135,0.82), rgba(8,47,73,0.68))" : "rgba(2,8,23,0.68)",
         backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
         border: selected ? `1px solid ${accent}` : `1px solid ${accent}55`,
         boxShadow: selected
-          ? `0 0 14px ${accent}66, 0 0 0 2px rgba(2,8,23,0.5)`
-          : "0 1px 4px rgba(0,0,0,0.55)",
+          ? `0 0 16px ${accent}70, 0 0 0 2px rgba(2,8,23,0.46)`
+          : "0 1px 5px rgba(0,0,0,0.44)",
         color: "#e5edf8",
-        fontSize: 8.5, fontWeight: 600,
+        fontSize: 8.25, fontWeight: 700,
         whiteSpace: "nowrap", cursor: "pointer",
-        maxWidth: "40%",
+        maxWidth: "34%",
         transition: "all 0.18s ease",
       }}
     >
@@ -122,11 +138,11 @@ function Chip({ room, selected, onClick, position }: {
         }}>{formatOfficeNumber(room.officeNumber)}</span>
       ) : null}
       <span style={{
-        overflow: "hidden", textOverflow: "ellipsis", maxWidth: 64,
+        overflow: "hidden", textOverflow: "ellipsis", maxWidth: room.fixedRoomKey === "meetings" ? 74 : 58,
         fontStyle: room.isUnassigned ? "italic" : "normal",
         opacity: room.isUnassigned ? 0.85 : 1,
       }}>
-        {room.isUnassigned ? UNASSIGNED_LABEL : shortName(room.name)}
+        {compactRoomName(room)}
       </span>
       {!room.isUnassigned && room.healthPct > 0 && (
         <span style={{
@@ -169,13 +185,23 @@ function SelectedRoomCard({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const hp = hpStyle(room.healthPct);
   const lbl = hpLabel(room.healthPct);
+  const displayName = roomDisplayName(room);
+  const linkedName = mappingUnit?.name ?? (room.isUnassigned ? NOT_LINKED_LABEL : room.name);
+  const employeeValue = (mappingUnit?.employeeCount ?? room.employeeCount) > 0
+    ? String(mappingUnit?.employeeCount ?? room.employeeCount)
+    : NO_EMPLOYEES_LABEL;
+  const taskValue = (mappingUnit?.taskCount ?? room.openTasks) > 0
+    ? String(mappingUnit?.taskCount ?? room.openTasks)
+    : NO_TASKS_LABEL;
+  const stateValue = room.healthPct > 0 ? lbl : UNAVAILABLE_LABEL;
   return (
     <div style={{
-      borderRadius: 14, border: `1px solid ${room.accentColor}30`,
-      background: "rgba(6,14,28,0.92)",
+      borderRadius: 18,
+      border: `1px solid ${room.fixedRoomKey === "meetings" ? "rgba(168,85,247,0.44)" : `${room.accentColor}38`}`,
+      background: "linear-gradient(145deg, rgba(25,8,55,0.95), rgba(6,14,28,0.95) 58%, rgba(5,18,36,0.92))",
       padding: 12,
-      marginBottom: 4,
-      boxShadow: `0 0 18px ${room.accentColor}14`,
+      marginBottom: 18,
+      boxShadow: `0 0 26px ${room.fixedRoomKey === "meetings" ? "rgba(168,85,247,0.18)" : `${room.accentColor}18`}, 0 20px 44px rgba(0,0,0,0.38)`,
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
         <div style={{ minWidth: 0 }}>
@@ -198,10 +224,10 @@ function SelectedRoomCard({
               maxWidth: 170,
               fontStyle: room.isUnassigned ? "italic" : "normal",
               opacity: room.isUnassigned ? 0.85 : 1,
-            }}>{room.isUnassigned ? UNASSIGNED_LABEL : room.name}</p>
+            }}>{displayName}</p>
           </div>
           <p style={{ fontSize: 10, color: "#5a7a9a", margin: "4px 0 0" }}>
-            {room.isUnassigned ? UNASSIGNED_LABEL : (room.type ?? "مساحة عمل")}
+            {room.fixedRoomKey === "meetings" ? BOARD_CONTROL_DESCRIPTION : room.isUnassigned ? UNASSIGNED_LABEL : (room.type ?? "مساحة عمل")}
             {room.deptCode ? <span style={{ fontFamily: "monospace", marginRight: 6 }}> · {room.deptCode}</span> : null}
           </p>
           {room.isUnassigned && (
@@ -217,6 +243,31 @@ function SelectedRoomCard({
             padding: "2px 7px", borderRadius: 999, flexShrink: 0, whiteSpace: "nowrap",
           }}>{room.healthPct}% · {lbl}</span>
         )}
+      </div>
+
+      <div style={{
+        borderRadius: 13,
+        border: "1px solid rgba(168,85,247,0.20)",
+        background: "rgba(88,28,135,0.12)",
+        padding: "9px 10px",
+        marginBottom: 10,
+        display: "grid",
+        gridTemplateColumns: "1fr",
+        gap: 6,
+      }}>
+        {[
+          { label: "اسم المكتب", value: displayName },
+          { label: "مرتبط بـ", value: linkedName },
+          { label: "المدير المسؤول", value: room.managerName || UNAVAILABLE_LABEL },
+          { label: "الموظفون", value: employeeValue },
+          { label: "المهام", value: taskValue },
+          { label: "الحالة", value: stateValue },
+        ].map((row) => (
+          <div key={row.label} style={{ display: "grid", gridTemplateColumns: "86px minmax(0, 1fr)", gap: 8, alignItems: "center", minWidth: 0 }}>
+            <span style={{ fontSize: 9.5, color: "#a78bfa", fontWeight: 750 }}>{row.label}</span>
+            <span style={{ fontSize: 10.5, color: "#e5edf8", fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.value}</span>
+          </div>
+        ))}
       </div>
 
       <div style={{
@@ -250,7 +301,7 @@ function SelectedRoomCard({
               <div style={{ minWidth: 0 }}>
                 <p style={{ margin: 0, fontSize: 9, color: "#6b87ab" }}>الوحدة المرتبطة</p>
                 <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "#fff", fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {mappingUnit?.name ?? room.name}
+                  {mappingUnit?.name ?? (room.isUnassigned ? NOT_LINKED_LABEL : displayName)}
                 </p>
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
@@ -260,8 +311,8 @@ function SelectedRoomCard({
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 5, marginTop: 8 }}>
               {[
-                { label: "الأعضاء", value: mappingUnit?.employeeCount ?? room.employeeCount ?? UNAVAILABLE_LABEL },
-                { label: "المهام", value: mappingUnit?.taskCount ?? room.openTasks ?? UNAVAILABLE_LABEL },
+                { label: "الأعضاء", value: employeeValue },
+                { label: "المهام", value: taskValue },
                 { label: "الصحة", value: room.healthPct > 0 ? `${room.healthPct}%` : UNAVAILABLE_LABEL },
               ].map((metric) => (
                 <div key={metric.label} style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.055)", background: "rgba(255,255,255,0.03)", padding: "6px 4px", textAlign: "center", minWidth: 0 }}>

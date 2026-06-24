@@ -35,6 +35,11 @@ const officeLabel = (n: number) => `${OFFICE_LABEL_PREFIX} ${formatOfficeNumber(
 const UNASSIGNED_LABEL = "غير مخصص";
 const UNASSIGNED_HINT_LONG = "اربط هذا المكتب بإدارة أو قسم من الهيكل الإداري لتفعيل التوأم الرقمي.";
 const UNAVAILABLE_LABEL = "غير متاح";
+const NOT_LINKED_LABEL = "غير مرتبط";
+const NO_EMPLOYEES_LABEL = "لا يوجد موظفون";
+const NO_TASKS_LABEL = "لا توجد مهام";
+const BOARD_CONTROL_LABEL = "مكتب مجلس الإدارة والتحكم";
+const BOARD_CONTROL_DESCRIPTION = "مركز متابعة وتشغيل المكاتب داخل المنشأة.";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -520,6 +525,20 @@ function operationalMetric(value: number | null | undefined): string | number {
   return typeof value === "number" ? value : UNAVAILABLE_LABEL;
 }
 
+function roomDisplayName(room: Pick<OfficeRoom, "fixedRoomKey" | "isUnassigned" | "name">): string {
+  if (room.fixedRoomKey === "meetings") return BOARD_CONTROL_LABEL;
+  if (room.isUnassigned) return UNASSIGNED_LABEL;
+  return room.name;
+}
+
+function safeEmployeeValue(value: number | null | undefined): string {
+  return typeof value === "number" && value > 0 ? String(value) : NO_EMPLOYEES_LABEL;
+}
+
+function safeTaskValue(value: number | null | undefined): string {
+  return typeof value === "number" && value > 0 ? String(value) : NO_TASKS_LABEL;
+}
+
 async function getRoomMappingAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
@@ -932,6 +951,76 @@ function DigitalTwinSnapshot({
   );
 }
 
+function SmartRoomPanel({
+  room,
+  mappingUnit,
+  mappingSource,
+  managerName,
+  employeeCount,
+  taskCount,
+  statusLabel,
+}: {
+  room: OfficeRoom;
+  mappingUnit: PreviewOrgUnit | null;
+  mappingSource: MappingSource | null;
+  managerName: string | null;
+  employeeCount: number | null;
+  taskCount: number | null;
+  statusLabel: string;
+}) {
+  const linkedName = mappingUnit?.name ?? (room.isUnassigned ? NOT_LINKED_LABEL : room.name);
+  const rows = [
+    { label: "اسم المكتب", value: roomDisplayName(room) },
+    { label: "مرتبط بـ", value: linkedName },
+    { label: "المدير المسؤول", value: managerName || UNAVAILABLE_LABEL },
+    { label: "الموظفون", value: safeEmployeeValue(employeeCount) },
+    { label: "المهام", value: safeTaskValue(taskCount) },
+    { label: "الحالة", value: statusLabel || UNAVAILABLE_LABEL },
+  ];
+
+  return (
+    <div style={{
+      gridColumn: "1 / -1",
+      borderRadius: 16,
+      border: "1px solid rgba(168,85,247,0.24)",
+      background: "linear-gradient(145deg, rgba(88,28,135,0.18), rgba(15,23,42,0.72) 56%, rgba(8,47,73,0.16))",
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+      padding: "12px 13px",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 9 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#e9d5ff", fontSize: 12, fontWeight: 850 }}>
+          <Sparkles size={13} color="#c084fc" />
+          نافذة المكتب الذكية
+        </span>
+        <span style={{
+          fontSize: 9.5,
+          fontWeight: 800,
+          color: mappingSource ? "#67e8f9" : "#94a3b8",
+          border: "1px solid rgba(34,211,238,0.18)",
+          background: "rgba(34,211,238,0.07)",
+          borderRadius: 999,
+          padding: "2px 8px",
+        }}>
+          {mappingSource ? mappingSourceValue(mappingSource) : NOT_LINKED_LABEL}
+        </span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 7 }}>
+        {rows.map((row) => (
+          <div key={row.label} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.035)", padding: "8px 9px", minWidth: 0 }}>
+            <div style={{ fontSize: 9.5, color: "#a78bfa", fontWeight: 800, marginBottom: 3 }}>{row.label}</div>
+            <div style={{ fontSize: 12, color: "#e5edf8", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.value}</div>
+          </div>
+        ))}
+      </div>
+      {room.fixedRoomKey === "meetings" && (
+        <p style={{ margin: "9px 0 0", color: "#c4b5fd", fontSize: 11, lineHeight: 1.6 }}>
+          {BOARD_CONTROL_DESCRIPTION}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function RoomDetailPanel({
   room,
   snapshot,
@@ -978,6 +1067,10 @@ function RoomDetailPanel({
 
   const hp = room.healthPct > 0 ? room.healthPct : (room.isAI ? 94 : 0);
   const hpColor = hp >= 85 ? "#10b981" : hp >= 70 ? "#f59e0b" : "#ef4444";
+  const displayTitle = roomDisplayName(room);
+  const smartTaskCount = mappingUnit?.taskCount ?? (openTasks.length || room.openTasks);
+  const smartEmployeeCount = mappingUnit?.employeeCount ?? (presencePeople.length || room.employeeCount);
+  const smartStatusLabel = hp > 0 ? hpLabel(hp) : UNAVAILABLE_LABEL;
 
   const ICON_MAP: Record<string, React.ElementType> = { agency: Shield, management: Layers, department: Building2 };
   const TypeIcon = ICON_MAP[room.level] ?? Building2;
@@ -992,10 +1085,11 @@ function RoomDetailPanel({
 
   return (
     <div style={{
-      borderRadius: 18, border: `1px solid ${room.accentColor}30`,
-      background: "rgba(6,14,28,0.95)",
+      borderRadius: 20,
+      border: `1px solid ${room.fixedRoomKey === "meetings" ? "rgba(168,85,247,0.46)" : `${room.accentColor}38`}`,
+      background: "linear-gradient(145deg, rgba(25,8,55,0.96), rgba(6,14,28,0.96) 58%, rgba(5,18,36,0.92))",
       overflow: "hidden",
-      boxShadow: `0 0 30px ${room.accentColor}10, 0 16px 40px rgba(0,0,0,0.40)`,
+      boxShadow: `0 0 34px ${room.fixedRoomKey === "meetings" ? "rgba(168,85,247,0.18)" : `${room.accentColor}12`}, 0 18px 44px rgba(0,0,0,0.42)`,
     }}>
       {/* Header */}
       <div style={{ padding: "14px 18px 12px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
@@ -1021,11 +1115,11 @@ function RoomDetailPanel({
                 fontSize: 15, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1.2,
                 fontStyle: room.isUnassigned ? "italic" : "normal",
                 opacity: room.isUnassigned ? 0.85 : 1,
-              }}>{room.isUnassigned ? UNASSIGNED_LABEL : room.name}</h3>
+              }}>{displayTitle}</h3>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
               {!room.isUnassigned && (
-                <span style={{ fontSize: 10, fontWeight: 600, color: room.accentColor, background: `${room.accentColor}18`, border: `1px solid ${room.accentColor}30`, padding: "1px 7px", borderRadius: 12 }}>{room.type}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: room.accentColor, background: `${room.accentColor}18`, border: `1px solid ${room.accentColor}30`, padding: "1px 7px", borderRadius: 12 }}>{room.fixedRoomKey === "meetings" ? "مكتب قيادة" : room.type}</span>
               )}
               {room.deptCode && <span style={{ fontSize: 10, color: "#4a6a8a", fontFamily: "monospace" }}>{room.deptCode}</span>}
               {hp > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: hpColor }}>{hp}% · {hpLabel(hp)}</span>}
@@ -1037,7 +1131,7 @@ function RoomDetailPanel({
             </div>
             {room.isUnassigned && (
               <p style={{ fontSize: 11, color: "#8ba3c7", margin: "8px 0 0", lineHeight: 1.55, maxWidth: 520 }}>
-                {UNASSIGNED_HINT_LONG}
+                {room.fixedRoomKey === "meetings" ? BOARD_CONTROL_DESCRIPTION : UNASSIGNED_HINT_LONG}
               </p>
             )}
           </div>
@@ -1048,6 +1142,16 @@ function RoomDetailPanel({
       </div>
 
       <div style={{ padding: "12px 18px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <SmartRoomPanel
+          room={room}
+          mappingUnit={mappingUnit}
+          mappingSource={mappingSource}
+          managerName={room.managerName}
+          employeeCount={smartEmployeeCount}
+          taskCount={smartTaskCount}
+          statusLabel={smartStatusLabel}
+        />
+
         <DigitalTwinSnapshot
           room={room}
           mappingUnit={mappingUnit}
@@ -1824,7 +1928,9 @@ export default function VirtualOfficeDesign({
       const { unit } = resolveRoomMapping({ room, units: previewOrgUnits, savedMappings, previewMappings });
       const hasMapping = Boolean(unit);
       const isUnassigned = !hasMapping && room.isDemo === true;
-      const displayName = unit?.name ?? (isUnassigned ? UNASSIGNED_LABEL : room.name);
+      const displayName = room.fixedRoomKey === "meetings"
+        ? BOARD_CONTROL_LABEL
+        : unit?.name ?? (isUnassigned ? UNASSIGNED_LABEL : room.name);
 
       const base: OfficeRoom = {
         ...room,

@@ -18,6 +18,7 @@ import { BrainCircuit, MessageSquare } from "lucide-react";
 
 export interface SceneRoom {
   id: string;
+  fixedRoomKey?: string;
   name: string;
   accentColor: string;
   employeeCount: number;
@@ -46,6 +47,10 @@ export interface VirtualOfficeReferenceSceneProps {
 // ─── Asset path ───────────────────────────────────────────────────────────────
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
+const BOARD_CONTROL_LABEL = "مكتب مجلس الإدارة والتحكم";
+const BOARD_CONTROL_DESCRIPTION = "مركز متابعة وتشغيل المكاتب داخل المنشأة.";
+const UNASSIGNED_LABEL = "غير مخصص";
+const UNAVAILABLE_LABEL = "غير متاح";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -94,17 +99,27 @@ function NumberBadge({ n, accent = "#22d3ee" }: { n?: number; accent?: string })
       aria-label={`مكتب ${formatOfficeNumber(n)}`}
       style={{
         display: "inline-flex", alignItems: "center", justifyContent: "center",
-        minWidth: 18, height: 16, padding: "0 4px",
-        borderRadius: 5,
-        background: "rgba(255,255,255,0.07)",
-        border: `1px solid ${accent}40`,
-        color: "#cbd5e1",
-        fontSize: 9, fontWeight: 800, lineHeight: 1,
+        minWidth: 16, height: 14, padding: "0 3px",
+        borderRadius: 4,
+        background: "rgba(255,255,255,0.06)",
+        border: `1px solid ${accent}36`,
+        color: "#dbeafe",
+        fontSize: 8, fontWeight: 850, lineHeight: 1,
         fontVariantNumeric: "tabular-nums",
         flexShrink: 0,
       }}
     >{formatOfficeNumber(n)}</span>
   );
+}
+
+function roomDisplayName(room: SceneRoom): string {
+  if (room.fixedRoomKey === "meetings") return BOARD_CONTROL_LABEL;
+  if (room.isUnassigned) return UNASSIGNED_LABEL;
+  return room.name;
+}
+
+function compactRoomName(room: SceneRoom): string {
+  return roomDisplayName(room).replace(/^غرفة\s+/, "").trim();
 }
 
 // ─── Avatar row ───────────────────────────────────────────────────────────────
@@ -152,6 +167,7 @@ function AvatarRow({ room, size = 24 }: { room: SceneRoom; size?: number }) {
 
 function RoomOverlay({ room, selected, onClick }: { room: SceneRoom; selected: boolean; onClick: () => void }) {
   const hp = hpStyle(room.healthPct);
+  const accent = room.accentColor;
   return (
     <div
       onClick={onClick}
@@ -159,36 +175,43 @@ function RoomOverlay({ room, selected, onClick }: { room: SceneRoom; selected: b
         position: "relative",
         width: "100%", height: "100%",
         cursor: "pointer",
-        ...(selected ? { outline: `2px solid ${room.accentColor}`, outlineOffset: -2, borderRadius: 8 } : {}),
+        borderRadius: 10,
+        ...(selected ? {
+          outline: `1px solid ${accent}aa`,
+          outlineOffset: -2,
+          boxShadow: `inset 0 0 0 1px ${accent}66, 0 0 28px ${accent}42`,
+        } : {}),
       }}
     >
       {/* Compact HUD pill — top-left, auto-width */}
       <div style={{
-        position: "absolute", top: 6, left: 6,
-        display: "inline-flex", alignItems: "center", gap: 5,
-        background: selected ? `${room.accentColor}26` : "rgba(4,10,22,0.70)",
+        position: "absolute", top: 7, left: 7,
+        display: "inline-flex", alignItems: "center", gap: 4,
+        minHeight: 20,
+        background: selected ? "linear-gradient(135deg, rgba(88,28,135,0.78), rgba(8,47,73,0.66))" : "rgba(4,10,22,0.58)",
         backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-        borderRadius: 999, padding: "2px 7px 2px 4px",
-        border: selected ? `1px solid ${room.accentColor}55` : "1px solid rgba(255,255,255,0.10)",
-        boxShadow: selected ? `0 0 12px ${room.accentColor}30` : "0 1px 6px rgba(0,0,0,0.45)",
+        borderRadius: 999, padding: "2px 6px 2px 4px",
+        border: selected ? `1px solid ${accent}88` : "1px solid rgba(255,255,255,0.09)",
+        boxShadow: selected ? `0 0 16px ${accent}45, 0 0 0 1px rgba(34,211,238,0.10)` : "0 1px 6px rgba(0,0,0,0.35)",
         transition: "all 0.18s ease",
-        maxWidth: "85%",
+        maxWidth: "72%",
       }}>
         {room.healthPct > 0 && (
           <span style={{
-            fontSize: 9, fontWeight: 800, color: hp.color,
-            background: hp.bg, border: `1px solid ${hp.border}`,
-            padding: "0 5px", borderRadius: 999, lineHeight: 1.45, flexShrink: 0,
-          }}>{room.healthPct}%</span>
+            width: 5, height: 5, borderRadius: "50%",
+            background: hp.color,
+            boxShadow: `0 0 6px ${hp.color}`,
+            flexShrink: 0,
+          }} />
         )}
-        <NumberBadge n={room.officeNumber} accent={room.accentColor} />
+        <NumberBadge n={room.officeNumber} accent={accent} />
         <span style={{
-          fontSize: 10, fontWeight: 600,
-          color: room.isUnassigned ? "#94a3b8" : "#e5edf8",
+          fontSize: 9, fontWeight: 750,
+          color: room.isUnassigned ? "#cbd5e1" : "#eef6ff",
           fontStyle: room.isUnassigned ? "italic" : "normal",
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          maxWidth: 120,
-        }}>{room.name}</span>
+          maxWidth: 86,
+        }}>{compactRoomName(room)}</span>
         {room.overdueTasks > 0 && (
           <span style={{
             width: 13, height: 13, borderRadius: "50%",
@@ -218,26 +241,31 @@ function MeetingOverlay({ room, selected, onClick }: { room: SceneRoom; selected
         position: "relative",
         width: "100%", height: "100%",
         cursor: "pointer",
-        ...(selected ? { outline: "2px solid rgba(139,92,246,0.80)", outlineOffset: -2, borderRadius: 8 } : {}),
+        borderRadius: 10,
+        ...(selected ? {
+          outline: "1px solid rgba(216,180,254,0.86)",
+          outlineOffset: -2,
+          boxShadow: "inset 0 0 0 1px rgba(34,211,238,0.20), 0 0 34px rgba(168,85,247,0.45)",
+        } : {}),
       }}
     >
       {/* Top compact name pill */}
       <div style={{
         position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)",
-        display: "inline-flex", alignItems: "center", gap: 5,
-        background: selected ? "rgba(139,92,246,0.28)" : "rgba(20,6,48,0.72)",
+        display: "inline-flex", alignItems: "center", gap: 4,
+        background: selected ? "linear-gradient(135deg, rgba(88,28,135,0.82), rgba(49,46,129,0.70))" : "rgba(20,6,48,0.60)",
         backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-        borderRadius: 999, padding: "2px 9px",
+        borderRadius: 999, padding: "2px 7px",
         border: selected ? "1px solid rgba(139,92,246,0.65)" : "1px solid rgba(139,92,246,0.40)",
-        transition: "all 0.18s ease", maxWidth: "90%",
+        transition: "all 0.18s ease", maxWidth: "82%",
+        boxShadow: selected ? "0 0 18px rgba(168,85,247,0.45)" : "0 1px 7px rgba(0,0,0,0.38)",
       }}>
         <NumberBadge n={room.officeNumber} accent="#a855f7" />
         <span style={{
-          fontSize: 10, fontWeight: 700,
-          color: room.isUnassigned ? "#c4b5fd" : "#ddd6fe",
-          fontStyle: room.isUnassigned ? "italic" : "normal",
+          fontSize: 9, fontWeight: 800,
+          color: "#f3e8ff",
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        }}>{room.name}</span>
+        }}>{compactRoomName(room)}</span>
       </div>
 
       {/* Center compact status — "مشغولة الآن" + time */}
@@ -255,16 +283,16 @@ function MeetingOverlay({ room, selected, onClick }: { room: SceneRoom; selected
           boxShadow: "0 0 16px rgba(139,92,246,0.35)",
         }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#a78bfa", boxShadow: "0 0 6px #a78bfa" }} />
-          <span style={{ fontSize: 10, color: "#ddd6fe", fontWeight: 600 }}>مشغولة الآن</span>
+          <span style={{ fontSize: 9.5, color: "#ddd6fe", fontWeight: 700 }}>{BOARD_CONTROL_LABEL}</span>
         </div>
-        {(room.isDemo || room.employeeCount === 0) && (
-          <span style={{
-            fontSize: 10, fontWeight: 700, color: "#e9d5ff",
-            background: "rgba(20,6,48,0.62)",
-            border: "1px solid rgba(139,92,246,0.35)",
-            padding: "1px 7px", borderRadius: 999,
-          }}>11:00 – 11:30</span>
-        )}
+        <span style={{
+          maxWidth: 190,
+          fontSize: 9, fontWeight: 650, color: "#c4b5fd",
+          background: "rgba(20,6,48,0.54)",
+          border: "1px solid rgba(139,92,246,0.30)",
+          padding: "1px 7px", borderRadius: 999,
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        }}>{BOARD_CONTROL_DESCRIPTION}</span>
       </div>
 
       {/* Tiny avatar cluster bottom-center */}
@@ -287,33 +315,40 @@ function AIOverlay({ room, selected, onClick }: { room: SceneRoom; selected: boo
         position: "relative",
         width: "100%", height: "100%",
         cursor: "pointer",
-        ...(selected ? { outline: "2px solid rgba(34,211,238,0.70)", outlineOffset: -2, borderRadius: 8 } : {}),
+        borderRadius: 10,
+        ...(selected ? {
+          outline: "1px solid rgba(34,211,238,0.84)",
+          outlineOffset: -2,
+          boxShadow: "inset 0 0 0 1px rgba(168,85,247,0.22), 0 0 30px rgba(34,211,238,0.42)",
+        } : {}),
       }}
     >
       {/* Compact HUD pill — top-right */}
       <div style={{
-        position: "absolute", top: 6, right: 6,
-        display: "inline-flex", alignItems: "center", gap: 5,
-        background: selected ? "rgba(34,211,238,0.18)" : "rgba(2,10,22,0.72)",
+        position: "absolute", top: 7, right: 7,
+        display: "inline-flex", alignItems: "center", gap: 4,
+        minHeight: 20,
+        background: selected ? "linear-gradient(135deg, rgba(8,47,73,0.82), rgba(88,28,135,0.56))" : "rgba(2,10,22,0.58)",
         backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-        borderRadius: 999, padding: "2px 7px 2px 4px",
+        borderRadius: 999, padding: "2px 6px 2px 4px",
         border: selected ? "1px solid rgba(34,211,238,0.55)" : "1px solid rgba(34,211,238,0.32)",
         boxShadow: selected ? "0 0 14px rgba(34,211,238,0.30)" : "0 0 10px rgba(34,211,238,0.14)",
-        transition: "all 0.18s ease", maxWidth: "85%",
+        transition: "all 0.18s ease", maxWidth: "72%",
       }}>
         <span style={{
-          fontSize: 9, fontWeight: 800, color: hp.color,
-          background: hp.bg, border: `1px solid ${hp.border}`,
-          padding: "0 5px", borderRadius: 999, lineHeight: 1.45, flexShrink: 0,
-        }}>{pct}%</span>
+          width: 5, height: 5, borderRadius: "50%",
+          background: hp.color,
+          boxShadow: `0 0 6px ${hp.color}`,
+          flexShrink: 0,
+        }} />
         <NumberBadge n={room.officeNumber} accent="#22d3ee" />
         <span style={{
-          fontSize: 10, fontWeight: 600,
-          color: room.isUnassigned ? "#94a3b8" : "#e5edf8",
+          fontSize: 9, fontWeight: 750,
+          color: room.isUnassigned ? "#cbd5e1" : "#eef6ff",
           fontStyle: room.isUnassigned ? "italic" : "normal",
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          maxWidth: 120,
-        }}>{room.name}</span>
+          maxWidth: 86,
+        }}>{compactRoomName(room)}</span>
       </div>
 
       {/* Avatar cluster bottom-left so it doesn't cover the AI chip */}
@@ -355,13 +390,13 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 90% 80% at 50% 50%, rgba(139,92,246,0.18), transparent)", pointerEvents: "none" }} />
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#a78bfa" }} />
-          <span style={{ fontSize: 10, color: "#c4b5fd", fontWeight: 600 }}>مشغولة الآن</span>
+          <span style={{ fontSize: 10, color: "#c4b5fd", fontWeight: 700 }}>{BOARD_CONTROL_LABEL}</span>
         </div>
         <div style={{ width: 44, height: 44, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle, rgba(139,92,246,0.35), rgba(139,92,246,0.06))", border: "1px solid rgba(139,92,246,0.42)", boxShadow: sel ? "0 0 30px rgba(139,92,246,0.35)" : "0 0 20px rgba(139,92,246,0.25)" }}>
           <MessageSquare size={19} color="#c4b5fd" />
         </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4" }}>{room.name}</span>
-        {room.isDemo && <span style={{ fontSize: 12, color: "#c4b5fd", fontWeight: 600 }}>11:00 – 11:30</span>}
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4", textAlign: "center" }}>{compactRoomName(room)}</span>
+        <span style={{ fontSize: 9.5, color: "#c4b5fd", fontWeight: 600, textAlign: "center", lineHeight: 1.45 }}>{BOARD_CONTROL_DESCRIPTION}</span>
         <AvatarRow room={room} />
       </div>
     );
@@ -369,20 +404,20 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
       <div style={{ padding: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 7, position: "relative" }}>
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 70% at 50% 110%, rgba(34,211,238,0.12), transparent)", pointerEvents: "none" }} />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: "#dde8f4", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{room.name}</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: "#dde8f4", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{compactRoomName(room)}</span>
           {pct > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: ehp.color, background: ehp.bg, border: `1px solid ${ehp.border}`, padding: "1px 5px", borderRadius: 14 }}>{pct}%</span>}
         </div>
         <div style={{ width: 44, height: 44, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle, rgba(34,211,238,0.26), rgba(34,211,238,0.04))", border: "1px solid rgba(34,211,238,0.32)", boxShadow: sel ? "0 0 30px rgba(34,211,238,0.30)" : "0 0 20px rgba(34,211,238,0.20)" }}>
           <BrainCircuit size={20} color="#22d3ee" />
         </div>
-        <span style={{ fontSize: 9, color: "rgba(34,211,238,0.45)" }}>{room.isDemo ? "AI Engine Active" : room.employeeCount > 0 ? `${room.employeeCount} موظف` : "—"}</span>
+        <span style={{ fontSize: 9, color: "rgba(34,211,238,0.45)" }}>{room.employeeCount > 0 ? `${room.employeeCount} موظف` : UNAVAILABLE_LABEL}</span>
       </div>
     );
     return (
       <div style={{ padding: "8px 10px", height: "100%", display: "flex", flexDirection: "column", gap: 6, position: "relative" }}>
         <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse 90% 55% at 50% 120%, ${room.accentColor}0a, transparent)`, pointerEvents: "none" }} />
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4", flex: 1, lineHeight: 1.25 }}>{room.name}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4", flex: 1, lineHeight: 1.25 }}>{compactRoomName(room)}</span>
           <div style={{ display: "flex", gap: 3 }}>
             {room.overdueTasks > 0 && <span style={{ width: 16, height: 16, borderRadius: "50%", background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{room.overdueTasks}</span>}
             {pct > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: hp.color, background: hp.bg, border: `1px solid ${hp.border}`, padding: "1px 5px", borderRadius: 14 }}>{pct}%</span>}
