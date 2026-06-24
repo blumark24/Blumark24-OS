@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import type { OfficeRoom, MappingSource, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
 import { formatOfficeNumber } from "./VirtualOfficeReferenceScene";
-import VirtualOfficeRooms from "./VirtualOfficeRooms";
 
 const officeLabel = (n: number) => `مكتب ${formatOfficeNumber(n)}`;
 
@@ -40,6 +39,7 @@ export interface OfficeControlModalProps {
   isUpdating: boolean;
   boardStats?: BoardOfficeStats | null;
   onClose: () => void;
+  onEnterOffice?: () => void;
   onSave: (unit: PreviewOrgUnit) => void;
   onToggleOpen: (is_open: boolean) => void;
   onReset: () => void;
@@ -150,7 +150,7 @@ function OfficeInsight({ room, isOpen }: { room: OfficeRoom; isOpen: boolean }) 
 export default function OfficeControlModal({
   room, roomState, isManager, mappingUnit, mappingSource,
   managerName, units, officePeople = [], isSaving, isUpdating, boardStats,
-  onClose, onSave, onToggleOpen, onReset,
+  onClose, onEnterOffice, onSave, onToggleOpen, onReset,
   onOpenAll, onCloseAll, onReviewUnassigned,
   onResetVirtualOffice, isResettingOffice, resetOfficeError,
 }: OfficeControlModalProps) {
@@ -283,13 +283,45 @@ export default function OfficeControlModal({
             </div>
           )}
 
-          {/* 4b ── مساحات العمل والغرف — C15 */}
-          <div style={{ ...SECTION_CARD, padding: "10px 12px" }}>
-            <VirtualOfficeRooms
-              isBoard={room.isCenter}
-              isLinked={!room.isUnassigned && !room.isCenter}
-              officeName={room.isCenter ? "مكتب مجلس الإدارة" : (room.name ?? `مكتب ${room.officeNumber ?? ""}`)}
-            />
+          {/* 4b ── مساحات العمل — compact summary — C15.1 */}
+          <div style={{
+            ...SECTION_CARD,
+            border: "1px solid rgba(34,211,238,0.10)",
+            background: "rgba(34,211,238,0.03)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            padding: "8px 12px",
+          }}>
+            <div>
+              <div style={SECTION_LABEL}>
+                {room.isCenter ? "غرف القيادة" : "مساحات العمل والغرف"}
+              </div>
+              <div style={{ fontSize: 11, color: "#5a7a9a", fontWeight: 600 }}>
+                {room.isCenter ? "4 غرف تحكم" : "4 مناطق عمل"}
+                {" · "}
+                <span style={{ color: "#1e3050" }}>
+                  {room.isCenter ? "جاهزة بعد ربط البيانات" : room.isUnassigned ? "يحتاج تفعيل" : "جاهزة بعد الربط"}
+                </span>
+              </div>
+            </div>
+            {onEnterOffice && (
+              <button
+                type="button"
+                onClick={onEnterOffice}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "6px 12px", borderRadius: 10, flexShrink: 0,
+                  border: "1px solid rgba(34,211,238,0.35)",
+                  background: "rgba(34,211,238,0.08)",
+                  color: "#22d3ee", fontSize: 11, fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                دخول المكتب
+              </button>
+            )}
           </div>
 
           {/* 5 ── الموظفون في المكتب — C14-M7 */}
@@ -645,6 +677,24 @@ export default function OfficeControlModal({
                   </button>
                 </div>
               </div>
+            )}
+
+            {onEnterOffice && (
+              <button
+                type="button"
+                onClick={onEnterOffice}
+                style={{
+                  flex: 1, minHeight: 38,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  borderRadius: 10,
+                  border: "1px solid rgba(34,211,238,0.45)",
+                  background: "linear-gradient(135deg, rgba(34,211,238,0.14), rgba(30,111,217,0.12))",
+                  color: "#22d3ee", fontSize: 13, fontWeight: 800, cursor: "pointer",
+                  boxShadow: "0 0 16px rgba(34,211,238,0.12)",
+                }}
+              >
+                دخول المكتب
+              </button>
             )}
 
             <button

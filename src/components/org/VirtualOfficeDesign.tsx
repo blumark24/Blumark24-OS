@@ -25,6 +25,7 @@ import type {
 import { type SceneRoom, formatOfficeNumber } from "./VirtualOfficeReferenceScene";
 import MobileExecutiveOfficeScene from "./MobileExecutiveOfficeScene";
 import OfficeControlModal, { type OfficeRoomState, type BoardOfficeStats } from "./OfficeControlModal";
+import FullscreenOfficeExperience from "./FullscreenOfficeExperience";
 
 // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
 // 9 real office slots (01–09). Slot 4 (office 05) = مكتب مجلس الإدارة (board).
@@ -730,6 +731,7 @@ export default function VirtualOfficeDesign({
 }: VirtualOfficeDesignProps) {
   const { user } = useAuth();
   const [controlModalRoom, setControlModalRoom] = useState<OfficeRoom | null>(null);
+  const [fullscreenRoom, setFullscreenRoom] = useState<OfficeRoom | null>(null);
   const [savedMappings, setSavedMappings] = useState<ExecutiveOfficeRoomMappingByRoom>({});
   const [mappingErrorByRoom, setMappingErrorByRoom] = useState<Record<string, string>>({});
   const [savingRoomKey, setSavingRoomKey] = useState<ExecutiveOfficeFixedRoomKey | null>(null);
@@ -1195,6 +1197,10 @@ export default function VirtualOfficeDesign({
             isUpdating={updatingRoomKey === controlModalRoom.fixedRoomKey || updatingRoomKey === "bulk"}
             boardStats={controlModalRoom.isCenter ? boardStats : null}
             onClose={() => setControlModalRoom(null)}
+            onEnterOffice={() => {
+              setFullscreenRoom(controlModalRoom);
+              setControlModalRoom(null);
+            }}
             onSave={(unit) => void handleSaveMapping(controlModalRoom, unit)}
             onReset={() => void handleDeleteSavedMapping(controlModalRoom)}
             onToggleOpen={(is_open) => void handleToggleRoomOpen(controlModalRoom, is_open)}
@@ -1207,6 +1213,22 @@ export default function VirtualOfficeDesign({
           />
         );
       })()}
+      {/* ── Fullscreen Office Entry — C15.1 ── */}
+      {fullscreenRoom && (() => {
+        const fsMapping = resolveRoomMapping({ room: fullscreenRoom, units: previewOrgUnits, savedMappings });
+        const fsPeople = fullscreenRoom.isCenter || fullscreenRoom.isUnassigned
+          ? []
+          : resolveRoomPeople(fullscreenRoom, fsMapping.unit, snapshot, safeEmps);
+        return (
+          <FullscreenOfficeExperience
+            room={fullscreenRoom}
+            mappingUnit={fsMapping.unit}
+            officePeople={fsPeople}
+            onClose={() => setFullscreenRoom(null)}
+          />
+        );
+      })()}
+
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
