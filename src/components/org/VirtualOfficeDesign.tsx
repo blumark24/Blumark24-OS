@@ -848,9 +848,11 @@ export default function VirtualOfficeDesign({
         name: displayName,
         isUnassigned,
         isOpen: roomStates[room.fixedRoomKey]?.is_open ?? true,
+        // Unassigned offices have no employees or tasks until the manager links them.
+        ...(isUnassigned ? { employeeCount: 0, openTasks: 0, overdueTasks: 0, avatars: [] } : {}),
       };
 
-      if (room.isDemo) return base;
+      if (room.isDemo || isUnassigned) return base;
 
       const people = resolveRoomPeople(room, unit, snapshot, safeEmps);
       if (people.length === 0) return base;
@@ -1082,28 +1084,22 @@ export default function VirtualOfficeDesign({
   const unassignedOfficeCount = roomsWithPresence.filter((room) => room.isUnassigned).length;
 
   return (
-    <div className="space-y-5 min-w-0" dir="rtl">
+    <div className="space-y-4 min-w-0" dir="rtl">
 
       {/* ── Header ── */}
-      <section style={{ position: "relative", overflow: "hidden", borderRadius: 20, border: "1px solid rgba(34,211,238,0.18)", padding: "20px 22px", background: "linear-gradient(135deg, rgba(6,15,30,0.98) 0%, rgba(18,36,68,0.96) 55%, rgba(50,16,80,0.14) 100%)", boxShadow: "0 0 70px rgba(34,211,238,0.05)" }}>
-        <div style={{ position: "absolute", top: -80, right: -80, width: 260, height: 260, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,238,0.09), transparent)", pointerEvents: "none" }} />
-        <div style={{ position: "relative", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: "rgba(245,158,11,0.20)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.32)" }}>BETA</span>
-            </div>
-            <h1 style={{ fontSize: "clamp(22px,4vw,30px)", fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.2 }}>المكتب التنفيذي الافتراضي</h1>
-            <p style={{ fontSize: 13, color: "#7a9ab8", marginTop: 8, maxWidth: 560, lineHeight: 1.6 }}>مساحة عمل تفاعلية مستوحاة من أسلوب المكاتب الافتراضية، مبنية من هيكل منشأتك.</p>
+      <section style={{ position: "relative", overflow: "hidden", borderRadius: 18, border: "1px solid rgba(34,211,238,0.16)", padding: "14px 18px", background: "linear-gradient(135deg, rgba(6,15,30,0.98) 0%, rgba(18,36,68,0.96) 55%, rgba(50,16,80,0.14) 100%)", boxShadow: "0 0 50px rgba(34,211,238,0.04)" }}>
+        <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,238,0.07), transparent)", pointerEvents: "none" }} />
+        <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: "rgba(245,158,11,0.20)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.32)", flexShrink: 0 }}>BETA</span>
+            <h1 style={{ fontSize: "clamp(16px,3.5vw,24px)", fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>المكتب التنفيذي الافتراضي</h1>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <button type="button" onClick={onBackToOrg} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.05)", color: "#8ba3c7", fontSize: 13, cursor: "pointer" }}>
-              <ArrowRight size={14} /> رجوع للهيكل
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <button type="button" onClick={onBackToOrg} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.05)", color: "#8ba3c7", fontSize: 12, cursor: "pointer" }}>
+              <ArrowRight size={13} /> رجوع
             </button>
-            <button type="button" onClick={onRefresh} disabled={isRefreshing || !onRefresh} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 12, border: "1px solid rgba(34,211,238,0.25)", background: "rgba(34,211,238,0.08)", color: "#22d3ee", fontSize: 13, cursor: "pointer", opacity: (isRefreshing || !onRefresh) ? 0.5 : 1 }}>
-              <RefreshCw size={14} style={isRefreshing ? { animation: "spin 1s linear infinite" } : undefined} /> مزامنة من الهيكل
-            </button>
-            <button type="button" disabled style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 12, border: "1px solid rgba(139,92,246,0.22)", background: "rgba(139,92,246,0.07)", color: "rgba(168,85,247,0.50)", fontSize: 13, cursor: "not-allowed" }}>
-              <BrainCircuit size={14} /> تقرير AI
+            <button type="button" onClick={onRefresh} disabled={isRefreshing || !onRefresh} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(34,211,238,0.25)", background: "rgba(34,211,238,0.08)", color: "#22d3ee", fontSize: 12, cursor: "pointer", opacity: (isRefreshing || !onRefresh) ? 0.5 : 1 }}>
+              <RefreshCw size={13} style={isRefreshing ? { animation: "spin 1s linear infinite" } : undefined} /> مزامنة
             </button>
           </div>
         </div>

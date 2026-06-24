@@ -370,11 +370,19 @@ export default function OfficeControlModal({
                     disabled={!hasNewSelection || isSaving}
                     onClick={() => selectedUnit && onSave(selectedUnit)}
                     style={{
-                      minHeight: 38, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-                      borderRadius: 10, border: "1px solid rgba(139,92,246,0.40)", background: "rgba(139,92,246,0.14)", color: "#c4b5fd",
-                      fontSize: 13, fontWeight: 700,
+                      minHeight: 42, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                      borderRadius: 12,
+                      border: hasNewSelection && !isSaving
+                        ? "1px solid rgba(139,92,246,0.60)"
+                        : "1px solid rgba(139,92,246,0.25)",
+                      background: hasNewSelection && !isSaving
+                        ? "linear-gradient(135deg, rgba(139,92,246,0.30), rgba(168,85,247,0.20))"
+                        : "rgba(139,92,246,0.08)",
+                      color: hasNewSelection && !isSaving ? "#e9d5ff" : "#7c6aa0",
+                      fontSize: 13, fontWeight: 800,
                       cursor: (!hasNewSelection || isSaving) ? "not-allowed" : "pointer",
-                      opacity: (!hasNewSelection || isSaving) ? 0.5 : 1,
+                      boxShadow: hasNewSelection && !isSaving ? "0 0 16px rgba(139,92,246,0.25)" : "none",
+                      transition: "all 0.15s ease",
                     }}
                   >
                     {isSaving ? "جارٍ الحفظ..." : room.isUnassigned ? "ربط المكتب وتشغيله" : "حفظ الربط"}
@@ -445,8 +453,8 @@ export default function OfficeControlModal({
               </>
             )}
 
-            {/* Normal office: open/close toggle */}
-            {!room.isCenter && isManager && (
+            {/* Normal office: open/close toggle — only for linked offices */}
+            {!room.isCenter && !room.isUnassigned && isManager && (
               <button
                 type="button"
                 disabled={isUpdating}
