@@ -531,8 +531,10 @@ function normalizeSavedMappings(value: unknown): ExecutiveOfficeRoomMappingByRoo
 
 // ─── Premium Visual Cards ─────────────────────────────────────────────────────
 
-function BoardPremiumCard({ boardRoom, onClick }: {
+function BoardPremiumCard({ boardRoom, linkedCount, unassignedCount, onClick }: {
   boardRoom: OfficeRoom | undefined;
+  linkedCount: number;
+  unassignedCount: number;
   onClick: () => void;
 }) {
   if (!boardRoom) return null;
@@ -543,49 +545,68 @@ function BoardPremiumCard({ boardRoom, onClick }: {
       style={{
         width: "100%", textAlign: "right", cursor: "pointer",
         position: "relative", overflow: "hidden",
-        borderRadius: 18,
-        border: "1px solid rgba(139,92,246,0.32)",
-        background: "linear-gradient(135deg, rgba(10,6,30,0.98) 0%, rgba(30,12,65,0.97) 50%, rgba(55,16,100,0.18) 100%)",
-        padding: "18px 20px",
-        boxShadow: "0 0 60px rgba(139,92,246,0.10), 0 8px 32px rgba(0,0,0,0.45)",
-        display: "flex", alignItems: "center", gap: 16,
+        borderRadius: 20,
+        border: "1px solid rgba(139,92,246,0.35)",
+        background: "linear-gradient(135deg, rgba(8,4,24,0.99) 0%, rgba(28,10,60,0.98) 45%, rgba(50,14,90,0.95) 75%, rgba(70,20,110,0.20) 100%)",
+        padding: "20px 22px",
+        boxShadow: "0 0 80px rgba(139,92,246,0.12), 0 12px 40px rgba(0,0,0,0.55)",
+        display: "flex", alignItems: "center", gap: 18,
       }}
     >
-      {/* Glow blob */}
-      <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,92,246,0.18), transparent)", pointerEvents: "none" }} />
+      {/* Radial glow — top right */}
+      <div style={{ position: "absolute", top: -70, right: -70, width: 220, height: 220, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,92,246,0.22), transparent 65%)", pointerEvents: "none" }} />
+      {/* Bottom glow accent */}
+      <div style={{ position: "absolute", bottom: -30, left: "30%", width: 160, height: 80, borderRadius: "50%", background: "radial-gradient(ellipse, rgba(168,85,247,0.08), transparent 70%)", pointerEvents: "none" }} />
 
-      {/* Icon */}
+      {/* Crown icon */}
       <div style={{
-        width: 48, height: 48, borderRadius: 14, flexShrink: 0,
-        background: "linear-gradient(135deg, rgba(139,92,246,0.25), rgba(168,85,247,0.12))",
-        border: "1px solid rgba(139,92,246,0.40)",
+        width: 52, height: 52, borderRadius: 16, flexShrink: 0,
+        background: "linear-gradient(135deg, rgba(139,92,246,0.30) 0%, rgba(168,85,247,0.15) 100%)",
+        border: "1px solid rgba(168,85,247,0.45)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: "0 0 20px rgba(139,92,246,0.25)",
+        boxShadow: "0 0 24px rgba(139,92,246,0.30), inset 0 1px 0 rgba(255,255,255,0.08)",
+        position: "relative",
       }}>
-        <Crown size={22} color="#c4b5fd" />
+        <Crown size={24} color="#c4b5fd" />
       </div>
 
-      {/* Text */}
+      {/* Text block */}
       <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: "rgba(139,92,246,0.22)", color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.35)" }}>
+        {/* Badge row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 6, background: "rgba(139,92,246,0.22)", color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.38)", letterSpacing: "0.03em" }}>
             مكتب 05
           </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#a855f7", boxShadow: "0 0 8px #a855f7", display: "inline-block" }} />
-            <span style={{ fontSize: 10, color: "#9d8bc9" }}>نشط</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#a855f7", boxShadow: "0 0 10px #a855f7, 0 0 20px rgba(168,85,247,0.5)", display: "inline-block", animation: "pulse-board 2s ease-in-out infinite" }} />
+            <span style={{ fontSize: 10, color: "#9d8bc9", fontWeight: 600 }}>نشط</span>
           </span>
         </div>
-        <p style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#e9d5ff", lineHeight: 1.2 }}>
+
+        <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#ede9fe", lineHeight: 1.2, letterSpacing: "-0.01em" }}>
           مجلس الإدارة · المكتب التنفيذي
         </p>
-        <p style={{ margin: "4px 0 0", fontSize: 11, color: "#9d8bc9", lineHeight: 1.4 }}>
+        <p style={{ margin: "5px 0 0", fontSize: 12, color: "#8b7bbf", lineHeight: 1.4 }}>
           مركز التحكم التشغيلي للمنشأة
         </p>
+
+        {/* Inline mini stats */}
+        <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "#6ee7b7", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.20)", borderRadius: 8, padding: "3px 10px" }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
+            {linkedCount} مكتب مرتبط
+          </span>
+          {unassignedCount > 0 && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "#fbbf24", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.20)", borderRadius: 8, padding: "3px 10px" }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#f59e0b", display: "inline-block" }} />
+              {unassignedCount} جاهز للتشغيل
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Arrow */}
-      <ChevronLeft size={18} color="#7c5fbf" style={{ flexShrink: 0 }} />
+      <ChevronLeft size={20} color="#6d4fbf" style={{ flexShrink: 0 }} />
     </button>
   );
 }
@@ -599,34 +620,62 @@ function ExecutiveBrainCard({ total, linked, unassigned }: {
   const completionPct = nonBoardTotal > 0 ? Math.round((linked / nonBoardTotal) * 100) : 0;
 
   const metrics = [
-    { label: "المكاتب", value: total, color: "#22d3ee" },
-    { label: "المرتبطة", value: linked, color: "#10b981" },
-    { label: "الجاهزة للتشغيل", value: unassigned, color: "#f59e0b" },
-    { label: "الاكتمال", value: `${completionPct}%`, color: "#a855f7" },
+    { label: "إجمالي المكاتب", value: total, color: "#22d3ee" },
+    { label: "مرتبطة",          value: linked,    color: "#10b981" },
+    { label: "جاهزة للتشغيل", value: unassigned, color: "#f59e0b" },
   ];
 
   return (
     <div style={{
-      flex: 1, minWidth: 160,
-      borderRadius: 16, border: "1px solid rgba(34,211,238,0.18)",
-      background: "linear-gradient(160deg, rgba(6,14,28,0.97) 0%, rgba(6,22,44,0.95) 100%)",
-      padding: "14px 14px 12px",
-      boxShadow: "0 4px 20px rgba(0,0,0,0.35)",
+      flex: 1, minWidth: 170,
+      borderRadius: 18, border: "1px solid rgba(34,211,238,0.20)",
+      background: "linear-gradient(160deg, rgba(4,12,26,0.98) 0%, rgba(5,20,42,0.97) 100%)",
+      padding: "16px 16px 14px",
+      boxShadow: "0 6px 28px rgba(0,0,0,0.40)",
+      position: "relative", overflow: "hidden",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
-        <BrainCircuit size={15} color="#22d3ee" />
+      {/* Subtle corner glow */}
+      <div style={{ position: "absolute", top: -30, right: -30, width: 100, height: 100, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,238,0.08), transparent)", pointerEvents: "none" }} />
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+        <div style={{ width: 28, height: 28, borderRadius: 9, background: "rgba(34,211,238,0.12)", border: "1px solid rgba(34,211,238,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <BrainCircuit size={14} color="#22d3ee" />
+        </div>
         <span style={{ fontSize: 13, fontWeight: 800, color: "#fff" }}>العقل التنفيذي</span>
-        <span style={{ marginRight: "auto", fontSize: 9, color: "#3a6a8a", fontWeight: 600 }}>قراءة تشغيلية فقط</span>
+        <span style={{ marginRight: "auto", fontSize: 9, color: "#2a5a72", fontWeight: 600, letterSpacing: "0.02em" }}>قراءة تشغيلية فقط</span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+
+      {/* Three metric cells */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
         {metrics.map(({ label, value, color }) => (
-          <div key={label} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", padding: "8px 10px" }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
-            <div style={{ fontSize: 9.5, color: "#4a6a8a", marginTop: 3 }}>{label}</div>
+          <div key={label} style={{ flex: 1, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.025)", padding: "9px 8px", textAlign: "center" }}>
+            <div style={{ fontSize: 20, fontWeight: 900, color, lineHeight: 1, letterSpacing: "-0.02em" }}>{value}</div>
+            <div style={{ fontSize: 8.5, color: "#3a5a70", marginTop: 4, lineHeight: 1.2 }}>{label}</div>
           </div>
         ))}
       </div>
-      <p style={{ margin: "8px 0 0", fontSize: 9, color: "#2a4a6a", lineHeight: 1.4 }}>محسوب من حالة ربط المكاتب الحالية</p>
+
+      {/* Completion progress bar */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+          <span style={{ fontSize: 9.5, color: "#3a6a8a", fontWeight: 600 }}>نسبة اكتمال الربط</span>
+          <span style={{ fontSize: 11, fontWeight: 800, color: completionPct >= 80 ? "#10b981" : completionPct >= 40 ? "#f59e0b" : "#94a3b8" }}>{completionPct}٪</span>
+        </div>
+        <div style={{ height: 5, borderRadius: 999, background: "rgba(255,255,255,0.07)", overflow: "hidden" }}>
+          <div style={{
+            height: "100%", borderRadius: 999,
+            width: `${completionPct}%`,
+            background: completionPct >= 80
+              ? "linear-gradient(90deg, #10b981, #34d399)"
+              : completionPct >= 40
+              ? "linear-gradient(90deg, #f59e0b, #fbbf24)"
+              : "linear-gradient(90deg, #475569, #64748b)",
+            transition: "width 0.6s ease",
+          }} />
+        </div>
+      </div>
+
+      <p style={{ margin: "8px 0 0", fontSize: 8.5, color: "#1e3a4a", lineHeight: 1.4 }}>محسوب من حالة ربط المكاتب الحالية</p>
     </div>
   );
 }
@@ -634,38 +683,48 @@ function ExecutiveBrainCard({ total, linked, unassigned }: {
 function AIRoomCard() {
   return (
     <div style={{
-      flex: 1, minWidth: 140,
-      borderRadius: 16, border: "1px solid rgba(34,211,238,0.14)",
-      background: "linear-gradient(160deg, rgba(2,12,26,0.98) 0%, rgba(4,20,36,0.96) 100%)",
-      padding: "14px 14px 12px",
-      boxShadow: "0 4px 20px rgba(0,0,0,0.35)",
+      flex: "0 0 auto", width: "min(200px, 100%)",
+      borderRadius: 18, border: "1px solid rgba(34,211,238,0.16)",
+      background: "linear-gradient(160deg, rgba(2,10,22,0.99) 0%, rgba(3,18,34,0.98) 100%)",
+      padding: "16px 16px 14px",
+      boxShadow: "0 6px 28px rgba(0,0,0,0.40)",
       position: "relative", overflow: "hidden",
     }}>
-      {/* Subtle glow */}
-      <div style={{ position: "absolute", bottom: -40, left: -40, width: 120, height: 120, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,238,0.07), transparent)", pointerEvents: "none" }} />
+      {/* Corner glow */}
+      <div style={{ position: "absolute", bottom: -50, left: -50, width: 140, height: 140, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,238,0.07), transparent 65%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", top: -20, right: -20, width: 80, height: 80, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,238,0.05), transparent)", pointerEvents: "none" }} />
 
-      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10, position: "relative" }}>
-        <Sparkles size={15} color="#22d3ee" />
-        <span style={{ fontSize: 13, fontWeight: 800, color: "#fff" }}>غرفة المساعد الذكي</span>
-        <span style={{ marginRight: "auto", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 6, background: "rgba(34,211,238,0.12)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.25)" }}>قريباً</span>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, position: "relative" }}>
+        <div style={{ width: 28, height: 28, borderRadius: 9, background: "rgba(34,211,238,0.10)", border: "1px solid rgba(34,211,238,0.22)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Sparkles size={14} color="#22d3ee" />
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 800, color: "#fff", flex: 1, minWidth: 0 }}>غرفة المساعد الذكي</span>
       </div>
 
-      <div style={{ position: "relative" }}>
-        <div style={{ borderRadius: 10, border: "1px dashed rgba(34,211,238,0.18)", background: "rgba(34,211,238,0.03)", padding: "12px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(34,211,238,0.10)", border: "1px solid rgba(34,211,238,0.20)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Layers size={13} color="#22d3ee" />
-            </div>
-            <p style={{ margin: 0, fontSize: 11, color: "#4a8a9a", lineHeight: 1.4 }}>
-              وكيل ذكاء اصطناعي خاص بهذه المنشأة
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 5 }}>
-            {["تحليل تشغيلي", "توصيات", "تقارير"].map((tag) => (
-              <span key={tag} style={{ fontSize: 9, color: "#2a5a6a", padding: "2px 6px", borderRadius: 5, border: "1px solid rgba(34,211,238,0.10)", background: "rgba(34,211,238,0.04)" }}>{tag}</span>
-            ))}
-          </div>
+      {/* Coming soon badge */}
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 12, borderRadius: 8, padding: "4px 10px", background: "rgba(34,211,238,0.08)", border: "1px solid rgba(34,211,238,0.18)" }}>
+        <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#22d3ee", boxShadow: "0 0 6px rgba(34,211,238,0.8)", display: "inline-block" }} />
+        <span style={{ fontSize: 10, fontWeight: 700, color: "#22d3ee" }}>قريباً</span>
+      </div>
+
+      {/* Visual placeholder — blurred "chat" lines */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, position: "relative" }}>
+        <p style={{ margin: 0, fontSize: 10.5, color: "#2a6070", lineHeight: 1.6 }}>
+          وكيل ذكاء اصطناعي خاص بهذه المنشأة
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {[70, 50, 85].map((w, i) => (
+            <div key={i} style={{ height: 6, borderRadius: 999, width: `${w}%`, background: "rgba(34,211,238,0.08)", border: "1px solid rgba(34,211,238,0.06)" }} />
+          ))}
         </div>
+      </div>
+
+      {/* Feature tags */}
+      <div style={{ display: "flex", gap: 4, marginTop: 12, flexWrap: "wrap" }}>
+        {["تحليل", "توصيات", "تقارير"].map((tag) => (
+          <span key={tag} style={{ fontSize: 9, color: "#1e4a5a", padding: "2px 7px", borderRadius: 5, border: "1px solid rgba(34,211,238,0.10)", background: "rgba(34,211,238,0.04)" }}>{tag}</span>
+        ))}
       </div>
     </div>
   );
@@ -1070,6 +1129,8 @@ export default function VirtualOfficeDesign({
           {/* ── Board premium card ── */}
           <BoardPremiumCard
             boardRoom={roomsWithPresence.find((r) => r.isCenter)}
+            linkedCount={linkedOfficeCount}
+            unassignedCount={unassignedOfficeCount}
             onClick={() => {
               const b = roomsWithPresence.find((r) => r.isCenter);
               if (b) setControlModalRoom(b as OfficeRoom);
@@ -1077,7 +1138,7 @@ export default function VirtualOfficeDesign({
           />
 
           {/* ── Executive brain + AI room ── */}
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "stretch" }}>
             <ExecutiveBrainCard
               total={roomsWithPresence.length}
               linked={linkedOfficeCount}
@@ -1089,12 +1150,15 @@ export default function VirtualOfficeDesign({
           {/* ── Office map section ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {/* Header row */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "2px 0" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <LayoutGrid size={15} color="#22d3ee" />
-                <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>المكاتب التشغيلية</span>
+                <div style={{ width: 26, height: 26, borderRadius: 8, background: "rgba(34,211,238,0.10)", border: "1px solid rgba(34,211,238,0.20)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <LayoutGrid size={13} color="#22d3ee" />
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 800, color: "#e2eaf6", letterSpacing: "-0.01em" }}>المكاتب التشغيلية</span>
+                <span style={{ fontSize: 11, color: "#2a4a6a", fontWeight: 600 }}>· {roomsWithPresence.length} مكاتب</span>
               </div>
-              <span style={{ fontSize: 11, color: "#5a7a9a" }}>اضغط على أي مكتب لإدارته.</span>
+              <span style={{ fontSize: 11, color: "#3a5a7a" }}>اضغط على أي مكتب لإدارته.</span>
             </div>
 
             {/* Activation strip — above map, only when unassigned exist */}
@@ -1172,7 +1236,13 @@ export default function VirtualOfficeDesign({
           />
         );
       })()}
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse-board {
+          0%, 100% { box-shadow: 0 0 8px #a855f7, 0 0 16px rgba(168,85,247,0.45); }
+          50%       { box-shadow: 0 0 14px #a855f7, 0 0 28px rgba(168,85,247,0.70); }
+        }
+      `}</style>
     </div>
   );
 }
