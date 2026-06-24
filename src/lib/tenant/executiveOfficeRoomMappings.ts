@@ -5,10 +5,11 @@ export const EXECUTIVE_OFFICE_FIXED_ROOM_KEYS = [
   "sales",
   "support",
   "marketing",
-  "meetings",
+  "board",
   "finance",
   "execution",
   "ai",
+  "meetings",
 ] as const;
 
 export const EXECUTIVE_OFFICE_MAPPED_UNIT_TYPES = [

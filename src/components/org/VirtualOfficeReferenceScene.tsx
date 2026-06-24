@@ -10,8 +10,7 @@
 //
 // Read-only · isolated from /org · no DB writes.
 
-import { useState, useMemo } from "react";
-import Image from "next/image";
+import { useMemo } from "react";
 import { BrainCircuit, MessageSquare } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -35,6 +34,8 @@ export interface SceneRoom {
   // True when no saved/preview/auto mapping is resolved AND there's no real
   // department backing the room — i.e. show "غير مخصص" instead of a name.
   isUnassigned?: boolean;
+  // Live open/closed state from DB (undefined = open by default)
+  isOpen?: boolean;
 }
 
 export interface VirtualOfficeReferenceSceneProps {
@@ -43,10 +44,6 @@ export interface VirtualOfficeReferenceSceneProps {
   onRoomClick?: (room: SceneRoom) => void;
 }
 
-// ─── Asset path ───────────────────────────────────────────────────────────────
-const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
-const IMAGE_ASPECT_RATIO = "1672 / 941";
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
@@ -54,25 +51,6 @@ const AVATAR_COLORS = [
   "#3b82f6", "#f97316", "#ec4899", "#14b8a6",
 ];
 const DEMO_LETTERS = ["م", "أ", "ع", "س", "ر"];
-
-// Slot positions covering each room in the image (3×3 grid layout).
-// meeting room (slot 4) spans rows 2+3 in the center column.
-interface SlotPos {
-  top?: string; bottom?: string;
-  left?: string; right?: string;
-  width: string; height: string;
-  isMeeting?: boolean;
-}
-const SLOT_POSITIONS: SlotPos[] = [
-  { top: "63%", left: "4%",  width: "29%", height: "32%" },
-  { top: "3%",  left: "5%",  width: "31%", height: "27%" },
-  { top: "3%",  left: "39%", width: "22%", height: "27%" },
-  { top: "34%", left: "4%",  width: "29%", height: "27%" },
-  { top: "35%", left: "39%", width: "22%", height: "24%", isMeeting: true },
-  { top: "34%", left: "69%", width: "27%", height: "27%" },
-  { top: "65%", left: "38%", width: "26%", height: "29%" },
-  { top: "64%", left: "69%", width: "27%", height: "31%" },
-];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -342,6 +320,7 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
     const sel = r.id === selectedRoomId;
     if (r.isCenter) return { background: sel ? "rgba(50,15,85,0.97)" : "linear-gradient(160deg, rgba(28,8,58,0.96), rgba(14,5,38,0.98))", border: sel ? "2px solid rgba(139,92,246,0.70)" : "2px solid rgba(139,92,246,0.40)", boxShadow: sel ? "0 0 60px rgba(139,92,246,0.22)" : "0 0 44px rgba(139,92,246,0.14)" };
     if (r.isAI) return { background: sel ? "rgba(5,18,40,0.99)" : "linear-gradient(160deg, rgba(3,10,24,0.98), rgba(5,14,32,0.99))", border: sel ? "2px solid rgba(34,211,238,0.55)" : "1px solid rgba(34,211,238,0.24)", boxShadow: sel ? "0 0 50px rgba(34,211,238,0.22)" : "0 0 36px rgba(34,211,238,0.10)" };
+    if (r.isUnassigned) return { background: sel ? "rgba(30,20,5,0.98)" : "linear-gradient(160deg, rgba(20,14,3,0.97), rgba(15,10,2,0.98))", border: sel ? "1px dashed rgba(245,158,11,0.60)" : "1px dashed rgba(245,158,11,0.30)", boxShadow: sel ? "0 0 24px rgba(245,158,11,0.18)" : "0 0 14px rgba(245,158,11,0.07)" };
     return { background: sel ? `rgba(8,18,40,0.99)` : "linear-gradient(160deg, rgba(5,13,26,0.97), rgba(8,18,36,0.99))", borderTop: `2px solid ${r.accentColor}${sel ? "99" : "55"}`, border: sel ? `1px solid ${r.accentColor}55` : "1px solid rgba(255,255,255,0.045)", boxShadow: sel ? `0 0 30px ${r.accentColor}22` : "none" };
   }
 
@@ -353,15 +332,12 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
     if (room.isCenter) return (
       <div style={{ padding: 12, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, position: "relative" }}>
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 90% 80% at 50% 50%, rgba(139,92,246,0.18), transparent)", pointerEvents: "none" }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#a78bfa" }} />
-          <span style={{ fontSize: 10, color: "#c4b5fd", fontWeight: 600 }}>مشغولة الآن</span>
-        </div>
+        <NumberBadge n={room.officeNumber} accent="#a855f7" />
         <div style={{ width: 44, height: 44, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle, rgba(139,92,246,0.35), rgba(139,92,246,0.06))", border: "1px solid rgba(139,92,246,0.42)", boxShadow: sel ? "0 0 30px rgba(139,92,246,0.35)" : "0 0 20px rgba(139,92,246,0.25)" }}>
           <MessageSquare size={19} color="#c4b5fd" />
         </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4" }}>{room.name}</span>
-        {room.isDemo && <span style={{ fontSize: 12, color: "#c4b5fd", fontWeight: 600 }}>11:00 – 11:30</span>}
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4", textAlign: "center" }}>مكتب مجلس الإدارة</span>
+        <span style={{ fontSize: 9, color: "#9d8bc0", textAlign: "center" }}>المكتب المركزي</span>
         <AvatarRow room={room} />
       </div>
     );
@@ -375,18 +351,38 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
         <div style={{ width: 44, height: 44, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle, rgba(34,211,238,0.26), rgba(34,211,238,0.04))", border: "1px solid rgba(34,211,238,0.32)", boxShadow: sel ? "0 0 30px rgba(34,211,238,0.30)" : "0 0 20px rgba(34,211,238,0.20)" }}>
           <BrainCircuit size={20} color="#22d3ee" />
         </div>
-        <span style={{ fontSize: 9, color: "rgba(34,211,238,0.45)" }}>{room.isDemo ? "AI Engine Active" : room.employeeCount > 0 ? `${room.employeeCount} موظف` : "—"}</span>
+        <span style={{ fontSize: 9, color: "rgba(34,211,238,0.45)" }}>{room.employeeCount > 0 ? `${room.employeeCount} موظف` : "—"}</span>
+      </div>
+    );
+    if (room.isUnassigned) return (
+      <div style={{ padding: "8px 10px", height: "100%", display: "flex", flexDirection: "column", gap: 5, position: "relative", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(245,158,11,0.07), transparent)", pointerEvents: "none" }} />
+        <NumberBadge n={room.officeNumber} accent="#f59e0b" />
+        <div style={{ width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(245,158,11,0.10)", border: "1px dashed rgba(245,158,11,0.35)" }}>
+          <span style={{ fontSize: 18, lineHeight: 1, color: "#f59e0b" }}>+</span>
+        </div>
+        <span style={{ fontSize: 9, color: "#f59e0b", fontWeight: 700, textAlign: "center" }}>جاهز للتشغيل</span>
       </div>
     );
     return (
       <div style={{ padding: "8px 10px", height: "100%", display: "flex", flexDirection: "column", gap: 6, position: "relative" }}>
         <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse 90% 55% at 50% 120%, ${room.accentColor}0a, transparent)`, pointerEvents: "none" }} />
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4", flex: 1, lineHeight: 1.25 }}>{room.name}</span>
-          <div style={{ display: "flex", gap: 3 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
+            <NumberBadge n={room.officeNumber} accent={room.accentColor} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{room.name}</span>
+          </div>
+          <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
             {room.overdueTasks > 0 && <span style={{ width: 16, height: 16, borderRadius: "50%", background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{room.overdueTasks}</span>}
             {pct > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: hp.color, background: hp.bg, border: `1px solid ${hp.border}`, padding: "1px 5px", borderRadius: 14 }}>{pct}%</span>}
           </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {room.isOpen === false ? (
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#94a3b8", background: "rgba(100,116,139,0.12)", border: "1px solid rgba(100,116,139,0.22)", padding: "1px 6px", borderRadius: 10 }}>مغلق</span>
+          ) : (
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.10)", border: "1px solid rgba(16,185,129,0.22)", padding: "1px 6px", borderRadius: 10 }}>مفتوح</span>
+          )}
         </div>
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 5 }}>
           {[0, 1].map((d) => <div key={d} style={{ width: 32, height: 14, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 3 }} />)}
@@ -401,16 +397,18 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1.12fr 1fr", gridTemplateRows: "minmax(155px,auto) minmax(172px,auto) minmax(148px,auto)", gap: 4, background: "rgba(16,28,50,0.55)", borderRadius: 14, overflow: "hidden" }}>
-      {[0, 1, 2].map((i) => (
-        <div key={`r${i}`} style={{ ...G(i + 1, 1), ...bg(slots[i]) }} onClick={() => slots[i] && onRoomClick(slots[i]!)}>
-          {slots[i] && <Inner room={slots[i]!} />}
-        </div>
-      ))}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1.12fr 1fr", gridTemplateRows: "minmax(140px,auto) minmax(172px,auto) minmax(140px,auto)", gap: 4, background: "rgba(16,28,50,0.55)", borderRadius: 14, overflow: "hidden", direction: "ltr" }}>
+      {/* Row 1: exec(1) | support(2) | meetings(8) */}
+      <div style={{ ...G(1, 1), ...bg(slots[1]) }} onClick={() => slots[1] && onRoomClick(slots[1]!)}>{slots[1] && <Inner room={slots[1]} />}</div>
+      <div style={{ ...G(2, 1), ...bg(slots[2]) }} onClick={() => slots[2] && onRoomClick(slots[2]!)}>{slots[2] && <Inner room={slots[2]} />}</div>
+      <div style={{ ...G(3, 1), ...bg(slots[8]) }} onClick={() => slots[8] && onRoomClick(slots[8]!)}>{slots[8] && <Inner room={slots[8]} />}</div>
+      {/* Row 2: marketing(3) | board(4) | finance(5) */}
       <div style={{ ...G(1, 2), ...bg(slots[3]) }} onClick={() => slots[3] && onRoomClick(slots[3]!)}>{slots[3] && <Inner room={slots[3]} />}</div>
-      <div style={{ ...G(2, "2 / 4"), ...bg(slots[4]), alignItems: "center", justifyContent: "center" }} onClick={() => slots[4] && onRoomClick(slots[4]!)}>{slots[4] && <Inner room={slots[4]} />}</div>
+      <div style={{ ...G(2, 2), ...bg(slots[4]), alignItems: "center", justifyContent: "center" }} onClick={() => slots[4] && onRoomClick(slots[4]!)}>{slots[4] && <Inner room={slots[4]} />}</div>
       <div style={{ ...G(3, 2), ...bg(slots[5]) }} onClick={() => slots[5] && onRoomClick(slots[5]!)}>{slots[5] && <Inner room={slots[5]} />}</div>
-      <div style={{ ...G(1, 3), ...bg(slots[6]) }} onClick={() => slots[6] && onRoomClick(slots[6]!)}>{slots[6] && <Inner room={slots[6]} />}</div>
+      {/* Row 3: sales(0) | execution(6) | ai(7) */}
+      <div style={{ ...G(1, 3), ...bg(slots[0]) }} onClick={() => slots[0] && onRoomClick(slots[0]!)}>{slots[0] && <Inner room={slots[0]} />}</div>
+      <div style={{ ...G(2, 3), ...bg(slots[6]) }} onClick={() => slots[6] && onRoomClick(slots[6]!)}>{slots[6] && <Inner room={slots[6]} />}</div>
       <div style={{ ...G(3, 3), ...bg(slots[7]), alignItems: "center", justifyContent: "center" }} onClick={() => slots[7] && onRoomClick(slots[7]!)}>{slots[7] && <Inner room={slots[7]} />}</div>
     </div>
   );
@@ -419,15 +417,15 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
 // ─── Slot builder ─────────────────────────────────────────────────────────────
 
 function buildSlots(rooms: SceneRoom[]): (SceneRoom | null)[] {
-  const s: (SceneRoom | null)[] = Array(8).fill(null);
+  const s: (SceneRoom | null)[] = Array(9).fill(null);
   const used = new Set<number>();
   const ci = rooms.findIndex((r) => r.isCenter);
   const ai = rooms.findIndex((r) => r.isAI && !r.isCenter);
   if (ci >= 0) { s[4] = rooms[ci]; used.add(ci); }
   if (ai >= 0) { s[7] = rooms[ai]; used.add(ai); }
   const rem = rooms.filter((_, i) => !used.has(i));
-  [0, 1, 2, 3, 5, 6].filter((p) => !s[p]).forEach((pos, i) => { if (rem[i]) s[pos] = rem[i]; });
-  if (!s[4]) { const fb = rem[6] ?? rooms[Math.floor(rooms.length / 2)]; if (fb) s[4] = { ...fb, isCenter: true }; }
+  [0, 1, 2, 3, 5, 6, 8].filter((p) => !s[p]).forEach((pos, i) => { if (rem[i]) s[pos] = rem[i]; });
+  if (!s[4]) { const fb = rem[7] ?? rooms[Math.floor(rooms.length / 2)]; if (fb) s[4] = { ...fb, isCenter: true }; }
   return s;
 }
 
@@ -438,7 +436,6 @@ export default function VirtualOfficeReferenceScene({
   selectedRoomId = null,
   onRoomClick,
 }: VirtualOfficeReferenceSceneProps) {
-  const [imgFailed, setImgFailed] = useState(false);
   const slots = useMemo(() => buildSlots(rooms), [rooms]);
   const handleClick = (room: SceneRoom) => onRoomClick?.(room);
 
@@ -454,10 +451,10 @@ export default function VirtualOfficeReferenceScene({
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px #10b981" }} />
           <span style={{ fontSize: 11, color: "rgba(80,120,160,0.85)", fontWeight: 500 }}>مخطط الطابق الرئيسي</span>
-          {!imgFailed && <span style={{ fontSize: 9, color: "rgba(34,211,238,0.40)" }}>· انقر على غرفة للتفاصيل</span>}
+          <span style={{ fontSize: 9, color: "rgba(34,211,238,0.40)" }}>· اضغط على أي مكتب لإدارته</span>
         </div>
         <div style={{ display: "flex", gap: 14 }}>
-          {[{ c: "#10b981", l: `${rooms.filter((r) => !r.isCenter && !r.isAI).length} غرفة` }, { c: "#a855f7", l: "قاعة اجتماعات" }, { c: "#22d3ee", l: "غرفة AI" }].map((x) => (
+          {[{ c: "#10b981", l: `${rooms.filter((r) => !r.isCenter && !r.isAI).length} مكتب` }, { c: "#a855f7", l: "مكتب الاجتماعات" }, { c: "#22d3ee", l: "مكتب الذكاء" }].map((x) => (
             <span key={x.l} style={{ fontSize: 10, color: "rgba(60,90,130,0.7)", display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: x.c, display: "inline-block" }} />
               {x.l}
@@ -466,61 +463,9 @@ export default function VirtualOfficeReferenceScene({
         </div>
       </div>
 
-      {/* ── Desktop scene ── */}
+      {/* ── Desktop scene — CSS 3×3 grid is the primary interactive UX ── */}
       <div className="hidden sm:block">
-        {!imgFailed ? (
-          <div style={{
-            position: "relative",
-            borderRadius: 14,
-            overflow: "hidden",
-            // Match the final asset aspect ratio (1672x941). No crop.
-            aspectRatio: IMAGE_ASPECT_RATIO,
-            // Cap so it doesn't dominate the page on very wide screens.
-            maxHeight: 700,
-            margin: "0 auto",
-            background: "#06111f",
-          }}>
-            {/* Image base — contain to show full floor plan, no cropping */}
-            <Image
-              src={IMAGE_SRC}
-              alt="Office floor plan"
-              fill
-              sizes="(min-width: 1024px) 1100px, 100vw"
-              style={{ objectFit: "contain", objectPosition: "center" }}
-              onError={() => setImgFailed(true)}
-              priority
-            />
-            {/* Vignette */}
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 90% 90% at 50% 50%, transparent 55%, rgba(0,0,0,0.45) 100%)" }} />
-            {/* Glow */}
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 50% 30% at 10% 10%, rgba(34,211,238,0.06), transparent), radial-gradient(ellipse 45% 30% at 90% 90%, rgba(139,92,246,0.07), transparent)" }} />
-            {/* Room overlays */}
-            {slots.map((room, i) => {
-              if (!room) return null;
-              const pos = SLOT_POSITIONS[i];
-              if (!pos) return null;
-              const ps: React.CSSProperties = {
-                position: "absolute", width: pos.width, height: pos.height,
-                ...(pos.top    != null ? { top:    pos.top    } : {}),
-                ...(pos.bottom != null ? { bottom: pos.bottom } : {}),
-                ...(pos.left   != null ? { left:   pos.left   } : {}),
-                ...(pos.right  != null ? { right:  pos.right  } : {}),
-                zIndex: pos.isMeeting ? 10 : 5,
-              };
-              return (
-                <div key={room.id} style={ps}>
-                  {room.isCenter
-                    ? <MeetingOverlay room={room} selected={room.id === selectedRoomId} onClick={() => handleClick(room)} />
-                    : room.isAI
-                      ? <AIOverlay room={room} selected={room.id === selectedRoomId} onClick={() => handleClick(room)} />
-                      : <RoomOverlay room={room} selected={room.id === selectedRoomId} onClick={() => handleClick(room)} />}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <CSSFloor slots={slots} selectedRoomId={selectedRoomId ?? ""} onRoomClick={handleClick} />
-        )}
+        <CSSFloor slots={slots} selectedRoomId={selectedRoomId ?? ""} onRoomClick={handleClick} />
       </div>
 
       {/* ── Mobile stacked ── */}
