@@ -93,6 +93,7 @@ export const MOBILE_ROUTE_LABELS: Partial<Record<WorkspaceRouteId, string>> = {
   reports: "التقارير",
   settings: "الإعدادات",
   ai: "المساعد",
+  virtual_office: "مقر الشركة السحابي",
 };
 
 export function getTenantRoleLabel(

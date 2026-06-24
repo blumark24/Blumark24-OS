@@ -7,9 +7,9 @@
 import { useState } from "react";
 import {
   X, Users, CheckCircle2, DoorOpen, Archive,
-  MapPin, ChevronDown, ChevronUp, Building2,
+  MapPin, ChevronDown, ChevronUp, Building2, GitMerge, BrainCircuit,
 } from "lucide-react";
-import type { OfficeRoom, MappingSource, PreviewOrgUnit } from "./VirtualOfficeDesign";
+import type { OfficeRoom, MappingSource, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
 import { formatOfficeNumber } from "./VirtualOfficeReferenceScene";
 
 const officeLabel = (n: number) => `مكتب ${formatOfficeNumber(n)}`;
@@ -34,6 +34,7 @@ export interface OfficeControlModalProps {
   mappingSource: MappingSource | null;
   managerName: string | null;
   units: PreviewOrgUnit[];
+  officePeople?: PresencePerson[];
   isSaving: boolean;
   isUpdating: boolean;
   boardStats?: BoardOfficeStats | null;
@@ -147,7 +148,7 @@ function OfficeInsight({ room, isOpen }: { room: OfficeRoom; isOpen: boolean }) 
 
 export default function OfficeControlModal({
   room, roomState, isManager, mappingUnit, mappingSource,
-  managerName, units, isSaving, isUpdating, boardStats,
+  managerName, units, officePeople = [], isSaving, isUpdating, boardStats,
   onClose, onSave, onToggleOpen, onReset,
   onOpenAll, onCloseAll, onReviewUnassigned,
   onResetVirtualOffice, isResettingOffice, resetOfficeError,
@@ -281,7 +282,97 @@ export default function OfficeControlModal({
             </div>
           )}
 
-          {/* 5 ── إجراءات المكتب: assignment section (manager only, non-board) */}
+          {/* 5 ── الموظفون في المكتب — C14-M7 */}
+          {!room.isCenter && !room.isUnassigned && (
+            <div style={{ ...SECTION_CARD, border: "1px solid rgba(168,85,247,0.10)", background: "rgba(168,85,247,0.03)" }}>
+              <div style={{ ...SECTION_LABEL, marginBottom: 6 }}>الموظفون في المكتب</div>
+              {officePeople.length === 0 ? (
+                <p style={{ margin: 0, fontSize: 11, color: "#4a6a8a", fontStyle: "italic" }}>لا يوجد موظفون مرتبطون</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 130, overflowY: "auto" }}>
+                  {officePeople.map((person) => (
+                    <div key={person.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${person.color}22`, border: `1px solid ${person.color}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 9.5, fontWeight: 800, color: person.color }}>
+                        {person.initials}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p style={{ margin: 0, fontSize: 11.5, fontWeight: 600, color: "#c0d4ee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{person.name}</p>
+                        {person.roleOrUnit && <p style={{ margin: 0, fontSize: 9.5, color: "#4a6a8a" }}>{person.roleOrUnit}</p>}
+                      </div>
+                      {/* Honest presence — always gray/unavailable */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#475569", flexShrink: 0 }} />
+                        <span style={{ fontSize: 9.5, color: "#475569" }}>غير متاح</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p style={{ margin: "6px 0 0", fontSize: 9.5, color: "#2a4462", lineHeight: 1.4 }}>
+                حالة الحضور تحتاج تفعيل تتبع النشاط
+              </p>
+            </div>
+          )}
+
+          {/* 5b-i ── Board: Digital Twin — C14-M7.2 */}
+          {room.isCenter && (
+            <div style={{ ...SECTION_CARD, border: "1px solid rgba(34,211,238,0.10)", background: "rgba(34,211,238,0.02)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+                <GitMerge size={12} color="#22d3ee" />
+                <div style={{ ...SECTION_LABEL, marginBottom: 0 }}>التوأم الرقمي</div>
+              </div>
+              <p style={{ margin: 0, fontSize: 10.5, color: "#4a6a8a", lineHeight: 1.5 }}>
+                يعكس ارتباط المكاتب بالهيكل الإداري والفرق والمهام.
+              </p>
+              <p style={{ margin: "4px 0 0", fontSize: 9.5, color: "#1e3050" }}>
+                الحالة: جاهز بعد ربط المكاتب
+              </p>
+            </div>
+          )}
+
+          {/* 5b-ii ── Board: AI assistant — C14-M7.2 */}
+          {room.isCenter && (
+            <div style={{ ...SECTION_CARD, border: "1px solid rgba(168,85,247,0.10)", background: "rgba(168,85,247,0.02)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+                <BrainCircuit size={12} color="#a855f7" />
+                <div style={{ ...SECTION_LABEL, marginBottom: 0 }}>مساعد تشغيل المقر</div>
+              </div>
+              <p style={{ margin: 0, fontSize: 10.5, color: "#4a4a8a", lineHeight: 1.5 }}>
+                يدعم قراءة حالة المقر واقتراح الخطوات التالية بعد توفر البيانات.
+              </p>
+              <p style={{ margin: "4px 0 0", fontSize: 9.5, color: "#1e1e40" }}>
+                الحالة: غير مفعّل تشغيلياً
+              </p>
+            </div>
+          )}
+
+          {/* 5b-iii ── Board roadmap — C14-M7 */}
+          {room.isCenter && (
+            <div style={{ ...SECTION_CARD, border: "1px solid rgba(139,92,246,0.12)", background: "rgba(139,92,246,0.03)" }}>
+              <div style={{ ...SECTION_LABEL, marginBottom: 6 }}>خارطة طريق التفعيل</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                {([
+                  { label: "Cloud Office Command UI",  ar: "واجهة مقر سحابي",        chip: "الآن",  active: true },
+                  { label: "Office data linking",       ar: "ربط البيانات الإدارية",  chip: "قادم",  active: false },
+                  { label: "Real presence tracking",    ar: "تتبع الحضور الحقيقي",   chip: "قادم",  active: false },
+                  { label: "Avatars & visual effects",  ar: "صور شخصية وتأثيرات",    chip: "قادم",  active: false },
+                  { label: "Meetings + audio/video",    ar: "اجتماعات وصوت/فيديو",   chip: "قادم",  active: false },
+                ] as const).map(({ label, ar, chip, active }) => (
+                  <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <span style={{ fontSize: 10.5, color: active ? "#c4b5fd" : "#4a6a8a", fontWeight: active ? 700 : 500 }}>{ar}</span>
+                      <span style={{ fontSize: 9, color: "#2a4462", marginRight: 5 }}>{label}</span>
+                    </div>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 999, flexShrink: 0, border: active ? "1px solid rgba(139,92,246,0.45)" : "1px solid rgba(100,116,139,0.22)", background: active ? "rgba(139,92,246,0.16)" : "rgba(100,116,139,0.06)", color: active ? "#c4b5fd" : "#4a6a8a" }}>
+                      {chip}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 6 ── إجراءات المكتب: assignment section (manager only, non-board) */}
           {isManager && !room.isCenter && (
             <div style={{ borderRadius: 14, border: "1px solid rgba(139,92,246,0.22)", background: "rgba(139,92,246,0.05)", overflow: "hidden" }}>
               <button

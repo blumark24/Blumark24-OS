@@ -5,12 +5,12 @@
 // Fixed 8-zone Executive Office Template with API-backed room mapping.
 // Isolated from /org. Client writes go through the tenant API route only.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight, RefreshCw, Users,
   LayoutGrid, Building2,
-  Layers, MapPin,
+  Layers, MapPin, Globe, Zap, BrainCircuit, GitMerge,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { OrgStructureSnapshot } from "@/lib/org/types";
@@ -530,6 +530,126 @@ function normalizeSavedMappings(value: unknown): ExecutiveOfficeRoomMappingByRoo
 }
 
 
+// ─── HQ Command Header — C14-M7 ──────────────────────────────────────────────
+
+interface HQCommandHeaderProps {
+  orgName: string;
+  linkedCount: number;
+  unassignedCount: number;
+  totalOffices: number;
+  onBackToOrg: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+  onOpenBoard?: () => void;
+  onScrollToDT?: () => void;
+}
+
+function HQCommandHeader({
+  orgName, linkedCount, unassignedCount, totalOffices,
+  onBackToOrg, onRefresh, isRefreshing, onOpenBoard, onScrollToDT,
+}: HQCommandHeaderProps) {
+  return (
+    <section style={{
+      position: "relative", overflow: "hidden", borderRadius: 16,
+      border: "1px solid rgba(34,211,238,0.16)",
+      padding: "10px 14px 8px",
+      background: "linear-gradient(135deg, rgba(6,15,30,0.99) 0%, rgba(14,28,58,0.98) 60%, rgba(30,10,55,0.10) 100%)",
+    }}>
+      <div style={{ position: "relative" }}>
+
+        {/* ── Top row: identity + nav ── */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            {/* Badge row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <Globe size={11} color="#22d3ee" style={{ flexShrink: 0 }} />
+              {orgName && (
+                <span style={{ fontSize: 10.5, color: "#4a6a8a", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 130 }}>
+                  {orgName}
+                </span>
+              )}
+              <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: "rgba(34,211,238,0.12)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.26)", flexShrink: 0 }}>
+                مقر سحابي
+              </span>
+              <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: "rgba(245,158,11,0.14)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.24)", flexShrink: 0 }}>
+                BETA
+              </span>
+            </div>
+            {/* Titles inline */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 3, flexWrap: "wrap" }}>
+              <h1 style={{ margin: 0, fontSize: "clamp(15px,3.5vw,20px)", fontWeight: 800, color: "#fff", lineHeight: 1.15, letterSpacing: -0.2, whiteSpace: "nowrap" }}>
+                مقر الشركة السحابي
+              </h1>
+              <span style={{ fontSize: 10, color: "#2a4060", fontWeight: 500, whiteSpace: "nowrap" }}>
+                Blumark24 Cloud Office
+              </span>
+            </div>
+          </div>
+
+          {/* Nav buttons */}
+          <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+            <button type="button" onClick={onBackToOrg} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 9, border: "1px solid rgba(255,255,255,0.09)", background: "rgba(255,255,255,0.04)", color: "#8ba3c7", fontSize: 11, cursor: "pointer" }}>
+              <ArrowRight size={12} /> رجوع
+            </button>
+            <button type="button" onClick={onRefresh} disabled={isRefreshing || !onRefresh} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 9, border: "1px solid rgba(34,211,238,0.22)", background: "rgba(34,211,238,0.07)", color: "#22d3ee", fontSize: 11, cursor: "pointer", opacity: (isRefreshing || !onRefresh) ? 0.5 : 1 }}>
+              <RefreshCw size={12} style={isRefreshing ? { animation: "spin 1s linear infinite" } : undefined} /> مزامنة
+            </button>
+          </div>
+        </div>
+
+        {/* ── Status row — single compact line ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 0, marginTop: 7, paddingTop: 6, borderTop: "1px solid rgba(255,255,255,0.05)", overflowX: "auto", WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"], scrollbarWidth: "none" }}>
+          {([
+            { label: `${totalOffices} مكاتب`,        color: "#22d3ee" },
+            { label: `${linkedCount} مرتبطة`,         color: "#10b981" },
+            { label: `${unassignedCount} تحتاج ربط`, color: "#f59e0b" },
+            { label: "الحضور: غير مفعّل",             color: "#3a5570" },
+            { label: "آخر تحديث: غير متاح",          color: "#1e3050" },
+          ] as const).map(({ label, color }, i) => (
+            <span key={label} style={{ display: "inline-flex", alignItems: "center", gap: 0, flexShrink: 0 }}>
+              <span style={{ fontSize: 9.5, color, fontWeight: 600, whiteSpace: "nowrap" }}>{label}</span>
+              {i < 4 && <span style={{ fontSize: 9.5, color: "#1a2e48", margin: "0 6px" }}>·</span>}
+            </span>
+          ))}
+        </div>
+
+        {/* ── Quick action chips — horizontally scrollable on mobile ── */}
+        <div style={{ display: "flex", gap: 5, marginTop: 7, overflowX: "auto", WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"], scrollbarWidth: "none", paddingBottom: 1 }}>
+          {([
+            { label: "المكاتب",       Icon: LayoutGrid,    action: undefined as (() => void) | undefined },
+            { label: "الموظفون",      Icon: Users,         action: undefined as (() => void) | undefined },
+            { label: "المهام",        Icon: Zap,           action: undefined as (() => void) | undefined },
+            { label: "التوأم الرقمي", Icon: GitMerge,      action: onScrollToDT },
+            { label: "المساعد الذكي", Icon: BrainCircuit,  action: undefined as (() => void) | undefined },
+            { label: "مجلس الإدارة",  Icon: Building2,     action: onOpenBoard },
+            { label: "تشغيل المقر",  Icon: Layers,         action: undefined as (() => void) | undefined },
+          ]).map(({ label, Icon, action }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={action}
+              disabled={!action}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px",
+                borderRadius: 999, fontSize: 10, fontWeight: 600, cursor: action ? "pointer" : "default",
+                border: "1px solid rgba(148,163,184,0.13)",
+                background: action ? "rgba(34,211,238,0.07)" : "rgba(255,255,255,0.02)",
+                color: action ? "#4a8aaa" : "#1e3050",
+                flexShrink: 0,
+                transition: "all 0.15s ease",
+              }}
+            >
+              <Icon size={10} />
+              {label}
+            </button>
+          ))}
+        </div>
+
+      </div>
+    </section>
+  );
+}
+
 // ─── Workspace Identity Strip ─────────────────────────────────────────────────
 
 function WorkspaceIdentityStrip({ orgName, orgCode, snapshot, employees }: {
@@ -883,27 +1003,31 @@ export default function VirtualOfficeDesign({
   const linkedOfficeCount = roomsWithPresence.filter((room) => !room.isUnassigned).length;
   const unassignedOfficeCount = roomsWithPresence.filter((room) => room.isUnassigned).length;
 
+  const boardRoom = useMemo(
+    () => roomsWithPresence.find((r) => r.isCenter) ?? null,
+    [roomsWithPresence],
+  );
+
+  const dtRef = useRef<HTMLDivElement>(null);
+  const scrollToDT = useCallback(() => {
+    dtRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   return (
     <div className="space-y-4 min-w-0" dir="rtl">
 
-      {/* ── Header ── */}
-      <section style={{ position: "relative", overflow: "hidden", borderRadius: 18, border: "1px solid rgba(34,211,238,0.16)", padding: "14px 18px", background: "linear-gradient(135deg, rgba(6,15,30,0.98) 0%, rgba(18,36,68,0.96) 55%, rgba(50,16,80,0.14) 100%)", boxShadow: "0 0 50px rgba(34,211,238,0.04)" }}>
-        <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,238,0.07), transparent)", pointerEvents: "none" }} />
-        <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: "rgba(245,158,11,0.20)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.32)", flexShrink: 0 }}>BETA</span>
-            <h1 style={{ fontSize: "clamp(16px,3.5vw,24px)", fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>المكتب التنفيذي الافتراضي</h1>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <button type="button" onClick={onBackToOrg} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.05)", color: "#8ba3c7", fontSize: 12, cursor: "pointer" }}>
-              <ArrowRight size={13} /> رجوع
-            </button>
-            <button type="button" onClick={onRefresh} disabled={isRefreshing || !onRefresh} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(34,211,238,0.25)", background: "rgba(34,211,238,0.08)", color: "#22d3ee", fontSize: 12, cursor: "pointer", opacity: (isRefreshing || !onRefresh) ? 0.5 : 1 }}>
-              <RefreshCw size={13} style={isRefreshing ? { animation: "spin 1s linear infinite" } : undefined} /> مزامنة
-            </button>
-          </div>
-        </div>
-      </section>
+      {/* ── HQ Command Header — C14-M7 ── */}
+      <HQCommandHeader
+        orgName={orgName}
+        linkedCount={linkedOfficeCount}
+        unassignedCount={unassignedOfficeCount}
+        totalOffices={roomsWithPresence.length}
+        onBackToOrg={onBackToOrg}
+        onRefresh={onRefresh}
+        isRefreshing={isRefreshing}
+        onOpenBoard={boardRoom ? () => setControlModalRoom(boardRoom) : undefined}
+        onScrollToDT={scrollToDT}
+      />
 
       {/* ── Empty State ── */}
       {isEmpty ? (
@@ -955,11 +1079,84 @@ export default function VirtualOfficeDesign({
             </div>
           </div>
 
-          {/* ── Secondary info — below the map ── */}
-          <WorkspaceIdentityStrip orgName={orgName} orgCode={orgCode} snapshot={snapshot} employees={safeEmps} />
+          {/* ── Dot legend — clarify dots are linkage state, not presence ── */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              {([
+                { color: "#10b981", label: "مرتبط" },
+                { color: "#f59e0b", label: "جاهز للتشغيل" },
+                { color: "#a855f7", label: "مجلس الإدارة" },
+              ] as const).map(({ color, label }) => (
+                <span key={label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9.5, color: "#3a5570" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                  {label}
+                </span>
+              ))}
+            </div>
+            <span style={{ fontSize: 9, color: "#1e3050", lineHeight: 1.4 }}>
+              النقاط توضّح حالة ربط المكتب، وليست حضور الموظفين
+            </span>
+          </div>
 
-          {/* Bottom padding — keeps content above bottom nav on mobile */}
-          <div style={{ height: "calc(72px + env(safe-area-inset-bottom))" }} />
+          {/* ── Digital Twin command layer — C14-M7.2 ── */}
+          <div ref={dtRef} style={{ scrollMarginTop: 12, borderRadius: 14, border: "1px solid rgba(34,211,238,0.12)", background: "rgba(34,211,238,0.03)", padding: "12px 14px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <GitMerge size={14} color="#22d3ee" style={{ flexShrink: 0 }} />
+              <div>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#c0d4ee", lineHeight: 1.2 }}>التوأم الرقمي للمقر</p>
+                <p style={{ margin: 0, fontSize: 10, color: "#3a5570", lineHeight: 1.4 }}>يربط بين الهيكل الإداري والمكاتب والموظفين والمهام ليعكس صورة تشغيلية واضحة لشركتك.</p>
+              </div>
+            </div>
+            {/* Relationship chain */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+              {["الهيكل الإداري", "المكاتب", "الموظفون", "المهام"].map((node, i, arr) => (
+                <span key={node} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 9.5, fontWeight: 700, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(34,211,238,0.20)", background: "rgba(34,211,238,0.06)", color: "#5a9abf" }}>{node}</span>
+                  {i < arr.length - 1 && <span style={{ fontSize: 9, color: "#1e3050" }}>←</span>}
+                </span>
+              ))}
+            </div>
+            {/* Real counts */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {([
+                { label: "أقسام",    value: safeDepts.length > 0 ? `${safeDepts.length}` : null },
+                { label: "مكاتب مرتبطة", value: linkedOfficeCount > 0 ? `${linkedOfficeCount}` : null },
+                { label: "موظفون",   value: safeEmps.length  > 0 ? `${safeEmps.length}`  : null },
+                { label: "مهام",     value: safeTasks.length > 0 ? `${safeTasks.length}` : null },
+              ] as const).map(({ label, value }) => (
+                <div key={label} style={{ fontSize: 10, color: "#4a6a8a" }}>
+                  <span style={{ fontWeight: 700, color: value ? "#7ab4d4" : "#1e3050" }}>{value ?? "غير متاح"}</span>
+                  {" "}{label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── AI command layer — C14-M7.2 ── */}
+          <div style={{ borderRadius: 14, border: "1px solid rgba(168,85,247,0.12)", background: "rgba(168,85,247,0.03)", padding: "12px 14px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <BrainCircuit size={14} color="#a855f7" style={{ flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#c4b5fd", lineHeight: 1.2 }}>مساعد تشغيل المقر</p>
+                  <p style={{ margin: 0, fontSize: 10, color: "#3a3060", lineHeight: 1.4 }}>يساعدك على فهم حالة المقر بعد ربط المكاتب والبيانات التشغيلية.</p>
+                </div>
+              </div>
+              <a
+                href="/ai"
+                style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 9, border: "1px solid rgba(168,85,247,0.30)", background: "rgba(168,85,247,0.08)", color: "#c4b5fd", fontSize: 10, fontWeight: 700, textDecoration: "none", flexShrink: 0, whiteSpace: "nowrap" }}
+              >
+                <BrainCircuit size={10} />
+                فتح المساعد
+              </a>
+            </div>
+            <p style={{ margin: "6px 0 0", fontSize: 9.5, color: "#2a2050", lineHeight: 1.4 }}>
+              المساعد الذكي يعرض التوصيات بعد تفعيل وربط البيانات التشغيلية. · جاهز بعد ربط البيانات
+            </p>
+          </div>
+
+          {/* Bottom padding — keeps the office content above the compact mobile dock. */}
+          <div style={{ height: "calc(5.25rem + env(safe-area-inset-bottom, 0px))" }} />
         </>
       )}
 
@@ -980,6 +1177,9 @@ export default function VirtualOfficeDesign({
           closedCount,
         };
         const managerRoom = roomsWithPresence.find((r) => r.id === controlModalRoom.id) ?? controlModalRoom;
+        const officePeople = (managerRoom.isCenter || managerRoom.isUnassigned)
+          ? []
+          : resolveRoomPeople(controlModalRoom, controlMapping.unit, snapshot, safeEmps);
         return (
           <OfficeControlModal
             key={controlModalRoom.id}
@@ -990,6 +1190,7 @@ export default function VirtualOfficeDesign({
             mappingSource={controlMapping.source}
             managerName={managerRoom.managerName}
             units={previewOrgUnits}
+            officePeople={officePeople}
             isSaving={savingRoomKey === controlModalRoom.fixedRoomKey}
             isUpdating={updatingRoomKey === controlModalRoom.fixedRoomKey || updatingRoomKey === "bulk"}
             boardStats={controlModalRoom.isCenter ? boardStats : null}
