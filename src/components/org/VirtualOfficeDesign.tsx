@@ -9,8 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight, RefreshCw, BrainCircuit, Users,
-  AlertCircle, Activity, Calendar, Heart,
-  AlertTriangle, LayoutGrid, Building2,
+  LayoutGrid, Building2,
   Layers, MapPin,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -152,13 +151,6 @@ function computeHp(open: number, overdue: number, emp: number): number {
   if (open === 0 && overdue === 0 && emp === 0) return 85;
   if (open === 0 && overdue === 0) return 90;
   return Math.max(45, Math.min(99, 100 - overdue * 10 - Math.max(0, open - overdue) * 3));
-}
-
-function hpLabel(pct: number): string {
-  if (pct >= 85) return "ممتاز";
-  if (pct >= 70) return "جيد";
-  if (pct >= 55) return "متوسط";
-  return "يحتاج متابعة";
 }
 
 // ─── Presence (EXECUTIVE-OFFICE-PRESENCE-1) ─────────────────────────────────────
@@ -612,140 +604,6 @@ function WorkspaceIdentityStrip({ orgName, orgCode, snapshot, employees }: {
   );
 }
 
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-
-function KpiCard({ label, value, sub, Icon, iconBg }: {
-  label: string; value: string | number; sub?: string;
-  Icon: React.ElementType; iconBg: string;
-}) {
-  return (
-    <div className="flex-shrink-0 min-w-[118px]" style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(6,14,28,0.92)", padding: "14px 14px 12px", display: "flex", flexDirection: "column", gap: 4, boxShadow: "0 4px 16px rgba(0,0,0,0.25)" }}>
-      <div style={{ width: 30, height: 30, borderRadius: 10, marginBottom: 4, display: "flex", alignItems: "center", justifyContent: "center", background: iconBg }}>
-        <Icon size={15} color="#fff" />
-      </div>
-      <div style={{ fontSize: 24, fontWeight: 800, color: "#fff", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</div>
-      {sub && <div style={{ fontSize: 10, color: "#10b981", fontWeight: 600, lineHeight: 1 }}>{sub}</div>}
-      <div style={{ fontSize: 11, color: "#4a6a8a", marginTop: 2, lineHeight: 1.3 }}>{label}</div>
-    </div>
-  );
-}
-
-// ─── Activity Panel ───────────────────────────────────────────────────────────
-
-function ActivityPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] }) {
-  const items = useMemo(() => {
-    const safeTasks = Array.isArray(tasks) ? tasks : [];
-    return [...safeTasks].filter((t) => t?.title).slice(0, 5).map((t, i) => ({
-      id: t.id ?? `a${i}`, title: t.title, status: t.status ?? "",
-      room: rooms[i % Math.max(rooms.length, 1)]?.name ?? "—",
-      ago: t.createdAt || t.dueDate || "—",
-    }));
-  }, [tasks, rooms]);
-
-  const DOT_COLOR: Record<string, string> = { "متأخرة": "#ef4444", "مكتملة": "#10b981", "قيد_التنفيذ": "#f59e0b" };
-
-  return (
-    <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(6,14,28,0.92)", overflow: "hidden", flex: 1 }}>
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Activity size={14} color="#22d3ee" />
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>النشاط داخل المكتب التنفيذي</span>
-        </div>
-        <Link href="/tasks" style={{ fontSize: 10, color: "#3a5a7a", textDecoration: "none" }}>› الكل</Link>
-      </div>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {items.length === 0 ? (
-          <li style={{ padding: "10px 16px", color: "#3a5a7a", fontSize: 11 }}>
-            لا توجد أنشطة حالية داخل المكتب التنفيذي.
-          </li>
-        ) : (
-          items.map((item, i) => (
-            <li key={item.id} style={{ padding: "10px 16px", borderBottom: i < items.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", display: "flex", alignItems: "flex-start", gap: 10 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: DOT_COLOR[item.status] ?? "#22d3ee", flexShrink: 0, marginTop: 4 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 12, color: "#b0c8e0", margin: 0, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</p>
-                <p style={{ fontSize: 10, color: "#3a5a7a", margin: "2px 0 0" }}>{item.room}</p>
-              </div>
-              <span style={{ fontSize: 10, color: "#2a4060", flexShrink: 0 }}>{item.ago === "—" ? "—" : item.ago}</span>
-            </li>
-          ))
-        )}
-      </ul>
-    </div>
-  );
-}
-
-// ─── Meeting Rooms Panel ──────────────────────────────────────────────────────
-
-function MeetingRoomsPanel() {
-  return (
-    <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(6,14,28,0.92)", overflow: "hidden", flex: 1 }}>
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Calendar size={14} color="#a855f7" /><span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>غرف الاجتماعات التنفيذية</span></div>
-        <span style={{ fontSize: 10, color: "#3a5a7a" }}>عرض التقويم</span>
-      </div>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        <li style={{ padding: "10px 16px", color: "#3a5a7a", fontSize: 11 }}>
-          لا توجد اجتماعات مجدولة حالياً.
-        </li>
-      </ul>
-    </div>
-  );
-}
-
-// ─── AI Alerts Panel ──────────────────────────────────────────────────────────
-
-function AIAlertsPanel({ tasks, rooms }: { tasks: Task[]; rooms: OfficeRoom[] }) {
-  type AlertItem = { id: string; type: string; text: string; room: string; Icon: React.ElementType; };
-  const TYPE_STYLE: Record<string, { bg: string; color: string; border: string }> = {
-    "تنبيه": { bg: "rgba(245,158,11,0.14)", color: "#fbbf24", border: "rgba(245,158,11,0.28)" },
-    "تحذير": { bg: "rgba(245,158,11,0.18)", color: "#f59e0b", border: "rgba(245,158,11,0.32)" },
-    "حاد":   { bg: "rgba(239,68,68,0.14)",  color: "#f87171", border: "rgba(239,68,68,0.28)"  },
-    "توصية": { bg: "rgba(34,211,238,0.12)", color: "#22d3ee", border: "rgba(34,211,238,0.25)" },
-  };
-
-  const alerts: AlertItem[] = useMemo(() => {
-    const safeTasks = Array.isArray(tasks) ? tasks : [];
-    const overdue   = safeTasks.filter((t) => t?.status === "متأخرة");
-    const pending   = safeTasks.filter((t) => t?.status === "بانتظار_المراجعة");
-    const result: AlertItem[] = [];
-    if (overdue.length > 0) result.push({ id: "a1", type: "تحذير", text: `${overdue.length} مهام متأخرة في ${rooms[0]?.name ?? "الأقسام"}`, room: rooms[0]?.name ?? "—", Icon: AlertTriangle });
-    if (pending.length > 0) result.push({ id: "a2", type: "حاد", text: `${pending.length} مهام بانتظار المراجعة`, room: rooms[1]?.name ?? "—", Icon: AlertCircle });
-    return result;
-  }, [tasks, rooms]);
-
-  return (
-    <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.065)", background: "rgba(6,14,28,0.92)", overflow: "hidden", flex: 1 }}>
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}><BrainCircuit size={14} color="#22d3ee" /><span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>تنبيهات المكتب الذكي</span></div>
-        <span style={{ fontSize: 10, color: "#3a5a7a" }}>عرض الكل</span>
-      </div>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {alerts.length === 0 ? (
-          <li style={{ padding: "10px 16px", color: "#3a5a7a", fontSize: 11 }}>
-            لا توجد تنبيهات حالية.
-          </li>
-        ) : alerts.slice(0, 4).map((alert, i) => {
-          const ts = TYPE_STYLE[alert.type] ?? TYPE_STYLE["تنبيه"]!;
-          const AlertIcon = alert.Icon;
-          return (
-            <li key={alert.id} style={{ padding: "10px 16px", borderBottom: i < 3 ? "1px solid rgba(255,255,255,0.04)" : "none", display: "flex", alignItems: "flex-start", gap: 10 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.04)" }}>
-                <AlertIcon size={13} color={ts.color} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 6, background: ts.bg, color: ts.color, border: `1px solid ${ts.border}`, display: "inline-block", marginBottom: 4 }}>{alert.type}</span>
-                <p style={{ fontSize: 11, color: "#b0c8e0", margin: 0, lineHeight: 1.4 }}>{alert.text}</p>
-                <p style={{ fontSize: 10, color: "#2a4060", margin: "2px 0 0" }}>{alert.room}</p>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function VirtualOfficeDesign({
@@ -769,7 +627,6 @@ export default function VirtualOfficeDesign({
   );
 
   const safeDepts = useMemo(() => Array.isArray(snapshot?.departments) ? snapshot!.departments : [], [snapshot]);
-  const safeRels  = useMemo(() => Array.isArray(snapshot?.relations)   ? snapshot!.relations   : [], [snapshot]);
   const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
   const safeEmps  = useMemo(() => Array.isArray(employees) ? employees : [], [employees]);
   const previewOrgUnits = useMemo(
@@ -989,56 +846,10 @@ export default function VirtualOfficeDesign({
     }
   }, []);
 
-  const overdueTasks = safeTasks.filter((t) => t?.status === "متأخرة").length;
-  const activeEmps   = safeRels.length;
-  const deptCount    = safeDepts.length;
-
-  const avgHealth = useMemo(() => {
-    const hr = rooms.filter((r) => r.healthPct > 0);
-    return hr.length === 0 ? 82 : Math.round(hr.reduce((s, r) => s + r.healthPct, 0) / hr.length);
-  }, [rooms]);
-
-  const kpis = [
-    { label: "صحة المكتب",       value: `${avgHealth}%`, sub: hpLabel(avgHealth),                          Icon: Heart,        iconBg: "rgba(16,185,129,0.28)" },
-    { label: "الوحدات",          value: deptCount,        sub: undefined,                                   Icon: LayoutGrid,   iconBg: "rgba(34,211,238,0.25)" },
-    { label: "الموظفون النشطون", value: activeEmps, sub: `من ${safeEmps.length}`,                           Icon: Users,        iconBg: "rgba(59,130,246,0.25)" },
-    { label: "المهام المتأخرة",  value: overdueTasks, sub: "مهمة",                                         Icon: AlertCircle,  iconBg: "rgba(245,158,11,0.28)" },
-  ];
-
   const isEmpty = safeDepts.length === 0 && !isDemo;
 
   const linkedOfficeCount = roomsWithPresence.filter((room) => !room.isUnassigned).length;
   const unassignedOfficeCount = roomsWithPresence.filter((room) => room.isUnassigned).length;
-
-  // Compact mobile feed (max 2 each) — derived, no fetches.
-  const mobileActivity = useMemo(() => {
-    const fromTasks = safeTasks
-      .filter((t) => t?.title)
-      .slice(0, 2)
-      .map((t, i) => ({
-        id: t.id ?? `m-a-${i}`,
-        title: t.title,
-        room: rooms[i % Math.max(rooms.length, 1)]?.name ?? "—",
-        ago: t.createdAt || t.dueDate || "—",
-      }));
-    return fromTasks;
-  }, [safeTasks, rooms]);
-
-  const mobileMeetings = useMemo(() => {
-    const list: Array<{ id: string; name: string; status: string }> = [];
-    return list;
-  }, []);
-
-  const mobileAlerts = useMemo(() => {
-    const overdue = safeTasks.filter((t) => t?.status === "متأخرة");
-    if (overdue.length > 0) {
-      return [
-        { id: "mal1", type: "تحذير", text: `${overdue.length} مهام متأخرة في ${rooms[0]?.name ?? "الأقسام"}`, room: rooms[0]?.name ?? "—" },
-        { id: "mal2", type: "حاد",   text: "تحقق من تكليفات المهام المتأخرة", room: rooms[1]?.name ?? "—" },
-      ];
-    }
-    return [];
-  }, [safeTasks, rooms]);
 
   return (
     <div className="space-y-5 min-w-0" dir="rtl">
@@ -1101,11 +912,6 @@ export default function VirtualOfficeDesign({
                 setControlModalRoom(r as OfficeRoom);
               }}
             />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ alignItems: "start" }}>
-              <ActivityPanel tasks={safeTasks} rooms={rooms} />
-              <MeetingRoomsPanel />
-              <AIAlertsPanel tasks={safeTasks} rooms={rooms} />
-            </div>
           </div>
 
           {/* ── Mobile console (xs only) ── */}
@@ -1125,18 +931,13 @@ export default function VirtualOfficeDesign({
               onOpenMapping={() => undefined}
               onClearPreview={() => undefined}
               onClearSaved={() => undefined}
-              activity={mobileActivity}
-              meetings={mobileMeetings}
-              alerts={mobileAlerts}
+              activity={[]}
+              meetings={[]}
+              alerts={[]}
             />
           </div>
         </>
       )}
-
-      {/* ── KPI summary (below the map — keeps the office image central) ── */}
-      <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
-        {kpis.map((k) => <KpiCard key={k.label} label={k.label} value={k.value} sub={k.sub} Icon={k.Icon} iconBg={k.iconBg} />)}
-      </div>
 
       <p style={{ fontSize: 10, color: "#1e3050", textAlign: "center", paddingBottom: 8 }}>
         حالة المكتب محفوظة · إدارة المكاتب · يعتمد على بيانات المنشأة

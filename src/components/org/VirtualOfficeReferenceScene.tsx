@@ -357,8 +357,11 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
       <div style={{ padding: "8px 10px", height: "100%", display: "flex", flexDirection: "column", gap: 6, position: "relative" }}>
         <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse 90% 55% at 50% 120%, ${room.accentColor}0a, transparent)`, pointerEvents: "none" }} />
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4", flex: 1, lineHeight: 1.25 }}>{room.name}</span>
-          <div style={{ display: "flex", gap: 3 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
+            <NumberBadge n={room.officeNumber} accent={room.accentColor} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#dde8f4", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{room.name}</span>
+          </div>
+          <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
             {room.overdueTasks > 0 && <span style={{ width: 16, height: 16, borderRadius: "50%", background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{room.overdueTasks}</span>}
             {pct > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: hp.color, background: hp.bg, border: `1px solid ${hp.border}`, padding: "1px 5px", borderRadius: 14 }}>{pct}%</span>}
           </div>
@@ -376,7 +379,7 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1.12fr 1fr", gridTemplateRows: "minmax(140px,auto) minmax(172px,auto) minmax(140px,auto)", gap: 4, background: "rgba(16,28,50,0.55)", borderRadius: 14, overflow: "hidden" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1.12fr 1fr", gridTemplateRows: "minmax(140px,auto) minmax(172px,auto) minmax(140px,auto)", gap: 4, background: "rgba(16,28,50,0.55)", borderRadius: 14, overflow: "hidden", direction: "ltr" }}>
       {/* Row 1: exec(1) | support(2) | meetings(8) */}
       <div style={{ ...G(1, 1), ...bg(slots[1]) }} onClick={() => slots[1] && onRoomClick(slots[1]!)}>{slots[1] && <Inner room={slots[1]} />}</div>
       <div style={{ ...G(2, 1), ...bg(slots[2]) }} onClick={() => slots[2] && onRoomClick(slots[2]!)}>{slots[2] && <Inner room={slots[2]} />}</div>
@@ -430,7 +433,7 @@ export default function VirtualOfficeReferenceScene({
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px #10b981" }} />
           <span style={{ fontSize: 11, color: "rgba(80,120,160,0.85)", fontWeight: 500 }}>مخطط الطابق الرئيسي</span>
-          <span style={{ fontSize: 9, color: "rgba(34,211,238,0.40)" }}>· انقر على غرفة للتفاصيل</span>
+          <span style={{ fontSize: 9, color: "rgba(34,211,238,0.40)" }}>· اضغط على أي مكتب لإدارته</span>
         </div>
         <div style={{ display: "flex", gap: 14 }}>
           {[{ c: "#10b981", l: `${rooms.filter((r) => !r.isCenter && !r.isAI).length} غرفة` }, { c: "#a855f7", l: "قاعة اجتماعات" }, { c: "#22d3ee", l: "غرفة AI" }].map((x) => (
