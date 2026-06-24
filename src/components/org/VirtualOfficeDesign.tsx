@@ -1155,8 +1155,8 @@ export default function VirtualOfficeDesign({
             </p>
           </div>
 
-          {/* Bottom padding — ensures content clears fixed bottom nav + safe area */}
-          <div style={{ height: "calc(9rem + env(safe-area-inset-bottom, 0px))" }} />
+          {/* Bottom padding — keeps the office content above the compact mobile dock. */}
+          <div style={{ height: "calc(5.25rem + env(safe-area-inset-bottom, 0px))" }} />
         </>
       )}
 
