@@ -74,7 +74,7 @@ const OVERLAY: React.CSSProperties = {
 
 const MODAL: React.CSSProperties = {
   width: "min(430px, 100%)",
-  maxHeight: "78dvh",
+  maxHeight: "calc(100dvh - 32px)",
   borderRadius: 24,
   background: "linear-gradient(160deg, rgba(6,10,28,0.99) 0%, rgba(8,14,36,0.99) 100%)",
   border: "1px solid rgba(139,92,246,0.22)",
