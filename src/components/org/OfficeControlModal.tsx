@@ -4,7 +4,7 @@
 // All office actions (link, open/close, reset) happen in one centered glass modal.
 
 import { useState } from "react";
-import { X, Users, CheckCircle2, DoorOpen, Archive, MapPin, ChevronDown, RefreshCw } from "lucide-react";
+import { X, Users, CheckCircle2, DoorOpen, Archive, MapPin, ChevronDown } from "lucide-react";
 import type { OfficeRoom, MappingSource, PreviewOrgUnit } from "./VirtualOfficeDesign";
 import { formatOfficeNumber } from "./VirtualOfficeReferenceScene";
 
@@ -381,11 +381,11 @@ export default function OfficeControlModal({
             </p>
           )}
 
-          {/* Reset confirmation inline */}
+          {/* Unlink confirmation inline */}
           {showResetConfirm && (
             <div style={{ borderRadius: 14, border: "1px solid rgba(239,68,68,0.28)", background: "rgba(239,68,68,0.07)", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
               <p style={{ margin: 0, fontSize: 12, color: "#fecaca", lineHeight: 1.65 }}>
-                هل تريد تصفير هذا المكتب؟ سيتم فك ربط المكتب فقط دون حذف أي بيانات.
+                هل تريد إلغاء ارتباط هذا المكتب؟ سيتم فك الربط فقط دون حذف أي بيانات.
               </p>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
@@ -393,7 +393,7 @@ export default function OfficeControlModal({
                   onClick={() => { onReset(); setShowResetConfirm(false); }}
                   style={{ flex: 1, minHeight: 34, borderRadius: 10, border: "1px solid rgba(239,68,68,0.40)", background: "rgba(239,68,68,0.14)", color: "#fca5a5", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                 >
-                  تأكيد التصفير
+                  تأكيد إلغاء الارتباط
                 </button>
                 <button
                   type="button"
@@ -429,21 +429,20 @@ export default function OfficeControlModal({
                   {isOpen ? <Archive size={14} /> : <DoorOpen size={14} />}
                   {isUpdating ? "جارٍ..." : isOpen ? "إغلاق المكتب" : "فتح المكتب"}
                 </button>
-                <button
-                  type="button"
-                  disabled={!mappingUnit && mappingSource !== "saved"}
-                  onClick={() => setShowResetConfirm(true)}
-                  style={{
-                    minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    borderRadius: 12, border: "1px solid rgba(245,158,11,0.28)", background: "rgba(245,158,11,0.06)", color: "#fbbf24",
-                    fontSize: 13, fontWeight: 600, padding: "0 14px",
-                    cursor: (mappingUnit || mappingSource === "saved") ? "pointer" : "not-allowed",
-                    opacity: (mappingUnit || mappingSource === "saved") ? 1 : 0.4,
-                  }}
-                >
-                  <RefreshCw size={13} />
-                  تصفير المكتب
-                </button>
+                {mappingSource === "saved" && (
+                  <button
+                    type="button"
+                    onClick={() => setShowResetConfirm(true)}
+                    style={{
+                      minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                      borderRadius: 12, border: "1px solid rgba(245,158,11,0.28)", background: "rgba(245,158,11,0.06)", color: "#fbbf24",
+                      fontSize: 13, fontWeight: 600, padding: "0 14px", cursor: "pointer",
+                    }}
+                  >
+                    <X size={13} />
+                    إلغاء ارتباط المكتب
+                  </button>
+                )}
               </>
             )}
             <button
