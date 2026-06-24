@@ -62,21 +62,20 @@ const TYPE_TABS: Array<{ key: TypeFilter; label: string }> = [
 
 const OVERLAY: React.CSSProperties = {
   position: "fixed", inset: 0, zIndex: 90,
-  display: "flex", alignItems: "flex-end", justifyContent: "center",
-  padding: "0 0 0 0",
-  background: "rgba(2,6,18,0.78)",
-  backdropFilter: "blur(14px)",
-  WebkitBackdropFilter: "blur(14px)",
+  display: "flex", alignItems: "center", justifyContent: "center",
+  padding: "16px 14px",
+  background: "rgba(2,6,18,0.80)",
+  backdropFilter: "blur(16px)",
+  WebkitBackdropFilter: "blur(16px)",
 };
 
 const MODAL: React.CSSProperties = {
-  width: "min(540px, 100%)",
-  maxHeight: "72dvh",
-  borderRadius: "24px 24px 0 0",
+  width: "min(430px, 100%)",
+  maxHeight: "78dvh",
+  borderRadius: 24,
   background: "rgba(8,16,36,0.99)",
-  border: "1px solid rgba(148,163,184,0.12)",
-  borderBottom: "none",
-  boxShadow: "0 -8px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset",
+  border: "1px solid rgba(148,163,184,0.13)",
+  boxShadow: "0 24px 60px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04) inset",
   overflow: "hidden",
   display: "flex",
   flexDirection: "column",
@@ -419,7 +418,7 @@ export default function OfficeControlModal({
         </div>
 
         {/* ══ FOOTER ══════════════════════════════════════════════════════════ */}
-        <div style={{ padding: "10px 16px calc(16px + env(safe-area-inset-bottom))", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "column", gap: 7, flexShrink: 0 }}>
+        <div style={{ padding: "10px 16px 16px", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "column", gap: 7, flexShrink: 0 }}>
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
 
             {/* Board actions */}

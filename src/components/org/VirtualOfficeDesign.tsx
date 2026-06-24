@@ -430,9 +430,6 @@ function buildPreviewOrgUnits(
   return [...departmentUnits, ...teamUnits];
 }
 
-function findAutoMappedUnit(room: OfficeRoom, units: PreviewOrgUnit[]): PreviewOrgUnit | null {
-  return units.find((unit) => unit.id === `department:${room.deptId}`) ?? null;
-}
 
 function unitApiId(unit: PreviewOrgUnit): string {
   return unit.id.includes(":") ? unit.id.split(":").slice(1).join(":") : unit.id;
@@ -461,7 +458,6 @@ function resolveRoomMapping(input: {
   room: OfficeRoom;
   units: PreviewOrgUnit[];
   savedMappings: ExecutiveOfficeRoomMappingByRoom;
-  suppressAutoLink?: boolean;
 }): { unit: PreviewOrgUnit | null; source: MappingSource | null } {
   const savedUnit = findSavedMappedUnit(
     input.savedMappings[input.room.fixedRoomKey],
@@ -469,10 +465,8 @@ function resolveRoomMapping(input: {
   );
   if (savedUnit) return { unit: savedUnit, source: "saved" };
 
-  if (!input.suppressAutoLink) {
-    const autoUnit = findAutoMappedUnit(input.room, input.units);
-    if (autoUnit) return { unit: autoUnit, source: "auto" };
-  }
+  // Auto-linking is intentionally disabled. Every office starts unassigned
+  // and must be linked manually by the manager. Only saved mappings are used.
 
   return { unit: null, source: null };
 }
@@ -623,7 +617,6 @@ export default function VirtualOfficeDesign({
   const [updatingRoomKey, setUpdatingRoomKey] = useState<string | null>(null);
   const [isResettingOffice, setIsResettingOffice] = useState(false);
   const [resetOfficeError, setResetOfficeError] = useState<string | null>(null);
-  const [suppressAutoLink, setSuppressAutoLink] = useState(false);
 
   const isManager = user?.role === "organization_manager" || user?.role === "super_admin";
 
@@ -642,7 +635,7 @@ export default function VirtualOfficeDesign({
 
   const roomsWithPresence = useMemo(() => {
     return rooms.map((room) => {
-      const { unit } = resolveRoomMapping({ room, units: previewOrgUnits, savedMappings, suppressAutoLink });
+      const { unit } = resolveRoomMapping({ room, units: previewOrgUnits, savedMappings });
       const hasMapping = Boolean(unit);
       const isUnassigned = !room.isCenter && !hasMapping;
       const displayName = room.isCenter
@@ -666,7 +659,7 @@ export default function VirtualOfficeDesign({
         avatars: people.slice(0, 3).map((p) => ({ initials: p.initials, color: p.color, statusColor: p.statusColor })),
       };
     });
-  }, [rooms, previewOrgUnits, savedMappings, roomStates, snapshot, safeEmps, suppressAutoLink]);
+  }, [rooms, previewOrgUnits, savedMappings, roomStates, snapshot, safeEmps]);
 
   useEffect(() => {
     let alive = true;
@@ -728,7 +721,6 @@ export default function VirtualOfficeDesign({
       }
 
       setSavedMappings((prev) => ({ ...prev, [body.mapping!.fixed_room_key]: body.mapping! }));
-      setSuppressAutoLink(false);
     } catch (err) {
       setMappingErrorByRoom((prev) => ({
         ...prev,
@@ -869,9 +861,8 @@ export default function VirtualOfficeDesign({
         setResetOfficeError(data.error ?? "تعذر إعادة ضبط المكتب الافتراضي حالياً.");
         return;
       }
-      // Clear all local mapping + room state after reset, suppress auto-link
+      // Clear all local mapping + room state after reset
       setSavedMappings({});
-      setSuppressAutoLink(true);
       setRoomStates((prev) => {
         const next = { ...prev };
         Object.keys(next).forEach((k) => { if (k !== "board") next[k] = { is_open: true }; });
@@ -983,7 +974,7 @@ export default function VirtualOfficeDesign({
 
       {/* ── Office Control Modal — opened on every office tap ── */}
       {controlModalRoom && (() => {
-        const controlMapping = resolveRoomMapping({ room: controlModalRoom, units: previewOrgUnits, savedMappings, suppressAutoLink });
+        const controlMapping = resolveRoomMapping({ room: controlModalRoom, units: previewOrgUnits, savedMappings });
         const openCount = ROOM_KEYS_BY_SLOT.filter((k) => k !== "board").filter((k) => (roomStates[k]?.is_open ?? true)).length;
         const closedCount = ROOM_KEYS_BY_SLOT.filter((k) => k !== "board").length - openCount;
         const boardStats: BoardOfficeStats = {
