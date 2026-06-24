@@ -73,61 +73,54 @@ function OfficeChip({ room, selected, onClick, position }: {
         position: "absolute",
         top: position.top, left: position.left,
         transform: "translate(-50%, -50%)",
-        // Minimum 48×48px effective tap area via padding
-        padding: selected ? "6px 10px" : "8px 10px",
+        // 48px minimum tap target via padding; visual is much smaller when not selected
+        padding: selected ? "7px 11px" : "12px",
         display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 3,
-        borderRadius: 12,
-        background: selected
-          ? `${accent}22`
-          : "rgba(2,8,23,0.80)",
-        backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
-        border: selected
-          ? `1.5px solid ${accent}`
-          : `1px solid ${accent}44`,
-        boxShadow: selected
-          ? `0 0 18px ${accent}55, 0 0 6px ${accent}33`
-          : "0 1px 6px rgba(0,0,0,0.60)",
+        borderRadius: selected ? 12 : "50%",
+        background: selected ? `${accent}22` : "transparent",
+        backdropFilter: selected ? "blur(10px)" : undefined,
+        WebkitBackdropFilter: selected ? "blur(10px)" : undefined,
+        border: selected ? `1.5px solid ${accent}` : "none",
+        boxShadow: selected ? `0 0 18px ${accent}55, 0 0 6px ${accent}33` : "none",
         cursor: "pointer",
         transition: "all 0.18s ease",
         zIndex: 2,
-        minWidth: 36,
       }}
     >
-      {/* Number + dot — always visible */}
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      {selected ? (
+        /* Selected: dot + number + short label */
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: "50%", background: dot, flexShrink: 0,
+              boxShadow: `0 0 6px ${dot}`,
+              transition: "all 0.18s ease",
+            }} />
+            <span style={{
+              fontSize: 9, fontWeight: 800, color: "#fff",
+              background: `${accent}20`,
+              border: `1px solid ${accent}55`,
+              padding: "1px 5px", borderRadius: 5,
+              lineHeight: 1.5, fontVariantNumeric: "tabular-nums",
+            }}>
+              {formatOfficeNumber(room.officeNumber)}
+            </span>
+          </div>
+          <span style={{
+            fontSize: 8.5, fontWeight: 700,
+            color: room.isCenter ? "#c4b5fd" : room.isUnassigned ? "#fbbf24" : "#e2edf8",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            maxWidth: 68, marginTop: 1,
+          }}>
+            {shortLabel(room)}
+          </span>
+        </>
+      ) : (
+        /* Non-selected: tiny status dot only — number as aria-label */
         <span style={{
-          width: selected ? 7 : 6,
-          height: selected ? 7 : 6,
-          borderRadius: "50%",
-          background: dot,
-          flexShrink: 0,
-          boxShadow: (room.isUnassigned || selected) ? `0 0 6px ${dot}` : undefined,
-          transition: "all 0.18s ease",
+          width: 8, height: 8, borderRadius: "50%", background: dot, display: "block",
+          boxShadow: room.isUnassigned ? `0 0 6px ${dot}88` : `0 0 3px ${dot}55`,
         }} />
-        <span style={{
-          fontSize: 9, fontWeight: 800,
-          color: selected ? "#fff" : "#b0c4d8",
-          background: selected ? `${accent}20` : "rgba(255,255,255,0.08)",
-          border: `1px solid ${selected ? accent + "55" : "rgba(148,163,184,0.20)"}`,
-          padding: "1px 5px", borderRadius: 5,
-          lineHeight: 1.5, fontVariantNumeric: "tabular-nums",
-          transition: "all 0.18s ease",
-        }}>
-          {formatOfficeNumber(room.officeNumber)}
-        </span>
-      </div>
-
-      {/* Short name — visible only when selected */}
-      {selected && (
-        <span style={{
-          fontSize: 8.5, fontWeight: 700,
-          color: room.isCenter ? "#c4b5fd" : room.isUnassigned ? "#fbbf24" : "#e2edf8",
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          maxWidth: 68,
-          marginTop: 1,
-        }}>
-          {shortLabel(room)}
-        </span>
       )}
     </button>
   );

@@ -4,7 +4,7 @@
 // One modal shell for all 9 offices. Layout is always identical.
 // Only data and available actions change per office state.
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   X, Users, CheckCircle2, DoorOpen, Archive,
   MapPin, ChevronDown, ChevronUp, Building2, GitMerge, BrainCircuit,
@@ -69,6 +69,7 @@ const OVERLAY: React.CSSProperties = {
   background: "rgba(1,4,14,0.82)",
   backdropFilter: "blur(20px)",
   WebkitBackdropFilter: "blur(20px)",
+  overscrollBehavior: "contain",
 };
 
 const MODAL: React.CSSProperties = {
@@ -160,6 +161,13 @@ export default function OfficeControlModal({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showOfficeResetConfirm, setShowOfficeResetConfirm] = useState(false);
 
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   const label  = room.officeNumber ? officeLabel(room.officeNumber) : "مكتب";
   const isOpen = roomState?.is_open ?? true;
 
@@ -222,7 +230,7 @@ export default function OfficeControlModal({
         </div>
 
         {/* ══ BODY ════════════════════════════════════════════════════════════ */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "10px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "10px 16px", display: "flex", flexDirection: "column", gap: 8, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"] }}>
 
           {/* 1 ── حالة المكتب (smart insight) */}
           <OfficeInsight room={room} isOpen={isOpen} />
