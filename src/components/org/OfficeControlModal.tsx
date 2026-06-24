@@ -6,10 +6,10 @@
 
 import { useState } from "react";
 import {
-  X, Users, CheckCircle2, DoorOpen, Archive,
+  X, Users, DoorOpen, Archive,
   MapPin, ChevronDown, ChevronUp, Building2,
 } from "lucide-react";
-import type { OfficeRoom, MappingSource, PreviewOrgUnit } from "./VirtualOfficeDesign";
+import type { OfficeRoom, MappingSource, PreviewOrgUnit, OfficeEmployeeRow } from "./VirtualOfficeDesign";
 import { formatOfficeNumber } from "./VirtualOfficeReferenceScene";
 
 const officeLabel = (n: number) => `مكتب ${formatOfficeNumber(n)}`;
@@ -26,6 +26,12 @@ export interface BoardOfficeStats {
   closedCount: number;
 }
 
+export interface HqOverview {
+  orgName: string | null;
+  departmentCount: number | null;
+  employeeCount: number | null;
+}
+
 export interface OfficeControlModalProps {
   room: OfficeRoom;
   roomState: OfficeRoomState | null;
@@ -37,6 +43,9 @@ export interface OfficeControlModalProps {
   isSaving: boolean;
   isUpdating: boolean;
   boardStats?: BoardOfficeStats | null;
+  hqOverview?: HqOverview | null;
+  employeesInOffice?: OfficeEmployeeRow[];
+  openTaskCount?: number | null;
   onClose: () => void;
   onSave: (unit: PreviewOrgUnit) => void;
   onToggleOpen: (is_open: boolean) => void;
@@ -100,6 +109,12 @@ const SECTION_LABEL: React.CSSProperties = {
   fontSize: 9.5, color: "#4a6a8a", marginBottom: 3, fontWeight: 600,
 };
 
+const UNAVAILABLE_LABEL = "غير متاح";
+const EMPTY_EMPLOYEES_LABEL = "لا يوجد موظفون مرتبطون بهذا المكتب";
+const EMPTY_TASKS_LABEL = "لا توجد مهام مفتوحة";
+const UNLINKED_TASKS_LABEL = "لا توجد مهام — اربط المكتب أولاً";
+const PRESENCE_POLICY_LABEL = "حالة الموظف غير متاحة حالياً حتى يتم تفعيل تتبع النشاط.";
+
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ room, isOpen }: { room: OfficeRoom; isOpen: boolean }) {
@@ -107,7 +122,7 @@ function StatusBadge({ room, isOpen }: { room: OfficeRoom; isOpen: boolean }) {
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 4, borderRadius: 999, padding: "3px 10px", border: "1px solid rgba(139,92,246,0.40)", background: "rgba(139,92,246,0.12)", color: "#c4b5fd", fontSize: 11, fontWeight: 700 }}>
         <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#a855f7" }} />
-        مكتب مجلس الإدارة
+        مكتب مجلس الإدارة والتحكم
       </span>
     );
   }
@@ -131,10 +146,10 @@ function StatusBadge({ room, isOpen }: { room: OfficeRoom; isOpen: boolean }) {
 
 function OfficeInsight({ room, isOpen }: { room: OfficeRoom; isOpen: boolean }) {
   let text: string;
-  if (room.isCenter) text = "هذا مكتب مجلس الإدارة لمتابعة تشغيل المكاتب.";
-  else if (room.isUnassigned) text = "هذا المكتب غير مخصص وجاهز للربط وتشغيله.";
-  else if (!isOpen) text = "هذا المكتب مغلق ويمكن إعادة فتحه في أي وقت.";
-  else text = "هذا المكتب مرتبط ويعمل حالياً.";
+  if (room.isCenter) text = "مكتب مجلس الإدارة والتحكم يعطيك نظرة تشغيلية على مقر الشركة الافتراضي.";
+  else if (room.isUnassigned) text = "هذا المكتب جاهز لاستقبال فريقك";
+  else if (!isOpen) text = "هذا المكتب مرتبط بقسم من هيكلك، لكنه مغلق حالياً ويمكن إعادة فتحه.";
+  else text = "هذا المكتب مرتبط بقسم أو فريق من هيكلك ويعرض نافذة تشغيله هنا.";
 
   return (
     <div style={{ ...SECTION_CARD, border: "1px solid rgba(34,211,238,0.08)", background: "rgba(34,211,238,0.03)" }}>
@@ -148,6 +163,7 @@ function OfficeInsight({ room, isOpen }: { room: OfficeRoom; isOpen: boolean }) 
 export default function OfficeControlModal({
   room, roomState, isManager, mappingUnit, mappingSource,
   managerName, units, isSaving, isUpdating, boardStats,
+  hqOverview, employeesInOffice = [], openTaskCount = null,
   onClose, onSave, onToggleOpen, onReset,
   onOpenAll, onCloseAll, onReviewUnassigned,
   onResetVirtualOffice, isResettingOffice, resetOfficeError,
@@ -169,6 +185,12 @@ export default function OfficeControlModal({
 
   const selectedUnit    = units.find((u) => u.id === selectedUnitId) ?? null;
   const hasNewSelection = selectedUnit && selectedUnit.id !== (mappingUnit?.id ?? "");
+  const isLinkedOffice = !room.isCenter && !room.isUnassigned && Boolean(mappingUnit);
+  const taskText = room.isUnassigned
+    ? UNLINKED_TASKS_LABEL
+    : typeof openTaskCount === "number" && openTaskCount > 0
+      ? `لديه ${openTaskCount} مهمة مفتوحة`
+      : EMPTY_TASKS_LABEL;
 
   const sourceTag =
     mappingSource === "saved" ? " · محفوظ" :
@@ -176,14 +198,14 @@ export default function OfficeControlModal({
 
   // ─── Subtitle ────────────────────────────────────────────────────────────────
   const subtitle = room.isCenter
-    ? "مركز التحكم التشغيلي للمنشأة"
+    ? "نظرة عامة على مقر الشركة الافتراضي"
     : room.isUnassigned
-    ? "مكتب غير مخصص · جاهز للتشغيل"
-    : `${room.name} · ${isOpen ? "مفتوح" : "مغلق"}`;
+    ? "هذا المكتب جاهز لاستقبال فريقك"
+    : `${room.name} · مكتب مرتبط بفريقك`;
 
   // ─── Type badge ──────────────────────────────────────────────────────────────
   const typeLabel = room.isCenter
-    ? "مجلس الإدارة"
+    ? "مكتب مجلس الإدارة والتحكم"
     : room.isAI
     ? "مكتب الذكاء الاصطناعي"
     : room.type ?? "مساحة عمل";
@@ -227,16 +249,26 @@ export default function OfficeControlModal({
 
           {/* 2 ── الارتباط الإداري */}
           <div style={{ ...SECTION_CARD, border: "1px solid rgba(34,211,238,0.12)", background: "rgba(34,211,238,0.04)" }}>
-            <div style={SECTION_LABEL}>الارتباط الإداري{sourceTag}</div>
+            <div style={SECTION_LABEL}>{room.isCenter ? "مقر الشركة الافتراضي" : "ارتباط المكتب بالشركة"}{sourceTag}</div>
             {room.isCenter ? (
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#c4b5fd" }}>مركز التحكم</div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#c4b5fd" }}>مكتب مجلس الإدارة والتحكم</div>
+                <div style={{ fontSize: 11, color: "#6b87ab", marginTop: 3 }}>مركز متابعة وتشغيل المكاتب داخل المنشأة.</div>
+              </div>
             ) : mappingUnit ? (
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#dff7ff" }}>{mappingUnit.name}</div>
-                <div style={{ fontSize: 11, color: "#6b87ab", marginTop: 2 }}>{mappingUnit.typeLabel}</div>
+                <div style={{ fontSize: 11, color: "#6b87ab", marginTop: 2 }}>
+                  هذا المكتب مرتبط بـ {mappingUnit.typeLabel} من هيكلك الإداري.
+                </div>
               </div>
             ) : (
-              <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>غير مخصص</div>
+              <div>
+                <div style={{ fontSize: 13, color: "#fbbf24", fontWeight: 800 }}>هذا المكتب جاهز لاستقبال فريقك</div>
+                <div style={{ fontSize: 11, color: "#8ba3c7", marginTop: 4, lineHeight: 1.6 }}>
+                  اربط هذا المكتب بقسم من هيكلك لتبدأ متابعة فريقك منه.
+                </div>
+              </div>
             )}
           </div>
 
@@ -248,40 +280,98 @@ export default function OfficeControlModal({
             </div>
           </div>
 
-          {/* 4 ── Metrics row */}
-          {!room.isCenter ? (
-            <div style={{ display: "flex", gap: 6 }}>
-              {[
-                { Icon: Users,        color: "#22d3ee", label: "الموظفون", value: room.employeeCount, emptyLabel: "لا يوجد" },
-                { Icon: CheckCircle2, color: "#10b981", label: "المهام",   value: room.openTasks,     emptyLabel: "لا توجد"  },
-              ].map(({ Icon, color, label: l, value, emptyLabel }) => (
-                <div key={l} style={{ ...SECTION_CARD, flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
-                  <Icon size={12} color={color} style={{ flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: value > 0 ? 14 : 10, fontWeight: 700, color: value > 0 ? "#fff" : "#64748b", lineHeight: 1 }}>
-                      {value > 0 ? value : emptyLabel}
+          {/* 4 ── Employees in office */}
+          {!room.isCenter && (
+            <div style={{ ...SECTION_CARD, padding: "10px 12px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                <div style={{ ...SECTION_LABEL, marginBottom: 0 }}>الموظفون في المكتب</div>
+                <span style={{ fontSize: 9.5, color: "#64748b" }}>{PRESENCE_POLICY_LABEL}</span>
+              </div>
+              {employeesInOffice.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {employeesInOffice.slice(0, 6).map((employee) => (
+                    <div key={employee.id} style={{ display: "grid", gridTemplateColumns: "28px minmax(0,1fr) auto", alignItems: "center", gap: 8, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.025)", padding: "7px 8px" }}>
+                      <span style={{ width: 28, height: 28, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", background: employee.color, color: "#fff", fontSize: 10, fontWeight: 800 }}>
+                        {employee.initials}
+                      </span>
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: "block", color: "#dbeafe", fontSize: 12, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{employee.name}</span>
+                        <span style={{ display: "block", color: "#64748b", fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{employee.roleLabel ?? UNAVAILABLE_LABEL}</span>
+                      </span>
+                      <span style={{ fontSize: 9.5, color: "#94a3b8", border: "1px solid rgba(148,163,184,0.18)", background: "rgba(148,163,184,0.07)", borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+                        {employee.statusLabel}
+                      </span>
                     </div>
-                    <div style={{ fontSize: 9.5, color: "#6b87ab", marginTop: 2 }}>{l}</div>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : boardStats && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
-              {([
-                { label: "المكاتب",        value: boardStats.totalOffices,          color: "#22d3ee" },
-                { label: "مرتبطة",         value: boardStats.linkedOfficeCount,     color: "#10b981" },
-                { label: "جاهزة للتشغيل", value: boardStats.unassignedOfficeCount, color: "#f59e0b" },
-              ] as const).map(({ label: l, value, color }) => (
-                <div key={l} style={{ ...SECTION_CARD, textAlign: "center" }}>
-                  <div style={{ fontSize: 18, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
-                  <div style={{ fontSize: 9.5, color: "#6b87ab", marginTop: 3 }}>{l}</div>
+              ) : (
+                <div style={{ borderRadius: 10, border: "1px dashed rgba(148,163,184,0.16)", background: "rgba(255,255,255,0.02)", color: "#64748b", fontSize: 11.5, lineHeight: 1.6, padding: "10px 11px", textAlign: "center" }}>
+                  {EMPTY_EMPLOYEES_LABEL}
                 </div>
-              ))}
+              )}
             </div>
           )}
 
-          {/* 5 ── إجراءات المكتب: assignment section (manager only, non-board) */}
+          {/* 5 ── Office tasks */}
+          {!room.isCenter && (
+            <div style={{ ...SECTION_CARD, border: "1px solid rgba(16,185,129,0.12)", background: "rgba(16,185,129,0.035)" }}>
+              <div style={SECTION_LABEL}>مهام المكتب</div>
+              <div style={{ fontSize: 13, color: openTaskCount && openTaskCount > 0 ? "#bbf7d0" : "#8ba3c7", fontWeight: 750 }}>
+                {taskText}
+              </div>
+            </div>
+          )}
+
+          {/* 6 ── Board HQ overview */}
+          {!room.isCenter ? (
+            null
+          ) : boardStats && (
+            <div style={{ ...SECTION_CARD, border: "1px solid rgba(168,85,247,0.18)", background: "rgba(168,85,247,0.055)", padding: "11px 12px" }}>
+              <div style={{ ...SECTION_LABEL, color: "#a78bfa" }}>نظرة عامة على المقر</div>
+              <div style={{ color: "#fff", fontSize: 13, fontWeight: 800, marginBottom: 4 }}>
+                {(hqOverview?.orgName || UNAVAILABLE_LABEL)} · المقر الافتراضي
+              </div>
+              <div style={{ color: "#8ba3c7", fontSize: 11, marginBottom: 9 }}>مبني من هيكلك الإداري</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                {([
+                  { label: "الأقسام", value: hqOverview?.departmentCount ?? UNAVAILABLE_LABEL, color: "#22d3ee" },
+                  { label: "الموظفون", value: hqOverview?.employeeCount ?? UNAVAILABLE_LABEL, color: "#10b981" },
+                  { label: "المكاتب", value: boardStats.totalOffices, color: "#c4b5fd" },
+                ] as const).map(({ label: l, value, color }) => (
+                  <div key={l} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.035)", textAlign: "center", padding: "8px 6px" }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+                    <div style={{ fontSize: 9.5, color: "#6b87ab", marginTop: 3 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginTop: 7 }}>
+                {([
+                  { label: "مرتبطة", value: boardStats.linkedOfficeCount, color: "#10b981" },
+                  { label: "جاهزة", value: boardStats.unassignedOfficeCount, color: "#f59e0b" },
+                  { label: "مغلقة", value: boardStats.closedCount, color: "#94a3b8" },
+                ] as const).map(({ label: l, value, color }) => (
+                  <div key={l} style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.045)", background: "rgba(255,255,255,0.025)", textAlign: "center", padding: "7px 5px" }}>
+                    <div style={{ fontSize: 15, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+                    <div style={{ fontSize: 9, color: "#64748b", marginTop: 3 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isLinkedOffice && (
+            <div style={{ borderRadius: 12, border: "1px solid rgba(34,211,238,0.10)", background: "rgba(34,211,238,0.025)", padding: "8px 10px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Users size={12} color="#22d3ee" />
+                <div>
+                  <div style={{ color: "#cfeffd", fontSize: 11.5, fontWeight: 750 }}>نافذة تشغيل حقيقية للمكتب</div>
+                  <div style={{ color: "#64748b", fontSize: 10, marginTop: 2 }}>تعرض البيانات المتاحة من الموظفين والمهام فقط.</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 7 ── إجراءات المكتب: assignment section (manager only, non-board) */}
           {isManager && !room.isCenter && (
             <div style={{ borderRadius: 14, border: "1px solid rgba(139,92,246,0.22)", background: "rgba(139,92,246,0.05)", overflow: "hidden" }}>
               <button
@@ -292,7 +382,7 @@ export default function OfficeControlModal({
               >
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: "#c4b5fd", fontSize: 13, fontWeight: 700 }}>
                   <MapPin size={14} color="#a855f7" />
-                  {room.isUnassigned ? "ربط المكتب وتشغيله" : "تغيير الربط"}
+                  تشغيل المكتب — اختر القسم المناسب
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                   <span style={{ fontSize: 11, color: "#6b87ab", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -309,8 +399,8 @@ export default function OfficeControlModal({
                 <div style={{ padding: "0 12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
                   <p style={{ margin: 0, fontSize: 11, color: "#6b87ab", lineHeight: 1.5 }}>
                     {room.isUnassigned
-                      ? "اختر إدارة أو قسم أو فريق لتشغيل هذا المكتب."
-                      : "اختر إدارة أو قسم أو فريق لتغيير ربط هذا المكتب."}
+                      ? "اختر القسم أو الفريق الذي سيمثل هذا المكتب داخل مقر شركتك الافتراضي."
+                      : "راجع الارتباط الحالي ثم اختر قسماً أو فريقاً آخر عند الحاجة."}
                   </p>
 
                   {/* نوع الربط */}
@@ -385,7 +475,7 @@ export default function OfficeControlModal({
                       transition: "all 0.15s ease",
                     }}
                   >
-                    {isSaving ? "جارٍ الحفظ..." : room.isUnassigned ? "ربط المكتب وتشغيله" : "حفظ الربط"}
+                    {isSaving ? "جارٍ الحفظ..." : room.isUnassigned ? "ربط المكتب" : "حفظ الربط"}
                   </button>
                 </div>
               )}

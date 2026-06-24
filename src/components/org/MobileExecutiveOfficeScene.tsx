@@ -23,7 +23,7 @@ const CHIP_POSITIONS: ChipPos[] = [
   { top: "18%", left: "20%" }, // slot 1 → 02
   { top: "18%", left: "50%" }, // slot 2 → 03
   { top: "48%", left: "19%" }, // slot 3 → 04
-  { top: "48%", left: "50%" }, // slot 4 → 05 مجلس الإدارة (center)
+  { top: "48%", left: "50%" }, // slot 4 → 05 مجلس الإدارة والتحكم (center)
   { top: "48%", left: "82%" }, // slot 5 → 06
   { top: "80%", left: "51%" }, // slot 6 → 07
   { top: "79%", left: "82%" }, // slot 7 → 08
@@ -41,7 +41,7 @@ function dotColor(room: SceneRoom): string {
 
 // Short label shown only when the chip is selected.
 function shortLabel(room: SceneRoom): string {
-  if (room.isCenter)     return "مجلس الإدارة";
+  if (room.isCenter)     return "مجلس الإدارة والتحكم";
   if (room.isUnassigned) return "جاهز للتشغيل";
   if (room.isOpen === false) return "مغلق";
   // Strip leading "مكتب NN " prefix if present, return mapped name

@@ -27,13 +27,14 @@ import MobileExecutiveOfficeScene from "./MobileExecutiveOfficeScene";
 import OfficeControlModal, { type OfficeRoomState, type BoardOfficeStats } from "./OfficeControlModal";
 
 // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
-// 9 real office slots (01–09). Slot 4 (office 05) = مكتب مجلس الإدارة (board).
+// 9 real office slots (01–09). Slot 4 (office 05) = مكتب مجلس الإدارة والتحكم (board/control).
 // Slot 8 (office 09) = meetings (top-right). No separate board panel.
 const OFFICE_LABEL_PREFIX = "مكتب";
 const officeLabel = (n: number) => `${OFFICE_LABEL_PREFIX} ${formatOfficeNumber(n)}`;
 const UNASSIGNED_LABEL = "غير مخصص";
-const UNASSIGNED_HINT_LONG = "اربط هذا المكتب بإدارة أو قسم من الهيكل الإداري لتفعيل التوأم الرقمي.";
 const UNAVAILABLE_LABEL = "غير متاح";
+const VIRTUAL_HQ_TITLE = "مقر الشركة الافتراضي";
+const VIRTUAL_HQ_SUBTITLE = "مساحة تشغيل رقمية لفرقك ومكاتبك عن بعد";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,13 +74,13 @@ export interface VirtualOfficeDesignProps {
 }
 
 // Executive Office Template — fixed 9 zones (C14-L2), mapped 1:1 to slot index.
-// Slot 4 = board (center, مكتب مجلس الإدارة). Slot 8 = meetings (top-right, 9th room).
+// Slot 4 = board/control (center). Slot 8 = meetings office (top-right, 9th room).
 const EXECUTIVE_TEMPLATE_ZONES = [
   "المبيعات",
   "الإدارة العليا",
   "الدعم",
   "التسويق",
-  "مجلس الإدارة",
+  "مجلس الإدارة والتحكم",
   "المالية",
   "التنفيذ",
   "غرفة الذكاء الاصطناعي",
@@ -153,43 +154,30 @@ function computeHp(open: number, overdue: number, emp: number): number {
   return Math.max(45, Math.min(99, 100 - overdue * 10 - Math.max(0, open - overdue) * 3));
 }
 
-// ─── Presence (EXECUTIVE-OFFICE-PRESENCE-1) ─────────────────────────────────────
-// Visual presence ONLY. Status is DETERMINISTIC (derived from a stable seed) —
-// never random, never persisted, never realtime. No DB/network involved.
-export type PresenceStatus = "available" | "busy" | "meeting" | "offline";
-
-const PRESENCE_LABEL: Record<PresenceStatus, string> = {
-  available: "متاح",
-  busy: "مشغول",
-  meeting: "في اجتماع",
-  offline: "غير متاح",
-};
-const PRESENCE_COLOR: Record<PresenceStatus, string> = {
-  available: "#10b981",
-  busy: "#f59e0b",
-  meeting: "#a855f7",
-  offline: "#6b7a8f",
-};
-export const PRESENCE_NOTE = "الحالة المعروضة للمعاينة التشغيلية فقط.";
+// ─── Office employees ──────────────────────────────────────────────────────────
+// Existing employee data only. Activity status stays unavailable until real
+// activity tracking exists; no random or realtime presence is implied.
+const UNAVAILABLE_STATUS_COLOR = "#6b7a8f";
 const PRESENCE_FALLBACK_LETTERS = ["م", "ف", "ع", "س", "ر"];
-
-function presenceStatusFor(seed: string): PresenceStatus {
-  const h = hashStr(seed || "؟") % 10;
-  if (h <= 4) return "available"; // ~50%
-  if (h <= 6) return "busy";      // ~20%
-  if (h <= 8) return "meeting";   // ~20%
-  return "offline";               // ~10%
-}
 
 export interface PresencePerson {
   id: string;
   name: string;
   initials: string;
   color: string;
-  status: PresenceStatus;
+  status: "offline";
   statusLabel: string;
   statusColor: string;
   roleOrUnit: string | null;
+}
+
+export interface OfficeEmployeeRow {
+  id: string;
+  name: string;
+  initials: string;
+  roleLabel: string | null;
+  color: string;
+  statusLabel: string;
 }
 
 function resolveRoomPeople(
@@ -230,20 +218,30 @@ function resolveRoomPeople(
     const initials = rawName
       ? nameInitials(name)
       : PRESENCE_FALLBACK_LETTERS[people.length % PRESENCE_FALLBACK_LETTERS.length] ?? "م";
-    const status = presenceStatusFor(emp.id || name);
-    const roleLabel = emp.role ? getTenantRoleLabel(emp.role) : null;
+    const roleLabel = emp.jobTitle || (emp.role ? getTenantRoleLabel(emp.role) : null);
     people.push({
       id,
       name,
       initials,
       color: avatarColor(name),
-      status,
-      statusLabel: PRESENCE_LABEL[status],
-      statusColor: PRESENCE_COLOR[status],
+      status: "offline",
+      statusLabel: UNAVAILABLE_LABEL,
+      statusColor: UNAVAILABLE_STATUS_COLOR,
       roleOrUnit: roleLabel || mappingUnit?.name || null,
     });
   }
   return people;
+}
+
+function toOfficeEmployeeRows(people: PresencePerson[]): OfficeEmployeeRow[] {
+  return people.map((person) => ({
+    id: person.id,
+    name: person.name,
+    initials: person.initials,
+    roleLabel: person.roleOrUnit,
+    color: person.color,
+    statusLabel: UNAVAILABLE_LABEL,
+  }));
 }
 
 // Smart keyword-based slot assignment. Slot 4 is pre-reserved for board —
@@ -282,7 +280,7 @@ function buildOfficeRooms(
   const usedSlots = new Set<number>();
   const slotArr: (OfficeRoom | null)[] = Array(9).fill(null);
 
-  // Slot 4 is always reserved for مكتب مجلس الإدارة — never overwritten by depts.
+  // Slot 4 is always reserved for مكتب مجلس الإدارة والتحكم — never overwritten by depts.
   slotArr[4] = makePlaceholder(4);
   usedSlots.add(4);
 
@@ -292,7 +290,7 @@ function buildOfficeRooms(
       id: `pad-${slot}`,
       fixedRoomKey: ROOM_KEYS_BY_SLOT[slot] ?? "sales",
       deptId: `pad-${slot}`,
-      name: isBoard ? "مكتب مجلس الإدارة" : officeLabel(slot + 1),
+      name: isBoard ? "مكتب مجلس الإدارة والتحكم" : officeLabel(slot + 1),
       accentColor: ACCENT_CYCLE[slot % ACCENT_CYCLE.length] ?? "#22d3ee",
       employeeCount: 0, avatars: [],
       openTasks: 0, overdueTasks: 0, healthPct: 0,
@@ -300,7 +298,7 @@ function buildOfficeRooms(
       isAI:     slot === 7,
       isDemo: true,
       deptCode: null,
-      type:  isBoard ? "مجلس الإدارة" : slot === 7 ? "مكتب الذكاء الاصطناعي" : slot === 8 ? "مكتب الاجتماعات" : "مساحة عمل",
+      type:  isBoard ? "مكتب مجلس الإدارة والتحكم" : slot === 7 ? "مكتب الذكاء الاصطناعي" : slot === 8 ? "مكتب الاجتماعات" : "مساحة عمل",
       level: isBoard ? "management" : "department",
       teamCount: 0, teams: [], managerName: null,
       officeNumber: slot + 1,
@@ -640,7 +638,7 @@ export default function VirtualOfficeDesign({
       const hasMapping = Boolean(unit);
       const isUnassigned = !room.isCenter && !hasMapping;
       const displayName = room.isCenter
-        ? "مكتب مجلس الإدارة"
+        ? "مكتب مجلس الإدارة والتحكم"
         : (unit?.name ?? (isUnassigned ? UNASSIGNED_LABEL : room.name));
 
       const base: OfficeRoom = {
@@ -659,7 +657,7 @@ export default function VirtualOfficeDesign({
       return {
         ...base,
         employeeCount: people.length,
-        avatars: people.slice(0, 3).map((p) => ({ initials: p.initials, color: p.color, statusColor: p.statusColor })),
+        avatars: people.slice(0, 3).map((p) => ({ initials: p.initials, color: p.color })),
       };
     });
   }, [rooms, previewOrgUnits, savedMappings, roomStates, snapshot, safeEmps]);
@@ -892,7 +890,10 @@ export default function VirtualOfficeDesign({
         <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: "rgba(245,158,11,0.20)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.32)", flexShrink: 0 }}>BETA</span>
-            <h1 style={{ fontSize: "clamp(16px,3.5vw,24px)", fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>المكتب التنفيذي الافتراضي</h1>
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ fontSize: "clamp(16px,3.5vw,24px)", fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{VIRTUAL_HQ_TITLE}</h1>
+              <p style={{ margin: "3px 0 0", color: "#7aa0c8", fontSize: 11.5, lineHeight: 1.35, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{VIRTUAL_HQ_SUBTITLE}</p>
+            </div>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, flexShrink: 0 }}>
             <button type="button" onClick={onBackToOrg} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.05)", color: "#8ba3c7", fontSize: 12, cursor: "pointer" }}>
@@ -928,7 +929,7 @@ export default function VirtualOfficeDesign({
                 <div style={{ width: 24, height: 24, borderRadius: 7, background: "rgba(34,211,238,0.10)", border: "1px solid rgba(34,211,238,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <LayoutGrid size={12} color="#22d3ee" />
                 </div>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#c8daf0" }}>المكاتب التشغيلية</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#c8daf0" }}>مكاتب مقر الشركة الافتراضي</span>
                 <span style={{ fontSize: 10, color: "#2a4462", fontWeight: 600 }}>· {roomsWithPresence.length} مكاتب</span>
               </div>
               <span style={{ fontSize: 10, color: "#2a4462" }}>اضغط على أي مكتب لإدارته</span>
@@ -956,6 +957,37 @@ export default function VirtualOfficeDesign({
           </div>
 
           {/* ── Secondary info — below the map ── */}
+          <section
+            aria-label="كيفية استخدام مقر الشركة الافتراضي"
+            style={{
+              borderRadius: 16,
+              border: "1px solid rgba(255,255,255,0.06)",
+              background: "rgba(255,255,255,0.025)",
+              padding: "10px 12px",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gap: 8,
+              alignItems: "center",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: "#dbeafe", fontSize: 12.5, fontWeight: 800 }}>كيف تستخدم مقر شركتك الافتراضي؟</div>
+              <div style={{ color: "#64748b", fontSize: 10.5, marginTop: 3, lineHeight: 1.45 }}>ابدأ من الخريطة، ثم اربط المكتب بوحدة حقيقية من هيكلك.</div>
+            </div>
+            {[
+              "اختر المكتب",
+              "اربطه بقسم أو فريق",
+              "تابع الموظفين والمهام من نافذة المكتب",
+            ].map((step, index) => (
+              <div key={step} style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, borderRadius: 12, border: "1px solid rgba(34,211,238,0.08)", background: "rgba(34,211,238,0.025)", padding: "7px 8px" }}>
+                <span style={{ width: 20, height: 20, borderRadius: 7, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: "rgba(34,211,238,0.12)", color: "#22d3ee", fontSize: 10, fontWeight: 900 }}>
+                  {index + 1}
+                </span>
+                <span style={{ minWidth: 0, color: "#9fb6d8", fontSize: 10.5, fontWeight: 700, lineHeight: 1.35 }}>{step}</span>
+              </div>
+            ))}
+          </section>
+
           <WorkspaceIdentityStrip orgName={orgName} orgCode={orgCode} snapshot={snapshot} employees={safeEmps} />
 
           {/* Bottom padding — keeps content above bottom nav on mobile */}
@@ -964,7 +996,7 @@ export default function VirtualOfficeDesign({
       )}
 
       <p style={{ fontSize: 10, color: "#1e3050", textAlign: "center", paddingBottom: 8 }}>
-        حالة المكتب محفوظة · إدارة المكاتب · يعتمد على بيانات المنشأة
+        حالة الحضور تظهر عند تفعيل بيانات النشاط الفعلية · يعتمد المقر على بيانات المنشأة
       </p>
 
       {/* ── Office Control Modal — opened on every office tap ── */}
@@ -980,6 +1012,12 @@ export default function VirtualOfficeDesign({
           closedCount,
         };
         const managerRoom = roomsWithPresence.find((r) => r.id === controlModalRoom.id) ?? controlModalRoom;
+        const officePeople = managerRoom.isCenter
+          ? []
+          : resolveRoomPeople(managerRoom, controlMapping.unit, snapshot, safeEmps);
+        const modalOpenTaskCount = managerRoom.isUnassigned
+          ? null
+          : controlMapping.unit?.taskCount ?? managerRoom.openTasks;
         return (
           <OfficeControlModal
             key={controlModalRoom.id}
@@ -993,6 +1031,13 @@ export default function VirtualOfficeDesign({
             isSaving={savingRoomKey === controlModalRoom.fixedRoomKey}
             isUpdating={updatingRoomKey === controlModalRoom.fixedRoomKey || updatingRoomKey === "bulk"}
             boardStats={controlModalRoom.isCenter ? boardStats : null}
+            hqOverview={{
+              orgName: orgName || null,
+              departmentCount: safeDepts.length,
+              employeeCount: safeEmps.length,
+            }}
+            employeesInOffice={toOfficeEmployeeRows(officePeople)}
+            openTaskCount={modalOpenTaskCount}
             onClose={() => setControlModalRoom(null)}
             onSave={(unit) => void handleSaveMapping(controlModalRoom, unit)}
             onReset={() => void handleDeleteSavedMapping(controlModalRoom)}
