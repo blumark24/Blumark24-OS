@@ -1,42 +1,41 @@
 "use client";
 
-// FullscreenOfficeExperience — C15.3
-// Office Focus Entry: reuses the same 3D office map image, zooms/focuses on the
-// selected office via CSS transform. Zone overlay chips cluster on the actual
-// office area. No WebGL, no Three.js, no fake data, no new packages.
-
-import { useState } from "react";
-import { X, ArrowRight } from "lucide-react";
-import type { OfficeRoom, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
+import { useMemo, useState } from "react";
+import {
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+  DoorOpen,
+  LayoutGrid,
+  Link2,
+  Settings,
+  Users,
+  X,
+} from "lucide-react";
+import type {
+  MappingSource,
+  OfficeRoom,
+  PreviewOrgUnit,
+  PresencePerson,
+} from "./VirtualOfficeDesign";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
-const ZOOM = 2.15;
+const FOCUS_ZOOM = 2.08;
 
-// ─── Office positions — mirrors MobileExecutiveOfficeScene CHIP_POSITIONS ─────
-// Do NOT change these coordinates; they match the existing hotspot layout.
 const OFFICE_POSITIONS: ReadonlyArray<{ left: number; top: number }> = [
-  { left: 19, top: 79 }, // slot 0 → office 01
-  { left: 20, top: 18 }, // slot 1 → office 02
-  { left: 50, top: 18 }, // slot 2 → office 03
-  { left: 19, top: 48 }, // slot 3 → office 04
-  { left: 50, top: 48 }, // slot 4 → office 05 (board / مجلس الإدارة)
-  { left: 82, top: 48 }, // slot 5 → office 06
-  { left: 51, top: 80 }, // slot 6 → office 07
-  { left: 82, top: 79 }, // slot 7 → office 08
-  { left: 82, top: 18 }, // slot 8 → office 09
+  { left: 19, top: 79 },
+  { left: 20, top: 18 },
+  { left: 50, top: 18 },
+  { left: 19, top: 48 },
+  { left: 50, top: 48 },
+  { left: 82, top: 48 },
+  { left: 51, top: 80 },
+  { left: 82, top: 79 },
+  { left: 82, top: 18 },
 ] as const;
 
-// Zone chip offsets (px from office focal point in container coordinates)
-const ZONE_CHIP_OFFSETS: ReadonlyArray<{ x: number; y: number }> = [
-  { x: -72, y: -44 }, // zone 0: top-left
-  { x:   8, y: -44 }, // zone 1: top-right
-  { x: -72, y:   8 }, // zone 2: bottom-left
-  { x:   8, y:   8 }, // zone 3: bottom-right
-] as const;
-
-// ─── Zone model ───────────────────────────────────────────────────────────────
-
-type ZoneState = "ready_after_link" | "needs_link" | "informational" | "command";
+type ZoneState = "needs_activation" | "ready_after_link" | "disabled" | "unavailable" | "setup";
+type PanelTab = "overview" | "zones" | "employees" | "tasks" | "linking" | "settings";
 
 interface ZoneDef {
   id: string;
@@ -45,344 +44,1197 @@ interface ZoneDef {
   purpose: string;
   state: ZoneState;
   stateLabel: string;
+  actionLabel: string;
   accent: string;
+  x: number;
+  y: number;
 }
 
-const BOARD_ZONES: ZoneDef[] = [
-  { id: "board-chamber", name: "غرفة مجلس الإدارة",    type: "غرفة تنفيذية",    purpose: "مخصصة لجلسات المجلس وقرارات الاستراتيجية.",                   state: "command",       stateLabel: "جاهزة بعد ربط البيانات",  accent: "#a855f7" },
-  { id: "board-kpi",     name: "غرفة مؤشرات الأداء",   type: "لوحة تشغيل",      purpose: "تعرض مؤشرات الأداء بعد ربط البيانات التشغيلية.",              state: "informational", stateLabel: "غير مفعّل تشغيلياً",       accent: "#f59e0b" },
-  { id: "board-dt",      name: "غرفة التوأم الرقمي",    type: "تشغيل تحليلي",    purpose: "تعكس حالة المكاتب والوحدات التشغيلية بصرياً.",                state: "informational", stateLabel: "جاهز بعد ربط المكاتب",    accent: "#22d3ee" },
-  { id: "board-ai",      name: "مساعد التشغيل الذكي",   type: "ذكاء اصطناعي",    purpose: "يدعم قراءة حالة المقر بعد توفر البيانات التشغيلية.",          state: "informational", stateLabel: "غير مفعّل تشغيلياً",       accent: "#a855f7" },
+const PANEL_TABS: Array<{ key: PanelTab; label: string; Icon: typeof LayoutGrid }> = [
+  { key: "overview", label: "نظرة عامة", Icon: LayoutGrid },
+  { key: "zones", label: "الغرف", Icon: DoorOpen },
+  { key: "employees", label: "الموظفون", Icon: Users },
+  { key: "tasks", label: "المهام", Icon: CheckCircle2 },
+  { key: "linking", label: "الربط", Icon: Link2 },
+  { key: "settings", label: "الإعدادات", Icon: Settings },
 ];
 
-function getOfficeZones(isLinked: boolean): ZoneDef[] {
-  const state: ZoneState = isLinked ? "ready_after_link" : "needs_link";
-  const stateLabel = isLinked ? "جاهزة بعد الربط" : "يحتاج تفعيل";
+const stateTone: Record<ZoneState, { color: string; bg: string; border: string }> = {
+  needs_activation: { color: "#f59e0b", bg: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.32)" },
+  ready_after_link: { color: "#22d3ee", bg: "rgba(34,211,238,0.10)", border: "rgba(34,211,238,0.32)" },
+  disabled: { color: "#94a3b8", bg: "rgba(100,116,139,0.08)", border: "rgba(100,116,139,0.24)" },
+  unavailable: { color: "#64748b", bg: "rgba(100,116,139,0.06)", border: "rgba(100,116,139,0.18)" },
+  setup: { color: "#a855f7", bg: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.30)" },
+};
+
+const sourceLabel: Record<MappingSource, string> = {
+  saved: "ربط محفوظ",
+  preview: "ربط تجريبي",
+  auto: "ربط تلقائي",
+};
+
+function getRegularZones(isLinked: boolean): ZoneDef[] {
+  const state: ZoneState = isLinked ? "ready_after_link" : "needs_activation";
+  const stateLabel = isLinked ? "جاهز بعد الربط" : "يحتاج تفعيل";
   return [
-    { id: "zone-meeting",   name: "غرفة اجتماع",   type: "غرفة اجتماع",   purpose: "مخصصة لاجتماعات الفريق داخل هذا المكتب.",               state, stateLabel, accent: "#3b82f6" },
-    { id: "zone-workspace", name: "مساحة عمل",      type: "مساحة عمل",     purpose: "منطقة العمل اليومي للموظفين المرتبطين بهذا المكتب.",   state, stateLabel, accent: "#22d3ee" },
-    { id: "zone-focus",     name: "غرفة تركيز",     type: "غرفة تركيز",    purpose: "مخصصة للعمل الفردي والمهام التي تحتاج تركيزاً عالياً.", state, stateLabel, accent: "#10b981" },
-    { id: "zone-waiting",   name: "منطقة انتظار",  type: "منطقة استقبال", purpose: "مخصصة للزوار والمراجعين قبل الدخول للمكتب.",            state, stateLabel, accent: "#8b5cf6" },
+    {
+      id: "meeting-room",
+      name: "غرفة الاجتماع",
+      type: "غرفة تشغيل",
+      purpose: "مساحة مخصصة لاجتماعات هذا المكتب عند تفعيل الاجتماعات لاحقاً.",
+      state,
+      stateLabel,
+      actionLabel: "الاجتماعات غير مفعلة",
+      accent: "#3b82f6",
+      x: 27,
+      y: 30,
+    },
+    {
+      id: "workspace",
+      name: "مساحة العمل",
+      type: "منطقة تشغيل",
+      purpose: "تعرض سياق العمل اليومي للوحدة المرتبطة بهذا المكتب.",
+      state,
+      stateLabel,
+      actionLabel: isLinked ? "جاهزة للربط التشغيلي" : "اربط المكتب أولاً",
+      accent: "#22d3ee",
+      x: 62,
+      y: 34,
+    },
+    {
+      id: "focus-room",
+      name: "غرفة التركيز",
+      type: "مساحة هادئة",
+      purpose: "مكان افتراضي مخصص لمتابعة الأعمال التي تحتاج تركيزاً.",
+      state,
+      stateLabel,
+      actionLabel: "قيد التهيئة",
+      accent: "#10b981",
+      x: 35,
+      y: 66,
+    },
+    {
+      id: "waiting-area",
+      name: "منطقة الانتظار",
+      type: "استقبال",
+      purpose: "منطقة انتظار للزوار أو الطلبات قبل دخول المكتب.",
+      state: "setup",
+      stateLabel: "قيد التهيئة",
+      actionLabel: "إعداد مستقبلي",
+      accent: "#8b5cf6",
+      x: 72,
+      y: 67,
+    },
+    {
+      id: "office-console",
+      name: "لوحة تشغيل المكتب",
+      type: "لوحة إدارة",
+      purpose: "تجمع حالة الربط والموظفين والمهام المتاحة لهذا المكتب.",
+      state: isLinked ? "ready_after_link" : "needs_activation",
+      stateLabel: isLinked ? "جاهز بعد الربط" : "يحتاج تفعيل",
+      actionLabel: "يعتمد على البيانات الحالية",
+      accent: "#06b6d4",
+      x: 51,
+      y: 50,
+    },
   ];
 }
 
-// ─── Zone chip overlay ────────────────────────────────────────────────────────
+function getBoardZones(): ZoneDef[] {
+  return [
+    {
+      id: "board-room",
+      name: "غرفة مجلس الإدارة",
+      type: "غرفة قيادة",
+      purpose: "مساحة مراجعة قرارات المجلس وحالة المقر الافتراضي.",
+      state: "ready_after_link",
+      stateLabel: "جاهز بعد ربط البيانات",
+      actionLabel: "قراءة تنفيذية فقط",
+      accent: "#a855f7",
+      x: 31,
+      y: 30,
+    },
+    {
+      id: "performance-room",
+      name: "مؤشرات الأداء",
+      type: "لوحة مؤشرات",
+      purpose: "تظهر المؤشرات فقط عند توفر بيانات تشغيلية حقيقية.",
+      state: "disabled",
+      stateLabel: "غير مفعّل",
+      actionLabel: "لا توجد مؤشرات مفعلة",
+      accent: "#f59e0b",
+      x: 66,
+      y: 31,
+    },
+    {
+      id: "digital-twin-room",
+      name: "التوأم الرقمي",
+      type: "طبقة تشغيل",
+      purpose: "تعكس حالة الربط بين المكاتب والهيكل الإداري.",
+      state: "setup",
+      stateLabel: "قيد التهيئة",
+      actionLabel: "جاهز بعد الربط",
+      accent: "#22d3ee",
+      x: 34,
+      y: 66,
+    },
+    {
+      id: "smart-ops-assistant",
+      name: "مساعد التشغيل الذكي",
+      type: "مساعد مستقبلي",
+      purpose: "يبقى غير مفعّل حتى يتم ربط طبقة ذكاء تشغيلية حقيقية.",
+      state: "disabled",
+      stateLabel: "غير مفعّل",
+      actionLabel: "لا توجد أوامر ذكية مفعلة",
+      accent: "#c084fc",
+      x: 70,
+      y: 67,
+    },
+    {
+      id: "decision-center",
+      name: "مركز القرار",
+      type: "منطقة تنفيذية",
+      purpose: "تجميع قرارات التشغيل والمراجعة التنفيذية للمكتب.",
+      state: "setup",
+      stateLabel: "قيد التهيئة",
+      actionLabel: "قراءة فقط",
+      accent: "#38bdf8",
+      x: 51,
+      y: 50,
+    },
+  ];
+}
 
-function ZoneChip({ zone, selected, cx, cy, offset, onSelect }: {
+function MetricTile({ label, value, tone = "#22d3ee" }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="office-shell-metric">
+      <span>{label}</span>
+      <strong style={{ color: tone }}>{value}</strong>
+    </div>
+  );
+}
+
+function ZoneButton({
+  zone,
+  selected,
+  onSelect,
+}: {
   zone: ZoneDef;
   selected: boolean;
-  cx: number;
-  cy: number;
-  offset: { x: number; y: number };
   onSelect: () => void;
 }) {
-  const dot =
-    zone.state === "command" ? zone.accent
-    : zone.state === "ready_after_link" ? "#f59e0b"
-    : zone.state === "informational" ? zone.accent
-    : "#64748b";
-
+  const tone = stateTone[zone.state];
   return (
     <button
       type="button"
+      className={`office-zone-node ${selected ? "is-selected" : ""}`}
       onClick={onSelect}
       style={{
-        position: "absolute",
-        left: `calc(${cx}% + ${offset.x}px)`,
-        top: `calc(${cy}% + ${offset.y}px)`,
-        zIndex: 10,
-        padding: "5px 10px",
-        minHeight: 36, minWidth: 44,
-        borderRadius: 20,
-        border: selected ? `1.5px solid ${zone.accent}` : `1px solid ${zone.accent}55`,
-        background: selected ? `${zone.accent}28` : "rgba(2,8,23,0.84)",
-        backdropFilter: "blur(10px)",
-        WebkitBackdropFilter: "blur(10px)",
-        boxShadow: selected ? `0 0 18px ${zone.accent}44, 0 2px 8px rgba(0,0,0,0.55)` : "0 2px 8px rgba(0,0,0,0.55)",
-        display: "inline-flex", alignItems: "center", gap: 5,
-        cursor: "pointer",
-        transition: "border-color 0.12s, background 0.12s, box-shadow 0.12s",
-        whiteSpace: "nowrap",
+        left: `${zone.x}%`,
+        top: `${zone.y}%`,
+        borderColor: selected ? zone.accent : tone.border,
+        background: selected ? `linear-gradient(135deg, ${zone.accent}28, rgba(2,8,23,0.88))` : "rgba(2,8,23,0.76)",
+        boxShadow: selected ? `0 0 28px ${zone.accent}42` : "0 14px 34px rgba(0,0,0,0.26)",
       }}
     >
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: dot, flexShrink: 0, boxShadow: selected ? `0 0 5px ${dot}` : undefined }} />
-      <span style={{ fontSize: 9, fontWeight: 700, color: selected ? "#fff" : "#b0c4d8" }}>
-        {zone.name}
+      <span className="office-zone-dot" style={{ background: zone.accent }} />
+      <span className="office-zone-copy">
+        <strong>{zone.name}</strong>
+        <small>{zone.stateLabel}</small>
       </span>
     </button>
   );
 }
 
-// ─── Zone detail panel ────────────────────────────────────────────────────────
-
-function ZoneDetailPanel({ zone, officeName, people }: {
-  zone: ZoneDef | null;
-  officeName: string;
-  people: PresencePerson[];
+function ZoneListItem({
+  zone,
+  selected,
+  onSelect,
+}: {
+  zone: ZoneDef;
+  selected: boolean;
+  onSelect: () => void;
 }) {
-  if (!zone) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "10px 16px", minHeight: 64 }}>
-        <p style={{ margin: 0, fontSize: 10.5, color: "#2a4462", textAlign: "center" }}>اضغط على منطقة عمل لعرض تفاصيلها</p>
-      </div>
-    );
-  }
-
-  const dot =
-    zone.state === "command" ? zone.accent
-    : zone.state === "ready_after_link" ? "#f59e0b"
-    : zone.state === "informational" ? zone.accent
-    : "#64748b";
-  const dotLabel =
-    zone.state === "command" ? zone.accent
-    : zone.state === "ready_after_link" ? "#fbbf24"
-    : zone.state === "informational" ? `${zone.accent}cc`
-    : "#94a3b8";
-
+  const tone = stateTone[zone.state];
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 7, padding: "10px 16px" }}>
-      {/* Zone header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ width: 7, height: 7, borderRadius: "50%", background: dot, flexShrink: 0, boxShadow: `0 0 6px ${dot}88` }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: "#dff7ff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{zone.name}</div>
-          <div style={{ fontSize: 9, color: "#3a5570" }}>{zone.type}</div>
-        </div>
-        <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 999, border: `1px solid ${dot}44`, background: `${dot}14`, color: dotLabel, flexShrink: 0 }}>
-          {zone.stateLabel}
-        </span>
-      </div>
-
-      {/* Purpose */}
-      <p style={{ margin: 0, fontSize: 10, color: "#6a8aaa", lineHeight: 1.55 }}>{zone.purpose}</p>
-
-      {/* Data grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 4 }}>
-        {([
-          { label: "المكتب",   value: officeName },
-          { label: "الموظفون", value: people.length > 0 ? `${people.length}` : "غير متاح" },
-          { label: "الاجتماع", value: "غير مفعّل" },
-        ] as const).map(({ label, value }) => (
-          <div key={label} style={{ borderRadius: 7, padding: "4px 7px", border: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.02)" }}>
-            <div style={{ fontSize: 7.5, color: "#2a4a6a", fontWeight: 600, marginBottom: 1 }}>{label}</div>
-            <div style={{ fontSize: 9.5, color: "#475569", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
-          </div>
-        ))}
-      </div>
-
-      <p style={{ margin: 0, fontSize: 8.5, color: "#1e3050", lineHeight: 1.4 }}>
-        يتم تفعيل البيانات بعد ربط الموظفين والمهام بهذا المكتب.
-      </p>
-    </div>
+    <button
+      type="button"
+      className={`office-shell-zone-row ${selected ? "is-selected" : ""}`}
+      onClick={onSelect}
+      style={{ borderColor: selected ? zone.accent : "rgba(148,163,184,0.12)" }}
+    >
+      <span className="office-shell-zone-row-dot" style={{ background: zone.accent }} />
+      <span className="office-shell-zone-row-main">
+        <strong>{zone.name}</strong>
+        <small>{zone.type}</small>
+      </span>
+      <span style={{ color: tone.color, background: tone.bg, borderColor: tone.border }}>
+        {zone.stateLabel}
+      </span>
+    </button>
   );
 }
-
-// ─── Main component ───────────────────────────────────────────────────────────
 
 export interface FullscreenOfficeExperienceProps {
   room: OfficeRoom;
   mappingUnit: PreviewOrgUnit | null;
+  mappingSource?: MappingSource | null;
   officePeople: PresencePerson[];
   onClose: () => void;
 }
 
 export default function FullscreenOfficeExperience({
-  room, mappingUnit, officePeople, onClose,
+  room,
+  mappingUnit,
+  mappingSource,
+  officePeople,
+  onClose,
 }: FullscreenOfficeExperienceProps) {
-  const [selectedZone, setSelectedZone] = useState<ZoneDef | null>(null);
+  const isLinked = Boolean(mappingUnit) && !room.isUnassigned;
+  const zones = useMemo(() => (room.isCenter ? getBoardZones() : getRegularZones(isLinked)), [isLinked, room.isCenter]);
+  const [selectedZoneId, setSelectedZoneId] = useState(zones[0]?.id ?? "");
+  const [activeTab, setActiveTab] = useState<PanelTab>("overview");
 
-  // Derive office focal point from slot index (officeNumber is 1-based)
+  const selectedZone = zones.find((zone) => zone.id === selectedZoneId) ?? zones[0] ?? null;
   const slotIndex = Math.max(0, Math.min(8, (room.officeNumber ?? 5) - 1));
   const officePos = OFFICE_POSITIONS[slotIndex] ?? { left: 50, top: 50 };
-  const cx = officePos.left; // % from left — focal point in the image
-  const cy = officePos.top;  // % from top
-
-  const zones = room.isCenter ? BOARD_ZONES : getOfficeZones(!room.isUnassigned && !room.isCenter);
-
+  const officeNumber = room.officeNumber ? `مكتب ${String(room.officeNumber).padStart(2, "0")}` : "مكتب";
   const officeName = room.isCenter
-    ? "مكتب مجلس الإدارة"
-    : mappingUnit?.name ?? room.name ?? "مكتب";
-
-  const officeSubtitle = room.isCenter
     ? "مركز قيادة مجلس الإدارة"
-    : room.isUnassigned
-    ? "مكتب غير مخصص · جاهز للتشغيل"
-    : mappingUnit?.name ?? "مرتبط";
-
-  const statusBadge = room.isCenter
-    ? { label: "مجلس الإدارة", color: "#a855f7", bg: "rgba(168,85,247,0.14)", border: "rgba(168,85,247,0.40)" }
-    : room.isUnassigned
-    ? { label: "يحتاج ربط",    color: "#f59e0b", bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.35)" }
-    : { label: "مرتبط",        color: "#10b981", bg: "rgba(16,185,129,0.12)", border: "rgba(16,185,129,0.35)" };
+    : mappingUnit?.name ?? room.name ?? officeNumber;
+  const linkedUnitLabel = room.isCenter
+    ? "مركز تحكم تنفيذي"
+    : mappingUnit?.name ?? "غير مخصص";
+  const linkingState = room.isCenter
+    ? "قراءة تنفيذية"
+    : mappingUnit
+      ? sourceLabel[mappingSource ?? "auto"]
+      : "غير مخصص";
+  const peopleValue = officePeople.length > 0 ? `${officePeople.length}` : "غير متاح";
+  const taskValue = room.openTasks > 0 ? `${room.openTasks}` : "غير متاح";
+  const officeStatus = room.isCenter ? "مكتب افتراضي تنفيذي" : room.isUnassigned ? "يحتاج ربط" : "جاهز بعد الربط";
+  const accent = room.isCenter ? "#a855f7" : room.accentColor ?? "#22d3ee";
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`المكتب الافتراضي — ${officeName}`}
-      style={{
-        position: "fixed", inset: 0, zIndex: 110,
-        display: "flex", flexDirection: "column",
-        background: "#030816",
-        overflow: "hidden",
-      }}
+      aria-label={`دخول المكتب - ${officeName}`}
+      className="office-workspace-shell"
       dir="rtl"
     >
-
-      {/* ── TOP COMMAND BAR ──────────────────────────────────────────── */}
-      <div style={{
-        flexShrink: 0,
-        padding: "12px 16px",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
-        background: "rgba(0,0,0,0.55)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-        display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
-        zIndex: 20,
-      }}>
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 5,
-            background: "transparent", border: "none", cursor: "pointer",
-            color: "#8ba3c7", fontSize: 12, fontWeight: 600, padding: "5px 0", flexShrink: 0,
-          }}
-        >
-          <ArrowRight size={14} />
+      <header className="office-shell-topbar">
+        <button type="button" className="office-shell-back" onClick={onClose}>
+          <ArrowRight size={15} />
           العودة للمقر
         </button>
 
-        <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: "#dff7ff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {officeName}
-          </div>
-          <div style={{ fontSize: 9.5, color: "#3a5570" }}>{officeSubtitle}</div>
+        <div className="office-shell-title">
+          <span>{officeNumber}</span>
+          <strong>{officeName}</strong>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 999, border: `1px solid ${statusBadge.border}`, background: statusBadge.bg, color: statusBadge.color }}>
-            {statusBadge.label}
-          </span>
-          <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 999, border: "1px solid rgba(100,116,139,0.22)", background: "rgba(100,116,139,0.06)", color: "#64748b" }}>
-            الحضور: غير مفعّل
-          </span>
+        <div className="office-shell-badges">
+          <span style={{ color: accent, borderColor: `${accent}55`, background: `${accent}18` }}>{officeStatus}</span>
+          <span>الحضور: غير مفعّل</span>
+          <span>مكتب افتراضي</span>
         </div>
 
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="إغلاق"
-          style={{
-            width: 32, height: 32, borderRadius: 10,
-            border: "1px solid rgba(255,255,255,0.08)",
-            background: "rgba(255,255,255,0.04)",
-            color: "#8ba3c7",
-            display: "inline-flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", flexShrink: 0,
-          }}
-        >
-          <X size={14} />
+        <button type="button" className="office-shell-close" onClick={onClose} aria-label="إغلاق">
+          <X size={15} />
         </button>
-      </div>
+      </header>
 
-      {/* ── OFFICE IMAGE FOCUS — main scene ──────────────────────────── */}
-      {/*
-        The same 3D office map image used on the main virtual-office page.
-        A scale wrapper inside the container applies CSS zoom centered on
-        the selected office's focal point (cx%, cy%). The outer container
-        clips the overflow so only the focused area is visible.
-        Zone chips and overlays are positioned in the outer (unscaled)
-        coordinate space so they don't scale with the image.
-      */}
-      <div style={{ flex: 1, position: "relative", overflow: "hidden", minHeight: 0 }}>
+      <main className="office-shell-main">
+        <section className="office-shell-visual" aria-label="مساحة المكتب">
+          <div className="office-shell-map-frame">
+            <div
+              className="office-shell-map-zoom"
+              style={{
+                transformOrigin: `${officePos.left}% ${officePos.top}%`,
+                transform: `scale(${FOCUS_ZOOM})`,
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={IMAGE_SRC}
+                alt=""
+                aria-hidden="true"
+                style={{ objectPosition: `${officePos.left}% ${officePos.top}%` }}
+              />
+            </div>
 
-        {/* Scale wrapper — image zoomed around the selected office */}
-        <div style={{
-          position: "absolute", inset: 0,
-          transformOrigin: `${cx}% ${cy}%`,
-          transform: `scale(${ZOOM})`,
-        }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={IMAGE_SRC}
-            alt=""
-            aria-hidden="true"
-            style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: `${cx}% ${cy}%`, display: "block" }}
-          />
-        </div>
+            <div className="office-shell-dim" />
+            <div className="office-shell-grid" />
+            <div className="office-shell-focus" style={{ borderColor: `${accent}66`, boxShadow: `0 0 70px ${accent}2f` }}>
+              <span>{officeNumber}</span>
+              <strong>{room.isCenter ? "مجلس الإدارة" : mappingUnit?.typeLabel ?? "مساحة تشغيل"}</strong>
+            </div>
 
-        {/* Vignette — dims the map outside the focal office */}
-        <div style={{
-          position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none",
-          background: `radial-gradient(ellipse 36% 30% at ${cx}% ${cy}%, transparent 0%, rgba(1,5,16,0.72) 100%)`,
-        }} />
+            <div className="office-shell-zone-layer" aria-label="مناطق المكتب">
+              {zones.map((zone) => (
+                <ZoneButton
+                  key={zone.id}
+                  zone={zone}
+                  selected={selectedZone?.id === zone.id}
+                  onSelect={() => {
+                    setSelectedZoneId(zone.id);
+                    setActiveTab("overview");
+                  }}
+                />
+              ))}
+            </div>
 
-        {/* Focus ring around the selected office */}
-        <div style={{
-          position: "absolute",
-          left: `calc(${cx}% - 52px)`,
-          top: `calc(${cy}% - 38px)`,
-          width: 104, height: 76,
-          borderRadius: 16,
-          border: `1.5px solid ${statusBadge.color}55`,
-          boxShadow: `0 0 28px ${statusBadge.color}25, inset 0 0 14px ${statusBadge.color}08`,
-          zIndex: 3, pointerEvents: "none",
-        }} />
+            <div className="office-shell-context-card">
+              <span>داخل المكتب</span>
+              <strong>{linkedUnitLabel}</strong>
+              <small>الصورة هي السياق البصري. التشغيل يتم من طبقات المناطق والأوامر.</small>
+            </div>
+          </div>
 
-        {/* Office name pin above the focus ring */}
-        <div style={{
-          position: "absolute",
-          left: `calc(${cx}% - 36px)`,
-          top: `calc(${cy}% - 62px)`,
-          zIndex: 5, pointerEvents: "none",
-          fontSize: 8.5, fontWeight: 700, color: statusBadge.color,
-          background: "rgba(2,8,23,0.80)",
-          backdropFilter: "blur(6px)",
-          WebkitBackdropFilter: "blur(6px)",
-          padding: "2px 8px", borderRadius: 8,
-          border: `1px solid ${statusBadge.color}35`,
-          whiteSpace: "nowrap",
-        }}>
-          {officeName}
-        </div>
+          <div className="office-shell-quick-state">
+            <MetricTile label="الربط" value={linkingState} tone={mappingUnit ? "#22d3ee" : "#f59e0b"} />
+            <MetricTile label="الموظفون" value={peopleValue} />
+            <MetricTile label="المهام" value={taskValue} tone="#10b981" />
+            <MetricTile label="الاجتماعات" value="غير مفعّل" tone="#94a3b8" />
+          </div>
+        </section>
 
-        {/* Zone chips — 4 chips clustered around the focal office */}
-        {zones.map((zone, i) => {
-          const offset = ZONE_CHIP_OFFSETS[i] ?? { x: 0, y: 0 };
-          return (
-            <ZoneChip
-              key={zone.id}
-              zone={zone}
-              selected={selectedZone?.id === zone.id}
-              cx={cx}
-              cy={cy}
-              offset={offset}
-              onSelect={() => setSelectedZone(prev => prev?.id === zone.id ? null : zone)}
-            />
-          );
-        })}
-      </div>
+        <aside className="office-shell-command" aria-label="لوحة أوامر المكتب">
+          <div className="office-shell-command-head">
+            <div>
+              <span>Manager Command Layer</span>
+              <strong>{room.isCenter ? "لوحة قيادة تنفيذية" : "لوحة تشغيل المكتب"}</strong>
+            </div>
+            <Building2 size={18} color={accent} />
+          </div>
 
-      {/* ── ZONE DETAIL PANEL — bottom ────────────────────────────────── */}
-      <div style={{
-        flexShrink: 0,
-        borderTop: `1px solid ${selectedZone ? `${selectedZone.accent}28` : "rgba(255,255,255,0.05)"}`,
-        background: selectedZone
-          ? `linear-gradient(180deg, ${selectedZone.accent}08 0%, rgba(0,0,0,0.45) 100%)`
-          : "rgba(0,0,0,0.45)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-        transition: "border-color 0.12s, background 0.12s",
-        minHeight: 88,
-        paddingBottom: "max(0px, env(safe-area-inset-bottom))",
-        zIndex: 20,
-      }}>
-        <ZoneDetailPanel zone={selectedZone} officeName={officeName} people={officePeople} />
-      </div>
+          <nav className="office-shell-tabs" aria-label="تبويبات لوحة المكتب">
+            {PANEL_TABS.map(({ key, label, Icon }) => (
+              <button
+                key={key}
+                type="button"
+                className={activeTab === key ? "is-active" : ""}
+                onClick={() => setActiveTab(key)}
+              >
+                <Icon size={13} />
+                {label}
+              </button>
+            ))}
+          </nav>
 
+          <div className="office-shell-panel-body">
+            {activeTab === "overview" && (
+              <div className="office-shell-panel-stack">
+                <div className="office-shell-info-card is-hero">
+                  <span>المكتب</span>
+                  <strong>{officeName}</strong>
+                  <small>{officeNumber} · {officeStatus}</small>
+                </div>
+
+                {selectedZone && (
+                  <div className="office-shell-info-card">
+                    <span>المنطقة المختارة</span>
+                    <strong>{selectedZone.name}</strong>
+                    <small>{selectedZone.purpose}</small>
+                  </div>
+                )}
+
+                <div className="office-shell-two-col">
+                  <MetricTile label="الوحدة المرتبطة" value={linkedUnitLabel} tone={mappingUnit ? "#22d3ee" : "#f59e0b"} />
+                  <MetricTile label="الحضور" value="غير مفعّل" tone="#94a3b8" />
+                  <MetricTile label="الموظفون" value={peopleValue} />
+                  <MetricTile label="المهام" value={taskValue} tone="#10b981" />
+                </div>
+              </div>
+            )}
+
+            {activeTab === "zones" && (
+              <div className="office-shell-panel-stack">
+                {zones.map((zone) => (
+                  <ZoneListItem
+                    key={zone.id}
+                    zone={zone}
+                    selected={selectedZone?.id === zone.id}
+                    onSelect={() => setSelectedZoneId(zone.id)}
+                  />
+                ))}
+                {selectedZone && (
+                  <div className="office-shell-info-card">
+                    <span>الغرض</span>
+                    <strong>{selectedZone.actionLabel}</strong>
+                    <small>{selectedZone.purpose}</small>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "employees" && (
+              <div className="office-shell-panel-stack">
+                {officePeople.length > 0 ? (
+                  officePeople.map((person) => (
+                    <div key={person.id} className="office-shell-person-row">
+                      <span style={{ color: person.color, borderColor: `${person.color}55`, background: `${person.color}18` }}>
+                        {person.initials}
+                      </span>
+                      <div>
+                        <strong>{person.name}</strong>
+                        <small>{person.roleOrUnit ?? "غير متاح"}</small>
+                      </div>
+                      <em>الحضور غير مفعّل</em>
+                    </div>
+                  ))
+                ) : (
+                  <div className="office-shell-empty">
+                    <Users size={18} />
+                    <strong>غير متاح</strong>
+                    <span>لا يتم عرض موظفين إلا من بيانات مرتبطة ومتاحة فعلياً.</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "tasks" && (
+              <div className="office-shell-panel-stack">
+                <div className="office-shell-empty">
+                  <CheckCircle2 size={18} />
+                  <strong>{taskValue}</strong>
+                  <span>لا يتم إنشاء أو عرض مهام افتراضية داخل هذا المكتب.</span>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "linking" && (
+              <div className="office-shell-panel-stack">
+                <div className="office-shell-info-card is-hero">
+                  <span>حالة الربط</span>
+                  <strong>{linkingState}</strong>
+                  <small>{mappingUnit ? mappingUnit.name : "اربط المكتب من نافذة إدارة المكتب الحالية."}</small>
+                </div>
+                <button type="button" className="office-shell-disabled-action" disabled>
+                  إدارة الربط من نافذة المكتب
+                </button>
+              </div>
+            )}
+
+            {activeTab === "settings" && (
+              <div className="office-shell-panel-stack">
+                {[
+                  "تفعيل الحضور",
+                  "تفعيل الاجتماعات",
+                  "تفعيل المساعد الذكي",
+                  "تفعيل لوحة الغرفة",
+                ].map((label) => (
+                  <div key={label} className="office-shell-setting-row">
+                    <span>{label}</span>
+                    <strong>قادم</strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </aside>
+      </main>
+
+      <style>{`
+        .office-workspace-shell {
+          position: fixed;
+          inset: 0;
+          z-index: 110;
+          height: 100dvh;
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          color: #e5f7ff;
+          background:
+            radial-gradient(circle at 18% 18%, rgba(34,211,238,0.14), transparent 32%),
+            radial-gradient(circle at 82% 18%, rgba(168,85,247,0.12), transparent 28%),
+            linear-gradient(145deg, #020617 0%, #06111f 52%, #020617 100%);
+        }
+
+        .office-shell-topbar {
+          min-height: 64px;
+          flex-shrink: 0;
+          display: grid;
+          grid-template-columns: auto minmax(0, 1fr) auto auto;
+          align-items: center;
+          gap: 12px;
+          padding: max(12px, env(safe-area-inset-top)) 16px 12px;
+          border-bottom: 1px solid rgba(148,163,184,0.12);
+          background: rgba(2,6,23,0.78);
+          backdrop-filter: blur(18px);
+          -webkit-backdrop-filter: blur(18px);
+        }
+
+        .office-shell-back,
+        .office-shell-close {
+          border: 1px solid rgba(148,163,184,0.15);
+          background: rgba(15,23,42,0.72);
+          color: #9fb7d7;
+          cursor: pointer;
+        }
+
+        .office-shell-back {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          min-height: 36px;
+          padding: 0 12px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 800;
+        }
+
+        .office-shell-close {
+          width: 36px;
+          height: 36px;
+          border-radius: 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .office-shell-title {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .office-shell-title span,
+        .office-shell-command-head span,
+        .office-shell-info-card span,
+        .office-shell-metric span {
+          font-size: 10px;
+          font-weight: 800;
+          color: #4d7398;
+          letter-spacing: 0;
+        }
+
+        .office-shell-title strong {
+          color: #fff;
+          font-size: 15px;
+          line-height: 1.2;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+
+        .office-shell-badges {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+
+        .office-shell-badges span {
+          display: inline-flex;
+          align-items: center;
+          min-height: 24px;
+          padding: 0 9px;
+          border-radius: 999px;
+          border: 1px solid rgba(100,116,139,0.22);
+          background: rgba(100,116,139,0.08);
+          color: #8ca3bf;
+          font-size: 10px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .office-shell-main {
+          flex: 1;
+          min-height: 0;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(340px, 390px);
+          gap: 14px;
+          padding: 14px;
+          overflow: hidden;
+        }
+
+        .office-shell-visual,
+        .office-shell-command {
+          min-width: 0;
+          min-height: 0;
+        }
+
+        .office-shell-visual {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .office-shell-map-frame {
+          flex: 1;
+          min-height: 0;
+          position: relative;
+          overflow: hidden;
+          border-radius: 24px;
+          border: 1px solid rgba(34,211,238,0.14);
+          background: rgba(2,8,23,0.74);
+          box-shadow: 0 28px 80px rgba(0,0,0,0.42), inset 0 0 0 1px rgba(255,255,255,0.03);
+        }
+
+        .office-shell-map-zoom {
+          position: absolute;
+          inset: 0;
+          transition: transform 180ms ease;
+        }
+
+        .office-shell-map-zoom img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          filter: saturate(1.05) contrast(1.04);
+        }
+
+        .office-shell-dim,
+        .office-shell-grid,
+        .office-shell-zone-layer {
+          position: absolute;
+          inset: 0;
+        }
+
+        .office-shell-dim {
+          background:
+            radial-gradient(circle at 50% 50%, rgba(2,8,23,0.04) 0%, rgba(2,8,23,0.22) 42%, rgba(2,8,23,0.82) 100%),
+            linear-gradient(180deg, rgba(2,8,23,0.12), rgba(2,8,23,0.44));
+          pointer-events: none;
+          z-index: 2;
+        }
+
+        .office-shell-grid {
+          z-index: 3;
+          pointer-events: none;
+          opacity: 0.26;
+          background-image:
+            linear-gradient(rgba(34,211,238,0.10) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(34,211,238,0.10) 1px, transparent 1px);
+          background-size: 56px 56px;
+          mask-image: radial-gradient(circle at center, black 0%, transparent 78%);
+        }
+
+        .office-shell-focus {
+          position: absolute;
+          z-index: 4;
+          left: 50%;
+          top: 48%;
+          width: min(44vw, 460px);
+          height: min(36vh, 280px);
+          min-width: 260px;
+          min-height: 190px;
+          transform: translate(-50%, -50%) perspective(900px) rotateX(4deg);
+          border: 1px solid;
+          border-radius: 28px;
+          background:
+            linear-gradient(135deg, rgba(15,23,42,0.22), rgba(2,8,23,0.06)),
+            radial-gradient(circle at 50% 35%, rgba(34,211,238,0.14), transparent 68%);
+          backdrop-filter: blur(2px);
+          -webkit-backdrop-filter: blur(2px);
+          pointer-events: none;
+        }
+
+        .office-shell-focus span,
+        .office-shell-focus strong {
+          position: absolute;
+          right: 18px;
+          border-radius: 999px;
+          background: rgba(2,8,23,0.72);
+          border: 1px solid rgba(148,163,184,0.16);
+        }
+
+        .office-shell-focus span {
+          top: 16px;
+          padding: 4px 10px;
+          font-size: 10px;
+          color: #8bdcf5;
+          font-weight: 900;
+        }
+
+        .office-shell-focus strong {
+          bottom: 16px;
+          padding: 6px 12px;
+          font-size: 12px;
+          color: #e5f7ff;
+          max-width: 74%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .office-shell-zone-layer {
+          z-index: 8;
+        }
+
+        .office-zone-node {
+          position: absolute;
+          transform: translate(-50%, -50%);
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          min-width: 126px;
+          max-width: 178px;
+          min-height: 46px;
+          padding: 7px 10px;
+          border: 1px solid;
+          border-radius: 16px;
+          color: #dcecff;
+          cursor: pointer;
+          text-align: right;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+        }
+
+        .office-zone-node:hover,
+        .office-zone-node.is-selected {
+          transform: translate(-50%, -50%) translateY(-2px);
+        }
+
+        .office-zone-dot,
+        .office-shell-zone-row-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          flex-shrink: 0;
+          box-shadow: 0 0 12px currentColor;
+        }
+
+        .office-zone-copy {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .office-zone-copy strong {
+          font-size: 11px;
+          line-height: 1.1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .office-zone-copy small {
+          font-size: 9px;
+          color: #7d94b0;
+        }
+
+        .office-shell-context-card {
+          position: absolute;
+          z-index: 9;
+          right: 18px;
+          bottom: 18px;
+          width: min(310px, calc(100% - 36px));
+          border-radius: 18px;
+          border: 1px solid rgba(34,211,238,0.18);
+          background: rgba(2,8,23,0.78);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          padding: 12px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .office-shell-context-card span,
+        .office-shell-context-card small {
+          color: #5f7895;
+          font-size: 10px;
+          line-height: 1.5;
+        }
+
+        .office-shell-context-card strong {
+          color: #e5f7ff;
+          font-size: 14px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .office-shell-quick-state,
+        .office-shell-two-col {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .office-shell-two-col {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .office-shell-metric,
+        .office-shell-info-card,
+        .office-shell-zone-row,
+        .office-shell-person-row,
+        .office-shell-empty,
+        .office-shell-setting-row {
+          border: 1px solid rgba(148,163,184,0.12);
+          background: rgba(15,23,42,0.58);
+          border-radius: 16px;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+        }
+
+        .office-shell-metric {
+          min-width: 0;
+          padding: 10px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+
+        .office-shell-metric strong {
+          font-size: 13px;
+          line-height: 1.25;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+
+        .office-shell-command {
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          border-radius: 24px;
+          border: 1px solid rgba(168,85,247,0.18);
+          background:
+            radial-gradient(circle at 16% 0%, rgba(168,85,247,0.14), transparent 34%),
+            rgba(2,8,23,0.78);
+          box-shadow: 0 28px 70px rgba(0,0,0,0.36), inset 0 0 0 1px rgba(255,255,255,0.03);
+        }
+
+        .office-shell-command-head {
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 14px 16px 10px;
+          border-bottom: 1px solid rgba(148,163,184,0.10);
+        }
+
+        .office-shell-command-head strong {
+          display: block;
+          margin-top: 3px;
+          color: #fff;
+          font-size: 15px;
+        }
+
+        .office-shell-tabs {
+          flex-shrink: 0;
+          display: flex;
+          gap: 6px;
+          padding: 10px 12px;
+          overflow-x: auto;
+          scrollbar-width: none;
+          border-bottom: 1px solid rgba(148,163,184,0.08);
+        }
+
+        .office-shell-tabs::-webkit-scrollbar {
+          display: none;
+        }
+
+        .office-shell-tabs button {
+          border: 1px solid rgba(148,163,184,0.12);
+          background: rgba(15,23,42,0.62);
+          color: #7890ad;
+          min-height: 32px;
+          padding: 0 10px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          white-space: nowrap;
+          cursor: pointer;
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        .office-shell-tabs button.is-active {
+          color: #dff7ff;
+          border-color: rgba(34,211,238,0.40);
+          background: rgba(34,211,238,0.12);
+        }
+
+        .office-shell-panel-body {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+          padding: 12px;
+        }
+
+        .office-shell-panel-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 9px;
+        }
+
+        .office-shell-info-card {
+          padding: 12px 13px;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+
+        .office-shell-info-card.is-hero {
+          border-color: rgba(34,211,238,0.20);
+          background: rgba(34,211,238,0.06);
+        }
+
+        .office-shell-info-card strong {
+          color: #e5f7ff;
+          font-size: 14px;
+          line-height: 1.3;
+        }
+
+        .office-shell-info-card small {
+          color: #6f86a3;
+          font-size: 11px;
+          line-height: 1.55;
+        }
+
+        .office-shell-zone-row {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          padding: 10px;
+          color: #dbeafe;
+          text-align: right;
+          cursor: pointer;
+        }
+
+        .office-shell-zone-row-main {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .office-shell-zone-row-main strong {
+          font-size: 12px;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+
+        .office-shell-zone-row-main small {
+          color: #7890ad;
+          font-size: 10px;
+        }
+
+        .office-shell-zone-row > span:last-child {
+          flex-shrink: 0;
+          border: 1px solid;
+          border-radius: 999px;
+          padding: 3px 8px;
+          font-size: 9px;
+          font-weight: 900;
+        }
+
+        .office-shell-person-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px;
+        }
+
+        .office-shell-person-row > span {
+          width: 32px;
+          height: 32px;
+          border: 1px solid;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          font-weight: 900;
+          flex-shrink: 0;
+        }
+
+        .office-shell-person-row div {
+          min-width: 0;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .office-shell-person-row strong {
+          color: #e5f7ff;
+          font-size: 12px;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+
+        .office-shell-person-row small,
+        .office-shell-person-row em {
+          color: #7890ad;
+          font-size: 10px;
+          font-style: normal;
+        }
+
+        .office-shell-empty {
+          min-height: 132px;
+          padding: 18px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          text-align: center;
+          color: #7890ad;
+        }
+
+        .office-shell-empty strong {
+          color: #cbd5e1;
+          font-size: 14px;
+        }
+
+        .office-shell-empty span {
+          max-width: 260px;
+          font-size: 11px;
+          line-height: 1.6;
+        }
+
+        .office-shell-disabled-action {
+          min-height: 42px;
+          border-radius: 14px;
+          border: 1px solid rgba(100,116,139,0.20);
+          background: rgba(100,116,139,0.07);
+          color: #64748b;
+          font-weight: 900;
+        }
+
+        .office-shell-setting-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 11px 12px;
+        }
+
+        .office-shell-setting-row span {
+          color: #cbd5e1;
+          font-size: 12px;
+          font-weight: 800;
+        }
+
+        .office-shell-setting-row strong {
+          color: #94a3b8;
+          font-size: 10px;
+          border: 1px solid rgba(148,163,184,0.18);
+          border-radius: 999px;
+          padding: 3px 8px;
+          background: rgba(148,163,184,0.07);
+        }
+
+        @media (max-width: 860px) {
+          .office-shell-topbar {
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 8px;
+            padding: max(10px, env(safe-area-inset-top)) 10px 9px;
+          }
+
+          .office-shell-badges {
+            grid-column: 1 / -1;
+            justify-content: flex-start;
+          }
+
+          .office-shell-main {
+            grid-template-columns: 1fr;
+            grid-template-rows: minmax(260px, 44dvh) minmax(260px, 1fr);
+            gap: 10px;
+            padding: 10px;
+            overflow: hidden;
+          }
+
+          .office-shell-map-frame,
+          .office-shell-command {
+            border-radius: 18px;
+          }
+
+          .office-shell-focus {
+            width: min(74vw, 360px);
+            height: min(25vh, 210px);
+            min-width: 220px;
+            min-height: 150px;
+          }
+
+          .office-zone-node {
+            min-width: 44px;
+            max-width: 128px;
+            min-height: 38px;
+            padding: 6px 8px;
+            border-radius: 14px;
+          }
+
+          .office-zone-copy strong {
+            font-size: 10px;
+          }
+
+          .office-zone-copy small {
+            display: none;
+          }
+
+          .office-shell-context-card {
+            right: 10px;
+            bottom: 10px;
+            padding: 9px 10px;
+          }
+
+          .office-shell-context-card small {
+            display: none;
+          }
+
+          .office-shell-quick-state {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .office-shell-command {
+            max-height: none;
+          }
+
+          .office-shell-panel-body {
+            padding-bottom: max(14px, env(safe-area-inset-bottom));
+          }
+        }
+
+        @media (max-width: 520px) {
+          .office-shell-title strong {
+            font-size: 13px;
+          }
+
+          .office-shell-back {
+            padding: 0 9px;
+          }
+
+          .office-shell-badges span {
+            font-size: 9px;
+            min-height: 22px;
+            padding: 0 7px;
+          }
+
+          .office-shell-main {
+            grid-template-rows: minmax(240px, 42dvh) minmax(280px, 1fr);
+          }
+
+          .office-zone-node {
+            transform: translate(-50%, -50%) scale(0.92);
+          }
+
+          .office-zone-node:hover,
+          .office-zone-node.is-selected {
+            transform: translate(-50%, -50%) scale(0.92) translateY(-2px);
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -1223,6 +1223,7 @@ export default function VirtualOfficeDesign({
           <FullscreenOfficeExperience
             room={fullscreenRoom}
             mappingUnit={fsMapping.unit}
+            mappingSource={fsMapping.source}
             officePeople={fsPeople}
             onClose={() => setFullscreenRoom(null)}
           />
