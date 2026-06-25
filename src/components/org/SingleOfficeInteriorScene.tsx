@@ -37,14 +37,14 @@ interface OfficeInteriorConfig {
 }
 
 const officeInteriorAssets: Record<number, string> = {
-  1: "/virtual-office/interiors/blumark-office-portal-interior.svg",
-  2: "/virtual-office/interiors/blumark-office-portal-interior.svg",
-  3: "/virtual-office/interiors/blumark-office-portal-interior.svg",
-  4: "/virtual-office/interiors/blumark-office-portal-interior.svg",
-  5: "/virtual-office/interiors/blumark-office-portal-interior.svg",
-  6: "/virtual-office/interiors/blumark-office-portal-interior.svg",
-  7: "/virtual-office/interiors/blumark-office-portal-interior.svg",
-  8: "/virtual-office/interiors/blumark-office-portal-interior.svg",
+  1: "/virtual-office/interiors/office-01-interior.webp",
+  2: "/virtual-office/interiors/office-02-interior.webp",
+  3: "/virtual-office/interiors/office-03-interior.webp",
+  4: "/virtual-office/interiors/office-04-interior.webp",
+  5: "/virtual-office/interiors/office-05-interior.webp",
+  6: "/virtual-office/interiors/office-06-interior.webp",
+  7: "/virtual-office/interiors/office-07-interior.webp",
+  8: "/virtual-office/interiors/office-08-interior.webp",
   9: "/virtual-office/interiors/office-09-interior.webp",
 };
 
