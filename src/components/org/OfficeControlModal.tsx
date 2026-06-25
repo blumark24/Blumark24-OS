@@ -4,7 +4,7 @@
 // One modal shell for all 9 offices. Layout is always identical.
 // Only data and available actions change per office state.
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X, Users, CheckCircle2, DoorOpen, Archive,
   MapPin, ChevronDown, ChevronUp, Building2, GitMerge, BrainCircuit,
@@ -70,6 +70,7 @@ const OVERLAY: React.CSSProperties = {
   backdropFilter: "blur(20px)",
   WebkitBackdropFilter: "blur(20px)",
   overscrollBehavior: "contain",
+  overflow: "hidden",
 };
 
 const MODAL: React.CSSProperties = {
@@ -160,23 +161,41 @@ export default function OfficeControlModal({
   const [assignOpen, setAssignOpen]         = useState(room.isUnassigned);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showOfficeResetConfirm, setShowOfficeResetConfirm] = useState(false);
+  const scrollLockRef = useRef<{
+    scrollY: number;
+    prev: Pick<CSSStyleDeclaration, "position" | "top" | "left" | "right" | "width" | "overflow">;
+  } | null>(null);
 
   // Strong iPhone scroll lock: position:fixed + stored scrollY so the page
   // doesn't rubber-band behind the modal on iOS Safari.
   useEffect(() => {
-    const scrollY = window.scrollY;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
     const body = document.body;
-    const prev = { position: body.style.position, top: body.style.top, width: body.style.width, overflow: body.style.overflow };
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    scrollLockRef.current = { scrollY, prev };
     body.style.position = "fixed";
     body.style.top      = `-${scrollY}px`;
+    body.style.left     = "0";
+    body.style.right    = "0";
     body.style.width    = "100%";
     body.style.overflow = "hidden";
     return () => {
-      body.style.position = prev.position;
-      body.style.top      = prev.top;
-      body.style.width    = prev.width;
-      body.style.overflow = prev.overflow;
-      window.scrollTo(0, scrollY);
+      const lock = scrollLockRef.current;
+      body.style.position = lock?.prev.position ?? prev.position;
+      body.style.top      = lock?.prev.top ?? prev.top;
+      body.style.left     = lock?.prev.left ?? prev.left;
+      body.style.right    = lock?.prev.right ?? prev.right;
+      body.style.width    = lock?.prev.width ?? prev.width;
+      body.style.overflow = lock?.prev.overflow ?? prev.overflow;
+      window.scrollTo(0, lock?.scrollY ?? scrollY);
+      scrollLockRef.current = null;
     };
   }, []);
 

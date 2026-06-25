@@ -51,9 +51,9 @@ interface ZoneDef {
 }
 
 const PANEL_TABS: Array<{ key: PanelTab; label: string; Icon: typeof LayoutGrid }> = [
-  { key: "overview", label: "نظرة عامة", Icon: LayoutGrid },
+  { key: "overview", label: "عام", Icon: LayoutGrid },
   { key: "zones", label: "الغرف", Icon: DoorOpen },
-  { key: "employees", label: "الموظفون", Icon: Users },
+  { key: "employees", label: "الفريق", Icon: Users },
   { key: "tasks", label: "المهام", Icon: CheckCircle2 },
   { key: "linking", label: "الربط", Icon: Link2 },
   { key: "settings", label: "الإعدادات", Icon: Settings },
@@ -388,23 +388,22 @@ export default function FullscreenOfficeExperience({
             <div className="office-shell-context-card">
               <span>داخل المكتب</span>
               <strong>{linkedUnitLabel}</strong>
-              <small>الصورة هي السياق البصري. التشغيل يتم من طبقات المناطق والأوامر.</small>
+              <small>اختر منطقة لعرض تفاصيلها.</small>
             </div>
           </div>
 
           <div className="office-shell-quick-state">
+            <MetricTile label="المنطقة" value={selectedZone?.name ?? "غير متاح"} tone={selectedZone?.accent ?? "#22d3ee"} />
+            <MetricTile label="حالة المكتب" value={officeStatus} tone={mappingUnit ? "#22d3ee" : "#f59e0b"} />
             <MetricTile label="الربط" value={linkingState} tone={mappingUnit ? "#22d3ee" : "#f59e0b"} />
-            <MetricTile label="الموظفون" value={peopleValue} />
-            <MetricTile label="المهام" value={taskValue} tone="#10b981" />
-            <MetricTile label="الاجتماعات" value="غير مفعّل" tone="#94a3b8" />
           </div>
         </section>
 
-        <aside className="office-shell-command" aria-label="لوحة أوامر المكتب">
+        <aside className="office-shell-command" aria-label="لوحة المكتب">
           <div className="office-shell-command-head">
             <div>
-              <span>Manager Command Layer</span>
-              <strong>{room.isCenter ? "لوحة قيادة تنفيذية" : "لوحة تشغيل المكتب"}</strong>
+              <span>لوحة المكتب</span>
+              <strong>{room.isCenter ? "مركز القيادة" : "إدارة المكتب"}</strong>
             </div>
             <Building2 size={18} color={accent} />
           </div>
@@ -429,23 +428,24 @@ export default function FullscreenOfficeExperience({
                 <div className="office-shell-info-card is-hero">
                   <span>المكتب</span>
                   <strong>{officeName}</strong>
-                  <small>{officeNumber} · {officeStatus}</small>
+                  <small>
+                    {mappingUnit
+                      ? `${officeNumber} · ${linkingState}`
+                      : "هذا المكتب يحتاج ربطاً قبل تفعيل بيانات الفريق والمهام."}
+                  </small>
                 </div>
 
                 {selectedZone && (
                   <div className="office-shell-info-card">
-                    <span>المنطقة المختارة</span>
+                    <span>تفاصيل المنطقة</span>
                     <strong>{selectedZone.name}</strong>
                     <small>{selectedZone.purpose}</small>
                   </div>
                 )}
 
-                <div className="office-shell-two-col">
-                  <MetricTile label="الوحدة المرتبطة" value={linkedUnitLabel} tone={mappingUnit ? "#22d3ee" : "#f59e0b"} />
-                  <MetricTile label="الحضور" value="غير مفعّل" tone="#94a3b8" />
-                  <MetricTile label="الموظفون" value={peopleValue} />
-                  <MetricTile label="المهام" value={taskValue} tone="#10b981" />
-                </div>
+                <button type="button" className="office-shell-disabled-action" disabled>
+                  إدارة الربط من نافذة المكتب
+                </button>
               </div>
             )}
 
@@ -647,9 +647,9 @@ export default function FullscreenOfficeExperience({
           flex: 1;
           min-height: 0;
           display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(340px, 390px);
-          gap: 14px;
-          padding: 14px;
+          grid-template-columns: minmax(0, 1fr) minmax(300px, 330px);
+          gap: 10px;
+          padding: 12px;
           overflow: hidden;
         }
 
@@ -662,7 +662,7 @@ export default function FullscreenOfficeExperience({
         .office-shell-visual {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 8px;
         }
 
         .office-shell-map-frame {
@@ -773,13 +773,13 @@ export default function FullscreenOfficeExperience({
           transform: translate(-50%, -50%);
           display: inline-flex;
           align-items: center;
-          gap: 7px;
-          min-width: 126px;
-          max-width: 178px;
-          min-height: 46px;
-          padding: 7px 10px;
+          gap: 6px;
+          min-width: 106px;
+          max-width: 146px;
+          min-height: 38px;
+          padding: 6px 9px;
           border: 1px solid;
-          border-radius: 16px;
+          border-radius: 14px;
           color: #dcecff;
           cursor: pointer;
           text-align: right;
@@ -810,7 +810,7 @@ export default function FullscreenOfficeExperience({
         }
 
         .office-zone-copy strong {
-          font-size: 11px;
+          font-size: 10px;
           line-height: 1.1;
           white-space: nowrap;
           overflow: hidden;
@@ -818,7 +818,7 @@ export default function FullscreenOfficeExperience({
         }
 
         .office-zone-copy small {
-          font-size: 9px;
+          font-size: 8.5px;
           color: #7d94b0;
         }
 
@@ -827,13 +827,13 @@ export default function FullscreenOfficeExperience({
           z-index: 9;
           right: 18px;
           bottom: 18px;
-          width: min(310px, calc(100% - 36px));
-          border-radius: 18px;
+          width: min(240px, calc(100% - 36px));
+          border-radius: 16px;
           border: 1px solid rgba(34,211,238,0.18);
           background: rgba(2,8,23,0.78);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
-          padding: 12px 14px;
+          padding: 10px 12px;
           display: flex;
           flex-direction: column;
           gap: 4px;
@@ -857,7 +857,7 @@ export default function FullscreenOfficeExperience({
         .office-shell-quick-state,
         .office-shell-two-col {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 8px;
         }
 
@@ -879,14 +879,14 @@ export default function FullscreenOfficeExperience({
 
         .office-shell-metric {
           min-width: 0;
-          padding: 10px 12px;
+          padding: 8px 10px;
           display: flex;
           flex-direction: column;
-          gap: 5px;
+          gap: 4px;
         }
 
         .office-shell-metric strong {
-          font-size: 13px;
+          font-size: 12px;
           line-height: 1.25;
           overflow: hidden;
           white-space: nowrap;
@@ -897,7 +897,7 @@ export default function FullscreenOfficeExperience({
           display: flex;
           flex-direction: column;
           overflow: hidden;
-          border-radius: 24px;
+          border-radius: 20px;
           border: 1px solid rgba(168,85,247,0.18);
           background:
             radial-gradient(circle at 16% 0%, rgba(168,85,247,0.14), transparent 34%),
@@ -911,22 +911,22 @@ export default function FullscreenOfficeExperience({
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          padding: 14px 16px 10px;
+          padding: 10px 12px 8px;
           border-bottom: 1px solid rgba(148,163,184,0.10);
         }
 
         .office-shell-command-head strong {
           display: block;
-          margin-top: 3px;
+          margin-top: 2px;
           color: #fff;
-          font-size: 15px;
+          font-size: 13px;
         }
 
         .office-shell-tabs {
           flex-shrink: 0;
           display: flex;
           gap: 6px;
-          padding: 10px 12px;
+          padding: 8px 10px;
           overflow-x: auto;
           scrollbar-width: none;
           border-bottom: 1px solid rgba(148,163,184,0.08);
@@ -941,7 +941,7 @@ export default function FullscreenOfficeExperience({
           background: rgba(15,23,42,0.62);
           color: #7890ad;
           min-height: 32px;
-          padding: 0 10px;
+          padding: 0 9px;
           border-radius: 999px;
           display: inline-flex;
           align-items: center;
@@ -964,7 +964,7 @@ export default function FullscreenOfficeExperience({
           overflow-y: auto;
           overscroll-behavior: contain;
           -webkit-overflow-scrolling: touch;
-          padding: 12px;
+          padding: 10px;
         }
 
         .office-shell-panel-stack {
@@ -1149,7 +1149,7 @@ export default function FullscreenOfficeExperience({
 
           .office-shell-main {
             grid-template-columns: 1fr;
-            grid-template-rows: minmax(260px, 44dvh) minmax(260px, 1fr);
+            grid-template-rows: minmax(290px, 1fr) auto;
             gap: 10px;
             padding: 10px;
             overflow: hidden;
@@ -1194,11 +1194,12 @@ export default function FullscreenOfficeExperience({
           }
 
           .office-shell-quick-state {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
           }
 
           .office-shell-command {
-            max-height: none;
+            max-height: min(38dvh, 310px);
+            border-radius: 18px 18px 0 0;
           }
 
           .office-shell-panel-body {
@@ -1222,7 +1223,11 @@ export default function FullscreenOfficeExperience({
           }
 
           .office-shell-main {
-            grid-template-rows: minmax(240px, 42dvh) minmax(280px, 1fr);
+            grid-template-rows: minmax(280px, 1fr) auto;
+          }
+
+          .office-shell-quick-state {
+            grid-template-columns: 1fr;
           }
 
           .office-zone-node {
