@@ -152,14 +152,14 @@ export default function MobileExecutiveOfficeScene({
       }}>
         <div style={{
           position: "relative", width: "100%",
-          aspectRatio: IMAGE_ASPECT_RATIO, maxHeight: 380,
+          aspectRatio: IMAGE_ASPECT_RATIO, maxHeight: "clamp(380px, 52vw, 640px)",
         }}>
           {!imgFailed ? (
             <Image
               src={IMAGE_SRC}
               alt="خريطة المكتب التنفيذي"
               fill
-              sizes="(max-width: 860px) 100vw, 860px"
+              sizes="(max-width: 860px) 100vw, 82vw"
               style={{ objectFit: "contain", objectPosition: "center" }}
               onError={() => setImgFailed(true)}
               priority

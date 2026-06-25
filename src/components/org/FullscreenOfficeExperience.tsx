@@ -721,18 +721,15 @@ export default function FullscreenOfficeExperience({
           z-index: 4;
           left: 50%;
           top: 48%;
-          width: min(44vw, 460px);
-          height: min(36vh, 280px);
-          min-width: 260px;
-          min-height: 190px;
+          width: min(40vw, 430px);
+          height: min(32vh, 250px);
+          min-width: 240px;
+          min-height: 170px;
           transform: translate(-50%, -50%) perspective(900px) rotateX(4deg);
           border: 1px solid;
           border-radius: 28px;
           background:
-            linear-gradient(135deg, rgba(15,23,42,0.22), rgba(2,8,23,0.06)),
-            radial-gradient(circle at 50% 35%, rgba(34,211,238,0.14), transparent 68%);
-          backdrop-filter: blur(2px);
-          -webkit-backdrop-filter: blur(2px);
+            radial-gradient(circle at 50% 35%, rgba(34,211,238,0.08), transparent 68%);
           pointer-events: none;
         }
 

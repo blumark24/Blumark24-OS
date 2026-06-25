@@ -1071,8 +1071,8 @@ export default function VirtualOfficeDesign({
               </div>
             )}
 
-            {/* Office image map — centered, max 860px */}
-            <div style={{ maxWidth: 860, width: "100%", margin: "0 auto" }}>
+            {/* Office image map — centered hero scale on desktop, natural width on mobile */}
+            <div style={{ maxWidth: 1240, width: "100%", margin: "0 auto" }}>
               <MobileExecutiveOfficeScene
                 rooms={roomsWithPresence}
                 selectedRoomId={controlModalRoom?.id ?? null}

@@ -164,6 +164,7 @@ export default function OfficeControlModal({
   const scrollLockRef = useRef<{
     scrollY: number;
     prev: Pick<CSSStyleDeclaration, "position" | "top" | "left" | "right" | "width" | "overflow">;
+    htmlPrev: { overscrollBehavior: string; overflow: string };
   } | null>(null);
 
   // Strong iPhone scroll lock: position:fixed + stored scrollY so the page
@@ -171,6 +172,7 @@ export default function OfficeControlModal({
   useEffect(() => {
     const scrollY = window.scrollY || window.pageYOffset || 0;
     const body = document.body;
+    const html = document.documentElement;
     const prev = {
       position: body.style.position,
       top: body.style.top,
@@ -179,7 +181,13 @@ export default function OfficeControlModal({
       width: body.style.width,
       overflow: body.style.overflow,
     };
-    scrollLockRef.current = { scrollY, prev };
+    const htmlPrev = {
+      overscrollBehavior: html.style.overscrollBehavior,
+      overflow: html.style.overflow,
+    };
+    scrollLockRef.current = { scrollY, prev, htmlPrev };
+    html.style.overscrollBehavior = "none";
+    html.style.overflow = "hidden";
     body.style.position = "fixed";
     body.style.top      = `-${scrollY}px`;
     body.style.left     = "0";
@@ -194,6 +202,8 @@ export default function OfficeControlModal({
       body.style.right    = lock?.prev.right ?? prev.right;
       body.style.width    = lock?.prev.width ?? prev.width;
       body.style.overflow = lock?.prev.overflow ?? prev.overflow;
+      html.style.overscrollBehavior = lock?.htmlPrev.overscrollBehavior ?? htmlPrev.overscrollBehavior;
+      html.style.overflow = lock?.htmlPrev.overflow ?? htmlPrev.overflow;
       window.scrollTo(0, lock?.scrollY ?? scrollY);
       scrollLockRef.current = null;
     };
@@ -261,7 +271,7 @@ export default function OfficeControlModal({
         </div>
 
         {/* ══ BODY ════════════════════════════════════════════════════════════ */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "10px 16px", display: "flex", flexDirection: "column", gap: 8, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"] }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "10px 16px", display: "flex", flexDirection: "column", gap: 8, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"] }}>
 
           {/* 1 ── حالة المكتب (smart insight) */}
           <OfficeInsight room={room} isOpen={isOpen} />
