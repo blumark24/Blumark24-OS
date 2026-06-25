@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" fill="none">
+  <defs>
+    <radialGradient id="bgGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(960 260) rotate(90) scale(720 980)">
+      <stop offset="0" stop-color="#0B7C9D" stop-opacity="0.45"/>
+      <stop offset="0.38" stop-color="#061B38" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#020716"/>
+    </radialGradient>
+    <linearGradient id="glassWall" x1="280" y1="80" x2="1640" y2="810" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A2542" stop-opacity="0.92"/>
+      <stop offset="0.45" stop-color="#04162E" stop-opacity="0.74"/>
+      <stop offset="1" stop-color="#020716" stop-opacity="0.96"/>
+    </linearGradient>
+    <linearGradient id="floorGrad" x1="960" y1="510" x2="960" y2="1110" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#08223F" stop-opacity="0.74"/>
+      <stop offset="0.5" stop-color="#061426" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#020716"/>
+    </linearGradient>
+    <linearGradient id="cyanLine" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#67E8F9" stop-opacity="0"/>
+      <stop offset="0.48" stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#38BDF8" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="screenGrad" x1="610" y1="165" x2="1310" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F3154" stop-opacity="0.94"/>
+      <stop offset="0.55" stop-color="#061B34" stop-opacity="0.88"/>
+      <stop offset="1" stop-color="#041024" stop-opacity="0.96"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.13 0 0 0 0 0.83 0 0 0 0 0.93 0 0 0 0.9 0" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="deepShadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="28" stdDeviation="32" flood-color="#000814" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bgGlow)"/>
+  <rect width="1920" height="1080" fill="#020716" opacity="0.52"/>
+
+  <!-- far cloud HQ glass shell -->
+  <path d="M186 142C410 74 716 58 960 58C1204 58 1510 74 1734 142L1605 625C1414 570 1172 548 960 548C748 548 506 570 315 625L186 142Z" fill="url(#glassWall)" stroke="#7DD3FC" stroke-opacity="0.18" stroke-width="2"/>
+  <path d="M312 190C493 138 744 122 960 122C1176 122 1427 138 1608 190L1521 525C1360 485 1155 468 960 468C765 468 560 485 399 525L312 190Z" fill="#06172C" fill-opacity="0.42" stroke="#22D3EE" stroke-opacity="0.16"/>
+
+  <!-- glass side walls / same external office DNA translated inside -->
+  <path d="M112 232L398 526L290 932L54 654L112 232Z" fill="#071D36" fill-opacity="0.72" stroke="#7DD3FC" stroke-opacity="0.14"/>
+  <path d="M1808 232L1522 526L1630 932L1866 654L1808 232Z" fill="#071D36" fill-opacity="0.72" stroke="#7DD3FC" stroke-opacity="0.14"/>
+  <path d="M166 304L358 540" stroke="#22D3EE" stroke-opacity="0.24" stroke-width="2"/>
+  <path d="M1754 304L1562 540" stroke="#22D3EE" stroke-opacity="0.24" stroke-width="2"/>
+  <path d="M88 640L296 882" stroke="#60A5FA" stroke-opacity="0.18" stroke-width="2"/>
+  <path d="M1832 640L1624 882" stroke="#60A5FA" stroke-opacity="0.18" stroke-width="2"/>
+
+  <!-- main floor as premium cloud office interior -->
+  <path d="M310 630C496 560 714 530 960 530C1206 530 1424 560 1610 630L1836 1080H84L310 630Z" fill="url(#floorGrad)" stroke="#7DD3FC" stroke-opacity="0.12"/>
+  <path d="M960 552L960 1080" stroke="url(#cyanLine)" stroke-width="5" filter="url(#softGlow)"/>
+  <path d="M465 720L240 1080" stroke="#22D3EE" stroke-opacity="0.22" stroke-width="3"/>
+  <path d="M1455 720L1680 1080" stroke="#22D3EE" stroke-opacity="0.22" stroke-width="3"/>
+  <path d="M655 650L520 1080" stroke="#60A5FA" stroke-opacity="0.12"/>
+  <path d="M1265 650L1400 1080" stroke="#60A5FA" stroke-opacity="0.12"/>
+
+  <!-- integrated smart wall / digital twin architecture -->
+  <g filter="url(#deepShadow)">
+    <rect x="604" y="152" width="712" height="300" rx="38" fill="url(#screenGrad)" stroke="#7DD3FC" stroke-opacity="0.28" stroke-width="2"/>
+    <rect x="632" y="182" width="656" height="240" rx="28" fill="#020716" fill-opacity="0.30" stroke="#22D3EE" stroke-opacity="0.14"/>
+    <path d="M690 355C780 294 870 390 960 320C1050 250 1138 314 1228 246" stroke="#22D3EE" stroke-opacity="0.72" stroke-width="4" filter="url(#softGlow)"/>
+    <circle cx="690" cy="355" r="8" fill="#22D3EE"/>
+    <circle cx="960" cy="320" r="8" fill="#67E8F9"/>
+    <circle cx="1228" cy="246" r="8" fill="#38BDF8"/>
+    <text x="960" y="228" text-anchor="middle" fill="#E8FBFF" font-family="Inter, Arial" font-size="33" font-weight="800">OFFICE PORTAL</text>
+    <text x="960" y="270" text-anchor="middle" fill="#7DD3FC" font-family="Inter, Arial" font-size="16" font-weight="700" letter-spacing="3">BLUMARK24 OS DIGITAL TWIN WALL</text>
+  </g>
+
+  <!-- executive workstation / premium render blocks, not furniture drawing -->
+  <g opacity="0.88">
+    <path d="M1120 620C1222 594 1338 600 1440 646L1380 778C1285 736 1184 728 1080 758L1120 620Z" fill="#082746" fill-opacity="0.76" stroke="#60A5FA" stroke-opacity="0.22"/>
+    <path d="M480 650C588 600 708 594 820 622L846 758C732 730 620 740 516 792L480 650Z" fill="#062E35" fill-opacity="0.72" stroke="#10B981" stroke-opacity="0.20"/>
+    <ellipse cx="1494" cy="872" rx="156" ry="70" fill="#211B0E" fill-opacity="0.55" stroke="#F59E0B" stroke-opacity="0.19"/>
+    <rect x="245" y="814" width="210" height="120" rx="28" fill="#07101F" fill-opacity="0.66" stroke="#64748B" stroke-opacity="0.22"/>
+  </g>
+
+  <!-- admin link portal integrated into floor -->
+  <ellipse cx="960" cy="832" rx="228" ry="74" fill="#22D3EE" fill-opacity="0.065" stroke="#22D3EE" stroke-opacity="0.28" filter="url(#softGlow)"/>
+  <ellipse cx="960" cy="832" rx="126" ry="34" fill="#020716" fill-opacity="0.50" stroke="#67E8F9" stroke-opacity="0.24"/>
+
+  <!-- reflections / cinematic depth -->
+  <path d="M0 0H1920V1080H0V0Z" fill="url(#bgGlow)" opacity="0.12"/>
+  <path d="M610 174L1270 174" stroke="#E0F2FE" stroke-opacity="0.14" stroke-width="2"/>
+  <path d="M380 590C640 520 1280 520 1540 590" stroke="#7DD3FC" stroke-opacity="0.12" stroke-width="2"/>
+  <path d="M500 1040C760 960 1160 960 1420 1040" stroke="#22D3EE" stroke-opacity="0.14" stroke-width="2"/>
+</svg>
