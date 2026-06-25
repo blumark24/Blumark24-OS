@@ -1,20 +1,18 @@
 "use client";
 
-// SingleOfficeInteriorScene.tsx — C15.7
-// CSS/HTML 2.5D office interior. No WebGL, no Three.js, no new packages.
-// Regular office: dark floor, back wall screens, desks, meeting corner, focus pod.
-// Board office: command wall, oval table, DT panel, AI pod.
+// SingleOfficeInteriorScene.tsx — C15.8
+// Premium single-office portal interior. No WebGL, no Three.js, no canvas,
+// no new packages, no fake live data.
 
 import type { PresencePerson } from "./VirtualOfficeDesign";
 
-// ─── Zone model ───────────────────────────────────────────────────────────────
-
 export type ZoneState =
+  | "unavailable"
+  | "inactive"
   | "ready_after_link"
-  | "needs_link"
-  | "informational"
-  | "command"
-  | "coming_soon";
+  | "needs_activation"
+  | "configuring"
+  | "coming";
 
 export interface Zone {
   id: string;
@@ -23,178 +21,193 @@ export interface Zone {
   state: ZoneState;
   stateLabel: string;
   accent: string;
-  sceneX: number; // % in scene container
+  sceneX: number;
   sceneY: number;
+  actionLabel?: string;
 }
 
-// ─── Zone definitions ─────────────────────────────────────────────────────────
+interface OfficeInteriorConfig {
+  officeNumber: number;
+  variant: "executive" | "north" | "east" | "south" | "west";
+  glowX: string;
+  glowY: string;
+  portalTilt: string;
+  accent: string;
+}
 
-export const BOARD_ZONES: Zone[] = [
-  {
-    id: "board-chamber",
-    name: "غرفة مجلس الإدارة",
-    purpose: "اجتماعات القرار العليا والمراجعة الاستراتيجية للشركة",
-    state: "command",
-    stateLabel: "مركز القيادة",
-    accent: "#a855f7",
-    sceneX: 50,
-    sceneY: 44,
-  },
-  {
-    id: "board-kpi",
-    name: "مؤشرات الأداء",
-    purpose: "متابعة KPIs وأداء المكاتب والأقسام بشكل لحظي",
-    state: "needs_link",
-    stateLabel: "يحتاج ربط",
-    accent: "#f59e0b",
-    sceneX: 78,
-    sceneY: 18,
-  },
-  {
-    id: "board-dt",
-    name: "التوأم الرقمي",
-    purpose: "تمثيل رقمي لهيكل الشركة والخريطة التنظيمية",
-    state: "informational",
-    stateLabel: "تجريبي",
-    accent: "#22d3ee",
-    sceneX: 18,
-    sceneY: 52,
-  },
-  {
-    id: "board-ai",
-    name: "مساعد التشغيل الذكي",
-    purpose: "مساعدة ذكاء اصطناعي للقرارات التشغيلية — يتطلب تفعيل",
-    state: "coming_soon",
-    stateLabel: "قريباً",
-    accent: "#a855f7",
-    sceneX: 80,
-    sceneY: 62,
-  },
-  {
-    id: "board-decision",
-    name: "مركز القرار",
-    purpose: "توثيق القرارات والمخرجات الاستراتيجية للمجلس",
-    state: "coming_soon",
-    stateLabel: "قريباً",
-    accent: "#64748b",
-    sceneX: 50,
-    sceneY: 82,
-  },
-];
+const OFFICE_INTERIOR_CONFIG: Record<number, OfficeInteriorConfig> = {
+  1: { officeNumber: 1, variant: "north", glowX: "24%", glowY: "18%", portalTilt: "-7deg", accent: "#22d3ee" },
+  2: { officeNumber: 2, variant: "east", glowX: "72%", glowY: "16%", portalTilt: "5deg", accent: "#38bdf8" },
+  3: { officeNumber: 3, variant: "south", glowX: "50%", glowY: "72%", portalTilt: "0deg", accent: "#67e8f9" },
+  4: { officeNumber: 4, variant: "west", glowX: "18%", glowY: "58%", portalTilt: "-3deg", accent: "#60a5fa" },
+  5: { officeNumber: 5, variant: "executive", glowX: "50%", glowY: "20%", portalTilt: "0deg", accent: "#a855f7" },
+  6: { officeNumber: 6, variant: "north", glowX: "64%", glowY: "22%", portalTilt: "4deg", accent: "#22d3ee" },
+  7: { officeNumber: 7, variant: "west", glowX: "28%", glowY: "64%", portalTilt: "-5deg", accent: "#38bdf8" },
+  8: { officeNumber: 8, variant: "east", glowX: "76%", glowY: "48%", portalTilt: "6deg", accent: "#67e8f9" },
+  9: { officeNumber: 9, variant: "south", glowX: "52%", glowY: "74%", portalTilt: "0deg", accent: "#22d3ee" },
+};
 
-export function getOfficeZones(isLinked: boolean): Zone[] {
+const fallbackConfig: OfficeInteriorConfig = {
+  officeNumber: 0,
+  variant: "north",
+  glowX: "50%",
+  glowY: "22%",
+  portalTilt: "0deg",
+  accent: "#22d3ee",
+};
+
+function formatOfficeNumber(officeNumber?: number | null) {
+  return String(officeNumber ?? 0).padStart(2, "0");
+}
+
+function getZones(isLinked: boolean, linkedUnitName?: string | null): Zone[] {
   return [
     {
-      id: "zone-workspace",
-      name: "مساحة العمل",
-      purpose: "مكاتب الفريق وشاشات العمل اليومي",
-      state: isLinked ? "ready_after_link" : "needs_link",
-      stateLabel: isLinked ? "جاهز" : "يحتاج ربط",
+      id: "office-panel",
+      name: "لوحة المكتب",
+      purpose: linkedUnitName
+        ? `تعرض هوية المكتب المرتبط بـ ${linkedUnitName} باستخدام البيانات المتاحة فقط.`
+        : "تعرض هوية المكتب وحالته بدون أي بيانات تشغيلية وهمية.",
+      state: isLinked ? "ready_after_link" : "configuring",
+      stateLabel: isLinked ? "مكتب مرتبط بالهيكل الإداري" : "مكتب سحابي جاهز للربط",
       accent: "#22d3ee",
       sceneX: 50,
-      sceneY: 32,
+      sceneY: 28,
+      actionLabel: "عرض الحالة",
     },
     {
-      id: "zone-meeting",
+      id: "workspace",
+      name: "مساحة العمل",
+      purpose: "منطقة العمل اليومية. تظهر بيانات الفريق فقط عند توفر ربط حقيقي من النظام.",
+      state: "unavailable",
+      stateLabel: "غير متاح",
+      accent: "#60a5fa",
+      sceneX: 67,
+      sceneY: 52,
+      actionLabel: "بيانات الفريق",
+    },
+    {
+      id: "meeting",
       name: "غرفة الاجتماع",
-      purpose: "اجتماعات الفريق والعروض التقديمية",
-      state: "coming_soon",
-      stateLabel: "قريباً",
+      purpose: "منطقة اجتماعات مستقبلية. لا يتم عرض اجتماعات أو حضور بدون مصدر بيانات حقيقي.",
+      state: "inactive",
+      stateLabel: "غير مفعّل",
       accent: "#10b981",
-      sceneX: 20,
-      sceneY: 65,
+      sceneX: 26,
+      sceneY: 56,
+      actionLabel: "حالة الاجتماع",
     },
     {
-      id: "zone-focus",
-      name: "غرفة التركيز",
-      purpose: "عمل فردي مكثف بدون انقطاع",
-      state: "coming_soon",
-      stateLabel: "قريباً",
+      id: "focus",
+      name: "منطقة التركيز",
+      purpose: "مساحة هادئة للعمل الفردي داخل المكتب السحابي.",
+      state: "coming",
+      stateLabel: "قادم",
       accent: "#f59e0b",
-      sceneX: 80,
-      sceneY: 62,
+      sceneX: 82,
+      sceneY: 72,
+      actionLabel: "وضع التركيز",
     },
     {
-      id: "zone-panel",
-      name: "لوحة المكتب",
-      purpose: "إعدادات المكتب وربط الموظفين والمهام",
-      state: isLinked ? "informational" : "needs_link",
-      stateLabel: isLinked ? "مرتبط" : "يحتاج ربط",
-      accent: "#64748b",
+      id: "digital-twin",
+      name: "التوأم الرقمي",
+      purpose: "يعكس هذا الجدار علاقة المكتب بالإدارة أو القسم والموظفين والمهام بعد الربط.",
+      state: isLinked ? "ready_after_link" : "configuring",
+      stateLabel: isLinked ? "جاهز بعد الربط" : "جاهز بعد الربط",
+      accent: "#22d3ee",
+      sceneX: 29,
+      sceneY: 31,
+      actionLabel: "عرض المسار",
+    },
+    {
+      id: "admin-link",
+      name: "الربط الإداري",
+      purpose: "نقطة الربط بين المكتب والهيكل الإداري. يتم التحكم بها من منطق الهيكل الحالي فقط.",
+      state: isLinked ? "ready_after_link" : "needs_activation",
+      stateLabel: isLinked ? "مكتب مرتبط بالهيكل الإداري" : "يحتاج تفعيل",
+      accent: isLinked ? "#10b981" : "#f59e0b",
       sceneX: 50,
-      sceneY: 82,
+      sceneY: 78,
+      actionLabel: "إدارة الربط",
+    },
+    {
+      id: "settings",
+      name: "الإعدادات",
+      purpose: "إعدادات المكتب تُدار من نافذة المكتب المعتمدة بدون تغيير تصميمها.",
+      state: "configuring",
+      stateLabel: "قيد التهيئة",
+      accent: "#64748b",
+      sceneX: 15,
+      sceneY: 76,
+      actionLabel: "الإعدادات",
     },
   ];
 }
 
-// ─── Zone pin ─────────────────────────────────────────────────────────────────
+function stateDotColor(zone: Zone) {
+  if (zone.state === "ready_after_link") return zone.accent;
+  if (zone.state === "needs_activation") return "#f59e0b";
+  return zone.state === "inactive" || zone.state === "unavailable" ? "#64748b" : zone.accent;
+}
 
-function ZonePin({
-  zone,
-  selected,
-  onSelect,
-}: {
-  zone: Zone;
-  selected: boolean;
-  onSelect: (z: Zone | null) => void;
-}) {
-  const dot =
-    zone.state === "command" || zone.state === "ready_after_link"
-      ? zone.accent
-      : zone.state === "informational"
-      ? zone.accent
-      : zone.state === "needs_link"
-      ? "#f59e0b"
-      : "#64748b";
-
+function Hotspot({ zone, selected, onSelect }: { zone: Zone; selected: boolean; onSelect: (zone: Zone | null) => void }) {
+  const dot = stateDotColor(zone);
   return (
     <button
       type="button"
-      onClick={() => onSelect(selected ? null : zone)}
       aria-label={zone.name}
+      onClick={() => onSelect(selected ? null : zone)}
       style={{
         position: "absolute",
         left: `${zone.sceneX}%`,
         top: `${zone.sceneY}%`,
         transform: "translate(-50%, -50%)",
-        zIndex: 10,
+        zIndex: 12,
+        minWidth: 36,
         minHeight: 36,
-        padding: "4px 10px",
-        borderRadius: 18,
-        border: selected
-          ? `1.5px solid ${zone.accent}`
-          : `1px solid ${zone.accent}55`,
-        background: selected
-          ? `${zone.accent}28`
-          : "rgba(2,8,23,0.82)",
-        backdropFilter: "blur(10px)",
-        WebkitBackdropFilter: "blur(10px)",
-        boxShadow: selected
-          ? `0 0 16px ${zone.accent}44, 0 0 4px ${zone.accent}22`
-          : "none",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
+        border: "none",
+        background: "transparent",
         cursor: "pointer",
-        transition: "all 0.15s ease",
+        padding: 0,
       }}
     >
       <span
         style={{
-          width: 5,
-          height: 5,
-          borderRadius: "50%",
-          background: dot,
-          flexShrink: 0,
-          boxShadow: `0 0 5px ${dot}99`,
+          position: "absolute",
+          inset: 4,
+          borderRadius: 999,
+          background: `${dot}12`,
+          border: `1px solid ${dot}55`,
+          boxShadow: selected ? `0 0 26px ${dot}66` : `0 0 16px ${dot}33`,
+          animation: "bmOfficePulse 2.6s ease-in-out infinite",
         }}
       />
       <span
         style={{
-          fontSize: 9,
-          fontWeight: 700,
-          color: selected ? "#fff" : "#8ba3c7",
+          position: "absolute",
+          inset: 14,
+          borderRadius: 999,
+          background: dot,
+          boxShadow: `0 0 12px ${dot}`,
+        }}
+      />
+      <span
+        style={{
+          position: "absolute",
+          right: 35,
+          top: "50%",
+          transform: "translateY(-50%)",
           whiteSpace: "nowrap",
+          borderRadius: 999,
+          padding: "4px 9px",
+          border: `1px solid ${dot}40`,
+          background: selected ? "rgba(3,10,24,0.92)" : "rgba(3,10,24,0.72)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          color: selected ? "#e8fbff" : "#8ba3c7",
+          fontSize: 10,
+          fontWeight: 800,
+          boxShadow: selected ? `0 12px 32px rgba(0,0,0,0.35), 0 0 22px ${dot}22` : "0 10px 22px rgba(0,0,0,0.25)",
         }}
       >
         {zone.name}
@@ -203,519 +216,124 @@ function ZonePin({
   );
 }
 
-// ─── Regular office interior ──────────────────────────────────────────────────
-
-function RegularOfficeScene() {
+function DigitalTwinWall({ isLinked, linkedUnitName }: { isLinked: boolean; linkedUnitName?: string | null }) {
+  const nodes = ["المنشأة", "الإدارة", "القسم", "الموظفون", "المهام"];
   return (
-    <>
-      {/* Floor */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(180deg, #040c18 0%, #050e1c 55%, #07111f 100%)",
-        }}
-      />
-
-      {/* Grid overlay */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage:
-            "linear-gradient(rgba(34,211,238,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.045) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-          backgroundPosition: "0 0",
-        }}
-      />
-
-      {/* Back wall */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "38%",
-          background:
-            "linear-gradient(180deg, #060f1e 0%, #040c18 100%)",
-          borderBottom: "1px solid rgba(34,211,238,0.10)",
-        }}
-      />
-
-      {/* Main screen — back wall center */}
-      <div
-        style={{
-          position: "absolute",
-          top: "5%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "36%",
-          height: "20%",
-          borderRadius: 6,
-          border: "1.5px solid rgba(34,211,238,0.30)",
-          background: "rgba(34,211,238,0.04)",
-          boxShadow:
-            "0 0 28px rgba(34,211,238,0.12), inset 0 0 20px rgba(34,211,238,0.04)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 7,
-            color: "rgba(34,211,238,0.35)",
-            fontWeight: 700,
-            letterSpacing: 1,
-            textTransform: "uppercase",
-          }}
-        >
-          BLUMARK24 OS
-        </div>
-      </div>
-
-      {/* Side screens */}
-      {[{ left: "10%", w: "16%" }, { right: "10%", w: "16%" }].map(
-        (pos, i) => (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              top: "6%",
-              left: pos.left,
-              right: pos.right as string | undefined,
-              width: pos.w,
-              height: "14%",
-              borderRadius: 4,
-              border: "1px solid rgba(34,211,238,0.15)",
-              background: "rgba(34,211,238,0.02)",
-              boxShadow: "0 0 12px rgba(34,211,238,0.06)",
-            }}
-          />
-        )
-      )}
-
-      {/* Desks row */}
-      {[22, 50, 78].map((left, i) => (
-        <div key={i} style={{ position: "absolute", top: "42%", left: `${left}%`, transform: "translateX(-50%)" }}>
-          {/* Desk surface */}
-          <div
-            style={{
-              width: 72,
-              height: 38,
-              borderRadius: 6,
-              background: "linear-gradient(160deg, #0d1f35 0%, #0a1828 100%)",
-              border: "1px solid rgba(34,211,238,0.14)",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
-              position: "relative",
-            }}
-          >
-            {/* Monitor */}
-            <div
-              style={{
-                position: "absolute",
-                top: -22,
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: 42,
-                height: 22,
-                borderRadius: 3,
-                border: "1px solid rgba(34,211,238,0.22)",
-                background: "rgba(34,211,238,0.05)",
-                boxShadow: "0 0 10px rgba(34,211,238,0.08)",
-              }}
-            />
-            {/* Monitor stand */}
-            <div
-              style={{
-                position: "absolute",
-                top: 2,
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: 4,
-                height: 6,
-                background: "rgba(34,211,238,0.12)",
-              }}
-            />
+    <div
+      style={{
+        position: "absolute",
+        top: "9%",
+        left: "7%",
+        width: "38%",
+        height: "30%",
+        borderRadius: 22,
+        border: "1px solid rgba(34,211,238,0.25)",
+        background: "linear-gradient(145deg, rgba(8,20,42,0.78), rgba(2,8,23,0.35))",
+        boxShadow: "0 36px 90px rgba(0,0,0,0.34), inset 0 0 44px rgba(34,211,238,0.05)",
+        backdropFilter: "blur(18px)",
+        WebkitBackdropFilter: "blur(18px)",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 24% 24%, rgba(34,211,238,0.18), transparent 36%)" }} />
+      <div style={{ position: "relative", padding: "16px 18px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 900, color: "#dff7ff", marginBottom: 3 }}>التوأم الرقمي</div>
+          <div style={{ fontSize: 10, color: "#5a7898", lineHeight: 1.5 }}>
+            {isLinked && linkedUnitName ? linkedUnitName : "يتم تفعيل التوأم الرقمي بعد ربط المكتب بالهيكل الإداري."}
           </div>
         </div>
-      ))}
-
-      {/* Meeting corner — bottom left */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "10%",
-          left: "13%",
-          transform: "translateX(-50%)",
-        }}
-      >
-        {/* Round table */}
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: "50%",
-            border: "1.5px solid rgba(16,185,129,0.25)",
-            background: "rgba(16,185,129,0.04)",
-            boxShadow: "0 0 20px rgba(16,185,129,0.08)",
-            position: "relative",
-          }}
-        >
-          {/* Chairs around table */}
-          {[0, 51, 102, 154, 205, 256, 308].map((deg) => (
-            <div
-              key={deg}
-              style={{
-                position: "absolute",
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                border: "1px solid rgba(16,185,129,0.20)",
-                background: "rgba(16,185,129,0.06)",
-                top: `calc(50% + ${Math.sin((deg * Math.PI) / 180) * 32}px - 5px)`,
-                left: `calc(50% + ${Math.cos((deg * Math.PI) / 180) * 32}px - 5px)`,
-              }}
-            />
-          ))}
+        <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+          {nodes.map((node, index) => {
+            const active = isLinked && index <= 2;
+            return (
+              <span key={node} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    padding: "4px 8px",
+                    borderRadius: 999,
+                    color: active ? "#dff7ff" : "#4d6178",
+                    border: active ? "1px solid rgba(34,211,238,0.36)" : "1px solid rgba(100,116,139,0.18)",
+                    background: active ? "rgba(34,211,238,0.10)" : "rgba(100,116,139,0.05)",
+                  }}
+                >
+                  {node}
+                </span>
+                {index < nodes.length - 1 && <span style={{ color: "#1d4458", fontSize: 10 }}>←</span>}
+              </span>
+            );
+          })}
         </div>
       </div>
-
-      {/* Focus pod — bottom right */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "9%",
-          right: "10%",
-        }}
-      >
-        {/* Focus ring */}
-        <div
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 10,
-            border: "1px solid rgba(245,158,11,0.18)",
-            background: "rgba(245,158,11,0.03)",
-            boxShadow: "0 0 16px rgba(245,158,11,0.06)",
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {/* Mini desk */}
-          <div
-            style={{
-              width: 32,
-              height: 20,
-              borderRadius: 4,
-              border: "1px solid rgba(245,158,11,0.20)",
-              background: "rgba(245,158,11,0.04)",
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Office panel — bottom center */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "4%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "28%",
-          height: "8%",
-          borderRadius: 8,
-          border: "1px solid rgba(100,116,139,0.22)",
-          background: "rgba(100,116,139,0.05)",
-          boxShadow: "0 0 14px rgba(100,116,139,0.06)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
-        }}
-      >
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            style={{
-              width: 8,
-              height: 4,
-              borderRadius: 2,
-              background: "rgba(100,116,139,0.25)",
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Ambient glow */}
-      <div
-        style={{
-          position: "absolute",
-          top: "10%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "60%",
-          height: "30%",
-          background:
-            "radial-gradient(ellipse at 50% 0%, rgba(34,211,238,0.06) 0%, transparent 70%)",
-          pointerEvents: "none",
-        }}
-      />
-    </>
+    </div>
   );
 }
 
-// ─── Board office interior ────────────────────────────────────────────────────
-
-function BoardOfficeScene() {
+function SmartWall({ officeNumber, isLinked }: { officeNumber?: number | null; isLinked: boolean }) {
   return (
-    <>
-      {/* Floor */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(180deg, #06030f 0%, #08041a 55%, #09051e 100%)",
-        }}
-      />
-
-      {/* Purple grid */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage:
-            "linear-gradient(rgba(168,85,247,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.04) 1px, transparent 1px)",
-          backgroundSize: "52px 52px",
-        }}
-      />
-
-      {/* Ceiling glow */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "80%",
-          height: "40%",
-          background:
-            "radial-gradient(ellipse at 50% -20%, rgba(168,85,247,0.14) 0%, transparent 65%)",
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* Back wall */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "35%",
-          background:
-            "linear-gradient(180deg, #0a0420 0%, #06030f 100%)",
-          borderBottom: "1px solid rgba(168,85,247,0.12)",
-        }}
-      />
-
-      {/* Command wall — 3 screens */}
-      {[
-        { left: "16%", w: "22%", accent: "#a855f7" },
-        { left: "50%", w: "28%", accent: "#c084fc" },
-        { left: "84%", w: "22%", accent: "#a855f7" },
-      ].map(({ left, w, accent }, i) => (
-        <div
-          key={i}
-          style={{
-            position: "absolute",
-            top: "5%",
-            left: left,
-            transform: "translateX(-50%)",
-            width: w,
-            height: "22%",
-            borderRadius: 5,
-            border: `1.5px solid ${accent}40`,
-            background: `${accent}06`,
-            boxShadow: `0 0 24px ${accent}18, inset 0 0 16px ${accent}06`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {i === 1 && (
-            <div
-              style={{
-                fontSize: 7,
-                color: `${accent}55`,
-                fontWeight: 700,
-                letterSpacing: 1,
-              }}
-            >
-              BOARD HQ
-            </div>
-          )}
-          {/* Abstract data lines */}
-          <div style={{ position: "absolute", inset: 0, opacity: 0.3 }}>
-            {[20, 40, 60].map((top) => (
-              <div
-                key={top}
-                style={{
-                  position: "absolute",
-                  top: `${top}%`,
-                  left: "12%",
-                  right: "12%",
-                  height: 1,
-                  background: `linear-gradient(90deg, transparent, ${accent}44, transparent)`,
-                }}
-              />
-            ))}
-          </div>
+    <div
+      style={{
+        position: "absolute",
+        top: "10%",
+        left: "50%",
+        transform: "translateX(-50%) perspective(900px) rotateX(2deg)",
+        width: "42%",
+        height: "27%",
+        borderRadius: 24,
+        border: "1px solid rgba(125,211,252,0.30)",
+        background: "linear-gradient(140deg, rgba(14,33,60,0.88), rgba(4,12,27,0.52))",
+        boxShadow: "0 32px 100px rgba(0,0,0,0.42), 0 0 65px rgba(34,211,238,0.12), inset 0 0 60px rgba(34,211,238,0.05)",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(115deg, transparent 0%, rgba(255,255,255,0.08) 42%, transparent 58%)", animation: "bmWallSweep 5.5s ease-in-out infinite" }} />
+      <div style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <div style={{ color: "rgba(34,211,238,0.65)", fontSize: 10, fontWeight: 900, letterSpacing: 2 }}>BLUMARK24 OFFICE PORTAL</div>
+        <div style={{ color: "#e8fbff", fontSize: 34, fontWeight: 900, lineHeight: 1 }}>OFFICE {formatOfficeNumber(officeNumber)}</div>
+        <div style={{ color: isLinked ? "#86efac" : "#fbbf24", fontSize: 11, fontWeight: 800 }}>
+          {isLinked ? "مكتب مرتبط بالهيكل الإداري" : "مكتب سحابي جاهز للربط"}
         </div>
-      ))}
-
-      {/* Oval board table */}
-      <div
-        style={{
-          position: "absolute",
-          top: "38%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "58%",
-          height: "28%",
-          borderRadius: "50%",
-          border: "2px solid rgba(168,85,247,0.28)",
-          background:
-            "linear-gradient(160deg, rgba(168,85,247,0.06) 0%, rgba(168,85,247,0.02) 100%)",
-          boxShadow:
-            "0 0 40px rgba(168,85,247,0.14), inset 0 0 24px rgba(168,85,247,0.04)",
-        }}
-      />
-
-      {/* Board table chairs (8) */}
-      {Array.from({ length: 8 }).map((_, i) => {
-        const angle = (i / 8) * 2 * Math.PI;
-        const rx = 37, ry = 21; // % radii relative to scene
-        const cx = 50 + rx * Math.cos(angle);
-        const cy = 52 + ry * Math.sin(angle);
-        return (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              left: `${cx}%`,
-              top: `${cy}%`,
-              transform: "translate(-50%,-50%)",
-              width: 14,
-              height: 10,
-              borderRadius: 4,
-              border: "1px solid rgba(168,85,247,0.22)",
-              background: "rgba(168,85,247,0.06)",
-            }}
-          />
-        );
-      })}
-
-      {/* DT panel — left */}
-      <div
-        style={{
-          position: "absolute",
-          top: "36%",
-          left: "6%",
-          width: "14%",
-          height: "32%",
-          borderRadius: 8,
-          border: "1px solid rgba(34,211,238,0.22)",
-          background: "rgba(34,211,238,0.04)",
-          boxShadow: "0 0 20px rgba(34,211,238,0.08)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {/* Node graph */}
-        <svg width="100%" height="100%" viewBox="0 0 60 80" style={{ opacity: 0.5 }}>
-          <circle cx="30" cy="16" r="4" fill="none" stroke="#22d3ee" strokeWidth="1" />
-          <circle cx="14" cy="44" r="3" fill="none" stroke="#22d3ee" strokeWidth="1" />
-          <circle cx="46" cy="44" r="3" fill="none" stroke="#22d3ee" strokeWidth="1" />
-          <circle cx="30" cy="66" r="3" fill="none" stroke="#22d3ee" strokeWidth="1" />
-          <line x1="30" y1="20" x2="14" y2="41" stroke="#22d3ee" strokeWidth="0.8" opacity="0.5" />
-          <line x1="30" y1="20" x2="46" y2="41" stroke="#22d3ee" strokeWidth="0.8" opacity="0.5" />
-          <line x1="14" y1="47" x2="30" y2="63" stroke="#22d3ee" strokeWidth="0.8" opacity="0.5" />
-          <line x1="46" y1="47" x2="30" y2="63" stroke="#22d3ee" strokeWidth="0.8" opacity="0.5" />
-        </svg>
       </div>
-
-      {/* AI pod — right */}
-      <div
-        style={{
-          position: "absolute",
-          top: "42%",
-          right: "5%",
-          width: "12%",
-          height: "26%",
-          borderRadius: 8,
-          border: "1px solid rgba(168,85,247,0.22)",
-          background: "rgba(168,85,247,0.04)",
-          boxShadow: "0 0 16px rgba(168,85,247,0.08)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {/* Concentric rings */}
-        <svg width="100%" height="100%" viewBox="0 0 52 52" style={{ opacity: 0.5 }}>
-          <circle cx="26" cy="26" r="20" fill="none" stroke="#a855f7" strokeWidth="0.8" />
-          <circle cx="26" cy="26" r="13" fill="none" stroke="#a855f7" strokeWidth="0.8" />
-          <circle cx="26" cy="26" r="6" fill="none" stroke="#a855f7" strokeWidth="1" />
-          <circle cx="26" cy="26" r="2" fill="#a855f7" opacity="0.6" />
-        </svg>
-      </div>
-
-      {/* Decision center — bottom */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "4%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "32%",
-          height: "8%",
-          borderRadius: 8,
-          border: "1px solid rgba(100,116,139,0.20)",
-          background: "rgba(100,116,139,0.04)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-        }}
-      >
-        {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            style={{
-              width: 10,
-              height: 4,
-              borderRadius: 2,
-              background: "rgba(100,116,139,0.22)",
-            }}
-          />
-        ))}
-      </div>
-    </>
+    </div>
   );
 }
 
-// ─── Main export ──────────────────────────────────────────────────────────────
+function PortalArchitecture({ config, isBoard }: { config: OfficeInteriorConfig; isBoard: boolean }) {
+  const accent = isBoard ? "#a855f7" : config.accent;
+  return (
+    <>
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #020716 0%, #041023 48%, #030817 100%)" }} />
+      <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(34,211,238,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.035) 1px, transparent 1px)", backgroundSize: "72px 72px", transform: `rotate(${config.portalTilt}) scale(1.08)`, transformOrigin: "center" }} />
+      <div style={{ position: "absolute", inset: "-18% -8% 38%", background: `radial-gradient(circle at ${config.glowX} ${config.glowY}, ${accent}28, transparent 42%)` }} />
+
+      {/* Glass side walls */}
+      <div style={{ position: "absolute", top: "6%", bottom: "8%", left: "2%", width: "22%", transform: "skewY(-11deg)", borderRadius: 32, border: "1px solid rgba(125,211,252,0.12)", background: "linear-gradient(100deg, rgba(125,211,252,0.10), rgba(2,8,23,0.03))", boxShadow: "inset 0 0 48px rgba(34,211,238,0.04)" }} />
+      <div style={{ position: "absolute", top: "6%", bottom: "8%", right: "2%", width: "22%", transform: "skewY(11deg)", borderRadius: 32, border: "1px solid rgba(125,211,252,0.12)", background: "linear-gradient(260deg, rgba(125,211,252,0.10), rgba(2,8,23,0.03))", boxShadow: "inset 0 0 48px rgba(34,211,238,0.04)" }} />
+
+      {/* Cinematic floor */}
+      <div style={{ position: "absolute", left: "12%", right: "12%", bottom: "-8%", height: "54%", borderRadius: "50% 50% 0 0", background: "radial-gradient(ellipse at 50% 0%, rgba(34,211,238,0.15), rgba(15,23,42,0.30) 35%, rgba(2,6,23,0.86) 74%)", transform: "perspective(820px) rotateX(63deg)", border: "1px solid rgba(125,211,252,0.12)", boxShadow: "0 -34px 88px rgba(34,211,238,0.06), inset 0 0 70px rgba(34,211,238,0.05)" }} />
+      <div style={{ position: "absolute", left: "49.7%", bottom: "4%", width: 2, height: "44%", background: `linear-gradient(180deg, transparent, ${accent}88, transparent)`, boxShadow: `0 0 22px ${accent}77`, transform: "perspective(600px) rotateX(56deg)", transformOrigin: "bottom" }} />
+
+      {/* Executive zones, rendered as reflections/portals rather than furniture */}
+      <div style={{ position: "absolute", left: "58%", top: "42%", width: "27%", height: "18%", borderRadius: 26, border: "1px solid rgba(96,165,250,0.17)", background: "linear-gradient(145deg, rgba(96,165,250,0.10), rgba(2,8,23,0.15))", boxShadow: "0 34px 80px rgba(0,0,0,0.30), inset 0 0 34px rgba(96,165,250,0.05)", transform: "perspective(650px) rotateX(55deg) rotateZ(-3deg)" }} />
+      <div style={{ position: "absolute", left: "12%", top: "48%", width: "27%", height: "18%", borderRadius: 26, border: "1px solid rgba(16,185,129,0.16)", background: "linear-gradient(145deg, rgba(16,185,129,0.09), rgba(2,8,23,0.14))", boxShadow: "0 34px 80px rgba(0,0,0,0.30), inset 0 0 34px rgba(16,185,129,0.05)", transform: "perspective(650px) rotateX(55deg) rotateZ(5deg)" }} />
+      <div style={{ position: "absolute", right: "10%", bottom: "13%", width: "18%", height: "18%", borderRadius: 999, border: "1px solid rgba(245,158,11,0.17)", background: "radial-gradient(circle, rgba(245,158,11,0.09), rgba(2,8,23,0.10))", boxShadow: "0 30px 70px rgba(0,0,0,0.28), inset 0 0 32px rgba(245,158,11,0.05)" }} />
+      <div style={{ position: "absolute", left: "10%", bottom: "13%", width: "16%", height: "16%", borderRadius: 24, border: "1px solid rgba(100,116,139,0.20)", background: "linear-gradient(145deg, rgba(100,116,139,0.09), rgba(2,8,23,0.12))", boxShadow: "0 30px 70px rgba(0,0,0,0.28)" }} />
+
+      {/* Entry portal */}
+      <div style={{ position: "absolute", left: "50%", bottom: "9%", transform: "translateX(-50%)", width: "24%", height: "20%", borderRadius: "50%", border: `1px solid ${accent}33`, background: `radial-gradient(ellipse at 50% 50%, ${accent}16, transparent 62%)`, boxShadow: `0 0 70px ${accent}16`, animation: "bmPortalBreath 4s ease-in-out infinite" }} />
+    </>
+  );
+}
 
 export interface SingleOfficeInteriorSceneProps {
   isBoard: boolean;
   isLinked: boolean;
+  officeNumber?: number | null;
+  officeTitle?: string;
+  linkedUnitName?: string | null;
   officePeople: PresencePerson[];
   selectedZone: Zone | null;
   onZoneSelect: (zone: Zone | null) => void;
@@ -724,11 +342,15 @@ export interface SingleOfficeInteriorSceneProps {
 export default function SingleOfficeInteriorScene({
   isBoard,
   isLinked,
+  officeNumber,
+  officeTitle,
+  linkedUnitName,
   officePeople: _officePeople,
   selectedZone,
   onZoneSelect,
 }: SingleOfficeInteriorSceneProps) {
-  const zones = isBoard ? BOARD_ZONES : getOfficeZones(isLinked);
+  const config = officeNumber ? OFFICE_INTERIOR_CONFIG[officeNumber] ?? fallbackConfig : fallbackConfig;
+  const zones = getZones(isLinked, linkedUnitName);
 
   return (
     <div
@@ -738,39 +360,98 @@ export default function SingleOfficeInteriorScene({
         height: "100%",
         overflow: "hidden",
         userSelect: "none",
+        background: "#020716",
       }}
       dir="rtl"
     >
-      {isBoard ? <BoardOfficeScene /> : <RegularOfficeScene />}
+      <PortalArchitecture config={config} isBoard={isBoard} />
+      <DigitalTwinWall isLinked={isLinked} linkedUnitName={linkedUnitName} />
+      <SmartWall officeNumber={officeNumber} isLinked={isLinked} />
 
-      {/* Zone pins */}
+      <div
+        style={{
+          position: "absolute",
+          top: "13%",
+          right: "7%",
+          width: "20%",
+          minWidth: 170,
+          borderRadius: 22,
+          border: "1px solid rgba(255,255,255,0.10)",
+          background: "linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.025))",
+          backdropFilter: "blur(18px)",
+          WebkitBackdropFilter: "blur(18px)",
+          boxShadow: "0 28px 70px rgba(0,0,0,0.30)",
+          padding: "14px 16px",
+        }}
+      >
+        <div style={{ fontSize: 9, color: "#5a7898", fontWeight: 900, letterSpacing: 1 }}>داخل المكتب</div>
+        <div style={{ fontSize: 14, color: "#e8fbff", fontWeight: 900, marginTop: 4 }}>{officeTitle ?? `مكتب ${formatOfficeNumber(officeNumber)}`}</div>
+        <div style={{ fontSize: 10, color: isLinked ? "#86efac" : "#fbbf24", fontWeight: 800, marginTop: 6 }}>
+          {isLinked ? "مكتب مرتبط بالهيكل الإداري" : "مكتب سحابي جاهز للربط"}
+        </div>
+      </div>
+
       {zones.map((zone) => (
-        <ZonePin
-          key={zone.id}
-          zone={zone}
-          selected={selectedZone?.id === zone.id}
-          onSelect={onZoneSelect}
-        />
+        <Hotspot key={zone.id} zone={zone} selected={selectedZone?.id === zone.id} onSelect={onZoneSelect} />
       ))}
 
-      {/* Empty state hint */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background: "linear-gradient(180deg, rgba(0,0,0,0.22), transparent 28%, rgba(0,0,0,0.30))",
+        }}
+      />
+
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background: "linear-gradient(115deg, transparent 0%, rgba(34,211,238,0.055) 47%, transparent 58%)",
+          animation: "bmEntrySweep 1.3s ease-out both",
+        }}
+      />
+
       {!selectedZone && (
         <div
           style={{
             position: "absolute",
-            bottom: "17%",
+            bottom: "14%",
             left: "50%",
             transform: "translateX(-50%)",
-            fontSize: 9,
-            color: "rgba(139,163,199,0.45)",
-            fontWeight: 500,
+            fontSize: 10,
+            color: "rgba(139,163,199,0.58)",
+            fontWeight: 700,
             pointerEvents: "none",
             whiteSpace: "nowrap",
           }}
         >
-          اضغط على منطقة لعرض تفاصيلها
+          اختر نقطة مضيئة داخل المكتب
         </div>
       )}
+
+      <style>{`
+        @keyframes bmEntrySweep {
+          0% { opacity: 0; transform: translateX(34%); }
+          45% { opacity: 1; }
+          100% { opacity: 0; transform: translateX(-34%); }
+        }
+        @keyframes bmWallSweep {
+          0%, 100% { transform: translateX(90%); opacity: 0; }
+          38%, 62% { opacity: 1; }
+          100% { transform: translateX(-90%); }
+        }
+        @keyframes bmOfficePulse {
+          0%, 100% { transform: scale(0.84); opacity: 0.58; }
+          50% { transform: scale(1.08); opacity: 1; }
+        }
+        @keyframes bmPortalBreath {
+          0%, 100% { transform: translateX(-50%) scale(0.96); opacity: 0.55; }
+          50% { transform: translateX(-50%) scale(1.04); opacity: 0.95; }
+        }
+      `}</style>
     </div>
   );
 }
