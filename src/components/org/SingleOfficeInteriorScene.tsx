@@ -1,8 +1,8 @@
 "use client";
 
-// SingleOfficeInteriorScene.tsx — C15.8
-// Premium single-office portal interior. No WebGL, no Three.js, no canvas,
-// no new packages, no fake live data.
+// SingleOfficeInteriorScene.tsx — C15.8 asset-first
+// Uses a premium rendered interior asset as the visual foundation, then layers
+// honest hotspots/HUD state on top. No WebGL, no canvas, no packages, no fake live data.
 
 import type { PresencePerson } from "./VirtualOfficeDesign";
 
@@ -28,32 +28,34 @@ export interface Zone {
 
 interface OfficeInteriorConfig {
   officeNumber: number;
-  variant: "executive" | "north" | "east" | "south" | "west";
   glowX: string;
   glowY: string;
-  portalTilt: string;
   accent: string;
+  assetOpacity: number;
+  moodLabel: string;
 }
 
+const OFFICE_INTERIOR_ASSET = "/virtual-office/interiors/blumark-office-portal-interior.svg";
+
 const OFFICE_INTERIOR_CONFIG: Record<number, OfficeInteriorConfig> = {
-  1: { officeNumber: 1, variant: "north", glowX: "24%", glowY: "18%", portalTilt: "-7deg", accent: "#22d3ee" },
-  2: { officeNumber: 2, variant: "east", glowX: "72%", glowY: "16%", portalTilt: "5deg", accent: "#38bdf8" },
-  3: { officeNumber: 3, variant: "south", glowX: "50%", glowY: "72%", portalTilt: "0deg", accent: "#67e8f9" },
-  4: { officeNumber: 4, variant: "west", glowX: "18%", glowY: "58%", portalTilt: "-3deg", accent: "#60a5fa" },
-  5: { officeNumber: 5, variant: "executive", glowX: "50%", glowY: "20%", portalTilt: "0deg", accent: "#a855f7" },
-  6: { officeNumber: 6, variant: "north", glowX: "64%", glowY: "22%", portalTilt: "4deg", accent: "#22d3ee" },
-  7: { officeNumber: 7, variant: "west", glowX: "28%", glowY: "64%", portalTilt: "-5deg", accent: "#38bdf8" },
-  8: { officeNumber: 8, variant: "east", glowX: "76%", glowY: "48%", portalTilt: "6deg", accent: "#67e8f9" },
-  9: { officeNumber: 9, variant: "south", glowX: "52%", glowY: "74%", portalTilt: "0deg", accent: "#22d3ee" },
+  1: { officeNumber: 1, glowX: "22%", glowY: "18%", accent: "#a855f7", assetOpacity: 0.98, moodLabel: "غرفة قرار" },
+  2: { officeNumber: 2, glowX: "72%", glowY: "18%", accent: "#38bdf8", assetOpacity: 0.98, moodLabel: "تنفيذي" },
+  3: { officeNumber: 3, glowX: "50%", glowY: "74%", accent: "#22d3ee", assetOpacity: 0.98, moodLabel: "تشغيلي" },
+  4: { officeNumber: 4, glowX: "18%", glowY: "58%", accent: "#60a5fa", assetOpacity: 0.98, moodLabel: "عملاء" },
+  5: { officeNumber: 5, glowX: "50%", glowY: "20%", accent: "#c084fc", assetOpacity: 0.98, moodLabel: "قيادي" },
+  6: { officeNumber: 6, glowX: "64%", glowY: "22%", accent: "#22d3ee", assetOpacity: 0.98, moodLabel: "نمو" },
+  7: { officeNumber: 7, glowX: "28%", glowY: "64%", accent: "#38bdf8", assetOpacity: 0.98, moodLabel: "مالي" },
+  8: { officeNumber: 8, glowX: "76%", glowY: "48%", accent: "#67e8f9", assetOpacity: 0.98, moodLabel: "فريق" },
+  9: { officeNumber: 9, glowX: "52%", glowY: "74%", accent: "#22d3ee", assetOpacity: 1, moodLabel: "بوابة داخلية" },
 };
 
 const fallbackConfig: OfficeInteriorConfig = {
   officeNumber: 0,
-  variant: "north",
   glowX: "50%",
   glowY: "22%",
-  portalTilt: "0deg",
   accent: "#22d3ee",
+  assetOpacity: 1,
+  moodLabel: "مكتب سحابي",
 };
 
 function formatOfficeNumber(officeNumber?: number | null) {
@@ -72,7 +74,7 @@ function getZones(isLinked: boolean, linkedUnitName?: string | null): Zone[] {
       stateLabel: isLinked ? "مكتب مرتبط بالهيكل الإداري" : "مكتب سحابي جاهز للربط",
       accent: "#22d3ee",
       sceneX: 50,
-      sceneY: 28,
+      sceneY: 25,
       actionLabel: "عرض الحالة",
     },
     {
@@ -82,8 +84,8 @@ function getZones(isLinked: boolean, linkedUnitName?: string | null): Zone[] {
       state: "unavailable",
       stateLabel: "غير متاح",
       accent: "#60a5fa",
-      sceneX: 67,
-      sceneY: 52,
+      sceneX: 70,
+      sceneY: 58,
       actionLabel: "بيانات الفريق",
     },
     {
@@ -93,8 +95,8 @@ function getZones(isLinked: boolean, linkedUnitName?: string | null): Zone[] {
       state: "inactive",
       stateLabel: "غير مفعّل",
       accent: "#10b981",
-      sceneX: 26,
-      sceneY: 56,
+      sceneX: 27,
+      sceneY: 59,
       actionLabel: "حالة الاجتماع",
     },
     {
@@ -104,18 +106,18 @@ function getZones(isLinked: boolean, linkedUnitName?: string | null): Zone[] {
       state: "coming",
       stateLabel: "قادم",
       accent: "#f59e0b",
-      sceneX: 82,
-      sceneY: 72,
+      sceneX: 83,
+      sceneY: 79,
       actionLabel: "وضع التركيز",
     },
     {
       id: "digital-twin",
       name: "التوأم الرقمي",
       purpose: "يعكس هذا الجدار علاقة المكتب بالإدارة أو القسم والموظفين والمهام بعد الربط.",
-      state: isLinked ? "ready_after_link" : "configuring",
-      stateLabel: isLinked ? "جاهز بعد الربط" : "جاهز بعد الربط",
+      state: "configuring",
+      stateLabel: "جاهز بعد الربط",
       accent: "#22d3ee",
-      sceneX: 29,
+      sceneX: 28,
       sceneY: 31,
       actionLabel: "عرض المسار",
     },
@@ -138,7 +140,7 @@ function getZones(isLinked: boolean, linkedUnitName?: string | null): Zone[] {
       stateLabel: "قيد التهيئة",
       accent: "#64748b",
       sceneX: 15,
-      sceneY: 76,
+      sceneY: 78,
       actionLabel: "الإعدادات",
     },
   ];
@@ -162,9 +164,9 @@ function Hotspot({ zone, selected, onSelect }: { zone: Zone; selected: boolean; 
         left: `${zone.sceneX}%`,
         top: `${zone.sceneY}%`,
         transform: "translate(-50%, -50%)",
-        zIndex: 12,
-        minWidth: 36,
-        minHeight: 36,
+        zIndex: 15,
+        minWidth: 42,
+        minHeight: 42,
         border: "none",
         background: "transparent",
         cursor: "pointer",
@@ -174,40 +176,40 @@ function Hotspot({ zone, selected, onSelect }: { zone: Zone; selected: boolean; 
       <span
         style={{
           position: "absolute",
-          inset: 4,
+          inset: 2,
           borderRadius: 999,
-          background: `${dot}12`,
-          border: `1px solid ${dot}55`,
-          boxShadow: selected ? `0 0 26px ${dot}66` : `0 0 16px ${dot}33`,
-          animation: "bmOfficePulse 2.6s ease-in-out infinite",
+          background: `${dot}10`,
+          border: `1px solid ${dot}66`,
+          boxShadow: selected ? `0 0 34px ${dot}88` : `0 0 20px ${dot}44`,
+          animation: "bmOfficePulse 2.7s ease-in-out infinite",
         }}
       />
       <span
         style={{
           position: "absolute",
-          inset: 14,
+          inset: 15,
           borderRadius: 999,
           background: dot,
-          boxShadow: `0 0 12px ${dot}`,
+          boxShadow: `0 0 15px ${dot}`,
         }}
       />
       <span
         style={{
           position: "absolute",
-          right: 35,
+          right: 42,
           top: "50%",
           transform: "translateY(-50%)",
           whiteSpace: "nowrap",
           borderRadius: 999,
-          padding: "4px 9px",
-          border: `1px solid ${dot}40`,
-          background: selected ? "rgba(3,10,24,0.92)" : "rgba(3,10,24,0.72)",
+          padding: "5px 10px",
+          border: `1px solid ${dot}44`,
+          background: selected ? "rgba(3,10,24,0.94)" : "rgba(3,10,24,0.72)",
           backdropFilter: "blur(14px)",
           WebkitBackdropFilter: "blur(14px)",
           color: selected ? "#e8fbff" : "#8ba3c7",
           fontSize: 10,
-          fontWeight: 800,
-          boxShadow: selected ? `0 12px 32px rgba(0,0,0,0.35), 0 0 22px ${dot}22` : "0 10px 22px rgba(0,0,0,0.25)",
+          fontWeight: 850,
+          boxShadow: selected ? `0 14px 36px rgba(0,0,0,0.38), 0 0 26px ${dot}22` : "0 10px 24px rgba(0,0,0,0.26)",
         }}
       >
         {zone.name}
@@ -216,115 +218,95 @@ function Hotspot({ zone, selected, onSelect }: { zone: Zone; selected: boolean; 
   );
 }
 
-function DigitalTwinWall({ isLinked, linkedUnitName }: { isLinked: boolean; linkedUnitName?: string | null }) {
-  const nodes = ["المنشأة", "الإدارة", "القسم", "الموظفون", "المهام"];
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: "9%",
-        left: "7%",
-        width: "38%",
-        height: "30%",
-        borderRadius: 22,
-        border: "1px solid rgba(34,211,238,0.25)",
-        background: "linear-gradient(145deg, rgba(8,20,42,0.78), rgba(2,8,23,0.35))",
-        boxShadow: "0 36px 90px rgba(0,0,0,0.34), inset 0 0 44px rgba(34,211,238,0.05)",
-        backdropFilter: "blur(18px)",
-        WebkitBackdropFilter: "blur(18px)",
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 24% 24%, rgba(34,211,238,0.18), transparent 36%)" }} />
-      <div style={{ position: "relative", padding: "16px 18px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "#dff7ff", marginBottom: 3 }}>التوأم الرقمي</div>
-          <div style={{ fontSize: 10, color: "#5a7898", lineHeight: 1.5 }}>
-            {isLinked && linkedUnitName ? linkedUnitName : "يتم تفعيل التوأم الرقمي بعد ربط المكتب بالهيكل الإداري."}
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-          {nodes.map((node, index) => {
-            const active = isLinked && index <= 2;
-            return (
-              <span key={node} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                <span
-                  style={{
-                    fontSize: 9,
-                    fontWeight: 800,
-                    padding: "4px 8px",
-                    borderRadius: 999,
-                    color: active ? "#dff7ff" : "#4d6178",
-                    border: active ? "1px solid rgba(34,211,238,0.36)" : "1px solid rgba(100,116,139,0.18)",
-                    background: active ? "rgba(34,211,238,0.10)" : "rgba(100,116,139,0.05)",
-                  }}
-                >
-                  {node}
-                </span>
-                {index < nodes.length - 1 && <span style={{ color: "#1d4458", fontSize: 10 }}>←</span>}
-              </span>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SmartWall({ officeNumber, isLinked }: { officeNumber?: number | null; isLinked: boolean }) {
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: "10%",
-        left: "50%",
-        transform: "translateX(-50%) perspective(900px) rotateX(2deg)",
-        width: "42%",
-        height: "27%",
-        borderRadius: 24,
-        border: "1px solid rgba(125,211,252,0.30)",
-        background: "linear-gradient(140deg, rgba(14,33,60,0.88), rgba(4,12,27,0.52))",
-        boxShadow: "0 32px 100px rgba(0,0,0,0.42), 0 0 65px rgba(34,211,238,0.12), inset 0 0 60px rgba(34,211,238,0.05)",
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(115deg, transparent 0%, rgba(255,255,255,0.08) 42%, transparent 58%)", animation: "bmWallSweep 5.5s ease-in-out infinite" }} />
-      <div style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
-        <div style={{ color: "rgba(34,211,238,0.65)", fontSize: 10, fontWeight: 900, letterSpacing: 2 }}>BLUMARK24 OFFICE PORTAL</div>
-        <div style={{ color: "#e8fbff", fontSize: 34, fontWeight: 900, lineHeight: 1 }}>OFFICE {formatOfficeNumber(officeNumber)}</div>
-        <div style={{ color: isLinked ? "#86efac" : "#fbbf24", fontSize: 11, fontWeight: 800 }}>
-          {isLinked ? "مكتب مرتبط بالهيكل الإداري" : "مكتب سحابي جاهز للربط"}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PortalArchitecture({ config, isBoard }: { config: OfficeInteriorConfig; isBoard: boolean }) {
+function InteriorAssetLayer({ config, officeNumber, isBoard, isLinked }: { config: OfficeInteriorConfig; officeNumber?: number | null; isBoard: boolean; isLinked: boolean }) {
   const accent = isBoard ? "#a855f7" : config.accent;
   return (
     <>
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #020716 0%, #041023 48%, #030817 100%)" }} />
-      <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(34,211,238,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.035) 1px, transparent 1px)", backgroundSize: "72px 72px", transform: `rotate(${config.portalTilt}) scale(1.08)`, transformOrigin: "center" }} />
-      <div style={{ position: "absolute", inset: "-18% -8% 38%", background: `radial-gradient(circle at ${config.glowX} ${config.glowY}, ${accent}28, transparent 42%)` }} />
+      <img
+        src={OFFICE_INTERIOR_ASSET}
+        alt=""
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          opacity: config.assetOpacity,
+          transform: "scale(1.01)",
+          filter: isBoard ? "saturate(1.08) hue-rotate(8deg)" : "saturate(1.04)",
+        }}
+      />
 
-      {/* Glass side walls */}
-      <div style={{ position: "absolute", top: "6%", bottom: "8%", left: "2%", width: "22%", transform: "skewY(-11deg)", borderRadius: 32, border: "1px solid rgba(125,211,252,0.12)", background: "linear-gradient(100deg, rgba(125,211,252,0.10), rgba(2,8,23,0.03))", boxShadow: "inset 0 0 48px rgba(34,211,238,0.04)" }} />
-      <div style={{ position: "absolute", top: "6%", bottom: "8%", right: "2%", width: "22%", transform: "skewY(11deg)", borderRadius: 32, border: "1px solid rgba(125,211,252,0.12)", background: "linear-gradient(260deg, rgba(125,211,252,0.10), rgba(2,8,23,0.03))", boxShadow: "inset 0 0 48px rgba(34,211,238,0.04)" }} />
+      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at ${config.glowX} ${config.glowY}, ${accent}28, transparent 34%), linear-gradient(180deg, rgba(2,7,22,0.10), rgba(2,7,22,0.30))` }} />
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.12), transparent 34%, rgba(0,0,0,0.40))" }} />
 
-      {/* Cinematic floor */}
-      <div style={{ position: "absolute", left: "12%", right: "12%", bottom: "-8%", height: "54%", borderRadius: "50% 50% 0 0", background: "radial-gradient(ellipse at 50% 0%, rgba(34,211,238,0.15), rgba(15,23,42,0.30) 35%, rgba(2,6,23,0.86) 74%)", transform: "perspective(820px) rotateX(63deg)", border: "1px solid rgba(125,211,252,0.12)", boxShadow: "0 -34px 88px rgba(34,211,238,0.06), inset 0 0 70px rgba(34,211,238,0.05)" }} />
-      <div style={{ position: "absolute", left: "49.7%", bottom: "4%", width: 2, height: "44%", background: `linear-gradient(180deg, transparent, ${accent}88, transparent)`, boxShadow: `0 0 22px ${accent}77`, transform: "perspective(600px) rotateX(56deg)", transformOrigin: "bottom" }} />
+      <div
+        style={{
+          position: "absolute",
+          top: "15.5%",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 8,
+          textAlign: "center",
+          pointerEvents: "none",
+        }}
+      >
+        <div style={{ color: "rgba(125,211,252,0.78)", fontSize: 11, fontWeight: 950, letterSpacing: 2.8 }}>BLUMARK24 OFFICE PORTAL</div>
+        <div style={{ color: "#e8fbff", fontSize: "clamp(30px, 4vw, 56px)", fontWeight: 950, lineHeight: 1, textShadow: `0 0 34px ${accent}44` }}>
+          OFFICE {formatOfficeNumber(officeNumber)}
+        </div>
+        <div style={{ marginTop: 7, color: isLinked ? "#86efac" : "#fbbf24", fontSize: 12, fontWeight: 900 }}>
+          {isLinked ? "مكتب مرتبط بالهيكل الإداري" : "مكتب سحابي جاهز للربط"}
+        </div>
+      </div>
 
-      {/* Executive zones, rendered as reflections/portals rather than furniture */}
-      <div style={{ position: "absolute", left: "58%", top: "42%", width: "27%", height: "18%", borderRadius: 26, border: "1px solid rgba(96,165,250,0.17)", background: "linear-gradient(145deg, rgba(96,165,250,0.10), rgba(2,8,23,0.15))", boxShadow: "0 34px 80px rgba(0,0,0,0.30), inset 0 0 34px rgba(96,165,250,0.05)", transform: "perspective(650px) rotateX(55deg) rotateZ(-3deg)" }} />
-      <div style={{ position: "absolute", left: "12%", top: "48%", width: "27%", height: "18%", borderRadius: 26, border: "1px solid rgba(16,185,129,0.16)", background: "linear-gradient(145deg, rgba(16,185,129,0.09), rgba(2,8,23,0.14))", boxShadow: "0 34px 80px rgba(0,0,0,0.30), inset 0 0 34px rgba(16,185,129,0.05)", transform: "perspective(650px) rotateX(55deg) rotateZ(5deg)" }} />
-      <div style={{ position: "absolute", right: "10%", bottom: "13%", width: "18%", height: "18%", borderRadius: 999, border: "1px solid rgba(245,158,11,0.17)", background: "radial-gradient(circle, rgba(245,158,11,0.09), rgba(2,8,23,0.10))", boxShadow: "0 30px 70px rgba(0,0,0,0.28), inset 0 0 32px rgba(245,158,11,0.05)" }} />
-      <div style={{ position: "absolute", left: "10%", bottom: "13%", width: "16%", height: "16%", borderRadius: 24, border: "1px solid rgba(100,116,139,0.20)", background: "linear-gradient(145deg, rgba(100,116,139,0.09), rgba(2,8,23,0.12))", boxShadow: "0 30px 70px rgba(0,0,0,0.28)" }} />
-
-      {/* Entry portal */}
-      <div style={{ position: "absolute", left: "50%", bottom: "9%", transform: "translateX(-50%)", width: "24%", height: "20%", borderRadius: "50%", border: `1px solid ${accent}33`, background: `radial-gradient(ellipse at 50% 50%, ${accent}16, transparent 62%)`, boxShadow: `0 0 70px ${accent}16`, animation: "bmPortalBreath 4s ease-in-out infinite" }} />
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          bottom: "8%",
+          transform: "translateX(-50%)",
+          zIndex: 7,
+          width: "25%",
+          height: "15%",
+          borderRadius: "50%",
+          border: `1px solid ${accent}33`,
+          background: `radial-gradient(ellipse at 50% 50%, ${accent}18, transparent 68%)`,
+          boxShadow: `0 0 75px ${accent}18`,
+          animation: "bmPortalBreath 4.3s ease-in-out infinite",
+          pointerEvents: "none",
+        }}
+      />
     </>
+  );
+}
+
+function SceneIdentityCard({ officeTitle, officeNumber, isLinked, moodLabel }: { officeTitle?: string; officeNumber?: number | null; isLinked: boolean; moodLabel: string }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "12%",
+        right: "6%",
+        zIndex: 14,
+        width: "min(250px, 28vw)",
+        minWidth: 178,
+        borderRadius: 24,
+        border: "1px solid rgba(255,255,255,0.11)",
+        background: "linear-gradient(145deg, rgba(6,20,39,0.78), rgba(4,12,27,0.34))",
+        backdropFilter: "blur(18px)",
+        WebkitBackdropFilter: "blur(18px)",
+        boxShadow: "0 30px 82px rgba(0,0,0,0.36)",
+        padding: "14px 16px",
+      }}
+    >
+      <div style={{ fontSize: 9, color: "#5a7898", fontWeight: 950, letterSpacing: 1 }}>داخل المكتب · {moodLabel}</div>
+      <div style={{ fontSize: 15, color: "#e8fbff", fontWeight: 950, marginTop: 4 }}>{officeTitle ?? `مكتب ${formatOfficeNumber(officeNumber)}`}</div>
+      <div style={{ fontSize: 10, color: isLinked ? "#86efac" : "#fbbf24", fontWeight: 850, marginTop: 6 }}>
+        {isLinked ? "مكتب مرتبط بالهيكل الإداري" : "مكتب سحابي جاهز للربط"}
+      </div>
+    </div>
   );
 }
 
@@ -361,35 +343,12 @@ export default function SingleOfficeInteriorScene({
         overflow: "hidden",
         userSelect: "none",
         background: "#020716",
+        isolation: "isolate",
       }}
       dir="rtl"
     >
-      <PortalArchitecture config={config} isBoard={isBoard} />
-      <DigitalTwinWall isLinked={isLinked} linkedUnitName={linkedUnitName} />
-      <SmartWall officeNumber={officeNumber} isLinked={isLinked} />
-
-      <div
-        style={{
-          position: "absolute",
-          top: "13%",
-          right: "7%",
-          width: "20%",
-          minWidth: 170,
-          borderRadius: 22,
-          border: "1px solid rgba(255,255,255,0.10)",
-          background: "linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.025))",
-          backdropFilter: "blur(18px)",
-          WebkitBackdropFilter: "blur(18px)",
-          boxShadow: "0 28px 70px rgba(0,0,0,0.30)",
-          padding: "14px 16px",
-        }}
-      >
-        <div style={{ fontSize: 9, color: "#5a7898", fontWeight: 900, letterSpacing: 1 }}>داخل المكتب</div>
-        <div style={{ fontSize: 14, color: "#e8fbff", fontWeight: 900, marginTop: 4 }}>{officeTitle ?? `مكتب ${formatOfficeNumber(officeNumber)}`}</div>
-        <div style={{ fontSize: 10, color: isLinked ? "#86efac" : "#fbbf24", fontWeight: 800, marginTop: 6 }}>
-          {isLinked ? "مكتب مرتبط بالهيكل الإداري" : "مكتب سحابي جاهز للربط"}
-        </div>
-      </div>
+      <InteriorAssetLayer config={config} officeNumber={officeNumber} isBoard={isBoard} isLinked={isLinked} />
+      <SceneIdentityCard officeTitle={officeTitle} officeNumber={officeNumber} isLinked={isLinked} moodLabel={config.moodLabel} />
 
       {zones.map((zone) => (
         <Hotspot key={zone.id} zone={zone} selected={selectedZone?.id === zone.id} onSelect={onZoneSelect} />
@@ -400,17 +359,9 @@ export default function SingleOfficeInteriorScene({
           position: "absolute",
           inset: 0,
           pointerEvents: "none",
-          background: "linear-gradient(180deg, rgba(0,0,0,0.22), transparent 28%, rgba(0,0,0,0.30))",
-        }}
-      />
-
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          background: "linear-gradient(115deg, transparent 0%, rgba(34,211,238,0.055) 47%, transparent 58%)",
-          animation: "bmEntrySweep 1.3s ease-out both",
+          zIndex: 20,
+          background: "linear-gradient(115deg, transparent 0%, rgba(34,211,238,0.065) 48%, transparent 58%)",
+          animation: "bmEntrySweep 1.25s ease-out both",
         }}
       />
 
@@ -421,11 +372,13 @@ export default function SingleOfficeInteriorScene({
             bottom: "14%",
             left: "50%",
             transform: "translateX(-50%)",
+            zIndex: 14,
             fontSize: 10,
-            color: "rgba(139,163,199,0.58)",
-            fontWeight: 700,
+            color: "rgba(139,163,199,0.62)",
+            fontWeight: 800,
             pointerEvents: "none",
             whiteSpace: "nowrap",
+            textShadow: "0 10px 30px rgba(0,0,0,0.4)",
           }}
         >
           اختر نقطة مضيئة داخل المكتب
@@ -434,22 +387,20 @@ export default function SingleOfficeInteriorScene({
 
       <style>{`
         @keyframes bmEntrySweep {
-          0% { opacity: 0; transform: translateX(34%); }
+          0% { opacity: 0; transform: translateX(36%); }
           45% { opacity: 1; }
-          100% { opacity: 0; transform: translateX(-34%); }
-        }
-        @keyframes bmWallSweep {
-          0%, 100% { transform: translateX(90%); opacity: 0; }
-          38%, 62% { opacity: 1; }
-          100% { transform: translateX(-90%); }
+          100% { opacity: 0; transform: translateX(-36%); }
         }
         @keyframes bmOfficePulse {
-          0%, 100% { transform: scale(0.84); opacity: 0.58; }
+          0%, 100% { transform: scale(0.84); opacity: 0.56; }
           50% { transform: scale(1.08); opacity: 1; }
         }
         @keyframes bmPortalBreath {
           0%, 100% { transform: translateX(-50%) scale(0.96); opacity: 0.55; }
-          50% { transform: translateX(-50%) scale(1.04); opacity: 0.95; }
+          50% { transform: translateX(-50%) scale(1.04); opacity: 0.96; }
+        }
+        @media (max-width: 720px) {
+          button[aria-label] span:last-child { display: none; }
         }
       `}</style>
     </div>
