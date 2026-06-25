@@ -4,6 +4,7 @@
 // Uses a premium rendered interior asset as the visual foundation, then layers
 // honest hotspots/HUD state on top. No WebGL, no canvas, no packages, no fake live data.
 
+import { useState } from "react";
 import type { PresencePerson } from "./VirtualOfficeDesign";
 
 export type ZoneState =
@@ -35,7 +36,17 @@ interface OfficeInteriorConfig {
   moodLabel: string;
 }
 
-const OFFICE_INTERIOR_ASSET = "/virtual-office/interiors/blumark-office-portal-interior.svg";
+const officeInteriorAssets: Record<number, string> = {
+  1: "/virtual-office/interiors/blumark-office-portal-interior.svg",
+  2: "/virtual-office/interiors/blumark-office-portal-interior.svg",
+  3: "/virtual-office/interiors/blumark-office-portal-interior.svg",
+  4: "/virtual-office/interiors/blumark-office-portal-interior.svg",
+  5: "/virtual-office/interiors/blumark-office-portal-interior.svg",
+  6: "/virtual-office/interiors/blumark-office-portal-interior.svg",
+  7: "/virtual-office/interiors/blumark-office-portal-interior.svg",
+  8: "/virtual-office/interiors/blumark-office-portal-interior.svg",
+  9: "/virtual-office/interiors/office-09-interior.webp",
+};
 
 const OFFICE_INTERIOR_CONFIG: Record<number, OfficeInteriorConfig> = {
   1: { officeNumber: 1, glowX: "22%", glowY: "18%", accent: "#a855f7", assetOpacity: 0.98, moodLabel: "غرفة قرار" },
@@ -218,14 +229,77 @@ function Hotspot({ zone, selected, onSelect }: { zone: Zone; selected: boolean; 
   );
 }
 
-function InteriorAssetLayer({ config, officeNumber, isBoard, isLinked }: { config: OfficeInteriorConfig; officeNumber?: number | null; isBoard: boolean; isLinked: boolean }) {
+function AssetPlaceholder({ assetSrc }: { assetSrc: string }) {
+  const filePath = assetSrc.replace(/^\//, "public/");
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 14,
+        background: "linear-gradient(180deg, #020a1a 0%, #010610 100%)",
+        border: "1px dashed rgba(34,211,238,0.18)",
+      }}
+    >
+      <div
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 16,
+          border: "1px solid rgba(34,211,238,0.22)",
+          background: "rgba(34,211,238,0.06)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 24,
+        }}
+      >
+        🏢
+      </div>
+      <div style={{ textAlign: "center", padding: "0 24px" }}>
+        <div style={{ fontSize: 15, color: "#e8fbff", fontWeight: 900, marginBottom: 8 }}>
+          لم يتم إضافة رندر المكتب الداخلي بعد
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: "#7892b2",
+            fontFamily: "monospace",
+            background: "rgba(34,211,238,0.07)",
+            border: "1px solid rgba(34,211,238,0.16)",
+            borderRadius: 8,
+            padding: "6px 12px",
+            display: "inline-block",
+            direction: "ltr",
+            textAlign: "left",
+          }}
+        >
+          أضف الملف: {filePath}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InteriorAssetLayer({ config, assetSrc, officeNumber, isBoard, isLinked }: { config: OfficeInteriorConfig; assetSrc: string; officeNumber?: number | null; isBoard: boolean; isLinked: boolean }) {
+  const [imgError, setImgError] = useState(false);
   const accent = isBoard ? "#a855f7" : config.accent;
+
+  if (imgError) {
+    return <AssetPlaceholder assetSrc={assetSrc} />;
+  }
+
   return (
     <>
       <img
-        src={OFFICE_INTERIOR_ASSET}
+        src={assetSrc}
         alt=""
         aria-hidden="true"
+        onError={() => setImgError(true)}
         style={{
           position: "absolute",
           inset: 0,
@@ -332,6 +406,9 @@ export default function SingleOfficeInteriorScene({
   onZoneSelect,
 }: SingleOfficeInteriorSceneProps) {
   const config = officeNumber ? OFFICE_INTERIOR_CONFIG[officeNumber] ?? fallbackConfig : fallbackConfig;
+  const assetSrc = officeNumber
+    ? officeInteriorAssets[officeNumber] ?? officeInteriorAssets[1]
+    : officeInteriorAssets[1];
   const zones = getZones(isLinked, linkedUnitName);
 
   return (
@@ -347,7 +424,7 @@ export default function SingleOfficeInteriorScene({
       }}
       dir="rtl"
     >
-      <InteriorAssetLayer config={config} officeNumber={officeNumber} isBoard={isBoard} isLinked={isLinked} />
+      <InteriorAssetLayer key={assetSrc} config={config} assetSrc={assetSrc} officeNumber={officeNumber} isBoard={isBoard} isLinked={isLinked} />
       <SceneIdentityCard officeTitle={officeTitle} officeNumber={officeNumber} isLinked={isLinked} moodLabel={config.moodLabel} />
 
       {zones.map((zone) => (
