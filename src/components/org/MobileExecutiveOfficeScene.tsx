@@ -14,6 +14,7 @@ import { resolveOfficePresencePolicy } from "@/lib/virtual-office/officePresence
 import { buildOfficeTextMeetingInvite } from "@/lib/virtual-office/officeTextMeetingInvites";
 import { buildOfficeArtifactSummary } from "@/lib/virtual-office/officeArtifactSummary";
 import { resolveMeetingRoomGovernance } from "@/lib/virtual-office/officeMeetingRoomGovernance";
+import { resolveOwnerGovernancePolicy } from "@/lib/virtual-office/ownerGovernancePolicy";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -105,12 +106,26 @@ function OfficeChip({ room, selected, onClick, position }: {
     hasApproval: true,
     hasLinkedTeam: room.isCenter || (room.employeeCount ?? 0) > 0,
   });
+  // C16.9-B — owner governance is surfaced as display-only package/role readiness.
+  // No billing, database, auth, RLS, or tenant data changes are made here.
+  const ownerGovernance = resolveOwnerGovernancePolicy({
+    packageTier: "advanced",
+    role: "owner",
+    officeCount: 9,
+    linkedOfficeCount: room.isUnassigned ? 0 : 1,
+    enabledVirtualOffice: true,
+    enabledMeetingRooms: true,
+    enabledReports: true,
+    enabledTenantBranding: false,
+  });
+  const ownerControls = ownerGovernance.capabilities.find((entry) => entry.key === "owner_controls") ?? null;
   const suggestionText = `${suggestion.title} — ${suggestion.detail}`;
   const presenceText = `الحضور: ${presence.label}`;
   const inviteText = `${textInvite.actionLabel}: ${textInvite.status === "ready" ? "مسودة نصية آمنة" : "غير متاح"}`;
   const artifactText = `الملفات والتقارير: ${reportArtifact?.state === "ready" ? reportArtifact.title : "جاهزة بعد الربط"}`;
   const meetingRoomText = `غرفة الاجتماع: ${meetingRoom.canPrepareTextRoom ? meetingRoom.title : meetingRoom.detail}`;
-  const accessibleSummary = `${suggestionText} · ${presenceText} · ${inviteText} · ${artifactText} · ${meetingRoomText}`;
+  const ownerGovernanceText = `حوكمة المالك: ${ownerControls?.status === "enabled" ? ownerControls.title : "غير متاحة"}`;
+  const accessibleSummary = `${suggestionText} · ${presenceText} · ${inviteText} · ${artifactText} · ${meetingRoomText} · ${ownerGovernanceText}`;
 
   // C16.3-D — safe motion adapter.
   // The chip's coordinate transform (translate(-50%, -50%)) must NEVER change,
@@ -243,6 +258,32 @@ function OfficeChip({ room, selected, onClick, position }: {
           }}
         >
           غرفة نصية
+        </span>
+      )}
+
+      {(interactive || selected) && ownerControls?.status === "enabled" && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 15,
+            left: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            borderRadius: 999,
+            padding: "2px 6px",
+            border: "1px solid rgba(147,197,253,0.30)",
+            background: "rgba(3,8,20,0.88)",
+            color: "#93c5fd",
+            fontSize: 7.5,
+            fontWeight: 800,
+            lineHeight: 1,
+            boxShadow: "0 0 8px rgba(147,197,253,0.18)",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          حوكمة
         </span>
       )}
 
