@@ -1,0 +1,101 @@
+/* C20-B — Office control modal iPhone scroll safety */
+@media (max-width: 767px) {
+  div[role="dialog"][aria-label^="وحدة تحكم"] {
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) !important;
+    overflow: hidden !important;
+    overscroll-behavior: contain !important;
+  }
+
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] {
+    width: min(100%, 390px) !important;
+    height: min(calc(100dvh - 26px), 720px) !important;
+    max-height: min(calc(100dvh - 26px), 720px) !important;
+    border-radius: 24px !important;
+    overflow: hidden !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+  }
+
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child {
+    padding: 12px 14px 9px !important;
+  }
+
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child h2 {
+    font-size: 14px !important;
+    line-height: 1.35 !important;
+  }
+
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) {
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 9px 14px 12px !important;
+    gap: 7px !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: thin !important;
+  }
+
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2)::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2)::-webkit-scrollbar-thumb {
+    background: rgba(125, 211, 252, 0.24);
+    border-radius: 999px;
+  }
+
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) [role="tablist"] {
+    position: sticky !important;
+    top: -9px !important;
+    z-index: 5 !important;
+    padding-top: 4px !important;
+    background: linear-gradient(180deg, rgba(8, 14, 36, 0.98), rgba(8, 14, 36, 0.88)) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+  }
+
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) {
+    padding: 9px 14px max(12px, env(safe-area-inset-bottom)) !important;
+    background: linear-gradient(180deg, rgba(8, 14, 36, 0.92), rgba(6, 10, 28, 0.99)) !important;
+    box-shadow: 0 -14px 28px rgba(0, 0, 0, 0.24) !important;
+  }
+
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) > div {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+  }
+
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button {
+    min-width: 0 !important;
+    min-height: 38px !important;
+    padding-inline: 10px !important;
+    white-space: nowrap !important;
+  }
+
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button:only-child,
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button:nth-last-child(1):first-child,
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button:nth-child(1):nth-last-child(2) {
+    grid-column: auto !important;
+  }
+}
+
+@media (max-width: 390px) {
+  div[role="dialog"][aria-label^="وحدة تحكم"] {
+    padding-inline: 10px !important;
+  }
+
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] {
+    width: min(100%, 372px) !important;
+    height: calc(100dvh - 22px) !important;
+    max-height: calc(100dvh - 22px) !important;
+    border-radius: 22px !important;
+  }
+
+  div[role="dialog"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) {
+    padding-inline: 12px !important;
+  }
+}
