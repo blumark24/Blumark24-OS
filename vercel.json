@@ -1,3 +1,12 @@
 {
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "c16-*": false,
+      "internal-*": false,
+      "test-*": false,
+      "docs-*": false
+    }
+  }
 }
