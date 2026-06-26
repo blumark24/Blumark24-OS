@@ -3,6 +3,7 @@
 // FullscreenOfficeExperience — exact 2D top-view office crop.
 // Shows the selected office cell from the same external office map.
 
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, X } from "lucide-react";
 import type { MappingSource, OfficeRoom, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
 import { buildOfficeInteriorProfile } from "@/lib/virtual-office/officeInteriorProfile";
@@ -10,6 +11,7 @@ import { buildTextMeetingRoom } from "@/lib/virtual-office/textMeetingRoom";
 
 const MAP_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
+const CLOSE_MOTION_MS = 170;
 
 const OFFICE_CROPS: Record<number, { position: string; label: string }> = {
   1: { position: "right top", label: "أعلى يمين" },
@@ -99,10 +101,25 @@ export default function FullscreenOfficeExperience({
     ? ["تحديث المهام", "تحديد المسؤول", "إغلاق المتابعة"]
     : ["استكمال الربط", "تأكيد الصلاحية", "إعادة الفحص"];
 
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
+
+  const handleClose = useCallback(() => {
+    if (isClosing) return;
+    setIsClosing(true);
+    closeTimerRef.current = setTimeout(onClose, CLOSE_MOTION_MS);
+  }, [isClosing, onClose]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
   return (
-    <div role="dialog" aria-modal="true" aria-label={`داخل ${displayName}`} className="bm-office-portal-shell" dir="rtl">
+    <div role="dialog" aria-modal="true" aria-label={`داخل ${displayName}`} className={`bm-office-portal-shell ${isClosing ? "is-closing" : "is-opening"}`} dir="rtl">
       <div className="bm-office-portal-topbar">
-        <button type="button" onClick={onClose} className="bm-office-portal-back">
+        <button type="button" onClick={handleClose} className="bm-office-portal-back">
           <ArrowRight size={14} />
           المقر
         </button>
@@ -120,7 +137,7 @@ export default function FullscreenOfficeExperience({
           {isLinked && mappingSource && <span>{sourceLabel[mappingSource]}</span>}
         </div>
 
-        <button type="button" onClick={onClose} aria-label="إغلاق" className="bm-office-portal-close">
+        <button type="button" onClick={handleClose} aria-label="إغلاق" className="bm-office-portal-close">
           <X size={13} />
         </button>
       </div>
@@ -221,6 +238,10 @@ export default function FullscreenOfficeExperience({
           flex-direction: column;
           background: #020716;
           overflow: hidden;
+          animation: bm-office-shell-in 140ms ease-out both;
+        }
+        .bm-office-portal-shell.is-closing {
+          animation: bm-office-shell-out 160ms ease-in both;
         }
         .bm-office-portal-topbar {
           flex-shrink: 0;
@@ -234,6 +255,12 @@ export default function FullscreenOfficeExperience({
           align-items: center;
           gap: 10px;
           z-index: 20;
+          animation: bm-office-topbar-in 180ms ease-out both;
+        }
+        .bm-office-portal-shell.is-closing .bm-office-portal-topbar {
+          opacity: 0;
+          transform: translateY(-4px);
+          transition: opacity 140ms ease, transform 140ms ease;
         }
         .bm-office-portal-back {
           display: inline-flex;
@@ -247,6 +274,11 @@ export default function FullscreenOfficeExperience({
           font-weight: 800;
           padding: 6px 0;
           flex-shrink: 0;
+          transition: color 140ms ease, transform 140ms ease;
+        }
+        .bm-office-portal-back:hover {
+          color: #c8daf0;
+          transform: translateX(1px);
         }
         .bm-office-portal-divider {
           width: 1px;
@@ -302,6 +334,13 @@ export default function FullscreenOfficeExperience({
           justify-content: center;
           cursor: pointer;
           flex-shrink: 0;
+          transition: border-color 140ms ease, background 140ms ease, color 140ms ease, transform 140ms ease;
+        }
+        .bm-office-portal-close:hover {
+          border-color: rgba(125,211,252,0.24);
+          background: rgba(125,211,252,0.08);
+          color: #dbeafe;
+          transform: translateY(-1px);
         }
         .bm-office-portal-main {
           position: relative;
@@ -324,6 +363,14 @@ export default function FullscreenOfficeExperience({
           border: 1px solid rgba(125,211,252,0.16);
           box-shadow: 0 30px 96px rgba(0,0,0,0.56), 0 0 0 1px rgba(255,255,255,0.025) inset;
           background: #020716;
+          animation: bm-office-frame-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+          transform-origin: center center;
+          transition: opacity 150ms ease, transform 150ms ease, filter 150ms ease;
+        }
+        .bm-office-portal-shell.is-closing .bm-office-crop-frame {
+          opacity: 0;
+          transform: scale(0.992);
+          filter: saturate(0.9) brightness(0.82);
         }
         .bm-office-crop-image {
           position: absolute;
@@ -331,6 +378,8 @@ export default function FullscreenOfficeExperience({
           background-size: 300% 300%;
           background-repeat: no-repeat;
           image-rendering: auto;
+          animation: bm-office-image-settle 280ms ease-out both;
+          transform-origin: center center;
         }
         .bm-office-crop-vignette {
           position: absolute;
@@ -357,6 +406,7 @@ export default function FullscreenOfficeExperience({
           letter-spacing: 0.5px;
           white-space: nowrap;
           pointer-events: none;
+          animation: bm-office-pill-in 190ms 70ms ease-out both;
         }
         .bm-office-crop-pill span {
           width: 6px;
@@ -377,6 +427,12 @@ export default function FullscreenOfficeExperience({
           box-shadow: 0 20px 55px rgba(0,0,0,0.38), 0 0 0 1px rgba(255,255,255,0.025) inset;
           padding: 12px;
           pointer-events: none;
+          animation: bm-office-panel-in 240ms 55ms cubic-bezier(0.16, 1, 0.3, 1) both;
+          transition: opacity 150ms ease, transform 150ms ease;
+        }
+        .bm-office-portal-shell.is-closing .bm-office-command-panel {
+          opacity: 0;
+          transform: translate3d(10px, 4px, 0) scale(0.99);
         }
         .bm-office-command-kicker {
           font-size: 9px;
@@ -409,6 +465,12 @@ export default function FullscreenOfficeExperience({
           background: rgba(255,255,255,0.035);
           padding: 7px 4px;
           text-align: center;
+          transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+        }
+        .bm-office-command-stats div:hover {
+          border-color: rgba(125,211,252,0.20);
+          background: rgba(125,211,252,0.045);
+          transform: translateY(-1px);
         }
         .bm-office-command-stats span {
           display: block;
@@ -432,6 +494,11 @@ export default function FullscreenOfficeExperience({
           border-radius: 14px;
           padding: 9px 10px;
           margin-top: 9px;
+          transition: box-shadow 160ms ease, transform 160ms ease;
+        }
+        .bm-office-command-room:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 10px 26px rgba(0,0,0,0.18);
         }
         .bm-office-command-room div {
           min-width: 0;
@@ -465,6 +532,7 @@ export default function FullscreenOfficeExperience({
           border: 1px solid rgba(148,163,184,0.10);
           background: rgba(255,255,255,0.035);
           padding: 9px;
+          animation: bm-office-panel-in 220ms 90ms cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         .bm-office-text-room-head {
           display: flex;
@@ -541,6 +609,11 @@ export default function FullscreenOfficeExperience({
           justify-content: center;
           font-size: 8px;
           font-weight: 950;
+          transition: transform 150ms ease, box-shadow 150ms ease;
+        }
+        .bm-office-command-people b:hover {
+          transform: translateY(-1px) scale(1.03);
+          box-shadow: 0 8px 18px rgba(0,0,0,0.22);
         }
         .bm-office-command-people small {
           color: #64748b;
@@ -552,6 +625,51 @@ export default function FullscreenOfficeExperience({
           font-size: 9px !important;
           font-weight: 800;
           text-align: center;
+        }
+        @keyframes bm-office-shell-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes bm-office-shell-out {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+        @keyframes bm-office-topbar-in {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes bm-office-frame-in {
+          from { opacity: 0; transform: scale(0.992); filter: saturate(0.92) brightness(0.88); }
+          to { opacity: 1; transform: scale(1); filter: saturate(1) brightness(1); }
+        }
+        @keyframes bm-office-image-settle {
+          from { transform: scale(1.012); }
+          to { transform: scale(1); }
+        }
+        @keyframes bm-office-panel-in {
+          from { opacity: 0; transform: translate3d(12px, 6px, 0) scale(0.99); }
+          to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+        }
+        @keyframes bm-office-pill-in {
+          from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .bm-office-portal-shell,
+          .bm-office-portal-topbar,
+          .bm-office-crop-frame,
+          .bm-office-crop-image,
+          .bm-office-crop-pill,
+          .bm-office-command-panel,
+          .bm-office-text-room-workspace {
+            animation: none !important;
+            transition: none !important;
+            transform: none !important;
+            filter: none !important;
+          }
+          .bm-office-portal-shell.is-closing {
+            opacity: 0;
+          }
         }
         @media (max-width: 640px) {
           .bm-office-portal-topbar {
