@@ -8,7 +8,7 @@ import BlumarkLandingFooter from "@/components/landing/BlumarkLandingFooter";
 // for `/dashboard` and other internal routes is handled by middleware.ts and
 // the per-route guards.
 
-const landingRelease = "2026-06-26-enterprise-ops-copy-v3";
+const landingRelease = "2026-06-26-enterprise-ops-copy-final";
 
 const heroCopyPatch = String.raw`
 (function () {
