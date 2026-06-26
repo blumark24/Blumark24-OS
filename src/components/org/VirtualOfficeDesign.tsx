@@ -23,7 +23,11 @@ import type {
   ExecutiveOfficeRoomMapping,
   ExecutiveOfficeRoomMappingByRoom,
 } from "@/lib/tenant/executiveOfficeRoomMappings";
-import VirtualOfficeReferenceScene, { type SceneRoom, formatOfficeNumber } from "./VirtualOfficeReferenceScene";
+import VirtualOfficeReferenceScene, {
+  type SceneRoom,
+  formatOfficeNumber,
+  OfficeTopViewCrop,
+} from "./VirtualOfficeReferenceScene";
 import MobileExecutiveOfficeScene from "./MobileExecutiveOfficeScene";
 
 // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
@@ -1125,7 +1129,29 @@ function RoomDetailPanel({
 
         {/* Office previews — read-only, derived from existing data only */}
         {opened && (
-          <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* EXECUTIVE-OFFICE-TOP-VIEW-CROP-1 — 2D top-down zoomed crop of
+                the same office region from the outdoor map. Same DNA. No
+                internal/3D perspective. Replaces the old internal scene. */}
+            {room.officeNumber && room.officeNumber >= 1 && room.officeNumber <= 8 && (
+              <OfficeTopViewCrop
+                officeNumber={room.officeNumber}
+                title={room.isUnassigned ? officeLabel(room.officeNumber) : room.name}
+                statusLabel={
+                  mappingSource === "saved"   ? "ربط محفوظ"
+                  : mappingSource === "preview" ? "ربط تجريبي"
+                  : mappingSource === "auto"    ? "ربط تلقائي من الهيكل"
+                  : "غير مخصص"
+                }
+                statusColor={
+                  mappingSource === "saved"   ? "#22d3ee"
+                  : mappingSource === "preview" ? "#10b981"
+                  : mappingSource === "auto"    ? "#a855f7"
+                  : "#fbbf24"
+                }
+              />
+            )}
+
             {/* قاعة الاجتماعات — preview */}
             <div style={{ borderRadius: 10, border: "1px solid rgba(34,211,238,0.16)", background: "rgba(34,211,238,0.05)", padding: "10px 11px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

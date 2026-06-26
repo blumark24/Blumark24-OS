@@ -46,6 +46,10 @@ export interface VirtualOfficeReferenceSceneProps {
 // ─── Asset path ───────────────────────────────────────────────────────────────
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
+// Natural pixel dimensions of the asset above. Used by OfficeTopViewCrop to
+// compute the aspect ratio of each office's cropped region.
+const IMAGE_NATURAL_WIDTH = 1672;
+const IMAGE_NATURAL_HEIGHT = 941;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -104,6 +108,156 @@ function NumberBadge({ n, accent = "#22d3ee" }: { n?: number; accent?: string })
         flexShrink: 0,
       }}
     >{formatOfficeNumber(n)}</span>
+  );
+}
+
+// ─── EXECUTIVE-OFFICE-TOP-VIEW-CROP-1 ─────────────────────────────────────────
+// Helper + component that show a 2D top-down zoomed crop of a single office
+// from the same outdoor office-map image. No new asset, no new hotspots.
+//
+// Given an office number (1..8) we look up the slot's percentage rectangle in
+// SLOT_POSITIONS and arrange the original image absolutely-positioned inside a
+// clipped container so the office region fills the visible area while keeping
+// the asset's natural aspect ratio.
+
+function pct(value: string | undefined): number {
+  if (!value) return 0;
+  const n = Number(value.replace("%", ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+export interface OfficeSlotRect {
+  topPct: number;    // % of source image height
+  leftPct: number;   // % of source image width
+  widthPct: number;  // %
+  heightPct: number; // %
+}
+
+// Convert a 1..8 office number to its source-image rectangle.
+// Office 9 (Board) has no slot on the map and returns null.
+export function getOfficeSlotRect(officeNumber: number | undefined): OfficeSlotRect | null {
+  if (officeNumber == null || officeNumber < 1 || officeNumber > SLOT_POSITIONS.length) {
+    return null;
+  }
+  const slot = SLOT_POSITIONS[officeNumber - 1];
+  if (!slot) return null;
+  const leftPct   = slot.left   != null ? pct(slot.left)   : 100 - pct(slot.right ?? "0") - pct(slot.width);
+  const topPct    = slot.top    != null ? pct(slot.top)    : 100 - pct(slot.bottom ?? "0") - pct(slot.height);
+  return {
+    topPct,
+    leftPct,
+    widthPct:  pct(slot.width),
+    heightPct: pct(slot.height),
+  };
+}
+
+export interface OfficeTopViewCropProps {
+  officeNumber: number;
+  // Optional small overlays (kept intentionally minimal per spec).
+  title?: string;
+  statusLabel?: string;
+  statusColor?: string;
+}
+
+export function OfficeTopViewCrop({
+  officeNumber, title, statusLabel, statusColor,
+}: OfficeTopViewCropProps) {
+  const rect = getOfficeSlotRect(officeNumber);
+  if (!rect) return null;
+
+  const { topPct, leftPct, widthPct, heightPct } = rect;
+
+  // Container aspect ratio = the office region's pixel aspect.
+  const officeAspect =
+    (widthPct  * IMAGE_NATURAL_WIDTH) /
+    (heightPct * IMAGE_NATURAL_HEIGHT);
+
+  // Inner image scaled so its width relative to the container equals 100/widthPct.
+  // Image's natural aspect is preserved via height:auto. The image is then
+  // shifted so the office region aligns to the container's top-left corner.
+  const innerWidthPct = (100 / widthPct) * 100;
+  const innerLeftPct  = -(leftPct / widthPct) * 100;
+  const innerTopPct   = -(topPct  / heightPct) * 100;
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        aspectRatio: `${officeAspect}`,
+        borderRadius: 12,
+        overflow: "hidden",
+        border: "1px solid rgba(148,163,184,0.18)",
+        background: "#06111f",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={IMAGE_SRC}
+        alt=""
+        aria-hidden
+        draggable={false}
+        style={{
+          position: "absolute",
+          width: `${innerWidthPct}%`,
+          height: "auto",
+          left: `${innerLeftPct}%`,
+          top: `${innerTopPct}%`,
+          pointerEvents: "none",
+          userSelect: "none",
+        }}
+      />
+      {/* Subtle vignette to make labels readable without covering the scene */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          background: "linear-gradient(180deg, rgba(2,8,23,0.45) 0%, rgba(2,8,23,0) 28%, rgba(2,8,23,0) 70%, rgba(2,8,23,0.40) 100%)",
+        }}
+      />
+      {/* Top-start: small office-number + title pill */}
+      {title && (
+        <span
+          style={{
+            position: "absolute", top: 10, insetInlineStart: 10,
+            display: "inline-flex", alignItems: "center", gap: 6,
+            background: "rgba(2,8,23,0.78)",
+            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+            border: "1px solid rgba(148,163,184,0.28)",
+            borderRadius: 999, padding: "3px 9px 3px 7px",
+            fontSize: 11, fontWeight: 700, color: "#e5edf8",
+            maxWidth: "70%",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }}
+        >
+          <NumberBadge n={officeNumber} />
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {title}
+          </span>
+        </span>
+      )}
+      {/* Top-end: small status pill */}
+      {statusLabel && (
+        <span
+          style={{
+            position: "absolute", top: 10, insetInlineEnd: 10,
+            display: "inline-flex", alignItems: "center", gap: 5,
+            background: "rgba(2,8,23,0.78)",
+            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+            border: `1px solid ${statusColor ?? "rgba(148,163,184,0.30)"}55`,
+            borderRadius: 999, padding: "2px 9px",
+            fontSize: 10, fontWeight: 700, color: statusColor ?? "#cbd5e1",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {statusColor && (
+            <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor, boxShadow: `0 0 6px ${statusColor}` }} />
+          )}
+          {statusLabel}
+        </span>
+      )}
+    </div>
   );
 }
 
