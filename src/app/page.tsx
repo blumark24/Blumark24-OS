@@ -14,35 +14,40 @@ export const revalidate = 0;
 export const metadata: Metadata = {
   title: "Blumark24 OS | منصة تشغيل ذكية لإدارة الأعمال",
   description:
-    "منصة أعمال موحّدة لإدارة العملاء، الموظفين، المهام، التقارير، والأتمتة في تجربة تشغيل واحدة تساعد المنشآت على تنظيم العمليات ورفع كفاءة الأداء.",
+    "Blumark24 OS منصة سعودية موحّدة لإدارة العملاء، الفرق، المهام، التقارير، المكتب الافتراضي، والمساعد الذكي، تساعد المنشآت على تنظيم العمليات ورفع كفاءة الأداء وتسريع اتخاذ القرار.",
   keywords: [
     "Blumark24",
     "Blumark24 OS",
     "منصة تشغيل ذكية",
-    "منصة إدارة الأعمال",
+    "منصة تشغيل ذكية لإدارة الأعمال",
+    "منصة سعودية لإدارة الأعمال",
+    "نظام إدارة الأعمال",
     "نظام تشغيل الأعمال",
     "إدارة العملاء",
     "إدارة الموظفين",
+    "إدارة الفرق",
     "إدارة المهام",
     "التقارير التشغيلية",
+    "المكتب الافتراضي",
     "المساعد الذكي",
+    "أتمتة الأعمال",
     "AI business OS",
     "Business operating system",
     "CRM",
   ],
   openGraph: {
-    title: "Blumark24 OS | Smart Business Operating Platform",
+    title: "Blumark24 OS | منصة تشغيل ذكية لإدارة الأعمال",
     description:
-      "A unified business operating platform for clients, employees, tasks, reports, and AI assistance.",
+      "منصة سعودية موحّدة تجمع العملاء، الفرق، المهام، التقارير، المكتب الافتراضي، والمساعد الذكي في تجربة تشغيل واحدة.",
     siteName: "Blumark24 OS",
     locale: "ar_SA",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Blumark24 OS | Smart Business Operating Platform",
+    title: "Blumark24 OS | منصة تشغيل ذكية لإدارة الأعمال",
     description:
-      "A unified business operating platform for clients, employees, tasks, reports, and AI assistance.",
+      "منصة سعودية موحّدة لإدارة العملاء، الفرق، المهام، التقارير، المكتب الافتراضي، والمساعد الذكي.",
   },
 };
 
