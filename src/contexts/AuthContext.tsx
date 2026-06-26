@@ -303,8 +303,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
     const isAuthPg = pathname === "/auth" || pathname.startsWith("/auth/");
     const isOwner  = isPlatformOwnerEmail(user?.email);
+    const isCustomerWorkspace = isCustomerWorkspacePath(pathname);
 
-    if (!user && !isPublic && !profileLoadError) {
+    if (!user && isCustomerWorkspace && !isPublic && !profileLoadError) {
       authDebug("no-session-on-protected-route", { route: pathname, target: "/auth" });
       router.replace(`/auth?redirect=${encodeURIComponent(pathname)}`);
       return;
@@ -323,7 +324,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (user && isCustomerWorkspacePath(pathname)) {
+    if (user && isCustomerWorkspace) {
       // PR5-C rule 1: platform owner may only enter the Customer Workspace
       // when they also carry a real organization_id (e.g. an internal-org
       // membership). Without one, send them home to /owner instead of
