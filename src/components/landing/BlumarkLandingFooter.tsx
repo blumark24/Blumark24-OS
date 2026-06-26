@@ -15,7 +15,7 @@ const content = {
   ar: {
     dir: "rtl" as const,
     description:
-      "منصة تشغيل ذكية تساعد المنشآت على إدارة العملاء، الموظفين، المهام، التقارير، والمساعد الذكي ضمن تجربة أعمال موحّدة.",
+      "منصة تشغيل ذكية تساعد المنشآت على إدارة العملاء، الموظفين، المهام، التقارير، المكتب الافتراضي، والمساعد الذكي ضمن تجربة أعمال موحّدة.",
     badge: "منصة تشغيل مؤسسية قابلة للتوسع",
     navLabel: "روابط Blumark24 OS",
     columns: [
@@ -30,10 +30,10 @@ const content = {
       {
         title: "التشغيل الذكي",
         links: [
-          { label: "AI للأعمال", href: "/solutions/ai-business" },
+          { label: "المساعد الذكي", href: "/solutions/ai-business" },
           { label: "أتمتة العمليات", href: "/solutions/automation" },
           { label: "إدارة العملاء", href: "/solutions/customer-management" },
-          { label: "القطاعات", href: "/industries" },
+          { label: "المكتب الافتراضي", href: "/virtual-office-guide" },
         ],
       },
       {
@@ -68,7 +68,7 @@ const content = {
   en: {
     dir: "ltr" as const,
     description:
-      "A smart operating platform for clients, employees, tasks, reports, and AI assistance in one unified business experience.",
+      "A smart operating platform for clients, employees, tasks, reports, the virtual office, and AI assistance in one unified business experience.",
     badge: "Enterprise operating platform built to scale",
     navLabel: "Blumark24 OS links",
     columns: [
@@ -83,10 +83,10 @@ const content = {
       {
         title: "Smart Operations",
         links: [
-          { label: "AI for Business", href: "/solutions/ai-business" },
+          { label: "AI Assistant", href: "/solutions/ai-business" },
           { label: "Workflow Automation", href: "/solutions/automation" },
           { label: "Customer Management", href: "/solutions/customer-management" },
-          { label: "Industries", href: "/industries" },
+          { label: "Virtual Office", href: "/virtual-office-guide" },
         ],
       },
       {
