@@ -4,7 +4,7 @@
 // One modal shell for all 9 offices. Layout is always identical.
 // Only data and available actions change per office state.
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X, Users, CheckCircle2, DoorOpen, Archive,
   MapPin, ChevronDown, ChevronUp, Building2, GitMerge, BrainCircuit,
@@ -39,6 +39,7 @@ export interface OfficeControlModalProps {
   isUpdating: boolean;
   boardStats?: BoardOfficeStats | null;
   onClose: () => void;
+  onEnterOffice?: () => void;
   onSave: (unit: PreviewOrgUnit) => void;
   onToggleOpen: (is_open: boolean) => void;
   onReset: () => void;
@@ -68,11 +69,13 @@ const OVERLAY: React.CSSProperties = {
   background: "rgba(1,4,14,0.82)",
   backdropFilter: "blur(20px)",
   WebkitBackdropFilter: "blur(20px)",
+  overscrollBehavior: "contain",
+  overflow: "hidden",
 };
 
 const MODAL: React.CSSProperties = {
   width: "min(430px, 100%)",
-  maxHeight: "78dvh",
+  maxHeight: "calc(100dvh - 32px)",
   borderRadius: 24,
   background: "linear-gradient(160deg, rgba(6,10,28,0.99) 0%, rgba(8,14,36,0.99) 100%)",
   border: "1px solid rgba(139,92,246,0.22)",
@@ -149,7 +152,7 @@ function OfficeInsight({ room, isOpen }: { room: OfficeRoom; isOpen: boolean }) 
 export default function OfficeControlModal({
   room, roomState, isManager, mappingUnit, mappingSource,
   managerName, units, officePeople = [], isSaving, isUpdating, boardStats,
-  onClose, onSave, onToggleOpen, onReset,
+  onClose, onEnterOffice, onSave, onToggleOpen, onReset,
   onOpenAll, onCloseAll, onReviewUnassigned,
   onResetVirtualOffice, isResettingOffice, resetOfficeError,
 }: OfficeControlModalProps) {
@@ -158,6 +161,53 @@ export default function OfficeControlModal({
   const [assignOpen, setAssignOpen]         = useState(room.isUnassigned);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showOfficeResetConfirm, setShowOfficeResetConfirm] = useState(false);
+  const scrollLockRef = useRef<{
+    scrollY: number;
+    prev: Pick<CSSStyleDeclaration, "position" | "top" | "left" | "right" | "width" | "overflow">;
+    htmlPrev: { overscrollBehavior: string; overflow: string };
+  } | null>(null);
+
+  // Strong iPhone scroll lock: position:fixed + stored scrollY so the page
+  // doesn't rubber-band behind the modal on iOS Safari.
+  useEffect(() => {
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    const body = document.body;
+    const html = document.documentElement;
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    const htmlPrev = {
+      overscrollBehavior: html.style.overscrollBehavior,
+      overflow: html.style.overflow,
+    };
+    scrollLockRef.current = { scrollY, prev, htmlPrev };
+    html.style.overscrollBehavior = "none";
+    html.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top      = `-${scrollY}px`;
+    body.style.left     = "0";
+    body.style.right    = "0";
+    body.style.width    = "100%";
+    body.style.overflow = "hidden";
+    return () => {
+      const lock = scrollLockRef.current;
+      body.style.position = lock?.prev.position ?? prev.position;
+      body.style.top      = lock?.prev.top ?? prev.top;
+      body.style.left     = lock?.prev.left ?? prev.left;
+      body.style.right    = lock?.prev.right ?? prev.right;
+      body.style.width    = lock?.prev.width ?? prev.width;
+      body.style.overflow = lock?.prev.overflow ?? prev.overflow;
+      html.style.overscrollBehavior = lock?.htmlPrev.overscrollBehavior ?? htmlPrev.overscrollBehavior;
+      html.style.overflow = lock?.htmlPrev.overflow ?? htmlPrev.overflow;
+      window.scrollTo(0, lock?.scrollY ?? scrollY);
+      scrollLockRef.current = null;
+    };
+  }, []);
 
   const label  = room.officeNumber ? officeLabel(room.officeNumber) : "مكتب";
   const isOpen = roomState?.is_open ?? true;
@@ -221,7 +271,7 @@ export default function OfficeControlModal({
         </div>
 
         {/* ══ BODY ════════════════════════════════════════════════════════════ */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "10px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "10px 16px", display: "flex", flexDirection: "column", gap: 8, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"] }}>
 
           {/* 1 ── حالة المكتب (smart insight) */}
           <OfficeInsight room={room} isOpen={isOpen} />
@@ -281,6 +331,47 @@ export default function OfficeControlModal({
               ))}
             </div>
           )}
+
+          {/* 4b ── مساحات العمل — compact summary — C15.1 */}
+          <div style={{
+            ...SECTION_CARD,
+            border: "1px solid rgba(34,211,238,0.10)",
+            background: "rgba(34,211,238,0.03)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            padding: "8px 12px",
+          }}>
+            <div>
+              <div style={SECTION_LABEL}>
+                {room.isCenter ? "غرف القيادة" : "مساحات العمل والغرف"}
+              </div>
+              <div style={{ fontSize: 11, color: "#5a7a9a", fontWeight: 600 }}>
+                {room.isCenter ? "4 غرف تحكم" : "4 مناطق عمل"}
+                {" · "}
+                <span style={{ color: "#1e3050" }}>
+                  {room.isCenter ? "جاهزة بعد ربط البيانات" : room.isUnassigned ? "يحتاج تفعيل" : "جاهزة بعد الربط"}
+                </span>
+              </div>
+            </div>
+            {onEnterOffice && (
+              <button
+                type="button"
+                onClick={onEnterOffice}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "6px 12px", borderRadius: 10, flexShrink: 0,
+                  border: "1px solid rgba(34,211,238,0.35)",
+                  background: "rgba(34,211,238,0.08)",
+                  color: "#22d3ee", fontSize: 11, fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                دخول المكتب
+              </button>
+            )}
+          </div>
 
           {/* 5 ── الموظفون في المكتب — C14-M7 */}
           {!room.isCenter && !room.isUnassigned && (
@@ -635,6 +726,24 @@ export default function OfficeControlModal({
                   </button>
                 </div>
               </div>
+            )}
+
+            {onEnterOffice && (
+              <button
+                type="button"
+                onClick={onEnterOffice}
+                style={{
+                  flex: 1, minHeight: 38,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  borderRadius: 10,
+                  border: "1px solid rgba(34,211,238,0.45)",
+                  background: "linear-gradient(135deg, rgba(34,211,238,0.14), rgba(30,111,217,0.12))",
+                  color: "#22d3ee", fontSize: 13, fontWeight: 800, cursor: "pointer",
+                  boxShadow: "0 0 16px rgba(34,211,238,0.12)",
+                }}
+              >
+                دخول المكتب
+              </button>
             )}
 
             <button
