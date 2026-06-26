@@ -8,14 +8,29 @@ import BlumarkLandingFooter from "@/components/landing/BlumarkLandingFooter";
 // for `/dashboard` and other internal routes is handled by middleware.ts and
 // the per-route guards.
 
-const landingRelease = "2026-06-26-enterprise-ops-copy-safe";
+const landingRelease = "2026-06-26-bilingual-landing-copy";
 
 const heroCopyPatch = String.raw`
 (function () {
-  var nextTitle = "منصة تشغيل ذكية";
-  var nextAccent = "لإدارة الأعمال";
-  var nextSubtitle = "Blumark24 OS منصة أعمال موحّدة تجمع العملاء، الموظفين، المهام، التقارير، المكتب الافتراضي، والمساعد الذكي في تجربة تشغيل واحدة — لتمكين المنشآت من تنظيم عملياتها، رفع كفاءة الأداء، واتخاذ قرارات أسرع بثقة أعلى.";
-  var nextTrust = ["إعداد سريع", "دعم عربي كامل", "جاهز للتوسع"];
+  var copy = {
+    ar: {
+      title: "منصة تشغيل ذكية",
+      accent: "لإدارة الأعمال",
+      subtitle: "Blumark24 OS منصة أعمال موحّدة تجمع العملاء، الموظفين، المهام، التقارير، المكتب الافتراضي، والمساعد الذكي في تجربة تشغيل واحدة — لتمكين المنشآت من تنظيم عملياتها، رفع كفاءة الأداء، واتخاذ قرارات أسرع بثقة أعلى.",
+      trust: ["إعداد سريع", "دعم عربي كامل", "جاهز للتوسع"]
+    },
+    en: {
+      title: "Smart Operating Platform",
+      accent: "for Business Management",
+      subtitle: "Blumark24 OS is a unified business platform that brings clients, employees, tasks, reports, the virtual office, and the AI assistant into one operating experience — helping organizations organize operations, improve performance, and make faster decisions with confidence.",
+      trust: ["Quick setup", "Full Arabic support", "Ready to scale"]
+    }
+  };
+
+  function currentLang() {
+    var root = document.querySelector(".marketing-landing-root");
+    return root && root.getAttribute("dir") === "ltr" ? "en" : "ar";
+  }
 
   function setTextNodeValue(node, value) {
     if (node && node.nodeType === 3 && node.nodeValue !== value) {
@@ -23,27 +38,30 @@ const heroCopyPatch = String.raw`
     }
   }
 
-  function applyHeroCopyOnce() {
+  function applyHeroCopy() {
     var hero = document.querySelector(".marketing-landing-root #home");
     if (!hero) return false;
 
+    var lang = currentLang();
+    var next = copy[lang];
     var title = hero.querySelector("h1");
+
     if (title) {
-      setTextNodeValue(title.childNodes[0], nextTitle + " ");
+      setTextNodeValue(title.childNodes[0], next.title + " ");
       var accent = title.querySelector("span.bg-gradient-to-l");
-      if (accent && accent.textContent !== nextAccent) {
-        accent.textContent = nextAccent;
+      if (accent && accent.textContent !== next.accent) {
+        accent.textContent = next.accent;
       }
     }
 
     var subtitle = hero.querySelector("h1 + p");
-    if (subtitle && subtitle.textContent !== nextSubtitle) {
-      subtitle.textContent = nextSubtitle;
+    if (subtitle && subtitle.textContent !== next.subtitle) {
+      subtitle.textContent = next.subtitle;
     }
 
     var trustItems = hero.querySelectorAll("div.mt-5 span.flex.items-center.gap-1\\.5");
     if (trustItems.length >= 3) {
-      nextTrust.forEach(function (item, index) {
+      next.trust.forEach(function (item, index) {
         var target = trustItems[index];
         if (!target) return;
         for (var i = 0; i < target.childNodes.length; i += 1) {
@@ -60,10 +78,18 @@ const heroCopyPatch = String.raw`
   }
 
   function start() {
-    if (applyHeroCopyOnce()) return;
-    window.setTimeout(applyHeroCopyOnce, 250);
-    window.setTimeout(applyHeroCopyOnce, 750);
-    window.setTimeout(applyHeroCopyOnce, 1500);
+    var root = document.querySelector(".marketing-landing-root");
+    applyHeroCopy();
+    window.setTimeout(applyHeroCopy, 250);
+    window.setTimeout(applyHeroCopy, 750);
+
+    if (root && !window.__blumarkHeroLangObserver) {
+      window.__blumarkHeroLangObserver = new MutationObserver(applyHeroCopy);
+      window.__blumarkHeroLangObserver.observe(root, {
+        attributes: true,
+        attributeFilter: ["dir"]
+      });
+    }
   }
 
   if (document.readyState === "loading") {
