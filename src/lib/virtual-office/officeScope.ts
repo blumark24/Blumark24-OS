@@ -12,6 +12,7 @@
 // "جاهز بعد الربط".
 
 export type OfficeScopeKind = "board" | "department" | "team" | "unassigned";
+export type OfficeViewerMode = "owner" | "manager" | "employee" | "public";
 
 export interface OfficeScopeInput {
   officeId: string;
@@ -40,6 +41,26 @@ export interface OfficeScope {
   emptyState: "جاهز بعد الربط" | "غير متاح" | null;
 }
 
+export interface OfficeScopeViewer {
+  mode: OfficeViewerMode;
+  userId?: string | null;
+  employeeId?: string | null;
+  managedDepartmentIds?: string[] | null;
+  managedTeamIds?: string[] | null;
+  departmentIds?: string[] | null;
+  teamIds?: string[] | null;
+}
+
+export interface OfficeScopeAccess {
+  canViewOffice: boolean;
+  canViewEmployees: boolean;
+  canViewTasks: boolean;
+  canViewFiles: boolean;
+  canViewReport: boolean;
+  canViewBoardSummary: boolean;
+  reason: "allowed" | "public_limited" | "unassigned" | "out_of_scope";
+}
+
 export interface OfficeScopeRelation {
   employee_id?: string | null;
   department_id?: string | null;
@@ -63,6 +84,11 @@ export interface OfficeScopeSummary {
   taskCount: number;
   openTaskCount: number;
   overdueTaskCount: number;
+}
+
+function includesId(values: string[] | null | undefined, id: string | null): boolean {
+  if (!id) return false;
+  return Array.isArray(values) && values.includes(id);
 }
 
 export function resolveOfficeScope(input: OfficeScopeInput): OfficeScope {
@@ -119,6 +145,98 @@ export function resolveOfficeScope(input: OfficeScopeInput): OfficeScope {
     isLinked: true,
     isBoard: false,
     emptyState: null,
+  };
+}
+
+export function resolveOfficeScopeAccess(scope: OfficeScope, viewer: OfficeScopeViewer): OfficeScopeAccess {
+  if (viewer.mode === "owner") {
+    return {
+      canViewOffice: true,
+      canViewEmployees: !scope.isBoard && scope.isLinked,
+      canViewTasks: !scope.isBoard && scope.isLinked,
+      canViewFiles: !scope.isBoard && scope.isLinked,
+      canViewReport: scope.isLinked,
+      canViewBoardSummary: scope.isBoard,
+      reason: "allowed",
+    };
+  }
+
+  if (viewer.mode === "public") {
+    return {
+      canViewOffice: true,
+      canViewEmployees: false,
+      canViewTasks: false,
+      canViewFiles: false,
+      canViewReport: false,
+      canViewBoardSummary: false,
+      reason: "public_limited",
+    };
+  }
+
+  if (!scope.isLinked || scope.kind === "unassigned") {
+    return {
+      canViewOffice: viewer.mode === "manager",
+      canViewEmployees: false,
+      canViewTasks: false,
+      canViewFiles: false,
+      canViewReport: false,
+      canViewBoardSummary: false,
+      reason: "unassigned",
+    };
+  }
+
+  if (scope.isBoard) {
+    return {
+      canViewOffice: false,
+      canViewEmployees: false,
+      canViewTasks: false,
+      canViewFiles: false,
+      canViewReport: false,
+      canViewBoardSummary: false,
+      reason: "out_of_scope",
+    };
+  }
+
+  const managesScope =
+    includesId(viewer.managedDepartmentIds, scope.departmentId) ||
+    includesId(viewer.managedTeamIds, scope.teamId);
+
+  const belongsToScope =
+    includesId(viewer.departmentIds, scope.departmentId) ||
+    includesId(viewer.teamIds, scope.teamId);
+
+  if (viewer.mode === "manager" && managesScope) {
+    return {
+      canViewOffice: true,
+      canViewEmployees: true,
+      canViewTasks: true,
+      canViewFiles: true,
+      canViewReport: true,
+      canViewBoardSummary: false,
+      reason: "allowed",
+    };
+  }
+
+  if (viewer.mode === "employee" && belongsToScope) {
+    return {
+      canViewOffice: true,
+      canViewEmployees: false,
+      canViewTasks: true,
+      canViewFiles: false,
+      canViewReport: false,
+      canViewBoardSummary: false,
+      reason: "allowed",
+    };
+  }
+
+  return {
+    canViewOffice: false,
+    canViewEmployees: false,
+    canViewTasks: false,
+    canViewFiles: false,
+    canViewReport: false,
+    canViewBoardSummary: false,
+    reason: "out_of_scope",
   };
 }
 
