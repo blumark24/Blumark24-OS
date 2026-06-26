@@ -80,7 +80,7 @@ export default function VirtualOfficePreviewLink() {
           <div className="relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#081120]">
             {imageReady ? (
               <img
-                src="/images/virtual-office-preview.webp"
+                src="/images/virtual-office-preview.png"
                 alt={c.imageAlt}
                 onError={() => setImageReady(false)}
                 className="aspect-[1672/941] w-full object-cover"
