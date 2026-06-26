@@ -10,6 +10,6 @@
     }
   },
   "env": {
-    "NEXT_PUBLIC_LANDING_COPY_RELEASE": "2026-06-26-enterprise-ops-copy-final"
+    "NEXT_PUBLIC_LANDING_COPY_RELEASE": "2026-06-26-enterprise-ops-copy-final-locked"
   }
 }
