@@ -46,10 +46,10 @@ const footerContent: Record<FooterLang, FooterContent> = {
       {
         title: "التشغيل الذكي",
         links: [
-          { label: "المساعد الذكي", href: "/solutions/ai-business", note: "مساعد AI للأعمال" },
+          { label: "AI للأعمال", href: "/solutions/ai-business", note: "مساعد AI للأعمال" },
           { label: "أتمتة العمليات", href: "/solutions/automation", note: "أتمتة تشغيلية للأعمال" },
           { label: "إدارة العملاء", href: "/solutions/customer-management", note: "تنظيم العملاء والمتابعة" },
-          { label: "المكتب الافتراضي", href: "/platform", note: "تجربة تشغيل رقمية للمكاتب" },
+          { label: "المكتب الافتراضي", href: "/virtual-office", note: "شرح المكتب الافتراضي وطريقة عمله" },
         ],
       },
       {
@@ -99,10 +99,10 @@ const footerContent: Record<FooterLang, FooterContent> = {
       {
         title: "Smart Operations",
         links: [
-          { label: "AI Assistant", href: "/solutions/ai-business", note: "AI assistant for business operations" },
+          { label: "AI for Business", href: "/solutions/ai-business", note: "AI assistant for business operations" },
           { label: "Workflow Automation", href: "/solutions/automation", note: "Operational automation for business teams" },
           { label: "Customer Management", href: "/solutions/customer-management", note: "Client organization and follow-up" },
-          { label: "Virtual Office", href: "/platform", note: "Digital operating layer for offices" },
+          { label: "Virtual Office", href: "/virtual-office", note: "Virtual office guide and operating model" },
         ],
       },
       {
