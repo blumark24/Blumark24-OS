@@ -9,15 +9,15 @@ const IMAGE_ASPECT_RATIO = "1672 / 941";
 
 interface ChipPos { top: string; left: string; }
 const CHIP_POSITIONS: ChipPos[] = [
-  { top: "18%", left: "20%" },
-  { top: "18%", left: "50%" },
-  { top: "18%", left: "82%" },
-  { top: "48%", left: "19%" },
-  { top: "48%", left: "50%" },
-  { top: "48%", left: "82%" },
-  { top: "79%", left: "19%" },
-  { top: "80%", left: "51%" },
-  { top: "79%", left: "82%" },
+  { top: "18%", left: "82%" }, // 01 أعلى يمين
+  { top: "18%", left: "50%" }, // 02 أعلى وسط
+  { top: "18%", left: "20%" }, // 03 أعلى يسار
+  { top: "48%", left: "82%" }, // 04 وسط يمين
+  { top: "48%", left: "50%" }, // 05 الوسط / مجلس الإدارة
+  { top: "48%", left: "19%" }, // 06 وسط يسار
+  { top: "79%", left: "82%" }, // 07 أسفل يمين
+  { top: "80%", left: "51%" }, // 08 أسفل وسط
+  { top: "79%", left: "19%" }, // 09 أسفل يسار
 ];
 
 function dotColor(room: SceneRoom): string {
