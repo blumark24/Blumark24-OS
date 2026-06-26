@@ -1,8 +1,10 @@
 "use client";
 
-// SingleOfficeInteriorScene.tsx — C15.8 asset-first
-// Uses a premium rendered interior asset as the visual foundation, then layers
-// honest hotspots/HUD state on top. No WebGL, no canvas, no packages, no fake live data.
+// SingleOfficeInteriorScene.tsx — C15.13
+// One approved interior visual system is reused for all 9 offices.
+// The selected exterior office number is carried inside as OFFICE 01..09,
+// so مكتب 01 opens OFFICE 01 internally, مكتب 02 opens OFFICE 02, and so on.
+// No missing per-office image files, no fake live data, no new packages.
 
 import { useState } from "react";
 import type { PresencePerson } from "./VirtualOfficeDesign";
@@ -32,32 +34,21 @@ interface OfficeInteriorConfig {
   glowX: string;
   glowY: string;
   accent: string;
-  assetOpacity: number;
   moodLabel: string;
 }
 
-const officeInteriorAssets: Record<number, string> = {
-  1: "/virtual-office/interiors/office-01-interior.webp",
-  2: "/virtual-office/interiors/office-02-interior.webp",
-  3: "/virtual-office/interiors/office-03-interior.webp",
-  4: "/virtual-office/interiors/office-04-interior.webp",
-  5: "/virtual-office/interiors/office-05-interior.webp",
-  6: "/virtual-office/interiors/office-06-interior.webp",
-  7: "/virtual-office/interiors/office-07-interior.webp",
-  8: "/virtual-office/interiors/office-08-interior.webp",
-  9: "/virtual-office/interiors/office-09-interior.webp",
-};
+const INTERIOR_ASSET = "/virtual-office/interiors/blumark-office-portal-interior.svg";
 
 const OFFICE_INTERIOR_CONFIG: Record<number, OfficeInteriorConfig> = {
-  1: { officeNumber: 1, glowX: "22%", glowY: "18%", accent: "#a855f7", assetOpacity: 0.98, moodLabel: "غرفة قرار" },
-  2: { officeNumber: 2, glowX: "72%", glowY: "18%", accent: "#38bdf8", assetOpacity: 0.98, moodLabel: "تنفيذي" },
-  3: { officeNumber: 3, glowX: "50%", glowY: "74%", accent: "#22d3ee", assetOpacity: 0.98, moodLabel: "تشغيلي" },
-  4: { officeNumber: 4, glowX: "18%", glowY: "58%", accent: "#60a5fa", assetOpacity: 0.98, moodLabel: "عملاء" },
-  5: { officeNumber: 5, glowX: "50%", glowY: "20%", accent: "#c084fc", assetOpacity: 0.98, moodLabel: "قيادي" },
-  6: { officeNumber: 6, glowX: "64%", glowY: "22%", accent: "#22d3ee", assetOpacity: 0.98, moodLabel: "نمو" },
-  7: { officeNumber: 7, glowX: "28%", glowY: "64%", accent: "#38bdf8", assetOpacity: 0.98, moodLabel: "مالي" },
-  8: { officeNumber: 8, glowX: "76%", glowY: "48%", accent: "#67e8f9", assetOpacity: 0.98, moodLabel: "فريق" },
-  9: { officeNumber: 9, glowX: "52%", glowY: "74%", accent: "#22d3ee", assetOpacity: 1, moodLabel: "بوابة داخلية" },
+  1: { officeNumber: 1, glowX: "76%", glowY: "18%", accent: "#38bdf8", moodLabel: "أعلى يمين" },
+  2: { officeNumber: 2, glowX: "50%", glowY: "18%", accent: "#22d3ee", moodLabel: "أعلى وسط" },
+  3: { officeNumber: 3, glowX: "24%", glowY: "18%", accent: "#60a5fa", moodLabel: "أعلى يسار" },
+  4: { officeNumber: 4, glowX: "76%", glowY: "50%", accent: "#22d3ee", moodLabel: "وسط يمين" },
+  5: { officeNumber: 5, glowX: "50%", glowY: "24%", accent: "#a855f7", moodLabel: "مجلس الإدارة" },
+  6: { officeNumber: 6, glowX: "24%", glowY: "50%", accent: "#38bdf8", moodLabel: "وسط يسار" },
+  7: { officeNumber: 7, glowX: "76%", glowY: "72%", accent: "#10b981", moodLabel: "أسفل يمين" },
+  8: { officeNumber: 8, glowX: "50%", glowY: "72%", accent: "#67e8f9", moodLabel: "أسفل وسط" },
+  9: { officeNumber: 9, glowX: "24%", glowY: "72%", accent: "#22d3ee", moodLabel: "أسفل يسار" },
 };
 
 const fallbackConfig: OfficeInteriorConfig = {
@@ -65,7 +56,6 @@ const fallbackConfig: OfficeInteriorConfig = {
   glowX: "50%",
   glowY: "22%",
   accent: "#22d3ee",
-  assetOpacity: 1,
   moodLabel: "مكتب سحابي",
 };
 
@@ -89,17 +79,6 @@ function getZones(isLinked: boolean, linkedUnitName?: string | null): Zone[] {
       actionLabel: "عرض الحالة",
     },
     {
-      id: "workspace",
-      name: "مساحة العمل",
-      purpose: "منطقة العمل اليومية. تظهر بيانات الفريق فقط عند توفر ربط حقيقي من النظام.",
-      state: "unavailable",
-      stateLabel: "غير متاح",
-      accent: "#60a5fa",
-      sceneX: 70,
-      sceneY: 58,
-      actionLabel: "بيانات الفريق",
-    },
-    {
       id: "meeting",
       name: "غرفة الاجتماع",
       purpose: "منطقة اجتماعات مستقبلية. لا يتم عرض اجتماعات أو حضور بدون مصدر بيانات حقيقي.",
@@ -111,8 +90,19 @@ function getZones(isLinked: boolean, linkedUnitName?: string | null): Zone[] {
       actionLabel: "حالة الاجتماع",
     },
     {
+      id: "workspace",
+      name: "مساحة العمل",
+      purpose: "منطقة العمل اليومية. تظهر بيانات الفريق فقط عند توفر ربط حقيقي من النظام.",
+      state: "unavailable",
+      stateLabel: "غير متاح",
+      accent: "#60a5fa",
+      sceneX: 70,
+      sceneY: 58,
+      actionLabel: "بيانات الفريق",
+    },
+    {
       id: "focus",
-      name: "منطقة التركيز",
+      name: "غرفة التركيز",
       purpose: "مساحة هادئة للعمل الفردي داخل المكتب السحابي.",
       state: "coming",
       stateLabel: "قادم",
@@ -143,17 +133,6 @@ function getZones(isLinked: boolean, linkedUnitName?: string | null): Zone[] {
       sceneY: 78,
       actionLabel: "إدارة الربط",
     },
-    {
-      id: "settings",
-      name: "الإعدادات",
-      purpose: "إعدادات المكتب تُدار من نافذة المكتب المعتمدة بدون تغيير تصميمها.",
-      state: "configuring",
-      stateLabel: "قيد التهيئة",
-      accent: "#64748b",
-      sceneX: 15,
-      sceneY: 78,
-      actionLabel: "الإعدادات",
-    },
   ];
 }
 
@@ -165,6 +144,7 @@ function stateDotColor(zone: Zone) {
 
 function Hotspot({ zone, selected, onSelect }: { zone: Zone; selected: boolean; onSelect: (zone: Zone | null) => void }) {
   const dot = stateDotColor(zone);
+
   return (
     <button
       type="button"
@@ -229,91 +209,36 @@ function Hotspot({ zone, selected, onSelect }: { zone: Zone; selected: boolean; 
   );
 }
 
-function AssetPlaceholder({ assetSrc }: { assetSrc: string }) {
-  const filePath = assetSrc.replace(/^\//, "public/");
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 14,
-        background: "linear-gradient(180deg, #020a1a 0%, #010610 100%)",
-        border: "1px dashed rgba(34,211,238,0.18)",
-      }}
-    >
-      <div
-        style={{
-          width: 52,
-          height: 52,
-          borderRadius: 16,
-          border: "1px solid rgba(34,211,238,0.22)",
-          background: "rgba(34,211,238,0.06)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 24,
-        }}
-      >
-        🏢
-      </div>
-      <div style={{ textAlign: "center", padding: "0 24px" }}>
-        <div style={{ fontSize: 15, color: "#e8fbff", fontWeight: 900, marginBottom: 8 }}>
-          لم يتم إضافة رندر المكتب الداخلي بعد
-        </div>
-        <div
-          style={{
-            fontSize: 11,
-            color: "#7892b2",
-            fontFamily: "monospace",
-            background: "rgba(34,211,238,0.07)",
-            border: "1px solid rgba(34,211,238,0.16)",
-            borderRadius: 8,
-            padding: "6px 12px",
-            display: "inline-block",
-            direction: "ltr",
-            textAlign: "left",
-          }}
-        >
-          أضف الملف: {filePath}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InteriorAssetLayer({ config, assetSrc, officeNumber, isBoard, isLinked }: { config: OfficeInteriorConfig; assetSrc: string; officeNumber?: number | null; isBoard: boolean; isLinked: boolean }) {
+function InteriorAssetLayer({ config, officeNumber, isBoard, isLinked }: { config: OfficeInteriorConfig; officeNumber?: number | null; isBoard: boolean; isLinked: boolean }) {
   const [imgError, setImgError] = useState(false);
   const accent = isBoard ? "#a855f7" : config.accent;
-
-  if (imgError) {
-    return <AssetPlaceholder assetSrc={assetSrc} />;
-  }
+  const number = formatOfficeNumber(officeNumber);
 
   return (
     <>
-      <img
-        src={assetSrc}
-        alt=""
-        aria-hidden="true"
-        onError={() => setImgError(true)}
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          opacity: config.assetOpacity,
-          transform: "scale(1.01)",
-          filter: isBoard ? "saturate(1.08) hue-rotate(8deg)" : "saturate(1.04)",
-        }}
-      />
+      {!imgError ? (
+        <img
+          src={INTERIOR_ASSET}
+          alt=""
+          aria-hidden="true"
+          onError={() => setImgError(true)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            opacity: 0.99,
+            transform: "scale(1.01)",
+            filter: isBoard ? "saturate(1.12) hue-rotate(8deg)" : "saturate(1.05)",
+          }}
+        />
+      ) : (
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #020a1a 0%, #010610 100%)" }} />
+      )}
 
-      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at ${config.glowX} ${config.glowY}, ${accent}28, transparent 34%), linear-gradient(180deg, rgba(2,7,22,0.10), rgba(2,7,22,0.30))` }} />
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.12), transparent 34%, rgba(0,0,0,0.40))" }} />
+      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at ${config.glowX} ${config.glowY}, ${accent}32, transparent 34%), linear-gradient(180deg, rgba(2,7,22,0.08), rgba(2,7,22,0.36))` }} />
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.10), transparent 34%, rgba(0,0,0,0.42))" }} />
 
       <div
         style={{
@@ -328,7 +253,7 @@ function InteriorAssetLayer({ config, assetSrc, officeNumber, isBoard, isLinked 
       >
         <div style={{ color: "rgba(125,211,252,0.78)", fontSize: 11, fontWeight: 950, letterSpacing: 2.8 }}>BLUMARK24 OFFICE PORTAL</div>
         <div style={{ color: "#e8fbff", fontSize: "clamp(30px, 4vw, 56px)", fontWeight: 950, lineHeight: 1, textShadow: `0 0 34px ${accent}44` }}>
-          OFFICE {formatOfficeNumber(officeNumber)}
+          OFFICE {number}
         </div>
         <div style={{ marginTop: 7, color: isLinked ? "#86efac" : "#fbbf24", fontSize: 12, fontWeight: 900 }}>
           {isLinked ? "مكتب مرتبط بالهيكل الإداري" : "مكتب سحابي جاهز للربط"}
@@ -406,9 +331,6 @@ export default function SingleOfficeInteriorScene({
   onZoneSelect,
 }: SingleOfficeInteriorSceneProps) {
   const config = officeNumber ? OFFICE_INTERIOR_CONFIG[officeNumber] ?? fallbackConfig : fallbackConfig;
-  const assetSrc = officeNumber
-    ? officeInteriorAssets[officeNumber] ?? officeInteriorAssets[1]
-    : officeInteriorAssets[1];
   const zones = getZones(isLinked, linkedUnitName);
 
   return (
@@ -424,7 +346,7 @@ export default function SingleOfficeInteriorScene({
       }}
       dir="rtl"
     >
-      <InteriorAssetLayer key={assetSrc} config={config} assetSrc={assetSrc} officeNumber={officeNumber} isBoard={isBoard} isLinked={isLinked} />
+      <InteriorAssetLayer config={config} officeNumber={officeNumber} isBoard={isBoard} isLinked={isLinked} />
       <SceneIdentityCard officeTitle={officeTitle} officeNumber={officeNumber} isLinked={isLinked} moodLabel={config.moodLabel} />
 
       {zones.map((zone) => (
