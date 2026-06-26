@@ -43,7 +43,7 @@ function SalesChart() {
   return (
     <div className="group relative rounded-2xl border border-white/[0.08] bg-[rgba(10,22,40,0.55)] backdrop-blur-xl p-4 sm:p-5 min-w-0 transition-all duration-300 hover:border-white/[0.16]">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-[13px] sm:text-[14px] font-semibold text-white">نظرة عامة على المبيعات</div>
+        <div className="text-[13px] sm:text-[14px] font-semibold text-white">نظرة عامة على النمو</div>
         <div className="text-[11px] text-white/55">آخر 12 شهر</div>
       </div>
       <div className="w-full h-[180px] sm:h-[200px] lg:h-[220px] min-w-0">
@@ -82,7 +82,7 @@ function SalesChart() {
               cursor={{ stroke: "rgba(34,211,238,0.25)", strokeWidth: 1 }}
               formatter={(value: number, name: string) => [
                 `${value.toLocaleString("en-US")} SAR`,
-                name === "current" ? "2024" : "2023",
+                name === "current" ? "2026" : "2025",
               ]}
             />
             <Area
@@ -111,10 +111,10 @@ function SalesChart() {
       </div>
       <div className="mt-1 flex items-center gap-3 justify-end text-[10.5px] text-white/55">
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-1.5 w-3 rounded-full bg-[#22D3EE]" /> 2024
+          <span className="h-1.5 w-3 rounded-full bg-[#22D3EE]" /> 2026
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-1.5 w-3 rounded-full bg-white/30" /> 2023
+          <span className="h-1.5 w-3 rounded-full bg-white/30" /> 2025
         </span>
       </div>
     </div>
