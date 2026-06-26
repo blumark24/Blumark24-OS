@@ -8,5 +8,8 @@
       "test-*": false,
       "docs-*": false
     }
+  },
+  "env": {
+    "NEXT_PUBLIC_LANDING_COPY_RELEASE": "2026-06-26-enterprise-ops-copy-v2"
   }
 }
