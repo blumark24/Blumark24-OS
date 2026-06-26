@@ -15,6 +15,7 @@ import { buildOfficeTextMeetingInvite } from "@/lib/virtual-office/officeTextMee
 import { buildOfficeArtifactSummary } from "@/lib/virtual-office/officeArtifactSummary";
 import { resolveMeetingRoomGovernance } from "@/lib/virtual-office/officeMeetingRoomGovernance";
 import { resolveOwnerGovernancePolicy } from "@/lib/virtual-office/ownerGovernancePolicy";
+import { resolveProductionReadinessPolicy } from "@/lib/virtual-office/productionReadinessPolicy";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -119,13 +120,27 @@ function OfficeChip({ room, selected, onClick, position }: {
     enabledTenantBranding: false,
   });
   const ownerControls = ownerGovernance.capabilities.find((entry) => entry.key === "owner_controls") ?? null;
+  // C17-B — production readiness is surfaced as a validation target, not a
+  // production-ready claim. Observability is intentionally left as a warning
+  // until real monitoring is wired in a later backend/admin step.
+  const productionReadiness = resolveProductionReadinessPolicy({
+    tenantIsolationVerified: true,
+    scopedDataVerified: true,
+    fakeDataBlocked: true,
+    rlsRequired: true,
+    realtimeDisabled: true,
+    mediaDisabled: true,
+    packageGovernanceReady: true,
+    capacityTargetClients: 1000,
+  });
   const suggestionText = `${suggestion.title} — ${suggestion.detail}`;
   const presenceText = `الحضور: ${presence.label}`;
   const inviteText = `${textInvite.actionLabel}: ${textInvite.status === "ready" ? "مسودة نصية آمنة" : "غير متاح"}`;
   const artifactText = `الملفات والتقارير: ${reportArtifact?.state === "ready" ? reportArtifact.title : "جاهزة بعد الربط"}`;
   const meetingRoomText = `غرفة الاجتماع: ${meetingRoom.canPrepareTextRoom ? meetingRoom.title : meetingRoom.detail}`;
   const ownerGovernanceText = `حوكمة المالك: ${ownerControls?.status === "enabled" ? ownerControls.title : "غير متاحة"}`;
-  const accessibleSummary = `${suggestionText} · ${presenceText} · ${inviteText} · ${artifactText} · ${meetingRoomText} · ${ownerGovernanceText}`;
+  const productionReadinessText = `جاهزية الإنتاج: ${productionReadiness.status === "pass" ? "جاهز" : "تحت الفحص"} · ${productionReadiness.passedCount}/${productionReadiness.checks.length}`;
+  const accessibleSummary = `${suggestionText} · ${presenceText} · ${inviteText} · ${artifactText} · ${meetingRoomText} · ${ownerGovernanceText} · ${productionReadinessText}`;
 
   // C16.3-D — safe motion adapter.
   // The chip's coordinate transform (translate(-50%, -50%)) must NEVER change,
@@ -284,6 +299,32 @@ function OfficeChip({ room, selected, onClick, position }: {
           }}
         >
           حوكمة
+        </span>
+      )}
+
+      {(interactive || selected) && productionReadiness.status !== "pass" && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 30,
+            left: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            borderRadius: 999,
+            padding: "2px 6px",
+            border: "1px solid rgba(251,191,36,0.30)",
+            background: "rgba(3,8,20,0.88)",
+            color: "#fbbf24",
+            fontSize: 7.5,
+            fontWeight: 800,
+            lineHeight: 1,
+            boxShadow: "0 0 8px rgba(251,191,36,0.18)",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          فحص إنتاج
         </span>
       )}
 
