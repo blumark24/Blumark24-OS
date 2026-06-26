@@ -51,7 +51,25 @@ interface AuthContextValue {
 
 // The entire /owner subtree (including /owner/login) is handled by its own
 // early-return below, so it is intentionally absent from this client list.
-const PUBLIC_PATHS = ["/", "/auth", "/demo"];
+const PUBLIC_PATHS = [
+  "/",
+  "/auth",
+  "/demo",
+  "/platform",
+  "/solutions",
+  "/industries",
+  "/pricing",
+  "/resources",
+  "/status",
+  "/about",
+  "/partners",
+  "/careers",
+  "/contact",
+  "/privacy",
+  "/terms",
+  "/faq",
+  "/virtual-office-guide",
+];
 const PROFILE_RETRY_DELAYS_MS = [0, 250, 700, 1500];
 const PROFILE_LOAD_ERROR_MSG = "حدث خطأ أثناء تحميل الملف الشخصي — حاول مجدداً";
 
@@ -428,108 +446,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const safeRedirect =
         redirect
         && redirect.startsWith("/")
-        && redirect !== "/owner"
-        && !redirect.startsWith("/owner/")
+        && !redirect.startsWith("//")
+        && !redirect.startsWith("/owner")
+        && isCustomerWorkspacePath(redirect)
           ? redirect
-          : null;
-      const target = safeRedirect ?? "/dashboard";
-      if (isCustomerWorkspacePath(target) && !res.user.organizationId) {
-        authDebug("login-customer-missing-org", {
-          route: "/auth",
-          role: res.user.role,
-          isOwner: false,
-          hasOrg: false,
-          target: "/auth",
-        });
-        await supabase.auth.signOut({ scope: "local" }).catch(() => {});
-        if (mountedRef.current) {
-          setUser(null);
-          setProfileLoadError(MISSING_ORGANIZATION_ERROR_MSG);
-          setSessionCookie("");
-        }
-        router.replace("/auth");
-        return { ok: false, error: MISSING_ORGANIZATION_ERROR_MSG };
-      }
-      authDebug("login-customer-routed", {
-        route: "/auth",
+          : "/dashboard";
+
+      authDebug("login-success", {
         role: res.user.role,
         isOwner: false,
         hasOrg: !!res.user.organizationId,
-        target,
+        target: safeRedirect,
       });
-      router.replace(target);
+      router.replace(safeRedirect);
       return { ok: true };
     },
-    [router],
+    [router]
   );
 
   const logout = useCallback(async () => {
-    if (loggingOut) return;
-    // PR5-C rule 5: capture the owner-ness of the session BEFORE clearing
-    // it, then run exactly one signOut, then route to the matching login
-    // page. The /owner area has its own OwnerLogoutButton which already
-    // routes to /owner/login — this branch only fires when an owner
-    // happens to call logout() from the customer-facing surface.
-    const wasOwner = isPlatformOwnerEmail(user?.email);
-    const logoutTarget = wasOwner ? "/owner/login" : "/auth";
-    authDebug("logout", {
-      route: pathname,
-      role: user?.role ?? null,
-      isOwner: wasOwner,
-      hasOrg: !!user?.organizationId,
-      target: logoutTarget,
-    });
     setLoggingOut(true);
     try {
-      // PR5-D: scope="local" only clears the customer-client session
-      // storage; any parallel owner-client session in the same browser
-      // remains valid and unaffected.
       await supabase.auth.signOut({ scope: "local" });
     } catch (err) {
-      console.error("[Auth] signOut failed:", err);
+      console.error("Logout error:", err);
     } finally {
       if (mountedRef.current) {
         setUser(null);
         setProfileLoadError(null);
         setSessionCookie("");
         setLoggingOut(false);
+        router.replace("/auth");
       }
-      router.replace(logoutTarget);
     }
-  }, [loggingOut, router, user, pathname]);
+  }, [router]);
 
   const clearForcePasswordChange = useCallback(async () => {
-    if (!user) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        await fetch("/api/auth/clear-force-pw", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-      }
-    } catch { /* ignore */ }
-    setUser((prev) => (prev ? { ...prev, forcePasswordChange: false } : null));
-  }, [user]);
+    setUser(prev => prev ? { ...prev, forcePasswordChange: false } : prev);
+  }, []);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        loggingOut,
-        profileLoadError,
-        login,
-        logout,
-        refreshCurrentUser,
-        clearForcePasswordChange,
-      }}
-    >
+    <AuthContext.Provider value={{ user, loading, loggingOut, profileLoadError, login, logout, refreshCurrentUser, clearForcePasswordChange }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+  return context;
 }
