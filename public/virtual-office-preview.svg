@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1672 941" role="img" aria-label="Virtual Office Preview">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071827"/>
+      <stop offset="0.45" stop-color="#0A2340"/>
+      <stop offset="1" stop-color="#050816"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#3B82F6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="55%">
+      <stop offset="0" stop-color="#22D3EE" stop-opacity="0.34"/>
+      <stop offset="0.58" stop-color="#3B82F6" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#050816" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="18" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      .label{font-family:Inter,Arial,sans-serif;fill:#fff;font-weight:700}
+      .sub{font-family:Inter,Arial,sans-serif;fill:#9BEAFE;font-weight:500}
+      .muted{font-family:Inter,Arial,sans-serif;fill:rgba(255,255,255,.62);font-weight:600}
+      .room{fill:rgba(10,22,40,.86);stroke:rgba(103,232,249,.38);stroke-width:2}
+      .chip{fill:rgba(34,211,238,.10);stroke:rgba(34,211,238,.26);stroke-width:2}
+    </style>
+  </defs>
+  <rect width="1672" height="941" rx="56" fill="url(#bg)"/>
+  <circle cx="836" cy="470" r="370" fill="url(#glow)"/>
+  <g opacity="0.12">
+    <path d="M90 110H1582M90 210H1582M90 310H1582M90 410H1582M90 510H1582M90 610H1582M90 710H1582M90 810H1582" stroke="#67E8F9"/>
+    <path d="M140 70V870M260 70V870M380 70V870M500 70V870M620 70V870M740 70V870M860 70V870M980 70V870M1100 70V870M1220 70V870M1340 70V870M1460 70V870" stroke="#67E8F9"/>
+  </g>
+  <rect x="82" y="70" width="1508" height="800" rx="52" fill="rgba(255,255,255,.035)" stroke="rgba(255,255,255,.12)" stroke-width="2"/>
+  <rect x="118" y="110" width="1436" height="720" rx="42" fill="rgba(5,8,22,.28)" stroke="url(#cyan)" stroke-opacity=".48" stroke-width="3"/>
+  <g filter="url(#blur)">
+    <rect class="room" x="165" y="155" width="430" height="230" rx="34"/>
+    <rect x="195" y="188" width="115" height="10" rx="5" fill="#22D3EE" opacity=".85"/>
+    <text class="label" x="380" y="270" text-anchor="middle" font-size="38">Board Room</text>
+    <text class="sub" x="380" y="318" text-anchor="middle" font-size="24">Strategic Meeting</text>
+    <rect class="room" x="638" y="155" width="360" height="230" rx="34"/>
+    <rect x="668" y="188" width="115" height="10" rx="5" fill="#22D3EE" opacity=".85"/>
+    <text class="label" x="818" y="270" text-anchor="middle" font-size="38">Admin Office</text>
+    <text class="sub" x="818" y="318" text-anchor="middle" font-size="24">Operations</text>
+    <rect class="room" x="1040" y="155" width="470" height="230" rx="34"/>
+    <rect x="1070" y="188" width="115" height="10" rx="5" fill="#22D3EE" opacity=".85"/>
+    <text class="label" x="1275" y="270" text-anchor="middle" font-size="38">Focus Zone</text>
+    <text class="sub" x="1275" y="318" text-anchor="middle" font-size="24">Deep Work</text>
+    <rect class="room" x="165" y="450" width="380" height="250" rx="34"/>
+    <rect x="195" y="485" width="115" height="10" rx="5" fill="#22D3EE" opacity=".85"/>
+    <text class="label" x="355" y="565" text-anchor="middle" font-size="42">CRM</text>
+    <text class="sub" x="355" y="615" text-anchor="middle" font-size="24">Clients</text>
+    <rect class="room" x="594" y="450" width="484" height="250" rx="34"/>
+    <rect x="624" y="485" width="115" height="10" rx="5" fill="#22D3EE" opacity=".85"/>
+    <text class="label" x="836" y="560" text-anchor="middle" font-size="44">OFFICE 09</text>
+    <text class="sub" x="836" y="612" text-anchor="middle" font-size="25">Executive Hub</text>
+    <circle cx="836" cy="590" r="92" fill="rgba(34,211,238,.11)" stroke="#22D3EE" stroke-opacity=".45" stroke-width="3"/>
+    <circle cx="836" cy="590" r="48" fill="rgba(59,130,246,.16)" stroke="#67E8F9" stroke-opacity=".56" stroke-width="3"/>
+    <rect class="room" x="1125" y="450" width="385" height="250" rx="34"/>
+    <rect x="1155" y="485" width="115" height="10" rx="5" fill="#22D3EE" opacity=".85"/>
+    <text class="label" x="1317" y="565" text-anchor="middle" font-size="38">AI Assistant</text>
+    <text class="sub" x="1317" y="615" text-anchor="middle" font-size="24">Smart Layer</text>
+  </g>
+  <path d="M595 270C675 270 682 462 594 575" stroke="#67E8F9" stroke-width="4" stroke-opacity=".32" fill="none"/>
+  <path d="M1078 575C990 462 997 270 1040 270" stroke="#67E8F9" stroke-width="4" stroke-opacity=".32" fill="none"/>
+  <path d="M545 575H594M1078 575H1125" stroke="#67E8F9" stroke-width="4" stroke-opacity=".32"/>
+  <g transform="translate(165 760)">
+    <rect class="chip" width="340" height="62" rx="31"/>
+    <circle cx="38" cy="31" r="10" fill="#34D399"/>
+    <text class="muted" x="68" y="39" font-size="24">Live Office Map</text>
+  </g>
+  <g transform="translate(1170 760)">
+    <rect width="340" height="62" rx="31" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.12)" stroke-width="2"/>
+    <text class="muted" x="170" y="39" text-anchor="middle" font-size="24">Blumark24 OS</text>
+  </g>
+</svg>
