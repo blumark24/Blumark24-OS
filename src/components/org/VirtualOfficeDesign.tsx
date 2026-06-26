@@ -154,9 +154,11 @@ function computeHp(open: number, overdue: number, emp: number): number {
   return Math.max(45, Math.min(99, 100 - overdue * 10 - Math.max(0, open - overdue) * 3));
 }
 
-// ─── Presence (EXECUTIVE-OFFICE-PRESENCE-1) ─────────────────────────────────────
-// Visual presence ONLY. Status is DETERMINISTIC (derived from a stable seed) —
-// never random, never persisted, never realtime. No DB/network involved.
+// ─── Presence (C16 — Virtual Command Office, presence layer) ────────────────────
+// Display layer only. Until real presence tracking exists (separate backend
+// work), every employee is honestly shown as "غير متاح" — no fake "متاح" /
+// "مشغول" / "في اجتماع" states are generated. The type system stays so the
+// real presence service can plug in later without UI churn.
 export type PresenceStatus = "available" | "busy" | "meeting" | "offline";
 
 const PRESENCE_LABEL: Record<PresenceStatus, string> = {
@@ -171,15 +173,14 @@ const PRESENCE_COLOR: Record<PresenceStatus, string> = {
   meeting: "#a855f7",
   offline: "#6b7a8f",
 };
-export const PRESENCE_NOTE = "الحالة المعروضة للمعاينة التشغيلية فقط.";
+export const PRESENCE_NOTE = "تتبع الحضور الحقيقي قادم · لا توجد بيانات وهمية.";
 const PRESENCE_FALLBACK_LETTERS = ["م", "ف", "ع", "س", "ر"];
 
-function presenceStatusFor(seed: string): PresenceStatus {
-  const h = hashStr(seed || "؟") % 10;
-  if (h <= 4) return "available"; // ~50%
-  if (h <= 6) return "busy";      // ~20%
-  if (h <= 8) return "meeting";   // ~20%
-  return "offline";               // ~10%
+// Until real presence exists, every person is honestly "offline".
+// Kept as a function (not a constant) so a real lookup can replace it
+// without changing call sites.
+function presenceStatusFor(_seed: string): PresenceStatus {
+  return "offline";
 }
 
 export interface PresencePerson {
