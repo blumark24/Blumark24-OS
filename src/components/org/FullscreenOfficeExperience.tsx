@@ -5,6 +5,7 @@
 
 import { ArrowRight, X } from "lucide-react";
 import type { MappingSource, OfficeRoom, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
+import { buildOfficeInteriorProfile } from "@/lib/virtual-office/officeInteriorProfile";
 
 const MAP_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -55,6 +56,17 @@ export default function FullscreenOfficeExperience({
   const crop = OFFICE_CROPS[officeNum] ?? OFFICE_CROPS[5];
   const isLinked = Boolean(mappingUnit) && !room.isUnassigned;
   const displayName = officeDisplayName(room, mappingUnit);
+  const interior = buildOfficeInteriorProfile({
+    officeNumber: officeNum,
+    officeName: displayName,
+    isBoard: room.isCenter,
+    isUnassigned: room.isUnassigned,
+  });
+  // C18.2-D — use the existing approved interior image as-is. We keep the
+  // external map crop as the second background layer, so no office image is
+  // deleted, replaced, or faked if the interior asset is unavailable.
+  const interiorAssetSrc = interior.canOpenInterior ? interior.assetSrc : null;
+  const isInteriorAssetMode = Boolean(interiorAssetSrc);
   const accent = room.isCenter ? "#a855f7" : isLinked ? "#10b981" : "#f59e0b";
   const status = room.isCenter ? "مجلس الإدارة" : isLinked ? "مرتبط" : "جاهز للربط";
 
@@ -70,11 +82,12 @@ export default function FullscreenOfficeExperience({
 
         <div className="bm-office-portal-titlebox">
           <div className="bm-office-portal-title">{displayName}</div>
-          <div className="bm-office-portal-subtitle">{`OFFICE ${fmt(officeNum)} · 2D من الأعلى · ${crop.label}`}</div>
+          <div className="bm-office-portal-subtitle">{`OFFICE ${fmt(officeNum)} · ${isInteriorAssetMode ? "مكتب داخلي" : "2D من الأعلى"} · ${crop.label}`}</div>
         </div>
 
         <div className="bm-office-portal-badges">
           <span style={{ border: `1px solid ${accent}44`, background: `${accent}0f`, color: accent }}>{status}</span>
+          {isInteriorAssetMode && <span>صورة داخلية محفوظة</span>}
           {isLinked && mappingSource && <span>{sourceLabel[mappingSource]}</span>}
         </div>
 
@@ -88,8 +101,15 @@ export default function FullscreenOfficeExperience({
           <div
             className="bm-office-crop-image"
             style={{
-              backgroundImage: `url(${MAP_SRC})`,
-              backgroundPosition: crop.position,
+              backgroundImage: interiorAssetSrc
+                ? `url(${interiorAssetSrc}), url(${MAP_SRC})`
+                : `url(${MAP_SRC})`,
+              backgroundPosition: interiorAssetSrc
+                ? `center center, ${crop.position}`
+                : crop.position,
+              backgroundSize: interiorAssetSrc
+                ? "cover, 300% 300%"
+                : "300% 300%",
             }}
           />
 
