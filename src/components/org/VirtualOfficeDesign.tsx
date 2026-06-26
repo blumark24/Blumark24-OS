@@ -26,6 +26,9 @@ import { type SceneRoom, formatOfficeNumber } from "./VirtualOfficeReferenceScen
 import MobileExecutiveOfficeScene from "./MobileExecutiveOfficeScene";
 import OfficeControlModal, { type OfficeRoomState, type BoardOfficeStats } from "./OfficeControlModal";
 import FullscreenOfficeExperience from "./FullscreenOfficeExperience";
+// C16.2-I: scoped office data only — no global fallback.
+import { buildScopedOfficeData } from "@/lib/virtual-office/officeScopeViewModel";
+import { emptyScopedOfficeMetricPatch, toScopedOfficeMetricPatch } from "@/lib/virtual-office/scopedOfficeMetrics";
 
 // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
 // 9 real office slots (01–09). Slot 4 (office 05) = مكتب مجلس الإدارة (board).
@@ -194,39 +197,19 @@ export interface PresencePerson {
   roleOrUnit: string | null;
 }
 
-function resolveRoomPeople(
-  room: OfficeRoom,
+// C16.2-I: scoped office data only — no global fallback.
+// Build PresencePerson[] from a pre-scoped employee list. Callers must already
+// have filtered employees through buildScopedOfficeData (or an equivalent
+// scope) so this function never leaks employees from another office.
+function scopedRoomPeople(
+  scopedEmployees: Employee[],
   mappingUnit: PreviewOrgUnit | null,
-  snapshot: OrgStructureSnapshot | null,
-  employees: Employee[],
 ): PresencePerson[] {
-  if (room.isDemo) return [];
-  const rels = Array.isArray(snapshot?.relations) ? snapshot!.relations : [];
-  const empById = new Map((Array.isArray(employees) ? employees : []).map((e) => [e.id, e]));
-
-  let employeeIds: string[];
-  if (mappingUnit) {
-    const sep = mappingUnit.id.indexOf(":");
-    const kind = sep >= 0 ? mappingUnit.id.slice(0, sep) : "department";
-    const rawId = sep >= 0 ? mappingUnit.id.slice(sep + 1) : mappingUnit.id;
-    employeeIds = rels
-      .filter((r) => (kind === "team" ? r?.team_id === rawId : r?.department_id === rawId))
-      .map((r) => r.employee_id)
-      .filter((x): x is string => typeof x === "string");
-  } else {
-    employeeIds = rels
-      .filter((r) => r?.department_id === room.deptId)
-      .map((r) => r.employee_id)
-      .filter((x): x is string => typeof x === "string");
-  }
-
   const seen = new Set<string>();
   const people: PresencePerson[] = [];
-  for (const id of employeeIds) {
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const emp = empById.get(id);
-    if (!emp) continue;
+  for (const emp of Array.isArray(scopedEmployees) ? scopedEmployees : []) {
+    if (!emp?.id || seen.has(emp.id)) continue;
+    seen.add(emp.id);
     const rawName = (emp.name ?? emp.email ?? "").trim();
     const name = rawName || `عضو ${people.length + 1}`;
     const initials = rawName
@@ -235,7 +218,7 @@ function resolveRoomPeople(
     const status = presenceStatusFor(emp.id || name);
     const roleLabel = emp.role ? getTenantRoleLabel(emp.role) : null;
     people.push({
-      id,
+      id: emp.id,
       name,
       initials,
       color: avatarColor(name),
@@ -246,6 +229,37 @@ function resolveRoomPeople(
     });
   }
   return people;
+}
+
+// C16.2-I: scoped office data only — no global fallback.
+// Unlinked offices and board always return []. Linked offices route through
+// buildScopedOfficeData so the employee list is bounded to the office's own
+// department or team, never to the whole organization.
+function resolveRoomPeople(
+  room: OfficeRoom,
+  mappingUnit: PreviewOrgUnit | null,
+  snapshot: OrgStructureSnapshot | null,
+  employees: Employee[],
+  tasks: Task[],
+): PresencePerson[] {
+  if (room.isDemo || room.isCenter) return [];
+  if (!mappingUnit) return [];
+
+  const scoped = buildScopedOfficeData({
+    room: {
+      id: room.id,
+      officeNumber: room.officeNumber ?? 0,
+      fixedRoomKey: room.fixedRoomKey,
+      isBoard: false,
+    },
+    mappingUnit: { id: mappingUnit.id, type: mappingUnit.type, name: mappingUnit.name },
+    viewer: { mode: "owner" },
+    employees: (Array.isArray(employees) ? employees : []) as unknown as Array<{ id: string }>,
+    tasks: (Array.isArray(tasks) ? tasks : []) as unknown as Array<{ assigneeId?: string | null; status?: string | null }>,
+    relations: Array.isArray(snapshot?.relations) ? snapshot!.relations : [],
+  });
+
+  return scopedRoomPeople(scoped.employees as unknown as Employee[], mappingUnit);
 }
 
 // Smart keyword-based slot assignment. Slot 4 is pre-reserved for board —
@@ -757,6 +771,15 @@ export default function VirtualOfficeDesign({
     [snapshot, safeTasks],
   );
 
+  // C16.2-I: scoped office data only — no global fallback.
+  // Every office's employeeCount / openTasks / overdueTasks / healthPct /
+  // avatars are derived through buildScopedOfficeData so data can never leak
+  // from another office or another organization. Unassigned offices and the
+  // board are forced to the empty patch.
+  const safeRelations = useMemo(
+    () => (Array.isArray(snapshot?.relations) ? snapshot!.relations : []),
+    [snapshot],
+  );
   const roomsWithPresence = useMemo(() => {
     return rooms.map((room) => {
       const { unit } = resolveRoomMapping({ room, units: previewOrgUnits, savedMappings });
@@ -771,21 +794,53 @@ export default function VirtualOfficeDesign({
         name: displayName,
         isUnassigned,
         isOpen: roomStates[room.fixedRoomKey]?.is_open ?? true,
-        // Unassigned offices have no employees or tasks until the manager links them.
-        ...(isUnassigned ? { employeeCount: 0, openTasks: 0, overdueTasks: 0, avatars: [] } : {}),
       };
 
-      if (room.isDemo || isUnassigned) return base;
+      // Board and unassigned offices show no operational data on the map.
+      if (room.isCenter || isUnassigned) {
+        const empty = emptyScopedOfficeMetricPatch();
+        return {
+          ...base,
+          employeeCount: empty.employeeCount,
+          openTasks: empty.openTasks,
+          overdueTasks: empty.overdueTasks,
+          healthPct: empty.healthPct,
+          avatars: [],
+        };
+      }
 
-      const people = resolveRoomPeople(room, unit, snapshot, safeEmps);
-      if (people.length === 0) return base;
+      // Demo offices have no live data and no global fallback.
+      if (room.isDemo) {
+        return base;
+      }
+
+      // Linked, real office → scoped employees + scoped task metrics only.
+      const scoped = buildScopedOfficeData({
+        room: {
+          id: room.id,
+          officeNumber: room.officeNumber ?? 0,
+          fixedRoomKey: room.fixedRoomKey,
+          isBoard: false,
+        },
+        mappingUnit: unit ? { id: unit.id, type: unit.type, name: unit.name } : null,
+        viewer: { mode: "owner" },
+        employees: safeEmps as unknown as Array<{ id: string }>,
+        tasks: safeTasks as unknown as Array<{ assigneeId?: string | null; status?: string | null }>,
+        relations: safeRelations,
+      });
+      const patch = toScopedOfficeMetricPatch(scoped.summary);
+      const people = scopedRoomPeople(scoped.employees as unknown as Employee[], unit);
+
       return {
         ...base,
-        employeeCount: people.length,
+        employeeCount: patch.employeeCount,
+        openTasks: patch.openTasks,
+        overdueTasks: patch.overdueTasks,
+        healthPct: patch.healthPct,
         avatars: people.slice(0, 3).map((p) => ({ initials: p.initials, color: p.color, statusColor: p.statusColor })),
       };
     });
-  }, [rooms, previewOrgUnits, savedMappings, roomStates, snapshot, safeEmps]);
+  }, [rooms, previewOrgUnits, savedMappings, roomStates, safeEmps, safeTasks, safeRelations]);
 
   useEffect(() => {
     let alive = true;
@@ -1180,9 +1235,10 @@ export default function VirtualOfficeDesign({
           closedCount,
         };
         const managerRoom = roomsWithPresence.find((r) => r.id === controlModalRoom.id) ?? controlModalRoom;
+        // C16.2-I: scoped office data only — no global fallback.
         const officePeople = (managerRoom.isCenter || managerRoom.isUnassigned)
           ? []
-          : resolveRoomPeople(controlModalRoom, controlMapping.unit, snapshot, safeEmps);
+          : resolveRoomPeople(controlModalRoom, controlMapping.unit, snapshot, safeEmps, safeTasks);
         return (
           <OfficeControlModal
             key={controlModalRoom.id}
@@ -1217,9 +1273,10 @@ export default function VirtualOfficeDesign({
       {/* ── Fullscreen Office Entry — C15.1 ── */}
       {fullscreenRoom && (() => {
         const fsMapping = resolveRoomMapping({ room: fullscreenRoom, units: previewOrgUnits, savedMappings });
+        // C16.2-I: scoped office data only — no global fallback.
         const fsPeople = fullscreenRoom.isCenter || fullscreenRoom.isUnassigned
           ? []
-          : resolveRoomPeople(fullscreenRoom, fsMapping.unit, snapshot, safeEmps);
+          : resolveRoomPeople(fullscreenRoom, fsMapping.unit, snapshot, safeEmps, safeTasks);
         return (
           <FullscreenOfficeExperience
             room={fullscreenRoom}
