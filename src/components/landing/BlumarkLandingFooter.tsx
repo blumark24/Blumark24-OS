@@ -30,11 +30,10 @@ const content = {
       {
         title: "التشغيل الذكي",
         links: [
-          { label: "AI للأعمال", href: "/solutions/ai-business" },
+          { label: "المساعد الذكي", href: "/solutions/ai-business" },
           { label: "أتمتة العمليات", href: "/solutions/automation" },
           { label: "إدارة العملاء", href: "/solutions/customer-management" },
           { label: "المكتب الافتراضي", href: "/virtual-office-guide" },
-          { label: "القطاعات", href: "/industries" },
         ],
       },
       {
@@ -84,11 +83,10 @@ const content = {
       {
         title: "Smart Operations",
         links: [
-          { label: "AI for Business", href: "/solutions/ai-business" },
+          { label: "AI Assistant", href: "/solutions/ai-business" },
           { label: "Workflow Automation", href: "/solutions/automation" },
           { label: "Customer Management", href: "/solutions/customer-management" },
           { label: "Virtual Office", href: "/virtual-office-guide" },
-          { label: "Industries", href: "/industries" },
         ],
       },
       {
