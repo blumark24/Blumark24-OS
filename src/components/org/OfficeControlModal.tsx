@@ -5,12 +5,71 @@
 // Only data and available actions change per office state.
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
   X, Users, CheckCircle2, DoorOpen, Archive,
   MapPin, ChevronDown, ChevronUp, Building2, GitMerge, BrainCircuit,
+  Calendar, Phone, ListChecks, FileText, BarChart3, ShieldCheck,
 } from "lucide-react";
+import { usePermissions, type UserRole } from "@/contexts/PermissionsContext";
 import type { OfficeRoom, MappingSource, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
 import { formatOfficeNumber } from "./VirtualOfficeReferenceScene";
+
+// ─── C16: Virtual Command Office — view mode (RBAC display layer) ─────────────
+// Maps an existing UserRole to one of three audience tiers. This is a display-
+// only label; permissions enforcement still lives in PageGuard / RLS.
+
+type VoViewMode = "owner" | "manager" | "employee";
+
+function viewModeFor(role: UserRole | null): VoViewMode {
+  if (role === "super_admin" || role === "board_member" || role === "organization_manager") {
+    return "owner";
+  }
+  if (role === "defense_manager" || role === "attack_manager" || role === "finance_manager") {
+    return "manager";
+  }
+  return "employee";
+}
+
+const VIEW_MODE_LABEL: Record<VoViewMode, string> = {
+  owner:    "وضع المالك · مركز قيادة",
+  manager:  "وضع المدير · مكتبه وفِرَقه",
+  employee: "وضع الموظف · مكتبه فقط",
+};
+const VIEW_MODE_COLOR: Record<VoViewMode, string> = {
+  owner:    "#a855f7",
+  manager:  "#22d3ee",
+  employee: "#10b981",
+};
+
+// ─── C16 ── Office tabs (light, in-modal navigation) ─────────────────────────
+type VoTab = "overview" | "employees" | "tasks" | "files" | "meeting" | "report";
+
+interface TabDef {
+  key: VoTab;
+  label: string;
+  Icon: React.ElementType;
+}
+
+// All six tabs always show; content adapts honestly. Tabs the current view
+// mode isn't allowed to see are filtered later by `tabsFor(viewMode)`.
+const TABS_ALL: TabDef[] = [
+  { key: "overview",  label: "نظرة عامة", Icon: Building2  },
+  { key: "employees", label: "الموظفون",  Icon: Users      },
+  { key: "tasks",     label: "المهام",    Icon: ListChecks },
+  { key: "files",     label: "الملفات",   Icon: FileText   },
+  { key: "meeting",   label: "الاجتماع",  Icon: Calendar   },
+  { key: "report",    label: "التقرير",   Icon: BarChart3  },
+];
+
+// Employees in "وضع الموظف" should not see the full employee list of their
+// own office (privacy across colleagues). They still see the other tabs.
+function tabsFor(viewMode: VoViewMode): TabDef[] {
+  if (viewMode === "employee") {
+    return TABS_ALL.filter((t) => t.key !== "employees");
+  }
+  return TABS_ALL;
+}
 
 const officeLabel = (n: number) => `مكتب ${formatOfficeNumber(n)}`;
 
@@ -147,6 +206,132 @@ function OfficeInsight({ room, isOpen }: { room: OfficeRoom; isOpen: boolean }) 
   );
 }
 
+// ─── C16 ── OfficeActionsRow (Virtual Command Office) ────────────────────────
+// Five visible actions per office. Only "عرض المهام" is wired today (links to
+// the existing /tasks page). The other four (start meeting, quick call, view
+// files, office report) are placeholders awaiting real backend work — they
+// stay clearly badged "قريبًا" so customers never wonder if something silent
+// is running. The viewMode prop is reserved for future per-role filtering.
+
+interface OfficeAction {
+  key: string;
+  label: string;
+  Icon: React.ElementType;
+  color: string;
+  href?: string;        // when present → wired Link
+  comingSoonNote?: string;
+}
+
+function OfficeActionsRow({ viewMode }: { viewMode: VoViewMode }) {
+  // viewMode is read so callers can pass it; reserved for per-role gating later.
+  void viewMode;
+
+  const actions: OfficeAction[] = [
+    {
+      key: "meet",
+      label: "بدء اجتماع",
+      Icon: Calendar,
+      color: "#a855f7",
+      comingSoonNote: "قريبًا · سيتم إشعار جميع المشاركين",
+    },
+    {
+      key: "call",
+      label: "نداء سريع",
+      Icon: Phone,
+      color: "#22d3ee",
+      comingSoonNote: "قريبًا · لن يتم فتح أي صوت بدون موافقة",
+    },
+    {
+      key: "tasks",
+      label: "عرض المهام",
+      Icon: ListChecks,
+      color: "#10b981",
+      href: "/tasks",
+    },
+    {
+      key: "files",
+      label: "عرض الملفات",
+      Icon: FileText,
+      color: "#f59e0b",
+      comingSoonNote: "قريبًا · مساحة ملفات المكتب",
+    },
+    {
+      key: "report",
+      label: "تقرير المكتب",
+      Icon: BarChart3,
+      color: "#3b82f6",
+      comingSoonNote: "قريبًا · ملخص تشغيلي للمكتب",
+    },
+  ];
+
+  const cellBase: React.CSSProperties = {
+    display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+    padding: "8px 4px",
+    borderRadius: 10,
+    border: "1px solid rgba(148,163,184,0.10)",
+    background: "rgba(255,255,255,0.02)",
+    textAlign: "center",
+    minWidth: 0,
+  };
+
+  return (
+    <div style={{
+      ...SECTION_CARD,
+      border: "1px solid rgba(148,163,184,0.10)",
+      background: "rgba(255,255,255,0.015)",
+    }}>
+      <div style={{ ...SECTION_LABEL, marginBottom: 6 }}>إجراءات المكتب</div>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+        gap: 6,
+      }}>
+        {actions.map(({ key, label, Icon, color, href, comingSoonNote }) => {
+          const inner = (
+            <>
+              <Icon size={14} color={color} />
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#c0d4ee", lineHeight: 1.2 }}>{label}</span>
+              <span style={{
+                fontSize: 8.5, fontWeight: 700,
+                color: href ? "#10b981" : "#64748b",
+                lineHeight: 1.2,
+              }}>
+                {href ? "متاح" : "قريبًا"}
+              </span>
+            </>
+          );
+          if (href) {
+            return (
+              <Link key={key} href={href} style={{ ...cellBase, textDecoration: "none", cursor: "pointer" }}>
+                {inner}
+              </Link>
+            );
+          }
+          return (
+            <button
+              key={key}
+              type="button"
+              disabled
+              title={comingSoonNote ?? "قريبًا"}
+              style={{
+                ...cellBase,
+                cursor: "not-allowed",
+                opacity: 0.85,
+                font: "inherit",
+              }}
+            >
+              {inner}
+            </button>
+          );
+        })}
+      </div>
+      <p style={{ margin: "8px 0 0", fontSize: 9.5, color: "#4a6a8a", lineHeight: 1.5 }}>
+        الصوت والفيديو لا يعملان بشكل خفي. عند تفعيل الاجتماعات لاحقاً سيتم إشعار المشاركين بوضوح قبل أي بث.
+      </p>
+    </div>
+  );
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export default function OfficeControlModal({
@@ -157,6 +342,17 @@ export default function OfficeControlModal({
   onResetVirtualOffice, isResettingOffice, resetOfficeError,
 }: OfficeControlModalProps) {
   const [selectedUnitId, setSelectedUnitId] = useState(mappingUnit?.id ?? "");
+  // C16: derive RBAC view mode label only. Real enforcement stays in RLS/PageGuard.
+  const { userRole } = usePermissions();
+  const viewMode = viewModeFor(userRole);
+  const visibleTabs = tabsFor(viewMode);
+  const [activeTab, setActiveTab] = useState<VoTab>("overview");
+  // Clamp activeTab to the allowed set whenever the view mode changes.
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.key === activeTab)) {
+      setActiveTab(visibleTabs[0]?.key ?? "overview");
+    }
+  }, [visibleTabs, activeTab]);
   const [typeFilter, setTypeFilter]         = useState<TypeFilter>("all");
   const [assignOpen, setAssignOpen]         = useState(room.isUnassigned);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -273,6 +469,64 @@ export default function OfficeControlModal({
         {/* ══ BODY ════════════════════════════════════════════════════════════ */}
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "10px 16px", display: "flex", flexDirection: "column", gap: 8, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"] }}>
 
+          {/* C16 ── View-mode badge (RBAC display label, never a security claim) */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+            padding: "6px 10px", borderRadius: 999,
+            border: `1px solid ${VIEW_MODE_COLOR[viewMode]}44`,
+            background: `${VIEW_MODE_COLOR[viewMode]}0c`,
+          }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+              <ShieldCheck size={11} color={VIEW_MODE_COLOR[viewMode]} />
+              <span style={{ fontSize: 10.5, fontWeight: 800, color: VIEW_MODE_COLOR[viewMode], whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {VIEW_MODE_LABEL[viewMode]}
+              </span>
+            </div>
+            <span style={{ fontSize: 9, color: "#4a6a8a", whiteSpace: "nowrap" }}>
+              لا مراقبة سرية · لا صوت/فيديو خفي
+            </span>
+          </div>
+
+          {/* C16 ── Tab bar (light in-modal navigation) */}
+          <div role="tablist" aria-label="تبويبات المكتب" style={{
+            display: "flex", gap: 4,
+            overflowX: "auto", overflowY: "hidden",
+            paddingBottom: 4,
+            marginBottom: 2,
+            borderBottom: "1px solid rgba(148,163,184,0.10)",
+            scrollbarWidth: "none",
+          }}>
+            {visibleTabs.map(({ key, label, Icon }) => {
+              const active = key === activeTab;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setActiveTab(key)}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    padding: "6px 10px",
+                    borderRadius: 10,
+                    border: active ? "1px solid rgba(34,211,238,0.40)" : "1px solid rgba(148,163,184,0.10)",
+                    background: active ? "rgba(34,211,238,0.10)" : "transparent",
+                    color: active ? "#22d3ee" : "#8ba3c7",
+                    fontSize: 11, fontWeight: 700,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Icon size={12} />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── OVERVIEW TAB ──────────────────────────────────────────────── */}
+          {activeTab === "overview" && (<>
           {/* 1 ── حالة المكتب (smart insight) */}
           <OfficeInsight room={room} isOpen={isOpen} />
 
@@ -332,6 +586,16 @@ export default function OfficeControlModal({
             </div>
           )}
 
+          {/* C16 ── إجراءات المكتب (Virtual Command Office actions row).
+              All five actions are visible to every audience so the experience
+              feels complete, but only "عرض المهام" is wired today (links to
+              the existing /tasks page). The rest are placeholders awaiting
+              real backend work — clearly badged "قريبًا" with an honest
+              privacy note. No covert audio/video, no fake data. */}
+          {!room.isCenter && !room.isUnassigned && (
+            <OfficeActionsRow viewMode={viewMode} />
+          )}
+
           {/* 4b ── مساحات العمل — compact summary — C15.1 */}
           <div style={{
             ...SECTION_CARD,
@@ -372,7 +636,11 @@ export default function OfficeControlModal({
               </button>
             )}
           </div>
+          </>)}
 
+          {/* ── EMPLOYEES TAB ─────────────────────────────────────────────── */}
+          {activeTab === "employees" && (
+            <>
           {/* 5 ── الموظفون في المكتب — C14-M7 */}
           {!room.isCenter && !room.isUnassigned && (
             <div style={{ ...SECTION_CARD, border: "1px solid rgba(168,85,247,0.10)", background: "rgba(168,85,247,0.03)" }}>
@@ -404,6 +672,128 @@ export default function OfficeControlModal({
               </p>
             </div>
           )}
+          {(room.isCenter || room.isUnassigned) && (
+            <div style={{ ...SECTION_CARD, border: "1px solid rgba(148,163,184,0.10)", background: "rgba(255,255,255,0.02)" }}>
+              <div style={{ ...SECTION_LABEL, marginBottom: 6 }}>الموظفون في المكتب</div>
+              <p style={{ margin: 0, fontSize: 11, color: "#64748b", fontStyle: "italic" }}>
+                {room.isUnassigned ? "جاهز بعد الربط" : "غير متاح"}
+              </p>
+            </div>
+          )}
+            </>
+          )}
+
+          {/* ── TASKS TAB ─────────────────────────────────────────────────── */}
+          {activeTab === "tasks" && (
+            <div style={{ ...SECTION_CARD, border: "1px solid rgba(16,185,129,0.10)", background: "rgba(16,185,129,0.03)" }}>
+              <div style={{ ...SECTION_LABEL, marginBottom: 6 }}>مهام المكتب</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#10b981", lineHeight: 1 }}>
+                    {room.openTasks ?? 0}
+                  </div>
+                  <div style={{ fontSize: 9.5, color: "#6b87ab", marginTop: 3 }}>مهام مفتوحة</div>
+                </div>
+                <Link href="/tasks" style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "6px 11px", borderRadius: 10,
+                  border: "1px solid rgba(16,185,129,0.30)",
+                  background: "rgba(16,185,129,0.08)",
+                  color: "#10b981", fontSize: 11, fontWeight: 700,
+                  textDecoration: "none",
+                }}>
+                  <ListChecks size={12} />
+                  فتح صفحة المهام
+                </Link>
+              </div>
+              <p style={{ margin: 0, fontSize: 9.5, color: "#4a6a8a", lineHeight: 1.5 }}>
+                تصفية المهام لكل مكتب جاهزة بعد ربط الإدارة بهذا المكتب.
+              </p>
+            </div>
+          )}
+
+          {/* ── FILES TAB ─────────────────────────────────────────────────── */}
+          {activeTab === "files" && (
+            <div style={{ ...SECTION_CARD, border: "1px solid rgba(245,158,11,0.10)", background: "rgba(245,158,11,0.03)" }}>
+              <div style={{ ...SECTION_LABEL, marginBottom: 6 }}>ملفات المكتب</div>
+              <p style={{ margin: 0, fontSize: 11, color: "#64748b", fontStyle: "italic", lineHeight: 1.6 }}>
+                لا توجد ملفات بعد · مساحة ملفات المكتب قريبًا.
+              </p>
+              <p style={{ margin: "6px 0 0", fontSize: 9.5, color: "#4a6a8a", lineHeight: 1.5 }}>
+                ستربط هذه المساحة بقاعدة بيانات الملفات لاحقًا. حتى ذلك الحين، لا توجد بيانات وهمية.
+              </p>
+            </div>
+          )}
+
+          {/* ── MEETING TAB ───────────────────────────────────────────────── */}
+          {activeTab === "meeting" && (
+            <div style={{ ...SECTION_CARD, border: "1px solid rgba(168,85,247,0.10)", background: "rgba(168,85,247,0.03)" }}>
+              <div style={{ ...SECTION_LABEL, marginBottom: 6 }}>اجتماع المكتب</div>
+              <p style={{ margin: 0, fontSize: 11, color: "#64748b", fontStyle: "italic", lineHeight: 1.6 }}>
+                لا يوجد اجتماع نشط · جاهز بعد تفعيل الاجتماعات.
+              </p>
+              <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                <button type="button" disabled title="قريبًا · سيتم إشعار جميع المشاركين" style={{
+                  flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  padding: "7px 10px", borderRadius: 10,
+                  border: "1px solid rgba(168,85,247,0.20)",
+                  background: "rgba(168,85,247,0.05)",
+                  color: "#a78bfa", fontSize: 10.5, fontWeight: 700,
+                  cursor: "not-allowed", opacity: 0.85, font: "inherit",
+                }}>
+                  <Calendar size={12} />
+                  بدء اجتماع · قريبًا
+                </button>
+                <button type="button" disabled title="قريبًا · لن يتم فتح أي صوت بدون موافقة" style={{
+                  flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  padding: "7px 10px", borderRadius: 10,
+                  border: "1px solid rgba(34,211,238,0.20)",
+                  background: "rgba(34,211,238,0.05)",
+                  color: "#22d3ee", fontSize: 10.5, fontWeight: 700,
+                  cursor: "not-allowed", opacity: 0.85, font: "inherit",
+                }}>
+                  <Phone size={12} />
+                  نداء سريع · قريبًا
+                </button>
+              </div>
+              <p style={{ margin: "8px 0 0", fontSize: 9.5, color: "#4a6a8a", lineHeight: 1.5 }}>
+                الصوت والفيديو لا يعملان بشكل خفي. عند تفعيل الاجتماعات سيتم إشعار المشاركين بوضوح قبل أي بث.
+              </p>
+            </div>
+          )}
+
+          {/* ── REPORT TAB ────────────────────────────────────────────────── */}
+          {activeTab === "report" && (
+            <div style={{ ...SECTION_CARD, border: "1px solid rgba(59,130,246,0.10)", background: "rgba(59,130,246,0.03)" }}>
+              <div style={{ ...SECTION_LABEL, marginBottom: 6 }}>تقرير المكتب</div>
+              {(room.isUnassigned) ? (
+                <p style={{ margin: 0, fontSize: 11, color: "#64748b", fontStyle: "italic", lineHeight: 1.6 }}>
+                  جاهز بعد الربط · لا توجد بيانات لعرضها.
+                </p>
+              ) : (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                    {([
+                      { label: "موظفون", value: room.employeeCount ?? 0, color: "#22d3ee" },
+                      { label: "مهام مفتوحة", value: room.openTasks ?? 0, color: "#10b981" },
+                      { label: "ارتباط", value: mappingUnit ? (sourceTag.replace(" · ", "") || "مرتبط") : "غير مخصص", color: mappingUnit ? "#a855f7" : "#64748b" },
+                    ] as const).map(({ label: l, value, color }) => (
+                      <div key={l} style={{ ...SECTION_CARD, textAlign: "center", border: `1px solid ${color}22`, background: `${color}06` }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+                        <div style={{ fontSize: 9, color: "#6b87ab", marginTop: 3 }}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ margin: "8px 0 0", fontSize: 9.5, color: "#4a6a8a", lineHeight: 1.5 }}>
+                    تقرير تفصيلي قابل للتصدير قريبًا · يعرض هذا الموجز ما هو مرتبط فعلاً بهذا المكتب.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── OVERVIEW TAB (Board / assignment / unlink continuation) ─── */}
+          {activeTab === "overview" && (<>
 
           {/* 5b-i ── Board: Digital Twin — C14-M7.2 */}
           {room.isCenter && (
@@ -605,6 +995,7 @@ export default function OfficeControlModal({
               </div>
             </div>
           )}
+          </>)}
         </div>
 
         {/* ══ FOOTER ══════════════════════════════════════════════════════════ */}
