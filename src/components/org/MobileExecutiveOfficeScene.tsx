@@ -11,6 +11,7 @@ import {
 } from "@/lib/virtual-office/useVirtualOfficeMotion";
 import { firstOfficeSmartSuggestion } from "@/lib/virtual-office/officeSmartSuggestions";
 import { resolveOfficePresencePolicy } from "@/lib/virtual-office/officePresencePolicy";
+import { buildOfficeTextMeetingInvite } from "@/lib/virtual-office/officeTextMeetingInvites";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -66,9 +67,19 @@ function OfficeChip({ room, selected, onClick, position }: {
   // C16.5-B — presence label stays policy-driven and disabled by default.
   // This is not live presence and does not imply employees are online.
   const presence = resolveOfficePresencePolicy({ source: "none" });
+  // C16.6-B — text-only invite draft. This does not send messages, create
+  // meetings, activate realtime, or enable audio/video/WebRTC.
+  const textInvite = buildOfficeTextMeetingInvite({
+    officeNumber: room.officeNumber ?? 0,
+    officeName: room.name,
+    participantCount: room.employeeCount,
+    topic: "تنسيق متابعة المكتب",
+    channel: "internal_note",
+  });
   const suggestionText = `${suggestion.title} — ${suggestion.detail}`;
   const presenceText = `الحضور: ${presence.label}`;
-  const accessibleSummary = `${suggestionText} · ${presenceText}`;
+  const inviteText = `${textInvite.actionLabel}: ${textInvite.status === "ready" ? "مسودة نصية آمنة" : "غير متاح"}`;
+  const accessibleSummary = `${suggestionText} · ${presenceText} · ${inviteText}`;
 
   // C16.3-D — safe motion adapter.
   // The chip's coordinate transform (translate(-50%, -50%)) must NEVER change,
@@ -177,6 +188,32 @@ function OfficeChip({ room, selected, onClick, position }: {
         </span>
         <span aria-hidden style={{ width: 5, height: 5, borderRadius: "50%", background: dot, flexShrink: 0, boxShadow: `0 0 4px ${dot}` }} />
       </span>
+
+      {(interactive || selected) && textInvite.status === "ready" && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            bottom: -2,
+            left: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            borderRadius: 999,
+            padding: "2px 6px",
+            border: `1px solid ${accent}33`,
+            background: "rgba(3,8,20,0.88)",
+            color: accent,
+            fontSize: 7.5,
+            fontWeight: 800,
+            lineHeight: 1,
+            boxShadow: `0 0 8px ${accent}22`,
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          دعوة نصية
+        </span>
+      )}
     </button>
   );
 }
