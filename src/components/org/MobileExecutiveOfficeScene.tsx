@@ -13,6 +13,7 @@ import { firstOfficeSmartSuggestion } from "@/lib/virtual-office/officeSmartSugg
 import { resolveOfficePresencePolicy } from "@/lib/virtual-office/officePresencePolicy";
 import { buildOfficeTextMeetingInvite } from "@/lib/virtual-office/officeTextMeetingInvites";
 import { buildOfficeArtifactSummary } from "@/lib/virtual-office/officeArtifactSummary";
+import { resolveMeetingRoomGovernance } from "@/lib/virtual-office/officeMeetingRoomGovernance";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -92,11 +93,24 @@ function OfficeChip({ room, selected, onClick, position }: {
     linkedFileCount: 0,
   });
   const reportArtifact = artifacts.items.find((entry) => entry.kind === "report") ?? null;
+  // C16.8-B — meeting-room governance is surfaced as text-only readiness.
+  // It never starts live rooms and never enables realtime, audio, video, or WebRTC.
+  const meetingRoom = resolveMeetingRoomGovernance({
+    officeNumber: room.officeNumber ?? 0,
+    officeName: room.name,
+    isBoard: room.isCenter,
+    isUnassigned: room.isUnassigned,
+    audience: "manager",
+    mode: room.isUnassigned ? "inactive" : "text_only",
+    hasApproval: true,
+    hasLinkedTeam: room.isCenter || (room.employeeCount ?? 0) > 0,
+  });
   const suggestionText = `${suggestion.title} — ${suggestion.detail}`;
   const presenceText = `الحضور: ${presence.label}`;
   const inviteText = `${textInvite.actionLabel}: ${textInvite.status === "ready" ? "مسودة نصية آمنة" : "غير متاح"}`;
   const artifactText = `الملفات والتقارير: ${reportArtifact?.state === "ready" ? reportArtifact.title : "جاهزة بعد الربط"}`;
-  const accessibleSummary = `${suggestionText} · ${presenceText} · ${inviteText} · ${artifactText}`;
+  const meetingRoomText = `غرفة الاجتماع: ${meetingRoom.canPrepareTextRoom ? meetingRoom.title : meetingRoom.detail}`;
+  const accessibleSummary = `${suggestionText} · ${presenceText} · ${inviteText} · ${artifactText} · ${meetingRoomText}`;
 
   // C16.3-D — safe motion adapter.
   // The chip's coordinate transform (translate(-50%, -50%)) must NEVER change,
@@ -205,6 +219,32 @@ function OfficeChip({ room, selected, onClick, position }: {
         </span>
         <span aria-hidden style={{ width: 5, height: 5, borderRadius: "50%", background: dot, flexShrink: 0, boxShadow: `0 0 4px ${dot}` }} />
       </span>
+
+      {(interactive || selected) && meetingRoom.canPrepareTextRoom && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            borderRadius: 999,
+            padding: "2px 6px",
+            border: "1px solid rgba(168,85,247,0.30)",
+            background: "rgba(3,8,20,0.88)",
+            color: "#c4b5fd",
+            fontSize: 7.5,
+            fontWeight: 800,
+            lineHeight: 1,
+            boxShadow: "0 0 8px rgba(168,85,247,0.18)",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          غرفة نصية
+        </span>
+      )}
 
       {(interactive || selected) && textInvite.status === "ready" && (
         <span
