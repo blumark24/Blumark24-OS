@@ -144,6 +144,7 @@ const CONTENT = {
         { href: "#why", label: "لماذا نحن" },
         { href: "#features", label: "المزايا" },
         { href: "#pricing", label: "الباقات" },
+        { href: "/virtual-office-guide", label: "المكتب الافتراضي" },
         { href: "#contact", label: "تواصل" },
       ],
       copyright: "© Blumark24 OS",
@@ -256,6 +257,7 @@ const CONTENT = {
         { href: "#why", label: "Why Us" },
         { href: "#features", label: "Features" },
         { href: "#pricing", label: "Pricing" },
+        { href: "/virtual-office-guide", label: "Virtual Office" },
         { href: "#contact", label: "Contact" },
       ],
       copyright: "© Blumark24 OS",
@@ -871,7 +873,7 @@ export default function MarketingLanding() {
               <Sparkles className="inline h-3 w-3 text-[#22D3EE] mb-0.5" strokeWidth={1.8} /> AI Business OS
             </span>
           </div>
-          <div className="flex items-center gap-5 text-[12.5px]" style={{ color: "rgba(255,255,255,0.72)" }}>
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12.5px]" style={{ color: "rgba(255,255,255,0.72)" }}>
             {c.footer.links.map((link) => (
               <a key={link.href} href={link.href} className="hover:text-white transition">
                 {link.label}
