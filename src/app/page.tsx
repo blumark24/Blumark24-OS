@@ -9,7 +9,7 @@ import BlumarkLandingFooter from "@/components/landing/BlumarkLandingFooter";
 // for `/dashboard` and other internal routes is handled by middleware.ts and
 // the per-route guards.
 
-const landingRelease = "2026-06-26-os-layer-11";
+const landingRelease = "2026-06-26-os-layer-first";
 
 export const metadata: Metadata = {
   title: "Blumark24 OS | نظام إدارة الأعمال بالذكاء الاصطناعي",
@@ -49,10 +49,10 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <>
+      <LandingOSUpgrade />
       <div className="landing-footer-upgrade" data-release={landingRelease}>
         <MarketingLanding />
       </div>
-      <LandingOSUpgrade />
       <BlumarkLandingFooter />
       <style
         dangerouslySetInnerHTML={{
