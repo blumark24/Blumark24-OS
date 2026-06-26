@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import MarketingLanding from "@/components/landing/MarketingLanding";
-import VirtualOfficePreviewLink from "@/components/landing/VirtualOfficePreviewLink";
 import BlumarkLandingFooter from "@/components/landing/BlumarkLandingFooter";
 
 // `/` is a public marketing surface. It must remain renderable without any
@@ -9,7 +8,7 @@ import BlumarkLandingFooter from "@/components/landing/BlumarkLandingFooter";
 // for `/dashboard` and other internal routes is handled by middleware.ts and
 // the per-route guards.
 
-const landingRelease = "2026-06-26-bilingual-landing-copy-virtual-office-link";
+const landingRelease = "2026-06-26-bilingual-landing-copy-footer-virtual-office";
 
 const heroCopyPatch = String.raw`
 (function () {
@@ -144,7 +143,6 @@ export default function HomePage() {
       <div className="landing-footer-upgrade" data-release={landingRelease}>
         <MarketingLanding />
       </div>
-      <VirtualOfficePreviewLink />
       <BlumarkLandingFooter />
       <style
         dangerouslySetInnerHTML={{
