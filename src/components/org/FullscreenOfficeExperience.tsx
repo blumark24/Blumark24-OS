@@ -6,6 +6,7 @@
 import { ArrowRight, X } from "lucide-react";
 import type { MappingSource, OfficeRoom, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
 import { buildOfficeInteriorProfile } from "@/lib/virtual-office/officeInteriorProfile";
+import { buildTextMeetingRoom } from "@/lib/virtual-office/textMeetingRoom";
 
 const MAP_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -49,7 +50,7 @@ export default function FullscreenOfficeExperience({
   room,
   mappingUnit,
   mappingSource,
-  officePeople: _officePeople,
+  officePeople,
   onClose,
 }: FullscreenOfficeExperienceProps) {
   const officeNum = room.officeNumber ?? 5;
@@ -69,6 +70,27 @@ export default function FullscreenOfficeExperience({
   const isInteriorAssetMode = Boolean(interiorAssetSrc);
   const accent = room.isCenter ? "#a855f7" : isLinked ? "#10b981" : "#f59e0b";
   const status = room.isCenter ? "مجلس الإدارة" : isLinked ? "مرتبط" : "جاهز للربط";
+  const safePeople = Array.isArray(officePeople) ? officePeople : [];
+  const textRoom = buildTextMeetingRoom({
+    officeNumber: officeNum,
+    officeName: displayName,
+    audience: room.isCenter ? "owner" : "manager",
+    isBoard: room.isCenter,
+    isUnassigned: room.isUnassigned,
+    hasApproval: true,
+    requiresApproval: false,
+    participantCount: safePeople.length,
+    topic: "تنسيق متابعة المكتب",
+  });
+  const openTasks = room.openTasks ?? 0;
+  const overdueTasks = room.overdueTasks ?? 0;
+  const healthPct = room.healthPct ?? 0;
+  const panelStats = [
+    { label: "أعضاء", value: String(safePeople.length), color: "#22d3ee" },
+    { label: "مهام", value: String(openTasks), color: "#10b981" },
+    { label: "متأخرة", value: String(overdueTasks), color: overdueTasks > 0 ? "#f59e0b" : "#64748b" },
+    { label: "صحة", value: `${healthPct}%`, color: healthPct > 0 ? accent : "#64748b" },
+  ] as const;
 
   return (
     <div role="dialog" aria-modal="true" aria-label={`داخل ${displayName}`} className="bm-office-portal-shell" dir="rtl">
@@ -119,6 +141,46 @@ export default function FullscreenOfficeExperience({
             <span style={{ background: accent, boxShadow: `0 0 6px ${accent}` }} />
             {`OFFICE ${fmt(officeNum)}`}
           </div>
+
+          {/* C18.2-E — internal command panel. Display-only; no realtime, audio,
+              video, message sending, database writes, or fake activity. */}
+          <section className="bm-office-command-panel" aria-label="لوحة المكتب الداخلي" style={{ borderColor: `${accent}26` }}>
+            <div className="bm-office-command-kicker" style={{ color: accent }}>مكتب داخلي</div>
+            <h3>{displayName}</h3>
+            <p>{interior.detail}</p>
+
+            <div className="bm-office-command-stats">
+              {panelStats.map((item) => (
+                <div key={item.label}>
+                  <span style={{ color: item.color }}>{item.value}</span>
+                  <small>{item.label}</small>
+                </div>
+              ))}
+            </div>
+
+            <div className="bm-office-command-room" style={{ borderColor: `${accent}22`, background: `${accent}08` }}>
+              <div>
+                <strong>{textRoom.canOpenTextRoom ? "غرفة نصية جاهزة" : "الغرفة النصية مقيدة"}</strong>
+                <span>{textRoom.canOpenTextRoom ? textRoom.topic : textRoom.actionLabel}</span>
+              </div>
+              <em style={{ color: textRoom.canOpenTextRoom ? "#10b981" : "#f59e0b" }}>
+                {textRoom.canOpenTextRoom ? "آمنة" : "تحتاج إجراء"}
+              </em>
+            </div>
+
+            <div className="bm-office-command-people">
+              <span>أعضاء المكتب</span>
+              <div>
+                {safePeople.length > 0 ? safePeople.slice(0, 4).map((person) => (
+                  <b key={person.id} title={person.name} style={{ borderColor: `${person.color}44`, background: `${person.color}18`, color: person.color }}>
+                    {person.initials}
+                  </b>
+                )) : <small>جاهز بعد الربط</small>}
+              </div>
+            </div>
+
+            <p className="bm-office-command-note">لا صوت · لا فيديو · لا حضور لحظي</p>
+          </section>
         </div>
       </main>
 
@@ -274,6 +336,141 @@ export default function FullscreenOfficeExperience({
           border-radius: 999px;
           flex-shrink: 0;
         }
+        .bm-office-command-panel {
+          position: absolute;
+          top: 54px;
+          right: 14px;
+          width: min(300px, calc(100% - 28px));
+          border: 1px solid;
+          border-radius: 18px;
+          background: rgba(2,7,22,0.70);
+          backdrop-filter: blur(18px);
+          -webkit-backdrop-filter: blur(18px);
+          box-shadow: 0 20px 55px rgba(0,0,0,0.38), 0 0 0 1px rgba(255,255,255,0.025) inset;
+          padding: 12px;
+          pointer-events: none;
+        }
+        .bm-office-command-kicker {
+          font-size: 9px;
+          font-weight: 950;
+          letter-spacing: 1px;
+          margin-bottom: 5px;
+        }
+        .bm-office-command-panel h3 {
+          margin: 0;
+          color: #e8fbff;
+          font-size: 16px;
+          font-weight: 950;
+          line-height: 1.25;
+        }
+        .bm-office-command-panel p {
+          margin: 6px 0 0;
+          color: #6b87ab;
+          font-size: 10px;
+          line-height: 1.55;
+        }
+        .bm-office-command-stats {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 6px;
+          margin-top: 10px;
+        }
+        .bm-office-command-stats div {
+          border-radius: 12px;
+          border: 1px solid rgba(148,163,184,0.10);
+          background: rgba(255,255,255,0.035);
+          padding: 7px 4px;
+          text-align: center;
+        }
+        .bm-office-command-stats span {
+          display: block;
+          font-size: 14px;
+          font-weight: 950;
+          line-height: 1;
+        }
+        .bm-office-command-stats small {
+          display: block;
+          margin-top: 4px;
+          font-size: 8.5px;
+          color: #4a6a8a;
+          font-weight: 800;
+        }
+        .bm-office-command-room {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          border: 1px solid;
+          border-radius: 14px;
+          padding: 9px 10px;
+          margin-top: 9px;
+        }
+        .bm-office-command-room div {
+          min-width: 0;
+        }
+        .bm-office-command-room strong {
+          display: block;
+          color: #dbeafe;
+          font-size: 11px;
+          font-weight: 950;
+          line-height: 1.2;
+        }
+        .bm-office-command-room span {
+          display: block;
+          color: #5a7a9a;
+          font-size: 9px;
+          font-weight: 700;
+          margin-top: 3px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .bm-office-command-room em {
+          font-style: normal;
+          flex-shrink: 0;
+          font-size: 9px;
+          font-weight: 950;
+        }
+        .bm-office-command-people {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-top: 9px;
+        }
+        .bm-office-command-people > span {
+          color: #4a6a8a;
+          font-size: 9.5px;
+          font-weight: 900;
+        }
+        .bm-office-command-people div {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          min-width: 0;
+        }
+        .bm-office-command-people b {
+          width: 24px;
+          height: 24px;
+          border-radius: 999px;
+          border: 1px solid;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 8px;
+          font-weight: 950;
+        }
+        .bm-office-command-people small {
+          color: #64748b;
+          font-size: 9px;
+          font-weight: 800;
+        }
+        .bm-office-command-note {
+          color: #3a5570 !important;
+          font-size: 9px !important;
+          font-weight: 800;
+          text-align: center;
+        }
         @media (max-width: 640px) {
           .bm-office-portal-topbar {
             padding: 8px 10px;
@@ -293,6 +490,25 @@ export default function FullscreenOfficeExperience({
           .bm-office-crop-frame {
             width: 100%;
             border-radius: 14px;
+          }
+          .bm-office-command-panel {
+            top: auto;
+            right: 8px;
+            left: 8px;
+            bottom: 8px;
+            width: auto;
+            padding: 10px;
+          }
+          .bm-office-command-panel h3 {
+            font-size: 13px;
+          }
+          .bm-office-command-panel p,
+          .bm-office-command-people,
+          .bm-office-command-note {
+            display: none;
+          }
+          .bm-office-command-stats {
+            margin-top: 8px;
           }
         }
       `}</style>
