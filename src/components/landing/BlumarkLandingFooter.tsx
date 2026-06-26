@@ -15,7 +15,7 @@ const content = {
   ar: {
     dir: "rtl" as const,
     description:
-      "منصة تشغيل ذكية تساعد المنشآت على إدارة العملاء، الموظفين، المهام، التقارير، المكتب الافتراضي، والمساعد الذكي ضمن تجربة أعمال موحّدة.",
+      "منصة تشغيل ذكية تساعد المنشآت على إدارة العملاء، الموظفين، المهام، التقارير، والمساعد الذكي ضمن تجربة أعمال موحّدة.",
     badge: "منصة تشغيل مؤسسية قابلة للتوسع",
     navLabel: "روابط Blumark24 OS",
     columns: [
@@ -33,7 +33,7 @@ const content = {
           { label: "AI للأعمال", href: "/solutions/ai-business" },
           { label: "أتمتة العمليات", href: "/solutions/automation" },
           { label: "إدارة العملاء", href: "/solutions/customer-management" },
-          { label: "المكتب الافتراضي", href: "/virtual-office-guide" },
+          { label: "القطاعات", href: "/industries" },
         ],
       },
       {
@@ -68,7 +68,7 @@ const content = {
   en: {
     dir: "ltr" as const,
     description:
-      "A smart operating platform for clients, employees, tasks, reports, the virtual office, and AI assistance in one unified business experience.",
+      "A smart operating platform for clients, employees, tasks, reports, and AI assistance in one unified business experience.",
     badge: "Enterprise operating platform built to scale",
     navLabel: "Blumark24 OS links",
     columns: [
@@ -86,7 +86,7 @@ const content = {
           { label: "AI for Business", href: "/solutions/ai-business" },
           { label: "Workflow Automation", href: "/solutions/automation" },
           { label: "Customer Management", href: "/solutions/customer-management" },
-          { label: "Virtual Office", href: "/virtual-office-guide" },
+          { label: "Industries", href: "/industries" },
         ],
       },
       {
