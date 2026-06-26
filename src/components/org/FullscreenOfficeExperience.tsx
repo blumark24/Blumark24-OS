@@ -16,16 +16,17 @@ import type {
 
 // ─── Office center positions (mirrors CHIP_POSITIONS, fractions 0–1) ─────────
 
+// RTL order: 01 top-right → 09 bottom-left (mirrors MobileExecutiveOfficeScene CHIP_POSITIONS)
 const OFFICE_POS: Array<{ top: number; left: number }> = [
-  { top: 0.79, left: 0.19 }, // 01
-  { top: 0.18, left: 0.20 }, // 02
-  { top: 0.18, left: 0.50 }, // 03
-  { top: 0.48, left: 0.19 }, // 04
-  { top: 0.48, left: 0.50 }, // 05 — مجلس الإدارة (center, fixed)
-  { top: 0.48, left: 0.82 }, // 06
-  { top: 0.80, left: 0.51 }, // 07
-  { top: 0.79, left: 0.82 }, // 08
-  { top: 0.18, left: 0.82 }, // 09
+  { top: 0.18, left: 0.82 }, // 01 — أعلى يمين
+  { top: 0.18, left: 0.50 }, // 02 — أعلى وسط
+  { top: 0.18, left: 0.20 }, // 03 — أعلى يسار
+  { top: 0.48, left: 0.82 }, // 04 — وسط يمين
+  { top: 0.48, left: 0.50 }, // 05 — الوسط / مجلس الإدارة (center, fixed)
+  { top: 0.48, left: 0.19 }, // 06 — وسط يسار
+  { top: 0.79, left: 0.82 }, // 07 — أسفل يمين
+  { top: 0.80, left: 0.51 }, // 08 — أسفل وسط
+  { top: 0.79, left: 0.19 }, // 09 — أسفل يسار
 ];
 
 const MAP_SRC = "/assets/virtual-office/office-map-reference.webp";
