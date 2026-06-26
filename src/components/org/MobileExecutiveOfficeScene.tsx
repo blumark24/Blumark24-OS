@@ -16,6 +16,7 @@ import { buildOfficeArtifactSummary } from "@/lib/virtual-office/officeArtifactS
 import { resolveMeetingRoomGovernance } from "@/lib/virtual-office/officeMeetingRoomGovernance";
 import { resolveOwnerGovernancePolicy } from "@/lib/virtual-office/ownerGovernancePolicy";
 import { resolveProductionReadinessPolicy } from "@/lib/virtual-office/productionReadinessPolicy";
+import { resolveSafeMotionEffect } from "@/lib/virtual-office/safeMotionEffects";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -140,7 +141,7 @@ function OfficeChip({ room, selected, onClick, position }: {
   const meetingRoomText = `غرفة الاجتماع: ${meetingRoom.canPrepareTextRoom ? meetingRoom.title : meetingRoom.detail}`;
   const ownerGovernanceText = `حوكمة المالك: ${ownerControls?.status === "enabled" ? ownerControls.title : "غير متاحة"}`;
   const productionReadinessText = `جاهزية الإنتاج: ${productionReadiness.status === "pass" ? "جاهز" : "تحت الفحص"} · ${productionReadiness.passedCount}/${productionReadiness.checks.length}`;
-  const accessibleSummary = `${suggestionText} · ${presenceText} · ${inviteText} · ${artifactText} · ${meetingRoomText} · ${ownerGovernanceText} · ${productionReadinessText}`;
+  const baseAccessibleSummary = `${suggestionText} · ${presenceText} · ${inviteText} · ${artifactText} · ${meetingRoomText} · ${ownerGovernanceText} · ${productionReadinessText}`;
 
   // C16.3-D — safe motion adapter.
   // The chip's coordinate transform (translate(-50%, -50%)) must NEVER change,
@@ -155,6 +156,22 @@ function OfficeChip({ room, selected, onClick, position }: {
   };
   const motion: VirtualOfficeMotionStyleResult = useVirtualOfficeMotionStyle(motionState);
   const interactive = isHovered || isFocused;
+  // C18.1-B — safe motion effects are display-only and coordinate-safe.
+  // Transform remains locked to translate(-50%, -50%); only glow/shadow timing
+  // is allowed. Reduced-motion users get the disabled effect path.
+  const safeEffect = resolveSafeMotionEffect({
+    mode: "polished",
+    surface: "office_chip",
+    reducedMotion: motion.reducedMotion,
+    preservesCoordinates: true,
+    heavyEffectRequested: false,
+  });
+  const safeEffectActive = safeEffect.status === "safe" && (interactive || selected);
+  const safeEffectDuration = safeEffect.durationMs > 0 ? safeEffect.durationMs : 150;
+  const safeGlowRadius = selected ? 22 : 14;
+  const safeGlowOpacity = Math.round(safeEffect.glowOpacity * 100);
+  const motionEffectText = `المؤثرات: ${safeEffect.status === "safe" ? safeEffect.label : safeEffect.detail}`;
+  const accessibleSummary = `${baseAccessibleSummary} · ${motionEffectText}`;
   // Selection outline keeps priority; otherwise we fall back to the adapter's
   // safe outline so reduced-motion users still get a clear interaction cue.
   const interactionOutline = selected
@@ -163,12 +180,15 @@ function OfficeChip({ room, selected, onClick, position }: {
       ? (motion.style.outline ?? `1.5px solid ${accent}55`)
       : "none";
   const interactionShadow = selected
-    ? `0 0 22px ${accent}55, 0 0 8px ${accent}33`
+    ? `0 0 ${safeGlowRadius}px ${accent}55, 0 0 8px ${accent}33`
     // Light hover-only glow; reduced motion users won't see the shadow
-    // animation either because transition is taken from the adapter.
+    // animation either because transition is taken from the adapter/effect.
     : interactive && !motion.reducedMotion
-      ? `0 0 14px ${accent}55, 0 0 6px ${accent}33`
+      ? `0 0 ${safeGlowRadius}px ${accent}55, 0 0 6px ${accent}33`
       : "none";
+  const interactionTransition = safeEffect.status === "safe"
+    ? `outline ${safeEffectDuration}ms ease, box-shadow ${safeEffectDuration}ms ease, opacity ${safeEffectDuration}ms ease`
+    : (motion.style.transition ?? "outline 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease");
 
   return (
     <button
@@ -197,13 +217,29 @@ function OfficeChip({ room, selected, onClick, position }: {
         padding: 0,
         zIndex: 2,
         borderRadius: 14,
-        // Safe properties from the motion adapter:
+        // Safe properties from the motion adapter and C18.1 safe effect layer:
         opacity: motion.style.opacity,
         outline: interactionOutline,
         boxShadow: interactionShadow,
-        transition: motion.style.transition ?? "outline 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease",
+        transition: interactionTransition,
       }}
     >
+      {safeEffectActive && safeGlowOpacity > 0 && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 4,
+            borderRadius: 16,
+            border: `1px solid ${accent}33`,
+            boxShadow: `0 0 ${safeGlowRadius}px ${accent}33`,
+            opacity: safeGlowOpacity / 100,
+            transition: `opacity ${safeEffectDuration}ms ease, box-shadow ${safeEffectDuration}ms ease`,
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
       <span
         aria-hidden
         style={{
