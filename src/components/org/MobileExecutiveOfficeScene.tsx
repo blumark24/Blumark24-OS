@@ -10,6 +10,7 @@ import {
   type VirtualOfficeMotionStyleResult,
 } from "@/lib/virtual-office/useVirtualOfficeMotion";
 import { firstOfficeSmartSuggestion } from "@/lib/virtual-office/officeSmartSuggestions";
+import { resolveOfficePresencePolicy } from "@/lib/virtual-office/officePresencePolicy";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -62,7 +63,12 @@ function OfficeChip({ room, selected, onClick, position }: {
     overdueTaskCount: room.overdueTasks,
     healthPct: room.healthPct,
   });
+  // C16.5-B — presence label stays policy-driven and disabled by default.
+  // This is not live presence and does not imply employees are online.
+  const presence = resolveOfficePresencePolicy({ source: "none" });
   const suggestionText = `${suggestion.title} — ${suggestion.detail}`;
+  const presenceText = `الحضور: ${presence.label}`;
+  const accessibleSummary = `${suggestionText} · ${presenceText}`;
 
   // C16.3-D — safe motion adapter.
   // The chip's coordinate transform (translate(-50%, -50%)) must NEVER change,
@@ -100,8 +106,8 @@ function OfficeChip({ room, selected, onClick, position }: {
       onMouseLeave={() => setIsHovered(false)}
       onFocus={() => setIsFocused(true)}
       onBlur={() => setIsFocused(false)}
-      aria-label={`مكتب ${formatOfficeNumber(room.officeNumber)} · ${suggestionText}`}
-      title={suggestionText}
+      aria-label={`مكتب ${formatOfficeNumber(room.officeNumber)} · ${accessibleSummary}`}
+      title={accessibleSummary}
       style={{
         position: "absolute",
         top: position.top,
