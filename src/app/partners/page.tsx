@@ -3,22 +3,22 @@ import MarketingInfoPage from "@/components/landing/MarketingInfoPage";
 
 export const metadata: Metadata = {
   title: "الشراكات | Blumark24 OS",
-  description: "الشراكات والتعاون مع Blumark24.",
+  description: "فرص التعاون مع منصة Blumark24.",
 };
 
 export default function PartnersPage() {
   return (
     <MarketingInfoPage
       eyebrow="الشراكات"
-      title="نبني شراكات تشغيلية وتقنية"
-      description="تفتح Blumark24 المجال للتعاون مع مزودي الخدمات، فرق التنفيذ، والاستشاريين الذين يخدمون الأعمال بجدية واحترافية."
-      primaryAction={{ label: "قدّم طلب شراكة", href: "/contact" }}
-      secondaryAction={{ label: "عن الشركة", href: "/about" }}
+      title="شركاء يساعدون Blumark24 على النمو"
+      description="Blumark24 منصة سعودية في مرحلة النمو. نرحب برواد الأعمال، المهندسين، الشركاء التشغيليين، المتدربين، والمتفرغين الذين يستطيعون تقديم قيمة عملية للمنصة والعملاء."
+      primaryAction={{ label: "تواصل للشراكة", href: "/contact" }}
+      secondaryAction={{ label: "التوظيف والترشيح", href: "/careers" }}
       sections={[
-        { title: "شركاء التنفيذ", body: "للفرق التي تساعد العملاء على تطبيق الحلول الرقمية." },
-        { title: "شركاء التسويق", body: "للوكالات والمستقلين الذين يخدمون السوق المحلي." },
-        { title: "شركاء التقنية", body: "للمطورين ومزودي الأدوات التي تدعم تجربة العملاء." },
-        { title: "آلية التواصل", body: "ابدأ من صفحة التواصل وسيتم مراجعة نوع الشراكة المناسب." },
+        { title: "شركاء نمو", body: "لمن يملك خبرة سوقية أو علاقات أو قدرة على فتح فرص جديدة." },
+        { title: "رواد أعمال", body: "لمن يستطيع تحويل الأفكار إلى مسارات عمل واضحة وقابلة للتنفيذ." },
+        { title: "مهندسون وتقنيون", body: "لمن يستطيع تطوير المنتج أو تحسين التجربة أو بناء تكاملات مفيدة." },
+        { title: "متدربون ومتفرغون", body: "لمن يريد التعلم والعمل بجدية داخل مشروع قابل للنمو." },
       ]}
     />
   );
