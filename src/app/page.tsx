@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import MarketingLanding from "@/components/landing/MarketingLanding";
+import LandingOSUpgrade from "@/components/landing/LandingOSUpgrade";
 import BlumarkLandingFooter from "@/components/landing/BlumarkLandingFooter";
 
 // `/` is a public marketing surface.  It must remain renderable without any
@@ -45,6 +46,7 @@ export default function HomePage() {
       <div className="landing-footer-upgrade">
         <MarketingLanding />
       </div>
+      <LandingOSUpgrade />
       <BlumarkLandingFooter />
       <style
         dangerouslySetInnerHTML={{
