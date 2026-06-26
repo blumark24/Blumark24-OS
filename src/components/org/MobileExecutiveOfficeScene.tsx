@@ -3,6 +3,11 @@
 import { useState } from "react";
 import Image from "next/image";
 import { formatOfficeNumber, type SceneRoom } from "./VirtualOfficeReferenceScene";
+// C16.3-D — safe motion adapter for office chips.
+import {
+  useVirtualOfficeMotionStyle,
+  type VirtualOfficeMotionStyleResult,
+} from "@/lib/virtual-office/useVirtualOfficeMotion";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -44,15 +49,49 @@ function OfficeChip({ room, selected, onClick, position }: {
   const dot = dotColor(room);
   const name = badgeName(room);
 
+  // C16.3-D — safe motion adapter.
+  // The chip's coordinate transform (translate(-50%, -50%)) must NEVER change,
+  // otherwise the office hotspot drifts. We therefore feed the motion hook for
+  // state tracking (and reduced-motion handling) but only apply the safe
+  // visual properties — opacity, outline, transition — to the button. The
+  // motion adapter's own `transform` is intentionally discarded here.
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const motionState: Parameters<typeof useVirtualOfficeMotionStyle>[0] = {
+    state: isHovered ? "hover" : isFocused ? "focus" : "idle",
+  };
+  const motion: VirtualOfficeMotionStyleResult = useVirtualOfficeMotionStyle(motionState);
+  const interactive = isHovered || isFocused;
+  // Selection outline keeps priority; otherwise we fall back to the adapter's
+  // safe outline so reduced-motion users still get a clear interaction cue.
+  const interactionOutline = selected
+    ? `1.5px solid ${accent}88`
+    : interactive
+      ? (motion.style.outline ?? `1.5px solid ${accent}55`)
+      : "none";
+  const interactionShadow = selected
+    ? `0 0 22px ${accent}55, 0 0 8px ${accent}33`
+    // Light hover-only glow; reduced motion users won't see the shadow
+    // animation either because transition is taken from the adapter.
+    : interactive && !motion.reducedMotion
+      ? `0 0 14px ${accent}55, 0 0 6px ${accent}33`
+      : "none";
+
   return (
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
       aria-label={`مكتب ${formatOfficeNumber(room.officeNumber)}`}
       style={{
         position: "absolute",
         top: position.top,
         left: position.left,
+        // Keep the chip's coordinate transform locked. Do not blend the
+        // motion adapter transform here — it must remain translate(-50%, -50%).
         transform: "translate(-50%, -50%)",
         width: 80,
         height: 60,
@@ -64,9 +103,11 @@ function OfficeChip({ room, selected, onClick, position }: {
         padding: 0,
         zIndex: 2,
         borderRadius: 14,
-        outline: selected ? `1.5px solid ${accent}88` : "none",
-        boxShadow: selected ? `0 0 22px ${accent}55, 0 0 8px ${accent}33` : "none",
-        transition: "outline 0.15s ease, box-shadow 0.15s ease",
+        // Safe properties from the motion adapter:
+        opacity: motion.style.opacity,
+        outline: interactionOutline,
+        boxShadow: interactionShadow,
+        transition: motion.style.transition ?? "outline 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease",
       }}
     >
       <span
