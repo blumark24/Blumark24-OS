@@ -12,7 +12,7 @@ export default function DemoTopBar() {
           />
           <input
             type="search"
-            placeholder="بحث..."
+            placeholder="بحث داخل المنشأة..."
             aria-label="بحث"
             className="w-full h-10 rounded-xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-md text-[13px] text-white placeholder-white/45 ps-10 pe-3 outline-none focus:border-white/[0.18] transition"
           />
@@ -49,7 +49,7 @@ export default function DemoTopBar() {
         >
           <Bell className="h-4 w-4" strokeWidth={1.6} />
           <span className="absolute -top-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FF7A3D] text-[9px] font-semibold text-white px-1">
-            5
+            3
           </span>
         </button>
         <button
@@ -61,9 +61,9 @@ export default function DemoTopBar() {
         </button>
         <div className="inline-flex items-center gap-2 pe-3 ps-1 rounded-full border border-white/[0.08] bg-white/[0.03]">
           <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#22D3EE] to-[#1E6FD9] text-[11px] font-semibold text-white">
-            أ
+            م
           </span>
-          <span className="hidden sm:inline text-[12px] text-white/80">أحمد</span>
+          <span className="hidden sm:inline text-[12px] text-white/80">منشأة تجريبية</span>
         </div>
       </div>
     </div>
