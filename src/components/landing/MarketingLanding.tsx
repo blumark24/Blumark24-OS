@@ -48,12 +48,12 @@ const CONTENT = {
       { href: "#audience", label: "لمن مناسب" },
       { href: "#pricing", label: "الباقات" },
     ],
-    trustBullets: ["إعداد سريع", "دعم عربي كامل", "منصة سعودية"],
+    trustBullets: ["إعداد سريع", "دعم عربي احترافي", "جاهز للتوسع"],
     hero: {
-      title: "نظام إدارة الأعمال",
-      titleAccent: "للفرق السعودية",
+      title: "منصة تشغيل ذكية",
+      titleAccent: "لإدارة الأعمال",
       subtitle:
-        "إدارة العملاء والمهام والتقارير من مكان واحد — منصة سعودية تدعم التحول الرقمي وتنظّم عمليات فرق العمل.",
+        "Blumark24 OS منصة سعودية موحّدة لإدارة العملاء، الفرق، المهام، التقارير، المكتب الافتراضي، والمساعد الذكي — تساعد المنشآت على تنظيم العمليات، رفع كفاءة الأداء، وتسريع اتخاذ القرار.",
     },
     actions: {
       primary: "اطلب العرض التجريبي",
@@ -161,12 +161,12 @@ const CONTENT = {
       { href: "#audience", label: "Who We Serve" },
       { href: "#pricing", label: "Pricing" },
     ],
-    trustBullets: ["Quick setup", "Full Arabic support", "Saudi-built platform"],
+    trustBullets: ["Quick setup", "Professional Arabic support", "Built to scale"],
     hero: {
-      title: "Business Management System",
-      titleAccent: "for Saudi Teams",
+      title: "Smart Operating Platform",
+      titleAccent: "for Business Management",
       subtitle:
-        "Manage clients, tasks, and reports from one place — a Saudi-built platform supporting digital operations and organized workflows.",
+        "Blumark24 OS unifies clients, teams, tasks, reports, the virtual office, and AI assistance in one operating experience — helping organizations streamline operations, improve performance, and make faster decisions.",
     },
     actions: {
       primary: "Request a Demo",
