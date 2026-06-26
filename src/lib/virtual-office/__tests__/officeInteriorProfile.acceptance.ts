@@ -1,6 +1,8 @@
 import {
+  SHARED_OFFICE_INTERIOR_ASSET_SRC,
   buildOfficeInteriorProfile,
   canOpenOfficeInterior,
+  getOfficeInteriorAssetSrc,
 } from "../officeInteriorProfile";
 
 export function assertOfficeInteriorProfile(): boolean {
@@ -13,20 +15,19 @@ export function assertOfficeInteriorProfile(): boolean {
   const pendingWorkspace = buildOfficeInteriorProfile({
     officeNumber: 1,
     officeName: "المبيعات",
+    hasInteriorAsset: false,
     linkedEmployeeCount: 3,
   });
 
   const readyWorkspace = buildOfficeInteriorProfile({
     officeNumber: 2,
     officeName: "التشغيل",
-    hasInteriorAsset: true,
     linkedEmployeeCount: 4,
   });
 
   const boardroom = buildOfficeInteriorProfile({
     officeNumber: 5,
     isBoard: true,
-    hasInteriorAsset: true,
   });
 
   return (
@@ -35,14 +36,18 @@ export function assertOfficeInteriorProfile(): boolean {
     unassigned.preservesExteriorMapping === true &&
     pendingWorkspace.status === "pending_asset" &&
     pendingWorkspace.assetKey === "office-01-interior" &&
+    pendingWorkspace.assetSrc === null &&
     pendingWorkspace.canOpenInterior === false &&
     readyWorkspace.status === "ready" &&
+    readyWorkspace.assetSrc === SHARED_OFFICE_INTERIOR_ASSET_SRC &&
     readyWorkspace.canOpenInterior === true &&
     readyWorkspace.officeLabel.includes("OFFICE 02") &&
     boardroom.kind === "boardroom" &&
     boardroom.status === "ready" &&
+    boardroom.assetKey === "office-05-interior" &&
     boardroom.actionLabel === "فتح مجلس الإدارة" &&
-    canOpenOfficeInterior({ officeNumber: 3, hasInteriorAsset: true }) === true &&
+    getOfficeInteriorAssetSrc(5) === SHARED_OFFICE_INTERIOR_ASSET_SRC &&
+    canOpenOfficeInterior({ officeNumber: 3 }) === true &&
     canOpenOfficeInterior({ officeNumber: 4, hasInteriorAsset: false }) === false
   );
 }
