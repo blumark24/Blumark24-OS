@@ -1,0 +1,114 @@
+/* C20-B — Office control modal iPhone scroll safety.
+   Scoped to the office control dialog only through its Arabic aria-label. */
+
+[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] {
+  overscroll-behavior: contain;
+  touch-action: manipulation;
+}
+
+[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(125, 211, 252, 0.28) rgba(2, 7, 22, 0.32);
+}
+
+[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div > div:nth-child(2)::-webkit-scrollbar {
+  width: 4px;
+}
+
+[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div > div:nth-child(2)::-webkit-scrollbar-track {
+  background: rgba(2, 7, 22, 0.32);
+  border-radius: 999px;
+}
+
+[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div > div:nth-child(2)::-webkit-scrollbar-thumb {
+  background: rgba(125, 211, 252, 0.28);
+  border-radius: 999px;
+}
+
+@media (max-width: 767px) {
+  [role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)) !important;
+    overflow: hidden !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+  }
+
+  [role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div {
+    width: min(390px, calc(100vw - 28px)) !important;
+    max-width: 390px !important;
+    height: min(78dvh, 760px) !important;
+    max-height: min(78dvh, 760px) !important;
+    min-height: 0 !important;
+    border-radius: 22px !important;
+    overflow: hidden !important;
+    transform: translateZ(0) !important;
+  }
+
+  [role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div > div:first-child {
+    padding: 12px 14px 9px !important;
+    flex-shrink: 0 !important;
+  }
+
+  [role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div > div:first-child h2 {
+    font-size: 14px !important;
+    line-height: 1.35 !important;
+  }
+
+  [role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div > div:nth-child(2) {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    padding: 9px 14px 14px !important;
+    scroll-padding-bottom: 18px !important;
+  }
+
+  [role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div > div:nth-child(2) [role="tablist"] {
+    position: sticky !important;
+    top: -9px !important;
+    z-index: 3 !important;
+    margin-inline: -2px !important;
+    padding: 5px 2px 7px !important;
+    background: linear-gradient(180deg, rgba(8, 14, 36, 0.98), rgba(8, 14, 36, 0.88)) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+  }
+
+  [role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div > div:nth-child(3) {
+    flex-shrink: 0 !important;
+    padding: 9px 14px max(12px, env(safe-area-inset-bottom)) !important;
+    background: linear-gradient(180deg, rgba(8, 14, 36, 0.86), rgba(6, 10, 28, 0.98)) !important;
+    box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.34) !important;
+  }
+
+  [role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div > div:nth-child(3) > div {
+    display: grid !important;
+    grid-template-columns: minmax(78px, 0.75fr) minmax(0, 1.6fr) !important;
+    gap: 7px !important;
+    align-items: stretch !important;
+  }
+
+  [role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div > div:nth-child(3) button {
+    min-height: 42px !important;
+    border-radius: 12px !important;
+    padding-inline: 10px !important;
+    white-space: nowrap !important;
+  }
+
+  [role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div > div:nth-child(3) button[style*="width: 100%"] {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media (max-width: 390px) {
+  [role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم "] > div {
+    width: calc(100vw - 22px) !important;
+    height: min(76dvh, 720px) !important;
+    max-height: min(76dvh, 720px) !important;
+    border-radius: 20px !important;
+  }
+}
