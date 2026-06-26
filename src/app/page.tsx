@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import MarketingLanding from "@/components/landing/MarketingLanding";
+import BlumarkLandingFooter from "@/components/landing/BlumarkLandingFooter";
 
 // `/` is a public marketing surface.  It must remain renderable without any
 // AuthContext / PermissionsContext / Supabase / Dashboard dependency so that
@@ -39,5 +40,18 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <MarketingLanding />;
+  return (
+    <>
+      <div className="landing-footer-upgrade">
+        <MarketingLanding />
+      </div>
+      <BlumarkLandingFooter />
+      <style
+        dangerouslySetInnerHTML={{
+          __html:
+            ".landing-footer-upgrade .marketing-landing-root > footer { display: none; }",
+        }}
+      />
+    </>
+  );
 }
