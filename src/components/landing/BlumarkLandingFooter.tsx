@@ -26,7 +26,7 @@ const footerColumns: FooterColumn[] = [
     links: [
       { label: "AI للأعمال", href: "/solutions/ai-business", note: "حلول ذكاء اصطناعي للأعمال" },
       { label: "أتمتة العمليات", href: "/solutions/automation", note: "أتمتة تشغيلية للفرق" },
-      { label: "CRM والمبيعات", href: "/solutions/crm-sales", note: "إدارة العملاء والمبيعات" },
+      { label: "إدارة العملاء", href: "/solutions/customer-management", note: "تنظيم العملاء والمتابعة" },
       { label: "القطاعات", href: "/industries", note: "القطاعات التي نخدمها" },
     ],
   },
@@ -35,7 +35,6 @@ const footerColumns: FooterColumn[] = [
     links: [
       { label: "التسعير", href: "/pricing", note: "باقات Blumark24 OS" },
       { label: "مركز المعرفة", href: "/resources", note: "محتوى تعريفي وتشغيلي" },
-      { label: "الأسئلة الشائعة", href: "/faq", note: "إجابات مختصرة قبل الاشتراك" },
       { label: "حالة النظام", href: "/api/health", note: "فحص الحالة التقنية" },
     ],
   },
