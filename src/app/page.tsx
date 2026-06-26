@@ -8,7 +8,7 @@ import BlumarkLandingFooter from "@/components/landing/BlumarkLandingFooter";
 // for `/dashboard` and other internal routes is handled by middleware.ts and
 // the per-route guards.
 
-const landingRelease = "2026-06-26-enterprise-ops-copy-final";
+const landingRelease = "2026-06-26-enterprise-ops-copy-safe";
 
 const heroCopyPatch = String.raw`
 (function () {
@@ -17,19 +17,19 @@ const heroCopyPatch = String.raw`
   var nextSubtitle = "Blumark24 OS منصة أعمال موحّدة تجمع العملاء، الموظفين، المهام، التقارير، المكتب الافتراضي، والمساعد الذكي في تجربة تشغيل واحدة — لتمكين المنشآت من تنظيم عملياتها، رفع كفاءة الأداء، واتخاذ قرارات أسرع بثقة أعلى.";
   var nextTrust = ["إعداد سريع", "دعم عربي كامل", "جاهز للتوسع"];
 
-  function applyHeroCopy() {
-    var root = document.querySelector(".marketing-landing-root");
-    if (!root) return;
+  function setTextNodeValue(node, value) {
+    if (node && node.nodeType === 3 && node.nodeValue !== value) {
+      node.nodeValue = value;
+    }
+  }
 
-    var hero = root.querySelector("#home");
-    if (!hero) return;
+  function applyHeroCopyOnce() {
+    var hero = document.querySelector(".marketing-landing-root #home");
+    if (!hero) return false;
 
     var title = hero.querySelector("h1");
     if (title) {
-      if (title.childNodes[0] && title.childNodes[0].nodeType === 3) {
-        title.childNodes[0].nodeValue = nextTitle + " ";
-      }
-
+      setTextNodeValue(title.childNodes[0], nextTitle + " ");
       var accent = title.querySelector("span.bg-gradient-to-l");
       if (accent && accent.textContent !== nextAccent) {
         accent.textContent = nextAccent;
@@ -46,36 +46,31 @@ const heroCopyPatch = String.raw`
       nextTrust.forEach(function (item, index) {
         var target = trustItems[index];
         if (!target) return;
-        var textNode = Array.prototype.find.call(target.childNodes, function (node) {
-          return node.nodeType === 3 && node.nodeValue.trim().length > 0;
-        });
-        if (textNode && textNode.nodeValue.trim() !== item) {
-          textNode.nodeValue = " " + item;
+        for (var i = 0; i < target.childNodes.length; i += 1) {
+          var node = target.childNodes[i];
+          if (node.nodeType === 3 && node.nodeValue.trim().length > 0) {
+            setTextNodeValue(node, " " + item);
+            break;
+          }
         }
       });
     }
+
+    return true;
   }
 
-  function startHeroCopyPatch() {
-    applyHeroCopy();
-    var root = document.querySelector(".marketing-landing-root");
-    if (!root || window.__blumarkHeroCopyObserver) return;
-    window.__blumarkHeroCopyObserver = new MutationObserver(applyHeroCopy);
-    window.__blumarkHeroCopyObserver.observe(root, {
-      childList: true,
-      subtree: true,
-      characterData: true
-    });
+  function start() {
+    if (applyHeroCopyOnce()) return;
+    window.setTimeout(applyHeroCopyOnce, 250);
+    window.setTimeout(applyHeroCopyOnce, 750);
+    window.setTimeout(applyHeroCopyOnce, 1500);
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", startHeroCopyPatch);
+    document.addEventListener("DOMContentLoaded", start, { once: true });
   } else {
-    startHeroCopyPatch();
+    start();
   }
-
-  window.setTimeout(startHeroCopyPatch, 250);
-  window.setTimeout(startHeroCopyPatch, 750);
 })();
 `;
 
