@@ -18,7 +18,7 @@ const footerColumns: FooterColumn[] = [
     links: [
       { label: "Blumark24 OS", href: "/platform", note: "تعريف واضح بمنصة Blumark24 OS" },
       { label: "الديمو التفاعلي", href: "/demo", note: "تجربة مباشرة للنظام" },
-      { label: "تسجيل الدخول", href: "/auth", note: "دخول العملاء والمنشآت" },
+      { label: "تسجيل دخول المنشآت", href: "/auth", note: "دخول العملاء والمنشآت" },
     ],
   },
   {
