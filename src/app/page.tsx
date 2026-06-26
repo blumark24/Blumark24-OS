@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import MarketingLanding from "@/components/landing/MarketingLanding";
 import BlumarkLandingFooter from "@/components/landing/BlumarkLandingFooter";
 
-// `/` is a public marketing surface.  It must remain renderable without any
+// `/` is a public marketing surface. It must remain renderable without any
 // AuthContext / PermissionsContext / Supabase / Dashboard dependency so that
-// the homepage is fast and resilient to backend or auth problems.  Auth gating
+// the homepage is fast and resilient to backend or auth problems. Auth gating
 // for `/dashboard` and other internal routes is handled by middleware.ts and
 // the per-route guards.
 
-const landingRelease = "2026-06-26-enterprise-ops-copy";
+const landingRelease = "2026-06-26-enterprise-ops-copy-v2";
 
 const heroCopyPatch = String.raw`
 (function () {
