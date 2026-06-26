@@ -7,6 +7,12 @@
 //
 // C14-M4: map-first. Chips default to number + status dot only.
 // Short name appears only on the selected chip to avoid covering the map.
+//
+// VIRTUAL-OFFICE-NUMBERING-LOCK-1:
+// Office numbers follow the visual 3×3 map order exactly:
+// 01 top-left, 02 top-center, 03 top-right,
+// 04 middle-left, 05 center/board, 06 middle-right,
+// 07 bottom-left, 08 bottom-center, 09 bottom-right.
 
 import { useState } from "react";
 import Image from "next/image";
@@ -15,19 +21,19 @@ import { formatOfficeNumber, type SceneRoom } from "./VirtualOfficeReferenceScen
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
 
-// ─── Chip positions — slot-ordered (slot 0 = مكتب01 … slot 8 = مكتب09) ─────
+// ─── Chip positions — office-number ordered, matching the exterior map ───────
 
 interface ChipPos { top: string; left: string; }
 const CHIP_POSITIONS: ChipPos[] = [
-  { top: "79%", left: "19%" }, // slot 0 → 01
-  { top: "18%", left: "20%" }, // slot 1 → 02
-  { top: "18%", left: "50%" }, // slot 2 → 03
-  { top: "48%", left: "19%" }, // slot 3 → 04
-  { top: "48%", left: "50%" }, // slot 4 → 05 مجلس الإدارة (center)
-  { top: "48%", left: "82%" }, // slot 5 → 06
-  { top: "80%", left: "51%" }, // slot 6 → 07
-  { top: "79%", left: "82%" }, // slot 7 → 08
-  { top: "18%", left: "82%" }, // slot 8 → 09
+  { top: "18%", left: "20%" }, // OFFICE 01 → أعلى يسار
+  { top: "18%", left: "50%" }, // OFFICE 02 → أعلى وسط
+  { top: "18%", left: "82%" }, // OFFICE 03 → أعلى يمين
+  { top: "48%", left: "19%" }, // OFFICE 04 → وسط يسار
+  { top: "48%", left: "50%" }, // OFFICE 05 → مجلس الإدارة / الوسط الثابت
+  { top: "48%", left: "82%" }, // OFFICE 06 → وسط يمين
+  { top: "79%", left: "19%" }, // OFFICE 07 → أسفل يسار
+  { top: "80%", left: "51%" }, // OFFICE 08 → أسفل وسط
+  { top: "79%", left: "82%" }, // OFFICE 09 → أسفل يمين
 ];
 
 // ─── Status dot color ─────────────────────────────────────────────────────────
@@ -164,7 +170,7 @@ export default function MobileExecutiveOfficeScene({
           {!imgFailed ? (
             <Image
               src={IMAGE_SRC}
-              alt="خريطة المكتب التنفيذي"
+              alt="خريطة المكتب الافتراضي"
               fill
               sizes="(max-width: 860px) 100vw, 860px"
               style={{ objectFit: "contain", objectPosition: "center" }}
