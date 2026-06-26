@@ -385,3 +385,125 @@ html, body {
 .animate-pulse-slow {
   animation: landing-pulse-slow 4s ease-in-out infinite;
 }
+
+/* ─── C20-A: Virtual office mobile window safety ─────────────────────────────
+   Scoped overrides for the internal office window only. They preserve the
+   external map, office coordinates, CHIP_POSITIONS, rooms.map order, imagery,
+   and meeting/presence disabled state. The goal is to keep the office window
+   usable on phones by moving overflow inside the window panel instead of
+   forcing the page or map to jump. */
+.bm-office-portal-shell {
+  overscroll-behavior: contain;
+  touch-action: manipulation;
+}
+
+.bm-office-command-panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(125, 211, 252, 0.28) rgba(2, 7, 22, 0.32);
+}
+
+.bm-office-command-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.bm-office-command-panel::-webkit-scrollbar-track {
+  background: rgba(2, 7, 22, 0.32);
+  border-radius: 999px;
+}
+
+.bm-office-command-panel::-webkit-scrollbar-thumb {
+  background: rgba(125, 211, 252, 0.28);
+  border-radius: 999px;
+}
+
+@media (max-width: 767px) {
+  .bm-office-portal-main {
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)) !important;
+  }
+
+  .bm-office-crop-frame {
+    width: 100% !important;
+    height: calc(100dvh - 66px) !important;
+    max-height: calc(100dvh - 66px) !important;
+    aspect-ratio: auto !important;
+    border-radius: 16px !important;
+  }
+
+  .bm-office-crop-image {
+    background-size: cover, 300% 300% !important;
+    background-position: center center, center center !important;
+  }
+
+  .bm-office-crop-pill {
+    top: 8px !important;
+    max-width: calc(100% - 92px) !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bm-office-command-panel {
+    top: auto !important;
+    right: 8px !important;
+    left: 8px !important;
+    bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    width: auto !important;
+    max-height: min(52dvh, 420px) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 18px !important;
+    padding: 10px !important;
+    pointer-events: auto !important;
+  }
+
+  .bm-office-command-panel p,
+  .bm-office-presence-gate,
+  .bm-office-text-room-workspace,
+  .bm-office-persona-deck,
+  .bm-office-command-people,
+  .bm-office-command-note {
+    display: block !important;
+  }
+
+  .bm-office-command-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  .bm-office-text-room-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bm-office-persona-list button {
+    min-height: 38px;
+  }
+
+  .bm-office-persona-stage {
+    left: 10px !important;
+    bottom: calc(min(52dvh, 420px) + 22px) !important;
+    max-width: calc(100% - 20px);
+    overflow-x: auto;
+    padding: 2px 2px 6px;
+  }
+
+  .bm-office-persona-stage button {
+    width: 46px !important;
+    min-height: 44px !important;
+    border-radius: 15px !important;
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 380px) {
+  .bm-office-command-panel {
+    max-height: 56dvh !important;
+  }
+
+  .bm-office-command-stats span {
+    font-size: 12px !important;
+  }
+
+  .bm-office-presence-list {
+    grid-template-columns: 1fr !important;
+  }
+}
