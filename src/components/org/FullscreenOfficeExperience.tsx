@@ -73,6 +73,8 @@ export default function FullscreenOfficeExperience({
   const accent = room.isCenter ? "#a855f7" : isLinked ? "#10b981" : "#f59e0b";
   const status = room.isCenter ? "مجلس الإدارة" : isLinked ? "مرتبط" : "جاهز للربط";
   const safePeople = Array.isArray(officePeople) ? officePeople : [];
+  const personaPeople = safePeople.slice(0, 5);
+  const personaOverflow = Math.max(0, safePeople.length - personaPeople.length);
   const textRoom = buildTextMeetingRoom({
     officeNumber: officeNum,
     officeName: displayName,
@@ -211,6 +213,32 @@ export default function FullscreenOfficeExperience({
                   {textRoomFollowUps.map((item) => <span key={item}>{item}</span>)}
                 </div>
               </div>
+            </div>
+
+            <div className="bm-office-persona-deck" aria-label="شخصيات المكتب">
+              <div className="bm-office-persona-head">
+                <strong>الشخصيات</strong>
+                <span>حالة صريحة: غير متاح</span>
+              </div>
+              {personaPeople.length > 0 ? (
+                <div className="bm-office-persona-list">
+                  {personaPeople.map((person) => (
+                    <article key={person.id} aria-label={`${person.name} · غير متاح`}>
+                      <b style={{ borderColor: `${person.color}44`, background: `${person.color}18`, color: person.color }}>
+                        {person.initials}
+                      </b>
+                      <div>
+                        <strong>{person.name}</strong>
+                        <span>{person.roleOrUnit ?? displayName}</span>
+                      </div>
+                      <em>غير متاح</em>
+                    </article>
+                  ))}
+                  {personaOverflow > 0 && <small>{`+${personaOverflow} آخرين داخل نفس المكتب`}</small>}
+                </div>
+              ) : (
+                <p className="bm-office-persona-empty">تظهر الشخصيات بعد ربط موظفين بهذا المكتب.</p>
+              )}
             </div>
 
             <div className="bm-office-command-people">
@@ -581,6 +609,99 @@ export default function FullscreenOfficeExperience({
           text-overflow: ellipsis;
           white-space: nowrap;
         }
+        .bm-office-persona-deck {
+          margin-top: 9px;
+          border-radius: 14px;
+          border: 1px solid rgba(148,163,184,0.10);
+          background: rgba(2,7,22,0.42);
+          padding: 9px;
+          animation: bm-office-panel-in 220ms 115ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .bm-office-persona-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 7px;
+        }
+        .bm-office-persona-head strong {
+          color: #dbeafe;
+          font-size: 11px;
+          font-weight: 950;
+        }
+        .bm-office-persona-head span {
+          color: #64748b;
+          font-size: 8.5px;
+          font-weight: 850;
+          white-space: nowrap;
+        }
+        .bm-office-persona-list {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+        .bm-office-persona-list article {
+          display: grid;
+          grid-template-columns: 26px minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 7px;
+          border-radius: 12px;
+          border: 1px solid rgba(148,163,184,0.08);
+          background: rgba(255,255,255,0.032);
+          padding: 6px;
+        }
+        .bm-office-persona-list b {
+          width: 24px;
+          height: 24px;
+          border-radius: 999px;
+          border: 1px solid;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 8px;
+          font-weight: 950;
+        }
+        .bm-office-persona-list article div {
+          min-width: 0;
+        }
+        .bm-office-persona-list article strong {
+          display: block;
+          color: #dbeafe;
+          font-size: 9px;
+          font-weight: 900;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .bm-office-persona-list article span {
+          display: block;
+          margin-top: 2px;
+          color: #5a7a9a;
+          font-size: 8px;
+          font-weight: 750;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .bm-office-persona-list em {
+          font-style: normal;
+          color: #64748b;
+          font-size: 8px;
+          font-weight: 950;
+          white-space: nowrap;
+        }
+        .bm-office-persona-list > small {
+          color: #4a6a8a;
+          font-size: 8.5px;
+          font-weight: 850;
+          text-align: center;
+        }
+        .bm-office-persona-empty {
+          margin: 0 !important;
+          color: #64748b !important;
+          font-size: 9px !important;
+          font-weight: 800;
+        }
         .bm-office-command-people {
           display: flex;
           align-items: center;
@@ -661,7 +782,8 @@ export default function FullscreenOfficeExperience({
           .bm-office-crop-image,
           .bm-office-crop-pill,
           .bm-office-command-panel,
-          .bm-office-text-room-workspace {
+          .bm-office-text-room-workspace,
+          .bm-office-persona-deck {
             animation: none !important;
             transition: none !important;
             transform: none !important;
@@ -704,6 +826,7 @@ export default function FullscreenOfficeExperience({
           }
           .bm-office-command-panel p,
           .bm-office-text-room-workspace,
+          .bm-office-persona-deck,
           .bm-office-command-people,
           .bm-office-command-note {
             display: none;
