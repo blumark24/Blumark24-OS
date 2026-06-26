@@ -31,6 +31,43 @@ const REQUIRED_MIGRATIONS = [
 
 const REQUIRED_FUNCTIONS = ["current_org_id", "is_owner", "get_my_role"];
 
+const VIRTUAL_OFFICE_SCOPE_FILES = [
+  {
+    path: "src/lib/virtual-office/officeScope.ts",
+    tokens: [
+      "resolveOfficeScope",
+      "resolveOfficeScopeAccess",
+      "filterEmployeesByScope",
+      "filterTasksByScope",
+      "summarizeOfficeScope",
+    ],
+  },
+  {
+    path: "src/lib/virtual-office/officeScopeViewModel.ts",
+    tokens: ["buildScopedOfficeData", "scoped", "summary"],
+  },
+  {
+    path: "src/lib/virtual-office/officeScopeAcceptance.ts",
+    tokens: [
+      "assertScopedOfficeDataAcceptance",
+      "assertEmployeesBelongToScope",
+      "assertTasksBelongToScope",
+    ],
+  },
+  {
+    path: "src/lib/virtual-office/officeScaleContract.ts",
+    tokens: ["VIRTUAL_COMMAND_OFFICE_SCALE", "targetOrganizations", "officesPerOrganization"],
+  },
+  {
+    path: "src/lib/owner/organizationScaleContract.ts",
+    tokens: ["ORGANIZATION_SCALE_TARGET", "organizationScaleStatus", "ownerPanelControlled"],
+  },
+  {
+    path: "src/lib/owner/scaleReadiness.ts",
+    tokens: ["OWNER_PANEL_SCALE_READINESS", "targetOrganizations", "keepOrganizationRecords"],
+  },
+];
+
 function pass(msg) {
   console.log(`  ✓ ${msg}`);
 }
@@ -91,16 +128,36 @@ async function checkRlsPatterns() {
   return ok;
 }
 
+async function checkVirtualOfficeScopeLayer() {
+  console.log("\n3. Virtual Command Office scoped data layer");
+  let ok = true;
+
+  for (const item of VIRTUAL_OFFICE_SCOPE_FILES) {
+    try {
+      const content = await readFile(join(ROOT, item.path), "utf8");
+      pass(`${item.path} exists`);
+      for (const token of item.tokens) {
+        if (content.includes(token)) pass(`${item.path} includes ${token}`);
+        else ok = fail(`${item.path} missing ${token}`);
+      }
+    } catch {
+      ok = fail(`Missing virtual-office scope file: ${item.path}`);
+    }
+  }
+
+  return ok;
+}
+
 async function checkLiveDatabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
   if (!url || !key) {
-    console.log("\n3. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
+    console.log("\n4. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
     console.log("   Manual QA: sign in as two different org users and confirm each sees only own data.");
     return true;
   }
 
-  console.log("\n3. Live Supabase checks");
+  console.log("\n4. Live Supabase checks");
   let ok = true;
   try {
     const { createClient } = await import("@supabase/supabase-js");
@@ -118,12 +175,20 @@ async function checkLiveDatabase() {
   console.log("   - Org A tenant sees only Org A dashboard rows");
   console.log("   - Org B tenant sees only Org B dashboard rows");
   console.log("   - Owner login sees all orgs at /owner/organizations");
+  console.log("   - Virtual Office 01 shows only its linked office data");
+  console.log("   - Virtual Office 05 remains owner/board summary");
+  console.log("   - Virtual Office 09 does not show another office data");
   return ok;
 }
 
 async function main() {
   console.log("Blumark24 OS — Tenant Isolation Verification");
-  const results = await Promise.all([checkMigrationFiles(), checkRlsPatterns(), checkLiveDatabase()]);
+  const results = await Promise.all([
+    checkMigrationFiles(),
+    checkRlsPatterns(),
+    checkVirtualOfficeScopeLayer(),
+    checkLiveDatabase(),
+  ]);
   const allOk = results.every(Boolean);
   console.log(allOk ? "\n✓ Verification passed (codebase checks)." : "\n✗ Some checks failed.");
   process.exit(allOk ? 0 : 1);
