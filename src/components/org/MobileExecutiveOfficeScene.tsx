@@ -14,6 +14,9 @@
 // VIRTUAL-OFFICE-MARKERS-RESPONSIVE-1:
 // Mobile shows number + status dot only. Tablet/desktop shows number + short label.
 // Detailed data stays in OfficeControlModal, not on top of the map.
+//
+// VIRTUAL-OFFICE-CORNER-BADGES-1:
+// Badges are anchored to each room's top-right corner so the room view stays clean.
 
 import { useState } from "react";
 import Image from "next/image";
@@ -22,26 +25,26 @@ import { formatOfficeNumber, type SceneRoom } from "./VirtualOfficeReferenceScen
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
 
-// ─── Chip positions — mobile baseline, office-number ordered ─────────────────
+// ─── Badge positions — office-number ordered, top-right of each room ─────────
 
-interface ChipPos { top: string; left: string; }
+interface ChipPos { top: string; right: string; }
 const CHIP_POSITIONS: ChipPos[] = [
-  { top: "18%", left: "20%" }, // OFFICE 01 → أعلى يسار
-  { top: "18%", left: "50%" }, // OFFICE 02 → أعلى وسط
-  { top: "18%", left: "82%" }, // OFFICE 03 → أعلى يمين
-  { top: "48%", left: "19%" }, // OFFICE 04 → وسط يسار
-  { top: "48%", left: "50%" }, // OFFICE 05 → مجلس الإدارة / الوسط الثابت
-  { top: "48%", left: "82%" }, // OFFICE 06 → وسط يمين
-  { top: "79%", left: "19%" }, // OFFICE 07 → أسفل يسار
-  { top: "80%", left: "51%" }, // OFFICE 08 → أسفل وسط
-  { top: "79%", left: "82%" }, // OFFICE 09 → أسفل يمين
+  { top: "8%",  right: "65%" }, // OFFICE 01 → أعلى يسار
+  { top: "8%",  right: "38%" }, // OFFICE 02 → أعلى وسط
+  { top: "8%",  right: "7%"  }, // OFFICE 03 → أعلى يمين
+  { top: "36%", right: "65%" }, // OFFICE 04 → وسط يسار
+  { top: "40%", right: "38%" }, // OFFICE 05 → مجلس الإدارة / الوسط الثابت
+  { top: "36%", right: "7%"  }, // OFFICE 06 → وسط يمين
+  { top: "68%", right: "65%" }, // OFFICE 07 → أسفل يسار
+  { top: "70%", right: "38%" }, // OFFICE 08 → أسفل وسط
+  { top: "68%", right: "7%"  }, // OFFICE 09 → أسفل يمين
 ];
 
 // ─── Status + labels ─────────────────────────────────────────────────────────
 
 function dotColor(room: SceneRoom): string {
-  if (room.isCenter)      return "#a855f7";
-  if (room.isUnassigned)  return "#f59e0b";
+  if (room.isCenter) return "#a855f7";
+  if (room.isUnassigned) return "#f59e0b";
   if (room.isOpen === false) return "#64748b";
   return "#10b981";
 }
@@ -69,25 +72,32 @@ function OfficeChip({ room, selected, onClick, position }: {
 
   const dot = dotColor(room);
   const officeNumber = formatOfficeNumber(room.officeNumber);
+  const label = officeShortLabel(room);
 
   return (
     <button
       type="button"
       onClick={onClick}
       className={`vo-office-chip vo-office-chip--slot-${room.officeNumber} ${selected ? "vo-office-chip--selected" : ""}`}
-      aria-label={`مكتب ${officeNumber}: ${officeShortLabel(room)}`}
+      aria-label={`مكتب ${officeNumber}: ${label}`}
       style={{
         position: "absolute",
         top: position.top,
-        left: position.left,
-        transform: "translate(-50%, -50%)",
-        background: selected ? `${accent}24` : "rgba(2,8,23,0.82)",
-        border: selected ? `1px solid ${accent}` : `1px solid ${accent}55`,
+        right: position.right,
+        background: selected ? `${accent}24` : "rgba(2,8,23,0.74)",
+        border: selected ? `1px solid ${accent}` : `1px solid ${accent}45`,
         boxShadow: selected
-          ? `0 0 16px ${accent}45, 0 0 0 1px ${accent}26 inset`
-          : "0 1px 7px rgba(0,0,0,0.56), 0 0 0 1px rgba(255,255,255,0.03) inset",
+          ? `0 0 14px ${accent}40, 0 0 0 1px ${accent}22 inset`
+          : "0 1px 6px rgba(0,0,0,0.44), 0 0 0 1px rgba(255,255,255,0.025) inset",
       }}
     >
+      <span className="vo-office-chip__number">{officeNumber}</span>
+      <span
+        className="vo-office-chip__label"
+        style={{ color: room.isCenter ? "#c4b5fd" : room.isUnassigned ? "#fbbf24" : "#dff7ff" }}
+      >
+        {label}
+      </span>
       <span
         className="vo-office-chip__dot"
         style={{
@@ -95,13 +105,6 @@ function OfficeChip({ room, selected, onClick, position }: {
           boxShadow: (room.isUnassigned || selected || room.isCenter) ? `0 0 7px ${dot}` : undefined,
         }}
       />
-      <span className="vo-office-chip__number">{officeNumber}</span>
-      <span
-        className="vo-office-chip__label"
-        style={{ color: room.isCenter ? "#c4b5fd" : room.isUnassigned ? "#fbbf24" : "#dff7ff" }}
-      >
-        {officeShortLabel(room)}
-      </span>
     </button>
   );
 }
@@ -174,16 +177,15 @@ export default function MobileExecutiveOfficeScene({
 
       <style jsx>{`
         .vo-office-chip {
-          position: absolute;
           z-index: 2;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 4px;
-          min-width: 30px;
-          height: 24px;
-          padding: 2px 6px;
-          border-radius: 10px;
+          min-width: 28px;
+          height: 20px;
+          padding: 1px 5px;
+          border-radius: 8px;
           cursor: pointer;
           color: #e2edf8;
           backdrop-filter: blur(8px);
@@ -199,16 +201,10 @@ export default function MobileExecutiveOfficeScene({
         }
         .vo-office-chip:active,
         .vo-office-chip--selected {
-          transform: translate(-50%, -50%) scale(1.04) !important;
-        }
-        .vo-office-chip__dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 999px;
-          flex: 0 0 auto;
+          transform: scale(1.04);
         }
         .vo-office-chip__number {
-          font-size: 9.5px;
+          font-size: 9px;
           line-height: 1;
           font-weight: 900;
           font-variant-numeric: tabular-nums;
@@ -217,18 +213,25 @@ export default function MobileExecutiveOfficeScene({
         .vo-office-chip__label {
           display: none;
         }
+        .vo-office-chip__dot {
+          width: 5.5px;
+          height: 5.5px;
+          border-radius: 999px;
+          flex: 0 0 auto;
+        }
 
         @media (min-width: 768px) {
           .vo-office-chip {
-            height: 28px;
-            min-width: 70px;
-            max-width: 118px;
-            padding: 4px 9px;
-            gap: 6px;
+            height: 24px;
+            min-width: 76px;
+            max-width: 126px;
+            padding: 3px 8px;
+            gap: 5px;
             border-radius: 999px;
           }
           .vo-office-chip__number {
-            font-size: 10px;
+            font-size: 9.5px;
+            flex: 0 0 auto;
           }
           .vo-office-chip__label {
             display: inline-block;
@@ -236,27 +239,31 @@ export default function MobileExecutiveOfficeScene({
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            font-size: 10px;
+            font-size: 9.5px;
             line-height: 1;
             font-weight: 800;
           }
-          .vo-office-chip--slot-1 { top: 15% !important; left: 16% !important; }
-          .vo-office-chip--slot-2 { top: 15% !important; left: 50% !important; }
-          .vo-office-chip--slot-3 { top: 15% !important; left: 84% !important; }
-          .vo-office-chip--slot-4 { top: 47% !important; left: 15% !important; }
-          .vo-office-chip--slot-5 { top: 47% !important; left: 50% !important; }
-          .vo-office-chip--slot-6 { top: 47% !important; left: 85% !important; }
-          .vo-office-chip--slot-7 { top: 82% !important; left: 15% !important; }
-          .vo-office-chip--slot-8 { top: 83% !important; left: 50% !important; }
-          .vo-office-chip--slot-9 { top: 82% !important; left: 85% !important; }
+          .vo-office-chip__dot {
+            width: 6px;
+            height: 6px;
+          }
+          .vo-office-chip--slot-1 { top: 8% !important;  right: 65% !important; }
+          .vo-office-chip--slot-2 { top: 8% !important;  right: 38% !important; }
+          .vo-office-chip--slot-3 { top: 8% !important;  right: 7% !important; }
+          .vo-office-chip--slot-4 { top: 36% !important; right: 65% !important; }
+          .vo-office-chip--slot-5 { top: 40% !important; right: 38% !important; }
+          .vo-office-chip--slot-6 { top: 36% !important; right: 7% !important; }
+          .vo-office-chip--slot-7 { top: 68% !important; right: 65% !important; }
+          .vo-office-chip--slot-8 { top: 70% !important; right: 38% !important; }
+          .vo-office-chip--slot-9 { top: 68% !important; right: 7% !important; }
         }
 
         @media (min-width: 1180px) {
           .vo-office-chip {
-            max-width: 140px;
+            max-width: 148px;
           }
           .vo-office-chip__label {
-            font-size: 10.5px;
+            font-size: 10px;
           }
         }
       `}</style>
