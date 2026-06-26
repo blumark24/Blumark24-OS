@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
 import MarketingLanding from "@/components/landing/MarketingLanding";
+import BlumarkLandingFooter from "@/components/landing/BlumarkLandingFooter";
 
 // `/` is a public marketing surface. It must remain renderable without any
 // AuthContext / PermissionsContext / Supabase / Dashboard dependency so that
 // the homepage is fast and resilient to backend or auth problems. Auth gating
 // for `/dashboard` and other internal routes is handled by middleware.ts and
 // the per-route guards.
-//
-// Keep this page as a single render source. Do not layer runtime text patches
-// or a second footer over MarketingLanding; that creates mixed old/new UI on
-// refresh and makes production look like two different sites.
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -50,5 +47,15 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <MarketingLanding />;
+  return (
+    <>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: ".marketing-landing-root > footer { display: none; }",
+        }}
+      />
+      <MarketingLanding />
+      <BlumarkLandingFooter />
+    </>
+  );
 }
