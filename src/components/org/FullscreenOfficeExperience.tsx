@@ -91,6 +91,13 @@ export default function FullscreenOfficeExperience({
     { label: "متأخرة", value: String(overdueTasks), color: overdueTasks > 0 ? "#f59e0b" : "#64748b" },
     { label: "صحة", value: `${healthPct}%`, color: healthPct > 0 ? accent : "#64748b" },
   ] as const;
+  const textRoomAgenda = textRoom.agenda.slice(0, 3);
+  const textRoomDecisions = textRoom.canOpenTextRoom
+    ? ["جاهز لتدوين القرار", "لا إرسال خارجي", "اعتماد داخلي فقط"]
+    : [textRoom.actionLabel, "لا يتم فتح غرفة", "لا توجد محاكاة وهمية"];
+  const textRoomFollowUps = textRoom.canOpenTextRoom
+    ? ["تحديث المهام", "تحديد المسؤول", "إغلاق المتابعة"]
+    : ["استكمال الربط", "تأكيد الصلاحية", "إعادة الفحص"];
 
   return (
     <div role="dialog" aria-modal="true" aria-label={`داخل ${displayName}`} className="bm-office-portal-shell" dir="rtl">
@@ -166,6 +173,29 @@ export default function FullscreenOfficeExperience({
               <em style={{ color: textRoom.canOpenTextRoom ? "#10b981" : "#f59e0b" }}>
                 {textRoom.canOpenTextRoom ? "آمنة" : "تحتاج إجراء"}
               </em>
+            </div>
+
+            {/* C18.2-F — safe text-room workspace. Static display-only agenda,
+                decisions, and follow-ups derived from policy output. */}
+            <div className="bm-office-text-room-workspace" aria-label="مساحة الغرفة النصية">
+              <div className="bm-office-text-room-head">
+                <strong>مساحة الغرفة النصية</strong>
+                <span>{textRoom.participantLabel}</span>
+              </div>
+              <div className="bm-office-text-room-grid">
+                <div>
+                  <small>الأجندة</small>
+                  {textRoomAgenda.map((item) => <span key={item}>{item}</span>)}
+                </div>
+                <div>
+                  <small>القرارات</small>
+                  {textRoomDecisions.map((item) => <span key={item}>{item}</span>)}
+                </div>
+                <div>
+                  <small>مهام بعد الاجتماع</small>
+                  {textRoomFollowUps.map((item) => <span key={item}>{item}</span>)}
+                </div>
+              </div>
             </div>
 
             <div className="bm-office-command-people">
@@ -340,7 +370,7 @@ export default function FullscreenOfficeExperience({
           position: absolute;
           top: 54px;
           right: 14px;
-          width: min(300px, calc(100% - 28px));
+          width: min(340px, calc(100% - 28px));
           border: 1px solid;
           border-radius: 18px;
           background: rgba(2,7,22,0.70);
@@ -431,6 +461,60 @@ export default function FullscreenOfficeExperience({
           font-size: 9px;
           font-weight: 950;
         }
+        .bm-office-text-room-workspace {
+          margin-top: 9px;
+          border-radius: 14px;
+          border: 1px solid rgba(148,163,184,0.10);
+          background: rgba(255,255,255,0.035);
+          padding: 9px;
+        }
+        .bm-office-text-room-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 7px;
+        }
+        .bm-office-text-room-head strong {
+          color: #dbeafe;
+          font-size: 11px;
+          font-weight: 950;
+        }
+        .bm-office-text-room-head span {
+          color: #4a6a8a;
+          font-size: 8.5px;
+          font-weight: 850;
+          white-space: nowrap;
+        }
+        .bm-office-text-room-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 6px;
+        }
+        .bm-office-text-room-grid div {
+          border-radius: 11px;
+          border: 1px solid rgba(148,163,184,0.08);
+          background: rgba(2,7,22,0.38);
+          padding: 7px;
+          min-width: 0;
+        }
+        .bm-office-text-room-grid small {
+          display: block;
+          color: #7dd3fc;
+          font-size: 8.5px;
+          font-weight: 950;
+          margin-bottom: 5px;
+        }
+        .bm-office-text-room-grid span {
+          display: block;
+          color: #7b92aa;
+          font-size: 8px;
+          font-weight: 750;
+          line-height: 1.45;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
         .bm-office-command-people {
           display: flex;
           align-items: center;
@@ -503,6 +587,7 @@ export default function FullscreenOfficeExperience({
             font-size: 13px;
           }
           .bm-office-command-panel p,
+          .bm-office-text-room-workspace,
           .bm-office-command-people,
           .bm-office-command-note {
             display: none;
