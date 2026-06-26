@@ -17,6 +17,7 @@ import { resolveMeetingRoomGovernance } from "@/lib/virtual-office/officeMeeting
 import { resolveOwnerGovernancePolicy } from "@/lib/virtual-office/ownerGovernancePolicy";
 import { resolveProductionReadinessPolicy } from "@/lib/virtual-office/productionReadinessPolicy";
 import { resolveSafeMotionEffect } from "@/lib/virtual-office/safeMotionEffects";
+import { buildTextMeetingRoom } from "@/lib/virtual-office/textMeetingRoom";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -108,6 +109,19 @@ function OfficeChip({ room, selected, onClick, position }: {
     hasApproval: true,
     hasLinkedTeam: room.isCenter || (room.employeeCount ?? 0) > 0,
   });
+  // C18.2-B — text meeting-room readiness is display-only. It does not open
+  // live meetings, send invites, activate realtime, or enable audio/video/WebRTC.
+  const textMeetingRoom = buildTextMeetingRoom({
+    officeNumber: room.officeNumber ?? 0,
+    officeName: room.name,
+    audience: "manager",
+    isBoard: room.isCenter,
+    isUnassigned: room.isUnassigned,
+    hasApproval: true,
+    requiresApproval: false,
+    participantCount: room.employeeCount,
+    topic: "تنسيق متابعة المكتب",
+  });
   // C16.9-B — owner governance is surfaced as display-only package/role readiness.
   // No billing, database, auth, RLS, or tenant data changes are made here.
   const ownerGovernance = resolveOwnerGovernancePolicy({
@@ -139,9 +153,10 @@ function OfficeChip({ room, selected, onClick, position }: {
   const inviteText = `${textInvite.actionLabel}: ${textInvite.status === "ready" ? "مسودة نصية آمنة" : "غير متاح"}`;
   const artifactText = `الملفات والتقارير: ${reportArtifact?.state === "ready" ? reportArtifact.title : "جاهزة بعد الربط"}`;
   const meetingRoomText = `غرفة الاجتماع: ${meetingRoom.canPrepareTextRoom ? meetingRoom.title : meetingRoom.detail}`;
-  const ownerGovernanceText = `حوكمة المالك: ${ownerControls?.status === "enabled" ? ownerControls.title : "غير متاحة"}`;
+  const textMeetingRoomText = `الغرفة النصية: ${textMeetingRoom.canOpenTextRoom ? textMeetingRoom.title : textMeetingRoom.title}`;
+  const ownerGovernanceText = `حوكمة مالك المنشأة: ${ownerControls?.status === "enabled" ? ownerControls.title : "غير متاحة"}`;
   const productionReadinessText = `جاهزية الإنتاج: ${productionReadiness.status === "pass" ? "جاهز" : "تحت الفحص"} · ${productionReadiness.passedCount}/${productionReadiness.checks.length}`;
-  const baseAccessibleSummary = `${suggestionText} · ${presenceText} · ${inviteText} · ${artifactText} · ${meetingRoomText} · ${ownerGovernanceText} · ${productionReadinessText}`;
+  const baseAccessibleSummary = `${suggestionText} · ${presenceText} · ${inviteText} · ${artifactText} · ${meetingRoomText} · ${textMeetingRoomText} · ${ownerGovernanceText} · ${productionReadinessText}`;
 
   // C16.3-D — safe motion adapter.
   // The chip's coordinate transform (translate(-50%, -50%)) must NEVER change,
@@ -286,7 +301,7 @@ function OfficeChip({ room, selected, onClick, position }: {
         <span aria-hidden style={{ width: 5, height: 5, borderRadius: "50%", background: dot, flexShrink: 0, boxShadow: `0 0 4px ${dot}` }} />
       </span>
 
-      {(interactive || selected) && meetingRoom.canPrepareTextRoom && (
+      {(interactive || selected) && textMeetingRoom.canOpenTextRoom && (
         <span
           aria-hidden
           style={{
@@ -308,7 +323,33 @@ function OfficeChip({ room, selected, onClick, position }: {
             whiteSpace: "nowrap",
           }}
         >
-          غرفة نصية
+          غرفة نصية جاهزة
+        </span>
+      )}
+
+      {(interactive || selected) && !textMeetingRoom.canOpenTextRoom && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            borderRadius: 999,
+            padding: "2px 6px",
+            border: "1px solid rgba(251,191,36,0.28)",
+            background: "rgba(3,8,20,0.88)",
+            color: "#fbbf24",
+            fontSize: 7.5,
+            fontWeight: 800,
+            lineHeight: 1,
+            boxShadow: "0 0 8px rgba(251,191,36,0.16)",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          غرفة مقيدة
         </span>
       )}
 
