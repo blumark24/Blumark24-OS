@@ -22,11 +22,11 @@ type MarketingInfoPageProps = {
 };
 
 const operatingLayers = [
+  "Virtual Office",
+  "Org Structure",
   "Digital Twin",
-  "AI Workflows",
+  "AI Agents",
   "CRM",
-  "Teams",
-  "Finance",
   "Reports",
 ];
 
@@ -37,9 +37,9 @@ const strategicSignals = [
 ];
 
 const roadmap = [
-  "فهم احتياج المنشأة",
-  "بناء نسخة تشغيل رقمية",
-  "ربط الفريق والعملاء والمهام",
+  "عرض المكتب الافتراضي",
+  "بناء الهيكل الإداري",
+  "ربط العملاء والمهام",
   "تحويل البيانات إلى قرارات",
 ];
 
@@ -139,8 +139,8 @@ export default function MarketingInfoPage({
               <div className="relative z-10 flex h-full min-h-[320px] flex-col justify-between">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs text-white/42">LIVE OPERATING MAP</p>
-                    <h2 className="mt-1 text-lg font-semibold text-white">Digital Twin Console</h2>
+                    <p className="text-xs text-white/42">CLIENT DASHBOARD PREVIEW</p>
+                    <h2 className="mt-1 text-lg font-semibold text-white">Virtual Office Twin</h2>
                   </div>
                   <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
                     Active
@@ -150,8 +150,8 @@ export default function MarketingInfoPage({
                 <div className="relative mx-auto my-5 flex h-40 w-40 items-center justify-center rounded-full border border-[#22D3EE]/25 bg-[#22D3EE]/10 shadow-[0_0_70px_rgba(34,211,238,0.20)]">
                   <div className="absolute h-24 w-24 rounded-full border border-[#22D3EE]/30" />
                   <div className="text-center">
-                    <p className="text-xs text-[#67E8F9]">Blumark24</p>
-                    <p className="mt-1 text-sm font-semibold text-white">AI OS</p>
+                    <p className="text-xs text-[#67E8F9]">Office 09</p>
+                    <p className="mt-1 text-sm font-semibold text-white">Org Twin</p>
                   </div>
                 </div>
 
@@ -209,12 +209,12 @@ export default function MarketingInfoPage({
                 صفحة مصممة كواجهة منصة، ليست صفحة تعريف عادية
               </h2>
               <p className="mt-4 text-sm leading-8 text-white/62">
-                كل رابط داخلي يعرض الفكرة كجزء من منظومة تشغيل: توأم رقمي للأعمال، ذكاء اصطناعي، أتمتة، بيانات، وفريق يعمل من لوحة واحدة.
+                كل رابط داخلي يعرض الفكرة كجزء من منظومة تشغيل: مكتب افتراضي، هيكل إداري، توأم رقمي، ذكاء اصطناعي، أتمتة، بيانات، وفريق يعمل من لوحة واحدة.
               </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              {["Operational Visibility", "AI Automation", "Decision Dashboard", "Saudi Market Ready"].map((item) => (
+              {["Virtual Office", "Org Structure", "AI Automation", "Executive Reports"].map((item) => (
                 <div
                   key={item}
                   className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 text-sm text-white/68"
