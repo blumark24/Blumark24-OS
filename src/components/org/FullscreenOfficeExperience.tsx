@@ -1,37 +1,25 @@
 "use client";
 
-// FullscreenOfficeExperience — C15.11
-// 2D top-down: zooms into the clicked office's exact area on the external map image.
-// Same visual DNA as the external map. No interior scene, no 3D, no CSS furniture.
-// Minimal overlays: label pill + compact status note only.
+// FullscreenOfficeExperience — exact 2D top-view office crop.
+// Shows the selected office cell from the same external office map.
 
-import { useEffect, useRef, useState } from "react";
 import { ArrowRight, X } from "lucide-react";
-import type {
-  MappingSource,
-  OfficeRoom,
-  PreviewOrgUnit,
-  PresencePerson,
-} from "./VirtualOfficeDesign";
-
-// ─── Office center positions (mirrors CHIP_POSITIONS, fractions 0–1) ─────────
-
-// RTL order: 01 top-right → 09 bottom-left (mirrors MobileExecutiveOfficeScene CHIP_POSITIONS)
-const OFFICE_POS: Array<{ top: number; left: number }> = [
-  { top: 0.18, left: 0.82 }, // 01 — أعلى يمين
-  { top: 0.18, left: 0.50 }, // 02 — أعلى وسط
-  { top: 0.18, left: 0.20 }, // 03 — أعلى يسار
-  { top: 0.48, left: 0.82 }, // 04 — وسط يمين
-  { top: 0.48, left: 0.50 }, // 05 — الوسط / مجلس الإدارة (center, fixed)
-  { top: 0.48, left: 0.19 }, // 06 — وسط يسار
-  { top: 0.79, left: 0.82 }, // 07 — أسفل يمين
-  { top: 0.80, left: 0.51 }, // 08 — أسفل وسط
-  { top: 0.79, left: 0.19 }, // 09 — أسفل يسار
-];
+import type { MappingSource, OfficeRoom, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
 
 const MAP_SRC = "/assets/virtual-office/office-map-reference.webp";
-const IMG_ASPECT = 1672 / 941; // natural image aspect ratio
-const ZOOM = 3.0;
+const IMAGE_ASPECT_RATIO = "1672 / 941";
+
+const OFFICE_CROPS: Record<number, { position: string; label: string }> = {
+  1: { position: "right top", label: "أعلى يمين" },
+  2: { position: "center top", label: "أعلى وسط" },
+  3: { position: "left top", label: "أعلى يسار" },
+  4: { position: "right center", label: "وسط يمين" },
+  5: { position: "center center", label: "مجلس الإدارة" },
+  6: { position: "left center", label: "وسط يسار" },
+  7: { position: "right bottom", label: "أسفل يمين" },
+  8: { position: "center bottom", label: "أسفل وسط" },
+  9: { position: "left bottom", label: "أسفل يسار" },
+};
 
 const sourceLabel: Record<MappingSource, string> = {
   saved: "ربط محفوظ",
@@ -43,53 +31,10 @@ function fmt(n?: number | null) {
   return String(n ?? 0).padStart(2, "0");
 }
 
-// ─── Zoom origin hook ─────────────────────────────────────────────────────────
-// Measures the container and computes the transformOrigin that centers image
-// point (px, py) in the viewport, correctly accounting for objectFit:contain
-// letterboxing in both portrait and landscape containers.
-
-function useZoomOrigin(
-  containerRef: React.RefObject<HTMLDivElement | null>,
-  px: number,
-  py: number,
-): string {
-  const [origin, setOrigin] = useState(`${(px * 100).toFixed(1)}% ${(py * 100).toFixed(1)}%`);
-
-  useEffect(() => {
-    function compute() {
-      const el = containerRef.current;
-      if (!el) return;
-      const { width, height } = el.getBoundingClientRect();
-      if (!width || !height) return;
-
-      let ox: number, oy: number;
-      if (width / height >= IMG_ASPECT) {
-        // Container wider than image ratio → letterbox left/right, image fills height
-        const iw = height * IMG_ASPECT;
-        const xOff = (width - iw) / 2;
-        ox = (xOff + px * iw) / width;
-        oy = py;
-      } else {
-        // Container taller than image ratio → letterbox top/bottom, image fills width
-        const ih = width / IMG_ASPECT;
-        const yOff = (height - ih) / 2;
-        ox = px;
-        oy = (yOff + py * ih) / height;
-      }
-
-      setOrigin(`${(ox * 100).toFixed(2)}% ${(oy * 100).toFixed(2)}%`);
-    }
-
-    compute();
-    const ro = new ResizeObserver(compute);
-    if (containerRef.current) ro.observe(containerRef.current);
-    return () => ro.disconnect();
-  }, [containerRef, px, py]);
-
-  return origin;
+function officeDisplayName(room: OfficeRoom, mappingUnit: PreviewOrgUnit | null) {
+  if (room.isCenter) return "مجلس الإدارة";
+  return mappingUnit?.name ?? room.name ?? `مكتب ${fmt(room.officeNumber)}`;
 }
-
-// ─── Main component ───────────────────────────────────────────────────────────
 
 export interface FullscreenOfficeExperienceProps {
   room: OfficeRoom;
@@ -100,30 +45,21 @@ export interface FullscreenOfficeExperienceProps {
 }
 
 export default function FullscreenOfficeExperience({
-  room, mappingUnit, mappingSource, officePeople: _p, onClose,
+  room,
+  mappingUnit,
+  mappingSource,
+  officePeople: _officePeople,
+  onClose,
 }: FullscreenOfficeExperienceProps) {
   const officeNum = room.officeNumber ?? 5;
-  const pos = OFFICE_POS[officeNum - 1] ?? { top: 0.50, left: 0.50 };
+  const crop = OFFICE_CROPS[officeNum] ?? OFFICE_CROPS[5];
   const isLinked = Boolean(mappingUnit) && !room.isUnassigned;
-
-  const displayName = room.isCenter
-    ? "مجلس الإدارة"
-    : mappingUnit?.name ?? room.name ?? `مكتب ${fmt(officeNum)}`;
-
+  const displayName = officeDisplayName(room, mappingUnit);
   const accent = room.isCenter ? "#a855f7" : isLinked ? "#10b981" : "#f59e0b";
-
-  const heroRef = useRef<HTMLDivElement>(null);
-  const origin = useZoomOrigin(heroRef, pos.left, pos.top);
+  const status = room.isCenter ? "مجلس الإدارة" : isLinked ? "مرتبط" : "جاهز للربط";
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={`داخل ${displayName}`}
-      className="bm-office-portal-shell"
-      dir="rtl"
-    >
-      {/* ── TOP BAR ── */}
+    <div role="dialog" aria-modal="true" aria-label={`داخل ${displayName}`} className="bm-office-portal-shell" dir="rtl">
       <div className="bm-office-portal-topbar">
         <button type="button" onClick={onClose} className="bm-office-portal-back">
           <ArrowRight size={14} />
@@ -132,165 +68,39 @@ export default function FullscreenOfficeExperience({
 
         <div className="bm-office-portal-divider" />
 
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="bm-office-portal-titlebox">
           <div className="bm-office-portal-title">{displayName}</div>
-          <div className="bm-office-portal-subtitle">{`OFFICE ${fmt(officeNum)} · عرض من الأعلى`}</div>
+          <div className="bm-office-portal-subtitle">{`OFFICE ${fmt(officeNum)} · 2D من الأعلى · ${crop.label}`}</div>
         </div>
 
         <div className="bm-office-portal-badges">
-          <span
-            style={{
-              border: `1px solid ${accent}44`,
-              background: `${accent}0f`,
-              color: accent,
-            }}
-          >
-            {room.isCenter ? "مجلس الإدارة" : isLinked ? "مرتبط" : "يحتاج ربط"}
-          </span>
-          {isLinked && mappingSource && (
-            <span>{sourceLabel[mappingSource]}</span>
-          )}
+          <span style={{ border: `1px solid ${accent}44`, background: `${accent}0f`, color: accent }}>{status}</span>
+          {isLinked && mappingSource && <span>{sourceLabel[mappingSource]}</span>}
         </div>
 
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="إغلاق"
-          className="bm-office-portal-close"
-        >
+        <button type="button" onClick={onClose} aria-label="إغلاق" className="bm-office-portal-close">
           <X size={13} />
         </button>
       </div>
 
-      {/* ── MAP ZOOM HERO ── */}
-      <div
-        ref={heroRef}
-        style={{
-          flex: 1,
-          minHeight: 0,
-          position: "relative",
-          overflow: "hidden",
-          background: "#020716",
-        }}
-      >
-        {/* Scalable image layer */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            transform: `scale(${ZOOM})`,
-            transformOrigin: origin,
-            transition: "transform 0.45s cubic-bezier(0.4,0,0.2,1)",
-            willChange: "transform",
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={MAP_SRC}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
+      <main className="bm-office-portal-main">
+        <div className="bm-office-crop-frame">
+          <div
+            className="bm-office-crop-image"
             style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              objectPosition: "center",
-              display: "block",
-              userSelect: "none",
-              pointerEvents: "none",
+              backgroundImage: `url(${MAP_SRC})`,
+              backgroundPosition: crop.position,
             }}
           />
-        </div>
 
-        {/* Edge vignette — blends into dark background */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(ellipse 80% 76% at 50% 50%, transparent 42%, rgba(2,7,22,0.85) 100%)",
-            pointerEvents: "none",
-            zIndex: 5,
-          }}
-        />
+          <div className="bm-office-crop-vignette" />
 
-        {/* Office label — small pill, top-center */}
-        <div
-          style={{
-            position: "absolute",
-            top: 14,
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 10,
-            pointerEvents: "none",
-          }}
-        >
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 5,
-              padding: "4px 11px",
-              borderRadius: 999,
-              background: "rgba(2,7,22,0.72)",
-              backdropFilter: "blur(14px)",
-              WebkitBackdropFilter: "blur(14px)",
-              border: `1px solid ${accent}33`,
-              color: accent,
-              fontSize: 10,
-              fontWeight: 900,
-              letterSpacing: 0.5,
-              whiteSpace: "nowrap",
-            }}
-          >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: accent,
-                boxShadow: `0 0 6px ${accent}`,
-                flexShrink: 0,
-              }}
-            />
+          <div className="bm-office-crop-pill" style={{ borderColor: `${accent}33`, color: accent }}>
+            <span style={{ background: accent, boxShadow: `0 0 6px ${accent}` }} />
             {`OFFICE ${fmt(officeNum)}`}
-          </span>
+          </div>
         </div>
-
-        {/* Status note — compact, bottom-center */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: "max(14px, env(safe-area-inset-bottom))",
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 10,
-            pointerEvents: "none",
-            whiteSpace: "nowrap",
-          }}
-        >
-          <span
-            style={{
-              display: "inline-block",
-              padding: "4px 12px",
-              borderRadius: 999,
-              background: "rgba(2,7,22,0.72)",
-              backdropFilter: "blur(14px)",
-              WebkitBackdropFilter: "blur(14px)",
-              border: "1px solid rgba(255,255,255,0.07)",
-              color: "#4a6480",
-              fontSize: 9,
-              fontWeight: 700,
-            }}
-          >
-            {isLinked
-              ? `مرتبط بـ ${mappingUnit?.name ?? "—"} · الحضور غير متاح`
-              : "اربط المكتب لتفعيل البيانات · لا توجد بيانات وهمية"}
-          </span>
-        </div>
-      </div>
+      </main>
 
       <style>{`
         .bm-office-portal-shell {
@@ -307,14 +117,13 @@ export default function FullscreenOfficeExperience({
           min-height: 52px;
           padding: 10px 16px;
           border-bottom: 1px solid rgba(255,255,255,0.06);
-          background: rgba(2,7,22,0.84);
+          background: rgba(2,7,22,0.86);
           backdrop-filter: blur(18px);
           -webkit-backdrop-filter: blur(18px);
           display: flex;
           align-items: center;
           gap: 10px;
           z-index: 20;
-          flex-wrap: wrap;
         }
         .bm-office-portal-back {
           display: inline-flex;
@@ -335,6 +144,10 @@ export default function FullscreenOfficeExperience({
           background: rgba(255,255,255,0.08);
           flex-shrink: 0;
         }
+        .bm-office-portal-titlebox {
+          flex: 1;
+          min-width: 0;
+        }
         .bm-office-portal-title {
           font-size: 14px;
           font-weight: 950;
@@ -347,13 +160,15 @@ export default function FullscreenOfficeExperience({
           font-size: 9.5px;
           color: #3a5570;
           margin-top: 2px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .bm-office-portal-badges {
           display: flex;
           align-items: center;
           gap: 5px;
           flex-shrink: 0;
-          flex-wrap: wrap;
         }
         .bm-office-portal-badges span {
           font-size: 9px;
@@ -363,6 +178,7 @@ export default function FullscreenOfficeExperience({
           border: 1px solid rgba(100,116,139,0.22);
           background: rgba(100,116,139,0.06);
           color: #64748b;
+          white-space: nowrap;
         }
         .bm-office-portal-close {
           width: 32px;
@@ -377,16 +193,87 @@ export default function FullscreenOfficeExperience({
           cursor: pointer;
           flex-shrink: 0;
         }
+        .bm-office-portal-main {
+          position: relative;
+          flex: 1;
+          min-height: 0;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: clamp(10px, 2vw, 22px);
+          background: radial-gradient(circle at 50% 48%, rgba(34,211,238,0.08), transparent 42%), #020716;
+        }
+        .bm-office-crop-frame {
+          position: relative;
+          width: min(100%, calc((100dvh - 92px) * 1672 / 941));
+          aspect-ratio: ${IMAGE_ASPECT_RATIO};
+          max-height: calc(100dvh - 84px);
+          overflow: hidden;
+          border-radius: 18px;
+          border: 1px solid rgba(125,211,252,0.16);
+          box-shadow: 0 30px 96px rgba(0,0,0,0.56), 0 0 0 1px rgba(255,255,255,0.025) inset;
+          background: #020716;
+        }
+        .bm-office-crop-image {
+          position: absolute;
+          inset: 0;
+          background-size: 300% 300%;
+          background-repeat: no-repeat;
+          image-rendering: auto;
+        }
+        .bm-office-crop-vignette {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background: radial-gradient(ellipse 88% 78% at 50% 50%, transparent 64%, rgba(2,7,22,0.46) 100%);
+        }
+        .bm-office-crop-pill {
+          position: absolute;
+          top: 10px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: rgba(2,7,22,0.66);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 0.5px;
+          white-space: nowrap;
+          pointer-events: none;
+        }
+        .bm-office-crop-pill span {
+          width: 6px;
+          height: 6px;
+          border-radius: 999px;
+          flex-shrink: 0;
+        }
         @media (max-width: 640px) {
           .bm-office-portal-topbar {
-            padding: 9px 12px;
-            min-height: auto;
+            padding: 8px 10px;
+            min-height: 50px;
+            gap: 8px;
           }
-          .bm-office-portal-badges {
-            order: 4;
+          .bm-office-portal-subtitle {
+            display: none;
+          }
+          .bm-office-portal-badges span {
+            font-size: 8.5px;
+            padding: 3px 7px;
+          }
+          .bm-office-portal-main {
+            padding: 8px;
+          }
+          .bm-office-crop-frame {
             width: 100%;
+            border-radius: 14px;
           }
-          .bm-office-portal-title { font-size: 13px; }
         }
       `}</style>
     </div>
