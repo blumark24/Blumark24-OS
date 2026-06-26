@@ -12,6 +12,7 @@ import {
 import { firstOfficeSmartSuggestion } from "@/lib/virtual-office/officeSmartSuggestions";
 import { resolveOfficePresencePolicy } from "@/lib/virtual-office/officePresencePolicy";
 import { buildOfficeTextMeetingInvite } from "@/lib/virtual-office/officeTextMeetingInvites";
+import { buildOfficeArtifactSummary } from "@/lib/virtual-office/officeArtifactSummary";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -76,10 +77,26 @@ function OfficeChip({ room, selected, onClick, position }: {
     topic: "تنسيق متابعة المكتب",
     channel: "internal_note",
   });
+  // C16.7-B — office artifact readiness from scoped room summary only.
+  // No files are created, no reports are faked, and export remains unavailable.
+  const artifacts = buildOfficeArtifactSummary({
+    officeNumber: room.officeNumber ?? 0,
+    officeName: room.name,
+    isBoard: room.isCenter,
+    isUnassigned: room.isUnassigned,
+    canViewFiles: true,
+    canViewReports: true,
+    employeeCount: room.employeeCount,
+    openTaskCount: room.openTasks,
+    overdueTaskCount: room.overdueTasks,
+    linkedFileCount: 0,
+  });
+  const reportArtifact = artifacts.items.find((entry) => entry.kind === "report") ?? null;
   const suggestionText = `${suggestion.title} — ${suggestion.detail}`;
   const presenceText = `الحضور: ${presence.label}`;
   const inviteText = `${textInvite.actionLabel}: ${textInvite.status === "ready" ? "مسودة نصية آمنة" : "غير متاح"}`;
-  const accessibleSummary = `${suggestionText} · ${presenceText} · ${inviteText}`;
+  const artifactText = `الملفات والتقارير: ${reportArtifact?.state === "ready" ? reportArtifact.title : "جاهزة بعد الربط"}`;
+  const accessibleSummary = `${suggestionText} · ${presenceText} · ${inviteText} · ${artifactText}`;
 
   // C16.3-D — safe motion adapter.
   // The chip's coordinate transform (translate(-50%, -50%)) must NEVER change,
@@ -212,6 +229,32 @@ function OfficeChip({ room, selected, onClick, position }: {
           }}
         >
           دعوة نصية
+        </span>
+      )}
+
+      {(interactive || selected) && reportArtifact?.state === "ready" && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            bottom: -2,
+            right: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            borderRadius: 999,
+            padding: "2px 6px",
+            border: "1px solid rgba(59,130,246,0.30)",
+            background: "rgba(3,8,20,0.88)",
+            color: "#60a5fa",
+            fontSize: 7.5,
+            fontWeight: 800,
+            lineHeight: 1,
+            boxShadow: "0 0 8px rgba(59,130,246,0.18)",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          تقرير
         </span>
       )}
     </button>
