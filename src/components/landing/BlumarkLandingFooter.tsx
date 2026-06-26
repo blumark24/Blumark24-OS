@@ -35,7 +35,7 @@ const footerColumns: FooterColumn[] = [
     links: [
       { label: "التسعير", href: "/pricing", note: "باقات Blumark24 OS" },
       { label: "موارد الأعمال", href: "/resources", note: "محتوى تعريفي وتشغيلي" },
-      { label: "حالة النظام", href: "/api/health", note: "فحص الحالة التقنية" },
+      { label: "حالة النظام", href: "/status", note: "حالة خدمات Blumark24 OS" },
     ],
   },
   {
