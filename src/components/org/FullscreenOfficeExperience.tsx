@@ -104,6 +104,7 @@ export default function FullscreenOfficeExperience({
   const [isClosing, setIsClosing] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
   const selectedPersona = personaPeople.find((person) => person.id === selectedPersonaId) ?? personaPeople[0] ?? null;
+  const selectedPersonaAccent = selectedPersona?.color ?? accent;
 
   const handleClose = useCallback(() => {
     if (isClosing) return;
@@ -161,6 +162,8 @@ export default function FullscreenOfficeExperience({
           />
 
           <div className="bm-office-crop-vignette" />
+          <div className="bm-office-readiness-glow" aria-hidden="true" style={{ borderColor: `${accent}22`, boxShadow: `0 0 46px ${accent}18` }} />
+          {selectedPersona && <div className="bm-office-persona-spotlight" aria-hidden="true" style={{ background: `radial-gradient(circle at 50% 50%, ${selectedPersonaAccent}18, transparent 64%)` }} />}
 
           <div className="bm-office-crop-pill" style={{ borderColor: `${accent}33`, color: accent }}>
             <span style={{ background: accent, boxShadow: `0 0 6px ${accent}` }} />
@@ -199,7 +202,8 @@ export default function FullscreenOfficeExperience({
               ))}
             </div>
 
-            <div className="bm-office-command-room" style={{ borderColor: `${accent}22`, background: `${accent}08` }}>
+            <div className={`bm-office-command-room ${textRoom.canOpenTextRoom ? "is-ready" : "is-blocked"}`} style={{ borderColor: `${accent}22`, background: `${accent}08` }}>
+              <i aria-hidden="true" style={{ background: textRoom.canOpenTextRoom ? "#10b981" : "#f59e0b" }} />
               <div>
                 <strong>{textRoom.canOpenTextRoom ? "غرفة نصية جاهزة" : "الغرفة النصية مقيدة"}</strong>
                 <span>{textRoom.canOpenTextRoom ? textRoom.topic : textRoom.actionLabel}</span>
@@ -264,7 +268,7 @@ export default function FullscreenOfficeExperience({
                   </div>
 
                   {selectedPersona && (
-                    <div className="bm-office-persona-focus" aria-label="بطاقة الشخصية المحددة">
+                    <div className="bm-office-persona-focus" aria-label="بطاقة الشخصية المحددة" style={{ borderColor: `${selectedPersonaAccent}22`, boxShadow: `0 0 28px ${selectedPersonaAccent}10` }}>
                       <strong>{selectedPersona.name}</strong>
                       <span>{selectedPersona.roleOrUnit ?? displayName}</span>
                       <em>عرض فقط · غير متاح · لا تتبع</em>
@@ -304,35 +308,9 @@ export default function FullscreenOfficeExperience({
           animation: bm-office-shell-in 140ms ease-out both;
         }
         .bm-office-portal-shell.is-closing { animation: bm-office-shell-out 160ms ease-in both; }
-        .bm-office-portal-topbar {
-          flex-shrink: 0;
-          min-height: 52px;
-          padding: 10px 16px;
-          border-bottom: 1px solid rgba(255,255,255,0.06);
-          background: rgba(2,7,22,0.86);
-          backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          z-index: 20;
-          animation: bm-office-topbar-in 180ms ease-out both;
-        }
+        .bm-office-portal-topbar { flex-shrink: 0; min-height: 52px; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(2,7,22,0.86); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); display: flex; align-items: center; gap: 10px; z-index: 20; animation: bm-office-topbar-in 180ms ease-out both; }
         .bm-office-portal-shell.is-closing .bm-office-portal-topbar { opacity: 0; transform: translateY(-4px); transition: opacity 140ms ease, transform 140ms ease; }
-        .bm-office-portal-back {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          background: transparent;
-          border: none;
-          cursor: pointer;
-          color: #8ba3c7;
-          font-size: 12px;
-          font-weight: 800;
-          padding: 6px 0;
-          flex-shrink: 0;
-          transition: color 140ms ease, transform 140ms ease;
-        }
+        .bm-office-portal-back { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; cursor: pointer; color: #8ba3c7; font-size: 12px; font-weight: 800; padding: 6px 0; flex-shrink: 0; transition: color 140ms ease, transform 140ms ease; }
         .bm-office-portal-back:hover { color: #c8daf0; transform: translateX(1px); }
         .bm-office-portal-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
         .bm-office-portal-titlebox { flex: 1; min-width: 0; }
@@ -347,11 +325,14 @@ export default function FullscreenOfficeExperience({
         .bm-office-portal-shell.is-closing .bm-office-crop-frame { opacity: 0; transform: scale(0.992); filter: saturate(0.9) brightness(0.82); }
         .bm-office-crop-image { position: absolute; inset: 0; background-size: 300% 300%; background-repeat: no-repeat; image-rendering: auto; animation: bm-office-image-settle 280ms ease-out both; transform-origin: center center; }
         .bm-office-crop-vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 88% 78% at 50% 50%, transparent 64%, rgba(2,7,22,0.46) 100%); }
+        .bm-office-readiness-glow { position: absolute; inset: 8%; border: 1px solid; border-radius: 32px; pointer-events: none; opacity: 0.72; animation: bm-office-readiness-breathe 2400ms ease-in-out infinite; }
+        .bm-office-persona-spotlight { position: absolute; left: 0; bottom: 0; width: 46%; height: 42%; pointer-events: none; opacity: 0.78; filter: blur(4px); transition: background 160ms ease; }
         .bm-office-crop-pill { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: rgba(2,7,22,0.66); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid; font-size: 10px; font-weight: 900; letter-spacing: 0.5px; white-space: nowrap; pointer-events: none; animation: bm-office-pill-in 190ms 70ms ease-out both; }
         .bm-office-crop-pill span { width: 6px; height: 6px; border-radius: 999px; flex-shrink: 0; }
         .bm-office-persona-stage { position: absolute; left: 14px; bottom: 14px; display: flex; align-items: flex-end; gap: 8px; pointer-events: auto; animation: bm-office-panel-in 220ms 120ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-        .bm-office-persona-stage button { width: 52px; min-height: 50px; border-radius: 18px; border: 1px solid; background: rgba(2,7,22,0.58); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); cursor: pointer; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; transition: transform 150ms ease, background 150ms ease, box-shadow 150ms ease; }
+        .bm-office-persona-stage button { position: relative; width: 52px; min-height: 50px; border-radius: 18px; border: 1px solid; background: rgba(2,7,22,0.58); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); cursor: pointer; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; transition: transform 150ms ease, background 150ms ease, box-shadow 150ms ease; }
         .bm-office-persona-stage button:hover, .bm-office-persona-stage button.is-selected { transform: translateY(-3px); background: rgba(15,23,42,0.76); box-shadow: 0 14px 30px rgba(0,0,0,0.28); }
+        .bm-office-persona-stage button.is-selected::after { content: ""; position: absolute; inset: -4px; border-radius: 22px; border: 1px solid currentColor; opacity: 0.26; pointer-events: none; animation: bm-office-focus-ring 1600ms ease-in-out infinite; }
         .bm-office-persona-stage span { font-size: 12px; font-weight: 950; }
         .bm-office-persona-stage small { color: #7b92aa; font-size: 7.5px; font-weight: 850; }
         .bm-office-command-panel { position: absolute; top: 54px; right: 14px; width: min(340px, calc(100% - 28px)); border: 1px solid; border-radius: 18px; background: rgba(2,7,22,0.70); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 20px 55px rgba(0,0,0,0.38), 0 0 0 1px rgba(255,255,255,0.025) inset; padding: 12px; pointer-events: auto; animation: bm-office-panel-in 240ms 55ms cubic-bezier(0.16, 1, 0.3, 1) both; transition: opacity 150ms ease, transform 150ms ease; }
@@ -363,7 +344,11 @@ export default function FullscreenOfficeExperience({
         .bm-office-command-stats div { border-radius: 12px; border: 1px solid rgba(148,163,184,0.10); background: rgba(255,255,255,0.035); padding: 7px 4px; text-align: center; }
         .bm-office-command-stats span { display: block; font-size: 14px; font-weight: 950; line-height: 1; }
         .bm-office-command-stats small { display: block; margin-top: 4px; font-size: 8.5px; color: #4a6a8a; font-weight: 800; }
-        .bm-office-command-room { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid; border-radius: 14px; padding: 9px 10px; margin-top: 9px; }
+        .bm-office-command-room { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid; border-radius: 14px; padding: 9px 10px; margin-top: 9px; overflow: hidden; transition: box-shadow 160ms ease, transform 160ms ease; }
+        .bm-office-command-room.is-ready { box-shadow: 0 0 28px rgba(16,185,129,0.08); }
+        .bm-office-command-room.is-blocked { box-shadow: 0 0 26px rgba(245,158,11,0.07); }
+        .bm-office-command-room:hover { transform: translateY(-1px); }
+        .bm-office-command-room i { width: 6px; height: 24px; border-radius: 999px; flex-shrink: 0; opacity: 0.82; box-shadow: 0 0 16px currentColor; }
         .bm-office-command-room div { min-width: 0; }
         .bm-office-command-room strong { display: block; color: #dbeafe; font-size: 11px; font-weight: 950; line-height: 1.2; }
         .bm-office-command-room span { display: block; color: #5a7a9a; font-size: 9px; font-weight: 700; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -379,13 +364,14 @@ export default function FullscreenOfficeExperience({
         .bm-office-persona-list { display: flex; flex-direction: column; gap: 5px; }
         .bm-office-persona-list button { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 7px; border-radius: 12px; border: 1px solid rgba(148,163,184,0.08); background: rgba(2,7,22,0.38); padding: 6px; cursor: pointer; text-align: right; transition: border-color 150ms ease, background 150ms ease, transform 150ms ease; }
         .bm-office-persona-list button:hover, .bm-office-persona-list button.is-selected { border-color: rgba(125,211,252,0.22); background: rgba(125,211,252,0.055); transform: translateY(-1px); }
+        .bm-office-persona-list button.is-selected { box-shadow: 0 0 24px rgba(125,211,252,0.07); }
         .bm-office-persona-list b, .bm-office-command-people b { width: 24px; height: 24px; border-radius: 999px; border: 1px solid; display: inline-flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 950; }
         .bm-office-persona-list button div { min-width: 0; }
         .bm-office-persona-list button strong { display: block; color: #dbeafe; font-size: 9px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .bm-office-persona-list button span { display: block; margin-top: 2px; color: #5a7a9a; font-size: 8px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .bm-office-persona-list em { font-style: normal; color: #64748b; font-size: 8px; font-weight: 950; white-space: nowrap; }
         .bm-office-persona-list > small, .bm-office-persona-empty { color: #64748b !important; font-size: 8.5px !important; font-weight: 850; }
-        .bm-office-persona-focus { margin-top: 7px; border-radius: 12px; border: 1px solid rgba(125,211,252,0.12); background: rgba(2,7,22,0.42); padding: 8px; }
+        .bm-office-persona-focus { margin-top: 7px; border-radius: 12px; border: 1px solid rgba(125,211,252,0.12); background: rgba(2,7,22,0.42); padding: 8px; transition: border-color 160ms ease, box-shadow 160ms ease; }
         .bm-office-persona-focus strong { display: block; color: #e0f2fe; font-size: 10px; font-weight: 950; }
         .bm-office-persona-focus span, .bm-office-persona-focus em { display: block; margin-top: 3px; color: #64748b; font-size: 8.5px; font-style: normal; font-weight: 850; }
         .bm-office-command-people { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; }
@@ -400,8 +386,10 @@ export default function FullscreenOfficeExperience({
         @keyframes bm-office-image-settle { from { transform: scale(1.012); } to { transform: scale(1); } }
         @keyframes bm-office-panel-in { from { opacity: 0; transform: translate3d(12px, 6px, 0) scale(0.99); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
         @keyframes bm-office-pill-in { from { opacity: 0; transform: translateX(-50%) translateY(-4px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        @keyframes bm-office-readiness-breathe { 0%, 100% { opacity: 0.45; transform: scale(0.995); } 50% { opacity: 0.78; transform: scale(1.005); } }
+        @keyframes bm-office-focus-ring { 0%, 100% { opacity: 0.16; transform: scale(0.98); } 50% { opacity: 0.34; transform: scale(1.03); } }
         @media (prefers-reduced-motion: reduce) {
-          .bm-office-portal-shell, .bm-office-portal-topbar, .bm-office-crop-frame, .bm-office-crop-image, .bm-office-crop-pill, .bm-office-command-panel, .bm-office-text-room-workspace, .bm-office-persona-deck, .bm-office-persona-stage {
+          .bm-office-portal-shell, .bm-office-portal-topbar, .bm-office-crop-frame, .bm-office-crop-image, .bm-office-crop-pill, .bm-office-command-panel, .bm-office-text-room-workspace, .bm-office-persona-deck, .bm-office-persona-stage, .bm-office-readiness-glow, .bm-office-persona-spotlight {
             animation: none !important;
             transition: none !important;
             transform: none !important;
@@ -417,7 +405,7 @@ export default function FullscreenOfficeExperience({
           .bm-office-crop-frame { width: 100%; border-radius: 14px; }
           .bm-office-command-panel { top: auto; right: 8px; left: 8px; bottom: 8px; width: auto; padding: 10px; }
           .bm-office-command-panel h3 { font-size: 13px; }
-          .bm-office-persona-stage, .bm-office-command-panel p, .bm-office-text-room-workspace, .bm-office-persona-deck, .bm-office-command-people, .bm-office-command-note { display: none; }
+          .bm-office-persona-stage, .bm-office-readiness-glow, .bm-office-persona-spotlight, .bm-office-command-panel p, .bm-office-text-room-workspace, .bm-office-persona-deck, .bm-office-command-people, .bm-office-command-note { display: none; }
           .bm-office-command-stats { margin-top: 8px; }
         }
       `}</style>
