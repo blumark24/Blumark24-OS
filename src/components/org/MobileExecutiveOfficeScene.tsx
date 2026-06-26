@@ -1,13 +1,11 @@
 "use client";
 
 // MobileExecutiveOfficeScene.tsx — VIRTUAL-OFFICE-CLOUD-1
-// Mobile office map: image overlay with 9 tappable office chips.
-// All selection and management is handled by OfficeControlModal in the parent.
-// No dead props, no bottom sections, no selected room card.
-//
-// C14-M4 / PR402 visual behavior:
-// Default state shows clean status dots only to keep the office map premium.
-// When a room is selected, the marker expands to number + short label.
+// Virtual office map with 9 tappable office markers.
+// Visual policy:
+// - Mobile: top-right compact badge = number + status color only.
+// - Tablet/Desktop: top-right compact badge = number + short label + status color.
+// - Detailed data stays inside OfficeControlModal after click.
 //
 // VIRTUAL-OFFICE-NUMBERING-LOCK-1:
 // Office numbers follow the visual 3×3 map order exactly:
@@ -22,22 +20,26 @@ import { formatOfficeNumber, type SceneRoom } from "./VirtualOfficeReferenceScen
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
 
-// ─── Dot positions — office-number ordered, matching the 3×3 map ─────────────
+// ─── Badge positions — top-right corner of each room ──────────────────────────
 
-interface ChipPos { top: string; left: string; }
+interface ChipPos {
+  top: string;
+  right: string;
+}
+
 const CHIP_POSITIONS: ChipPos[] = [
-  { top: "18%", left: "20%" }, // OFFICE 01 → أعلى يسار
-  { top: "18%", left: "50%" }, // OFFICE 02 → أعلى وسط
-  { top: "18%", left: "82%" }, // OFFICE 03 → أعلى يمين
-  { top: "48%", left: "19%" }, // OFFICE 04 → وسط يسار
-  { top: "48%", left: "50%" }, // OFFICE 05 → مجلس الإدارة / الوسط الثابت
-  { top: "48%", left: "82%" }, // OFFICE 06 → وسط يمين
-  { top: "79%", left: "19%" }, // OFFICE 07 → أسفل يسار
-  { top: "80%", left: "51%" }, // OFFICE 08 → أسفل وسط
-  { top: "79%", left: "82%" }, // OFFICE 09 → أسفل يمين
+  { top: "8.5%", right: "67%" }, // OFFICE 01 → أعلى يسار
+  { top: "8.5%", right: "39%" }, // OFFICE 02 → أعلى وسط
+  { top: "8.5%", right: "10%" }, // OFFICE 03 → أعلى يمين
+  { top: "36.5%", right: "67%" }, // OFFICE 04 → وسط يسار
+  { top: "40.5%", right: "39%" }, // OFFICE 05 → مجلس الإدارة / الوسط الثابت
+  { top: "36.5%", right: "10%" }, // OFFICE 06 → وسط يمين
+  { top: "68.5%", right: "67%" }, // OFFICE 07 → أسفل يسار
+  { top: "70.5%", right: "39%" }, // OFFICE 08 → أسفل وسط
+  { top: "68.5%", right: "10%" }, // OFFICE 09 → أسفل يمين
 ];
 
-// ─── Status dot color ─────────────────────────────────────────────────────────
+// ─── Status / labels ──────────────────────────────────────────────────────────
 
 function dotColor(room: SceneRoom): string {
   if (room.isCenter) return "#a855f7";
@@ -46,16 +48,21 @@ function dotColor(room: SceneRoom): string {
   return "#10b981";
 }
 
-function shortLabel(room: SceneRoom): string {
+function officeShortLabel(room: SceneRoom): string {
   if (room.isCenter) return "مجلس الإدارة";
-  if (room.isUnassigned) return "جاهز للتشغيل";
+  if (room.isUnassigned) return "غير مخصص";
   if (room.isOpen === false) return "مغلق";
-  return (room.name?.replace(/^مكتب\s+\d+\s*/, "").trim() || "مفتوح");
+  return (room.name?.replace(/^مكتب\s+\d+\s*/, "").trim() || "مرتبط");
 }
 
-// ─── Office chip ──────────────────────────────────────────────────────────────
+// ─── Office badge ─────────────────────────────────────────────────────────────
 
-function OfficeChip({ room, selected, onClick, position }: {
+function OfficeChip({
+  room,
+  selected,
+  onClick,
+  position,
+}: {
   room: SceneRoom;
   selected: boolean;
   onClick: () => void;
@@ -64,86 +71,41 @@ function OfficeChip({ room, selected, onClick, position }: {
   const accent = room.isCenter
     ? "#a855f7"
     : room.isUnassigned
-    ? "#f59e0b"
-    : (room.accentColor ?? "#22d3ee");
+      ? "#f59e0b"
+      : room.isOpen === false
+        ? "#64748b"
+        : (room.accentColor ?? "#10b981");
 
+  const officeNumber = formatOfficeNumber(room.officeNumber);
+  const label = officeShortLabel(room);
   const dot = dotColor(room);
 
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={`مكتب ${formatOfficeNumber(room.officeNumber)}: ${shortLabel(room)}`}
+      className={`vo-office-chip ${selected ? "vo-office-chip--selected" : ""}`}
+      aria-label={`مكتب ${officeNumber}: ${label}`}
       style={{
         position: "absolute",
         top: position.top,
-        left: position.left,
-        transform: "translate(-50%, -50%)",
-        // 48px minimum tap target via padding; visual stays clean when not selected.
-        padding: selected ? "7px 11px" : "12px",
-        display: "inline-flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 3,
-        borderRadius: selected ? 12 : "50%",
-        background: selected ? `${accent}22` : "transparent",
-        backdropFilter: selected ? "blur(10px)" : undefined,
-        WebkitBackdropFilter: selected ? "blur(10px)" : undefined,
-        border: selected ? `1.5px solid ${accent}` : "none",
-        boxShadow: selected ? `0 0 18px ${accent}55, 0 0 6px ${accent}33` : "none",
-        cursor: "pointer",
-        transition: "all 0.18s ease",
-        zIndex: 2,
+        right: position.right,
+        background: selected ? `${accent}22` : "rgba(2, 8, 23, 0.74)",
+        border: selected ? `1px solid ${accent}` : "1px solid rgba(255,255,255,0.08)",
+        boxShadow: selected
+          ? `0 0 14px ${accent}40, 0 0 0 1px ${accent}22 inset`
+          : "0 1px 6px rgba(0,0,0,0.34)",
       }}
     >
-      {selected ? (
-        <>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{
-              width: 7,
-              height: 7,
-              borderRadius: "50%",
-              background: dot,
-              flexShrink: 0,
-              boxShadow: `0 0 6px ${dot}`,
-            }} />
-            <span style={{
-              fontSize: 9,
-              fontWeight: 800,
-              color: "#fff",
-              background: `${accent}20`,
-              border: `1px solid ${accent}55`,
-              padding: "1px 5px",
-              borderRadius: 5,
-              lineHeight: 1.5,
-              fontVariantNumeric: "tabular-nums",
-            }}>
-              {formatOfficeNumber(room.officeNumber)}
-            </span>
-          </div>
-          <span style={{
-            fontSize: 8.5,
-            fontWeight: 700,
-            color: room.isCenter ? "#c4b5fd" : room.isUnassigned ? "#fbbf24" : "#e2edf8",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            maxWidth: 68,
-            marginTop: 1,
-          }}>
-            {shortLabel(room)}
-          </span>
-        </>
-      ) : (
-        <span style={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
+      <span className="vo-office-chip__number">{officeNumber}</span>
+      <span className="vo-office-chip__label">{label}</span>
+      <span
+        className="vo-office-chip__dot"
+        style={{
           background: dot,
-          display: "block",
-          boxShadow: room.isUnassigned ? `0 0 6px ${dot}88` : `0 0 3px ${dot}55`,
-        }} />
-      )}
+          boxShadow: `0 0 6px ${dot}99`,
+        }}
+      />
     </button>
   );
 }
@@ -165,21 +127,25 @@ export default function MobileExecutiveOfficeScene({
 
   return (
     <div style={{ maxWidth: "100%", overflow: "hidden" }}>
-      <div style={{
-        position: "relative",
-        width: "100%",
-        borderRadius: 18,
-        overflow: "hidden",
-        background: "#06111f",
-        border: "1px solid rgba(148,163,184,0.12)",
-        boxShadow: "0 12px 40px rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.03) inset",
-      }}>
-        <div style={{
+      <div
+        style={{
           position: "relative",
           width: "100%",
-          aspectRatio: IMAGE_ASPECT_RATIO,
-          maxHeight: "clamp(380px, 52vw, 640px)",
-        }}>
+          borderRadius: 18,
+          overflow: "hidden",
+          background: "#06111f",
+          border: "1px solid rgba(148,163,184,0.12)",
+          boxShadow: "0 12px 40px rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.03) inset",
+        }}
+      >
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            aspectRatio: IMAGE_ASPECT_RATIO,
+            maxHeight: "clamp(380px, 52vw, 640px)",
+          }}
+        >
           {!imgFailed ? (
             <Image
               src={IMAGE_SRC}
@@ -191,19 +157,24 @@ export default function MobileExecutiveOfficeScene({
               priority
             />
           ) : (
-            <div style={{
-              position: "absolute",
-              inset: 0,
-              background: "linear-gradient(160deg, #060d1c 0%, #04091a 100%)",
-            }} />
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(160deg, #060d1c 0%, #04091a 100%)",
+              }}
+            />
           )}
 
-          <div style={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-            background: "radial-gradient(ellipse 90% 90% at 50% 50%, transparent 46%, rgba(0,0,0,0.55) 100%)",
-          }} />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              pointerEvents: "none",
+              background:
+                "radial-gradient(ellipse 90% 90% at 50% 50%, transparent 46%, rgba(0,0,0,0.55) 100%)",
+            }}
+          />
 
           {rooms.map((room, i) => {
             const pos = CHIP_POSITIONS[i];
@@ -220,6 +191,104 @@ export default function MobileExecutiveOfficeScene({
           })}
         </div>
       </div>
+
+      <style jsx>{`
+        .vo-office-chip {
+          z-index: 2;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          min-width: 34px;
+          height: 22px;
+          padding: 2px 6px;
+          border-radius: 999px;
+          cursor: pointer;
+          color: #eaf4ff;
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          transition:
+            transform 0.16s ease,
+            border-color 0.16s ease,
+            box-shadow 0.16s ease,
+            background 0.16s ease;
+          touch-action: manipulation;
+        }
+
+        .vo-office-chip::before {
+          content: "";
+          position: absolute;
+          inset: -8px;
+          border-radius: 999px;
+        }
+
+        .vo-office-chip:hover,
+        .vo-office-chip:active,
+        .vo-office-chip--selected {
+          transform: scale(1.04);
+        }
+
+        .vo-office-chip__number {
+          font-size: 9px;
+          line-height: 1;
+          font-weight: 900;
+          font-variant-numeric: tabular-nums;
+          color: #eef7ff;
+          flex: 0 0 auto;
+        }
+
+        .vo-office-chip__label {
+          display: none;
+        }
+
+        .vo-office-chip__dot {
+          width: 5.5px;
+          height: 5.5px;
+          border-radius: 999px;
+          flex: 0 0 auto;
+        }
+
+        @media (min-width: 768px) {
+          .vo-office-chip {
+            min-width: 88px;
+            max-width: 146px;
+            height: 26px;
+            padding: 3px 9px;
+            gap: 5px;
+          }
+
+          .vo-office-chip__number {
+            font-size: 9.5px;
+          }
+
+          .vo-office-chip__label {
+            display: inline-block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 9.5px;
+            line-height: 1;
+            font-weight: 800;
+            color: #dff7ff;
+          }
+
+          .vo-office-chip__dot {
+            width: 6px;
+            height: 6px;
+          }
+        }
+
+        @media (min-width: 1180px) {
+          .vo-office-chip {
+            max-width: 156px;
+          }
+
+          .vo-office-chip__label {
+            font-size: 10px;
+          }
+        }
+      `}</style>
     </div>
   );
 }
