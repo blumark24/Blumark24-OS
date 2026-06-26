@@ -6,8 +6,10 @@ import { formatOfficeNumber, type SceneRoom } from "./VirtualOfficeReferenceScen
 // C16.3-D — safe motion adapter for office chips.
 import {
   useVirtualOfficeMotionStyle,
+  type VirtualOfficeMotionStyleOptions,
   type VirtualOfficeMotionStyleResult,
 } from "@/lib/virtual-office/useVirtualOfficeMotion";
+import { firstOfficeSmartSuggestion } from "@/lib/virtual-office/officeSmartSuggestions";
 
 const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -48,6 +50,19 @@ function OfficeChip({ room, selected, onClick, position }: {
   const accent = room.isCenter ? "#a855f7" : room.isUnassigned ? "#f59e0b" : (room.accentColor ?? "#22d3ee");
   const dot = dotColor(room);
   const name = badgeName(room);
+  // C16.4-B — smart suggestion is derived only from scoped room summary values
+  // already passed to this scene. No external AI call, storage, or global fallback.
+  const suggestion = firstOfficeSmartSuggestion({
+    officeNumber: room.officeNumber ?? 0,
+    isBoard: room.isCenter,
+    isUnassigned: room.isUnassigned,
+    canViewOperationalData: true,
+    employeeCount: room.employeeCount,
+    openTaskCount: room.openTasks,
+    overdueTaskCount: room.overdueTasks,
+    healthPct: room.healthPct,
+  });
+  const suggestionText = `${suggestion.title} — ${suggestion.detail}`;
 
   // C16.3-D — safe motion adapter.
   // The chip's coordinate transform (translate(-50%, -50%)) must NEVER change,
@@ -57,7 +72,7 @@ function OfficeChip({ room, selected, onClick, position }: {
   // motion adapter's own `transform` is intentionally discarded here.
   const [isHovered, setIsHovered] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const motionState: Parameters<typeof useVirtualOfficeMotionStyle>[0] = {
+  const motionState: VirtualOfficeMotionStyleOptions = {
     state: isHovered ? "hover" : isFocused ? "focus" : "idle",
   };
   const motion: VirtualOfficeMotionStyleResult = useVirtualOfficeMotionStyle(motionState);
@@ -85,7 +100,8 @@ function OfficeChip({ room, selected, onClick, position }: {
       onMouseLeave={() => setIsHovered(false)}
       onFocus={() => setIsFocused(true)}
       onBlur={() => setIsFocused(false)}
-      aria-label={`مكتب ${formatOfficeNumber(room.officeNumber)}`}
+      aria-label={`مكتب ${formatOfficeNumber(room.officeNumber)} · ${suggestionText}`}
+      title={suggestionText}
       style={{
         position: "absolute",
         top: position.top,
