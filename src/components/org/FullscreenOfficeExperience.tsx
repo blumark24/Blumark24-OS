@@ -8,6 +8,7 @@ import { ArrowRight, X } from "lucide-react";
 import type { MappingSource, OfficeRoom, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
 import { buildOfficeInteriorProfile } from "@/lib/virtual-office/officeInteriorProfile";
 import { buildTextMeetingRoom } from "@/lib/virtual-office/textMeetingRoom";
+import { buildLivePresenceReadiness } from "@/lib/virtual-office/livePresenceReadiness";
 
 const MAP_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
@@ -83,6 +84,8 @@ export default function FullscreenOfficeExperience({
     participantCount: safePeople.length,
     topic: "تنسيق متابعة المكتب",
   });
+  const livePresenceReadiness = buildLivePresenceReadiness();
+  const livePresenceProgressPct = Math.round((livePresenceReadiness.completedCount / livePresenceReadiness.totalCount) * 100);
   const openTasks = room.openTasks ?? 0;
   const overdueTasks = room.overdueTasks ?? 0;
   const healthPct = room.healthPct ?? 0;
@@ -213,6 +216,23 @@ export default function FullscreenOfficeExperience({
               </em>
             </div>
 
+            <div className={`bm-office-presence-gate is-${livePresenceReadiness.status}`} aria-label="جاهزية الحضور اللحظي">
+              <div className="bm-office-presence-head">
+                <strong>الحضور اللحظي</strong>
+                <span>غير مفعّل</span>
+              </div>
+              <div className="bm-office-presence-meter" aria-label={`جاهزية الحضور ${livePresenceProgressPct}%`}>
+                <i style={{ width: `${livePresenceProgressPct}%` }} />
+              </div>
+              <p>{livePresenceReadiness.summary}</p>
+              <div className="bm-office-presence-list">
+                {livePresenceReadiness.requirements.slice(0, 4).map((requirement) => (
+                  <small key={requirement.key}>{requirement.label}</small>
+                ))}
+              </div>
+              <button type="button" disabled>{livePresenceReadiness.actionLabel}</button>
+            </div>
+
             <div className="bm-office-text-room-workspace" aria-label="مساحة الغرفة النصية">
               <div className="bm-office-text-room-head">
                 <strong>مساحة الغرفة النصية</strong>
@@ -297,16 +317,7 @@ export default function FullscreenOfficeExperience({
       </main>
 
       <style>{`
-        .bm-office-portal-shell {
-          position: fixed;
-          inset: 0;
-          z-index: 110;
-          display: flex;
-          flex-direction: column;
-          background: #020716;
-          overflow: hidden;
-          animation: bm-office-shell-in 140ms ease-out both;
-        }
+        .bm-office-portal-shell { position: fixed; inset: 0; z-index: 110; display: flex; flex-direction: column; background: #020716; overflow: hidden; animation: bm-office-shell-in 140ms ease-out both; }
         .bm-office-portal-shell.is-closing { animation: bm-office-shell-out 160ms ease-in both; }
         .bm-office-portal-topbar { flex-shrink: 0; min-height: 52px; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(2,7,22,0.86); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); display: flex; align-items: center; gap: 10px; z-index: 20; animation: bm-office-topbar-in 180ms ease-out both; }
         .bm-office-portal-shell.is-closing .bm-office-portal-topbar { opacity: 0; transform: translateY(-4px); transition: opacity 140ms ease, transform 140ms ease; }
@@ -353,6 +364,16 @@ export default function FullscreenOfficeExperience({
         .bm-office-command-room strong { display: block; color: #dbeafe; font-size: 11px; font-weight: 950; line-height: 1.2; }
         .bm-office-command-room span { display: block; color: #5a7a9a; font-size: 9px; font-weight: 700; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .bm-office-command-room em { font-style: normal; flex-shrink: 0; font-size: 9px; font-weight: 950; }
+        .bm-office-presence-gate { margin-top: 9px; border-radius: 14px; border: 1px solid rgba(148,163,184,0.10); background: rgba(2,7,22,0.44); padding: 9px; box-shadow: 0 0 24px rgba(245,158,11,0.05); }
+        .bm-office-presence-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .bm-office-presence-head strong { color: #dbeafe; font-size: 11px; font-weight: 950; }
+        .bm-office-presence-head span { color: #f59e0b; font-size: 8.5px; font-weight: 950; }
+        .bm-office-presence-meter { height: 5px; border-radius: 999px; overflow: hidden; background: rgba(148,163,184,0.11); margin-top: 7px; }
+        .bm-office-presence-meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgba(245,158,11,0.82), rgba(34,211,238,0.82)); }
+        .bm-office-presence-gate p { margin: 6px 0 0; color: #64748b; font-size: 8.5px; font-weight: 800; line-height: 1.45; }
+        .bm-office-presence-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin-top: 7px; }
+        .bm-office-presence-list small { border-radius: 999px; border: 1px solid rgba(245,158,11,0.12); background: rgba(245,158,11,0.05); color: #8ba3c7; padding: 3px 6px; font-size: 7.8px; font-weight: 850; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bm-office-presence-gate button { width: 100%; margin-top: 7px; border: 1px solid rgba(148,163,184,0.11); background: rgba(148,163,184,0.06); color: #64748b; border-radius: 10px; padding: 6px 8px; font-size: 8.5px; font-weight: 950; cursor: not-allowed; }
         .bm-office-text-room-workspace, .bm-office-persona-deck { margin-top: 9px; border-radius: 14px; border: 1px solid rgba(148,163,184,0.10); background: rgba(255,255,255,0.035); padding: 9px; animation: bm-office-panel-in 220ms 90ms cubic-bezier(0.16, 1, 0.3, 1) both; }
         .bm-office-text-room-head, .bm-office-persona-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
         .bm-office-text-room-head strong, .bm-office-persona-head strong { color: #dbeafe; font-size: 11px; font-weight: 950; }
@@ -405,7 +426,7 @@ export default function FullscreenOfficeExperience({
           .bm-office-crop-frame { width: 100%; border-radius: 14px; }
           .bm-office-command-panel { top: auto; right: 8px; left: 8px; bottom: 8px; width: auto; padding: 10px; }
           .bm-office-command-panel h3 { font-size: 13px; }
-          .bm-office-persona-stage, .bm-office-readiness-glow, .bm-office-persona-spotlight, .bm-office-command-panel p, .bm-office-text-room-workspace, .bm-office-persona-deck, .bm-office-command-people, .bm-office-command-note { display: none; }
+          .bm-office-persona-stage, .bm-office-readiness-glow, .bm-office-persona-spotlight, .bm-office-command-panel p, .bm-office-presence-gate, .bm-office-text-room-workspace, .bm-office-persona-deck, .bm-office-command-people, .bm-office-command-note { display: none; }
           .bm-office-command-stats { margin-top: 8px; }
         }
       `}</style>
