@@ -1,119 +1,124 @@
-export type OfficeInteriorKind = "workspace" | "boardroom" | "unassigned";
-export type OfficeInteriorStatus = "ready" | "pending_asset" | "locked";
-
-export const SHARED_OFFICE_INTERIOR_ASSET_SRC = "/virtual-office/interiors/blumark-office-portal-interior.svg";
-
-export const OFFICE_INTERIOR_ASSET_BY_KEY: Readonly<Record<string, string>> = {
-  "office-01-interior": SHARED_OFFICE_INTERIOR_ASSET_SRC,
-  "office-02-interior": SHARED_OFFICE_INTERIOR_ASSET_SRC,
-  "office-03-interior": SHARED_OFFICE_INTERIOR_ASSET_SRC,
-  "office-04-interior": SHARED_OFFICE_INTERIOR_ASSET_SRC,
-  "office-05-interior": SHARED_OFFICE_INTERIOR_ASSET_SRC,
-  "office-06-interior": SHARED_OFFICE_INTERIOR_ASSET_SRC,
-  "office-07-interior": SHARED_OFFICE_INTERIOR_ASSET_SRC,
-  "office-08-interior": SHARED_OFFICE_INTERIOR_ASSET_SRC,
-  "office-09-interior": SHARED_OFFICE_INTERIOR_ASSET_SRC,
-};
-
-export interface OfficeInteriorProfileInput {
-  officeNumber: number;
-  officeName?: string | null;
-  isBoard?: boolean;
-  isUnassigned?: boolean;
-  hasInteriorAsset?: boolean;
-  linkedEmployeeCount?: number | null;
-}
+export type OfficeInteriorAssetId =
+  | "office-01-executive-interior"
+  | "office-02-open-workspace-interior"
+  | "office-03-analytics-interior"
+  | "office-04-design-studio-interior"
+  | "office-05-board-room-interior"
+  | "office-06-marketing-interior"
+  | "office-07-data-office-interior"
+  | "office-08-operations-interior"
+  | "office-09-command-center-interior";
 
 export interface OfficeInteriorProfile {
   officeNumber: number;
-  officeLabel: string;
-  kind: OfficeInteriorKind;
-  status: OfficeInteriorStatus;
-  title: string;
-  detail: string;
-  actionLabel: string;
-  assetKey: string;
-  assetSrc: string | null;
-  preservesExteriorMapping: boolean;
-  canOpenInterior: boolean;
-}
-
-function safeOfficeNumber(value: number): number {
-  return Number.isFinite(value) ? Math.max(0, Math.min(99, Math.trunc(value))) : 0;
-}
-
-function officeLabel(officeNumber: number, officeName?: string | null): string {
-  const number = safeOfficeNumber(officeNumber);
-  const base = `OFFICE ${String(number).padStart(2, "0")}`;
-  const cleanName = officeName?.trim();
-  return cleanName ? `${base} · ${cleanName}` : base;
-}
-
-function officeAssetKey(officeNumber: number): string {
-  return `office-${String(safeOfficeNumber(officeNumber)).padStart(2, "0")}-interior`;
-}
-
-export function getOfficeInteriorAssetSrc(officeNumber: number): string | null {
-  const assetKey = officeAssetKey(officeNumber);
-  return OFFICE_INTERIOR_ASSET_BY_KEY[assetKey] ?? null;
-}
-
-export function buildOfficeInteriorProfile(input: OfficeInteriorProfileInput): OfficeInteriorProfile {
-  const officeNumber = safeOfficeNumber(input.officeNumber);
-  const label = officeLabel(officeNumber, input.officeName);
-  const kind: OfficeInteriorKind = input.isUnassigned ? "unassigned" : input.isBoard ? "boardroom" : "workspace";
-  const assetKey = officeAssetKey(officeNumber);
-  const registeredAssetSrc = getOfficeInteriorAssetSrc(officeNumber);
-  const hasApprovedAsset = input.hasInteriorAsset ?? Boolean(registeredAssetSrc);
-  const assetSrc = hasApprovedAsset ? registeredAssetSrc : null;
-
-  if (input.isUnassigned) {
-    return {
-      officeNumber,
-      officeLabel: label,
-      kind,
-      status: "locked",
-      title: "المكتب الداخلي غير مخصص",
-      detail: "لا يتم فتح مكتب داخلي قبل ربطه من الهيكل الإداري.",
-      actionLabel: "ربط المكتب أولاً",
-      assetKey,
-      assetSrc,
-      preservesExteriorMapping: true,
-      canOpenInterior: false,
-    };
-  }
-
-  if (!assetSrc) {
-    return {
-      officeNumber,
-      officeLabel: label,
-      kind,
-      status: "pending_asset",
-      title: input.isBoard ? "غرفة مجلس الإدارة الداخلية تحتاج أصل بصري" : "المكتب الداخلي يحتاج أصل بصري",
-      detail: "يجب أن يكون المشهد الداخلي مطابقاً لترتيب المكتب الخارجي ونفس رقم المكتب.",
-      actionLabel: "تجهيز الصورة الداخلية",
-      assetKey,
-      assetSrc: null,
-      preservesExteriorMapping: true,
-      canOpenInterior: false,
-    };
-  }
-
-  return {
-    officeNumber,
-    officeLabel: label,
-    kind,
-    status: "ready",
-    title: input.isBoard ? "غرفة مجلس الإدارة الداخلية جاهزة" : "المكتب الداخلي جاهز",
-    detail: "المشهد الداخلي مرتبط بنفس رقم المكتب الخارجي ومحفوظ داخل مسار المكتب الافتراضي.",
-    actionLabel: input.isBoard ? "فتح مجلس الإدارة" : "فتح المكتب الداخلي",
-    assetKey,
-    assetSrc,
-    preservesExteriorMapping: true,
-    canOpenInterior: true,
+  assetId: OfficeInteriorAssetId;
+  nameAr: string;
+  nameEn: string;
+  functionAr: string;
+  accent: string;
+  imageSrc: string | null;
+  fallbackMapCrop: {
+    objectPosition: string;
+    scale: number;
   };
 }
 
-export function canOpenOfficeInterior(input: OfficeInteriorProfileInput): boolean {
-  return buildOfficeInteriorProfile(input).canOpenInterior;
+const OFFICE_INTERIOR_PROFILES: Record<number, OfficeInteriorProfile> = {
+  1: {
+    officeNumber: 1,
+    assetId: "office-01-executive-interior",
+    nameAr: "المكتب التنفيذي",
+    nameEn: "Executive Office",
+    functionAr: "إدارة عليا",
+    accent: "#22d3ee",
+    imageSrc: "/virtual-office/interiors/office-01-executive-interior.webp",
+    fallbackMapCrop: { objectPosition: "86% 14%", scale: 1.7 },
+  },
+  2: {
+    officeNumber: 2,
+    assetId: "office-02-open-workspace-interior",
+    nameAr: "مساحة العمل المفتوحة",
+    nameEn: "Open Workspace",
+    functionAr: "تشغيل فرق",
+    accent: "#38bdf8",
+    imageSrc: "/virtual-office/interiors/office-02-open-workspace-interior.webp",
+    fallbackMapCrop: { objectPosition: "50% 13%", scale: 1.65 },
+  },
+  3: {
+    officeNumber: 3,
+    assetId: "office-03-analytics-interior",
+    nameAr: "مكتب التحليلات",
+    nameEn: "Analytics Office",
+    functionAr: "قراءة الأداء",
+    accent: "#67e8f9",
+    imageSrc: "/virtual-office/interiors/office-03-analytics-interior.webp",
+    fallbackMapCrop: { objectPosition: "15% 16%", scale: 1.65 },
+  },
+  4: {
+    officeNumber: 4,
+    assetId: "office-04-design-studio-interior",
+    nameAr: "استوديو التصميم",
+    nameEn: "Design Studio",
+    functionAr: "تجربة وهوية",
+    accent: "#60a5fa",
+    imageSrc: "/virtual-office/interiors/office-04-design-studio-interior.webp",
+    fallbackMapCrop: { objectPosition: "84% 49%", scale: 1.7 },
+  },
+  5: {
+    officeNumber: 5,
+    assetId: "office-05-board-room-interior",
+    nameAr: "مجلس الإدارة",
+    nameEn: "Board Room",
+    functionAr: "مركز قرار",
+    accent: "#a855f7",
+    imageSrc: "/virtual-office/interiors/office-05-board-room-interior.webp",
+    fallbackMapCrop: { objectPosition: "50% 50%", scale: 1.55 },
+  },
+  6: {
+    officeNumber: 6,
+    assetId: "office-06-marketing-interior",
+    nameAr: "مكتب التسويق",
+    nameEn: "Marketing Office",
+    functionAr: "نمو وتسويق",
+    accent: "#f472b6",
+    imageSrc: "/virtual-office/interiors/office-06-marketing-interior.webp",
+    fallbackMapCrop: { objectPosition: "16% 50%", scale: 1.7 },
+  },
+  7: {
+    officeNumber: 7,
+    assetId: "office-07-data-office-interior",
+    nameAr: "مكتب البيانات",
+    nameEn: "Data Office",
+    functionAr: "بيانات وتقارير",
+    accent: "#10b981",
+    imageSrc: "/virtual-office/interiors/office-07-data-office-interior.webp",
+    fallbackMapCrop: { objectPosition: "84% 84%", scale: 1.75 },
+  },
+  8: {
+    officeNumber: 8,
+    assetId: "office-08-operations-interior",
+    nameAr: "مكتب العمليات",
+    nameEn: "Operations Office",
+    functionAr: "تنفيذ يومي",
+    accent: "#f59e0b",
+    imageSrc: "/virtual-office/interiors/office-08-operations-interior.webp",
+    fallbackMapCrop: { objectPosition: "50% 84%", scale: 1.65 },
+  },
+  9: {
+    officeNumber: 9,
+    assetId: "office-09-command-center-interior",
+    nameAr: "مركز القيادة",
+    nameEn: "Command Center",
+    functionAr: "قيادة وتحكم",
+    accent: "#22d3ee",
+    imageSrc: "/virtual-office/interiors/office-09-command-center-interior.webp",
+    fallbackMapCrop: { objectPosition: "16% 84%", scale: 1.75 },
+  },
+};
+
+export function getOfficeInteriorProfile(officeNumber?: number | null) {
+  if (!officeNumber) return null;
+  return OFFICE_INTERIOR_PROFILES[officeNumber] ?? null;
 }
+
+export const officeInteriorProfiles = OFFICE_INTERIOR_PROFILES;
