@@ -1,8 +1,12 @@
 import { ChevronDown, Calendar } from "lucide-react";
 
+// Read older → newer left-to-right (matches the chart x-axis, which is
+// natural LTR even inside the RTL page). The months row below is forced
+// to dir="ltr" so the visual order matches the data points.
 const MONTHS = ["ديسمبر", "يناير", "فبراير", "مارس", "أبريل", "مايو"];
-// Normalized 0..1 — gentle uptrend with a small dip
-const POINTS = [0.10, 0.42, 0.34, 0.55, 0.62, 0.78, 0.95];
+// Normalized 0..1, one per month — gentle uptrend with the peak near
+// أبريل (index 4) where the reference call-out sits.
+const POINTS = [0.10, 0.30, 0.42, 0.60, 0.95, 0.86];
 
 const CHART_W = 320;
 const CHART_H = 130;
@@ -37,7 +41,9 @@ function pathFromPoints(pts: number[], filled = false) {
 export default function RevenueChartCard() {
   const line = pathFromPoints(POINTS, false);
   const area = pathFromPoints(POINTS, true);
-  const peakIndex = 4; // call-out
+  // Call-out sits on the highest data point. Keeps the visual story
+  // consistent with the reference (peak labelled, latest month after it).
+  const peakIndex = POINTS.indexOf(Math.max(...POINTS));
   const [px, py] = line.coords[peakIndex];
 
   return (
@@ -73,8 +79,9 @@ export default function RevenueChartCard() {
         </button>
       </div>
 
-      {/* Chart */}
-      <div className="relative">
+      {/* Chart — pt-10 reserves vertical space above the peak so the
+          floating call-out never overlaps the card title row. */}
+      <div className="relative pt-10">
         <svg
           viewBox={`0 0 ${CHART_W} ${CHART_H}`}
           className="w-full"
@@ -142,13 +149,15 @@ export default function RevenueChartCard() {
           />
         </svg>
 
-        {/* Floating call-out for peak */}
+        {/* Floating call-out for peak — pinned to the top of the chart
+            container's pt-10 reserved area so it never collides with the
+            card title. Left tracks the peak's X position. */}
         <div
           className="absolute"
           style={{
             left: `${(px / CHART_W) * 100}%`,
-            top: `${(py / CHART_H) * 100}%`,
-            transform: "translate(-50%, -130%)",
+            top: 0,
+            transform: "translate(-50%, 0)",
           }}
         >
           <div
@@ -175,8 +184,9 @@ export default function RevenueChartCard() {
         </div>
       </div>
 
-      {/* Month labels */}
-      <div className="grid grid-cols-6 mt-2">
+      {/* Month labels — LTR so the row reads ديسمبر…مايو left-to-right and
+          stays aligned with the chart's natural LTR x-axis */}
+      <div className="grid grid-cols-6 mt-2" dir="ltr">
         {MONTHS.map((m) => (
           <span
             key={m}

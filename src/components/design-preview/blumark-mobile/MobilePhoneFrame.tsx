@@ -28,7 +28,7 @@ export default function MobilePhoneFrame({
     >
       {/* Phone shell */}
       <div
-        className="relative"
+        className="relative bm-preview-phone-shell"
         style={{
           width: 412,
           maxWidth: "100%",
@@ -38,7 +38,7 @@ export default function MobilePhoneFrame({
       >
         {/* Outer bezel */}
         <div
-          className="absolute inset-0 rounded-[44px]"
+          className="absolute inset-0 rounded-[44px] bm-preview-phone-bezel"
           style={{
             background:
               "linear-gradient(160deg, #1a2c47 0%, #050c1c 60%, #0b1d34 100%)",
@@ -49,7 +49,7 @@ export default function MobilePhoneFrame({
         >
           {/* Inner screen */}
           <div
-            className="relative w-full h-full rounded-[36px] overflow-hidden"
+            className="relative w-full h-full rounded-[36px] overflow-hidden bm-preview-phone-screen"
             style={{
               background: "#020817",
               boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.04)",
@@ -57,7 +57,7 @@ export default function MobilePhoneFrame({
           >
             {/* iOS-style status bar (decorative) */}
             <div
-              className="absolute top-0 inset-x-0 z-30 h-9 flex items-center justify-between px-6 text-white"
+              className="absolute top-0 inset-x-0 z-30 h-9 flex items-center justify-between px-6 text-white bm-preview-statusbar"
               style={{ direction: "ltr" }}
             >
               <span className="text-[12px] font-semibold tracking-tight">
@@ -86,7 +86,7 @@ export default function MobilePhoneFrame({
             {/* Notch */}
             <div
               aria-hidden
-              className="absolute top-1.5 left-1/2 -translate-x-1/2 z-40"
+              className="absolute top-1.5 left-1/2 -translate-x-1/2 z-40 bm-preview-notch"
               style={{
                 width: 120,
                 height: 28,

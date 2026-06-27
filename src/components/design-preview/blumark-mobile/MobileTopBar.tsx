@@ -1,37 +1,41 @@
 import { Bell } from "lucide-react";
 
 /**
- * Top bar: notifications icon (left, LTR position) — Blumark logo center —
- * avatar (right, RTL position). RTL aware; uses a flat 3-column layout.
+ * Top bar: notifications icon (visual LEFT in RTL) — Blumark logo center —
+ * avatar (visual RIGHT in RTL).
+ *
+ * In RTL with flex justify-between, DOM child #1 renders on the visual
+ * RIGHT and the last child renders on the visual LEFT — so the DOM order
+ * below is Avatar → Brand → Bell to match the reference image.
  *
  * Preview-only: avatar is a CSS placeholder, not a real photo.
  */
 export default function MobileTopBar() {
   return (
     <div className="flex items-center justify-between px-4 pt-3 pb-2">
-      {/* Notifications (left) */}
-      <button
-        type="button"
-        aria-label="الإشعارات"
-        className="relative grid place-items-center h-10 w-10 rounded-2xl"
-        style={{
-          background: "rgba(13, 31, 60, 0.55)",
-          border: "1px solid rgba(125, 220, 255, 0.18)",
-        }}
-      >
-        <Bell className="h-4 w-4 text-cyan-200" />
-        <span
-          className="absolute -top-1 -right-1 grid place-items-center text-[10px] font-bold text-white rounded-full"
+      {/* Avatar — visual right in RTL */}
+      <div className="relative">
+        <div
+          className="h-10 w-10 rounded-full grid place-items-center text-xs font-bold text-white"
           style={{
-            width: 16,
-            height: 16,
-            background: "linear-gradient(135deg, #00D9FF, #147CFF)",
-            boxShadow: "0 0 8px rgba(0,217,255,0.6)",
+            background:
+              "linear-gradient(135deg, #1e3a5f 0%, #0B1F3A 100%)",
+            border: "1px solid rgba(125, 220, 255, 0.35)",
+            boxShadow: "0 0 14px rgba(0,217,255,0.25)",
           }}
+          aria-label="المستخدم"
         >
-          3
-        </span>
-      </button>
+          أ
+        </div>
+        <span
+          className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full"
+          style={{
+            background: "#10B981",
+            border: "2px solid #020817",
+          }}
+          aria-hidden
+        />
+      </div>
 
       {/* Brand center */}
       <div className="flex items-center gap-2">
@@ -45,7 +49,6 @@ export default function MobileTopBar() {
           }}
           aria-hidden
         >
-          {/* Inline Blumark mark — small, premium */}
           <svg viewBox="0 0 24 24" className="h-5 w-5">
             <defs>
               <linearGradient id="bm-mark" x1="0" y1="0" x2="1" y2="1">
@@ -79,29 +82,29 @@ export default function MobileTopBar() {
         </div>
       </div>
 
-      {/* Avatar (right) */}
-      <div className="relative">
-        <div
-          className="h-10 w-10 rounded-full grid place-items-center text-xs font-bold text-white"
-          style={{
-            background:
-              "linear-gradient(135deg, #1e3a5f 0%, #0B1F3A 100%)",
-            border: "1px solid rgba(125, 220, 255, 0.35)",
-            boxShadow: "0 0 14px rgba(0,217,255,0.25)",
-          }}
-          aria-label="المستخدم"
-        >
-          أ
-        </div>
+      {/* Notifications — visual left in RTL */}
+      <button
+        type="button"
+        aria-label="الإشعارات"
+        className="relative grid place-items-center h-10 w-10 rounded-2xl"
+        style={{
+          background: "rgba(13, 31, 60, 0.55)",
+          border: "1px solid rgba(125, 220, 255, 0.18)",
+        }}
+      >
+        <Bell className="h-4 w-4 text-cyan-200" />
         <span
-          className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full"
+          className="absolute -top-1 -right-1 grid place-items-center text-[10px] font-bold text-white rounded-full"
           style={{
-            background: "#10B981",
-            border: "2px solid #020817",
+            width: 16,
+            height: 16,
+            background: "linear-gradient(135deg, #00D9FF, #147CFF)",
+            boxShadow: "0 0 8px rgba(0,217,255,0.6)",
           }}
-          aria-hidden
-        />
-      </div>
+        >
+          3
+        </span>
+      </button>
     </div>
   );
 }

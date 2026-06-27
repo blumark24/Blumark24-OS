@@ -3,22 +3,26 @@ import { Home, ClipboardList, Users, MoreHorizontal, Plus } from "lucide-react";
 /**
  * Mobile bottom navigation with a center glowing plus button.
  *
- * RTL order from start-to-end: المزيد · العملاء · (+) · المهام · الرئيسية
- * (Visually appears right→left in RTL with الرئيسية on the right.)
+ * Reference visual order (left → right): المزيد · العملاء · (+) · المهام · الرئيسية
+ *
+ * Because the parent is RTL, the first flex child renders on the visual
+ * RIGHT — so the DOM order below is الرئيسية → المهام → (+) → العملاء →
+ * المزيد, which reverses to the reference layout on screen.
  */
 export default function BottomNav() {
   return (
     <div
-      className="absolute bottom-0 inset-x-0 z-20 px-3 pt-3 pb-3"
+      className="absolute bottom-0 inset-x-0 z-20 px-3 pt-3 pb-3 bm-preview-bottom-nav"
       style={{
         background:
-          "linear-gradient(to top, rgba(2,8,23,0.95) 60%, rgba(2,8,23,0.55))",
-        borderTop: "1px solid rgba(125, 220, 255, 0.14)",
+          "linear-gradient(to top, rgba(2,8,23,1) 65%, rgba(2,8,23,0.88) 100%)",
+        borderTop: "1px solid rgba(125, 220, 255, 0.18)",
+        boxShadow: "0 -8px 22px rgba(0,0,0,0.5)",
       }}
     >
       <div className="relative flex items-end justify-between">
-        <NavItem label="المزيد" Icon={MoreHorizontal} />
-        <NavItem label="العملاء" Icon={Users} />
+        <NavItem label="الرئيسية" Icon={Home} active />
+        <NavItem label="المهام" Icon={ClipboardList} />
 
         {/* Center plus */}
         <div className="relative -mt-7 px-2 shrink-0">
@@ -49,8 +53,8 @@ export default function BottomNav() {
           </button>
         </div>
 
-        <NavItem label="المهام" Icon={ClipboardList} />
-        <NavItem label="الرئيسية" Icon={Home} active />
+        <NavItem label="العملاء" Icon={Users} />
+        <NavItem label="المزيد" Icon={MoreHorizontal} />
       </div>
     </div>
   );

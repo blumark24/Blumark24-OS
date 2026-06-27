@@ -80,13 +80,13 @@ export default function ActivityCard() {
             </span>
             <div className="flex-1 min-w-0">
               <div
-                className="text-[11px] font-semibold leading-snug truncate"
+                className="text-[11px] font-semibold leading-snug"
                 style={{ color: "#F8FAFC" }}
               >
                 {it.title}
               </div>
               <div
-                className="text-[10px] leading-snug truncate"
+                className="text-[10px] leading-snug"
                 style={{ color: "#94A3B8" }}
               >
                 {it.subtitle}

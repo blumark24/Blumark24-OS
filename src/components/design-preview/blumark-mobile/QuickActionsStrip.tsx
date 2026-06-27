@@ -6,11 +6,13 @@ interface Action {
   Icon: ComponentType<SVGProps<SVGSVGElement>>;
 }
 
+// RTL grid: DOM child #1 renders on the visual RIGHT. Reference order
+// (visual right → left) is: إضافة عميل · فاتورة جديدة · تقرير سريع · مهمة جديدة
 const ACTIONS: Action[] = [
-  { label: "مهمة جديدة", Icon: ClipboardCheck },
-  { label: "تقرير سريع", Icon: BarChart3 },
-  { label: "فاتورة جديدة", Icon: FileText },
   { label: "إضافة عميل", Icon: UserPlus },
+  { label: "فاتورة جديدة", Icon: FileText },
+  { label: "تقرير سريع", Icon: BarChart3 },
+  { label: "مهمة جديدة", Icon: ClipboardCheck },
 ];
 
 export default function QuickActionsStrip() {

@@ -32,9 +32,40 @@ export default function AiAssistantCard() {
         </h3>
       </div>
 
+      {/* DOM order: text first → visual RIGHT in RTL, globe second → visual LEFT.
+          Matches the reference where the glowing globe sits on the left edge
+          of the card body. */}
       <div className="relative flex items-center gap-3">
+        <div className="flex-1 min-w-0 order-1">
+          <p
+            className="text-[13px] font-semibold leading-snug mb-1"
+            style={{ color: "#F8FAFC" }}
+          >
+            الإيرادات في نمو مستمر
+          </p>
+          <p
+            className="text-[11px] leading-relaxed"
+            style={{ color: "#94A3B8" }}
+          >
+            استمر بنفس الزخم لتصل إلى هدفك الشهري
+          </p>
+          <button
+            type="button"
+            className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium rounded-lg px-2.5 py-1"
+            style={{
+              color: "#7DDCFF",
+              background:
+                "linear-gradient(135deg, rgba(0,217,255,0.14), rgba(20,124,255,0.14))",
+              border: "1px solid rgba(125, 220, 255, 0.28)",
+            }}
+          >
+            عرض التحليل الكامل
+            <ChevronLeft className="h-3 w-3" />
+          </button>
+        </div>
+
         {/* Glow globe / orbits — pure SVG */}
-        <div className="relative h-24 w-24 shrink-0">
+        <div className="relative h-24 w-24 shrink-0 order-2">
           <span
             aria-hidden
             className="absolute inset-0 rounded-full blur-2xl"
@@ -106,34 +137,6 @@ export default function AiAssistantCard() {
             <circle cx="14" cy="62" r="1.5" fill="#7DDCFF" />
             <circle cx="74" cy="76" r="1.2" fill="#147CFF" />
           </svg>
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <p
-            className="text-[13px] font-semibold leading-snug mb-1"
-            style={{ color: "#F8FAFC" }}
-          >
-            الإيرادات في نمو مستمر
-          </p>
-          <p
-            className="text-[11px] leading-relaxed"
-            style={{ color: "#94A3B8" }}
-          >
-            استمر بنفس الزخم لتصل إلى هدفك الشهري
-          </p>
-          <button
-            type="button"
-            className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium rounded-lg px-2.5 py-1"
-            style={{
-              color: "#7DDCFF",
-              background:
-                "linear-gradient(135deg, rgba(0,217,255,0.14), rgba(20,124,255,0.14))",
-              border: "1px solid rgba(125, 220, 255, 0.28)",
-            }}
-          >
-            عرض التحليل الكامل
-            <ChevronLeft className="h-3 w-3" />
-          </button>
         </div>
       </div>
     </div>
