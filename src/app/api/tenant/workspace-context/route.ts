@@ -10,6 +10,8 @@ import { isPlatformAdminEmail } from "@/lib/platformAdmins";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const LIVE_SUBSCRIPTION_STATUSES = ["active", "trialing", "past_due"] as const;
+
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
   Pragma: "no-cache",
@@ -69,11 +71,21 @@ export async function GET(req: NextRequest) {
 
     const emptyPayload = {
       planSlug: "basic" as PlanSlug,
+      planId: null as string | null,
+      planName: null as string | null,
       enabledFeatures: [] as WorkspaceFeature[],
       planLimits: {} as Record<string, number>,
+      featuresConfigured: false,
       isPlatformAdmin,
       organizationId: orgId ?? null,
       organizationStatus: null as string | null,
+      organizationUpdatedAt: null as string | null,
+      effectivePlanId: null as string | null,
+      effectivePlanSlug: null as string | null,
+      effectivePlanSource: "none" as "live_subscription" | "organization" | "none",
+      organizationPlanId: null as string | null,
+      liveSubscriptionPlanId: null as string | null,
+      planMismatch: false,
       contextVersion: new Date().toISOString(),
     };
 
@@ -105,28 +117,62 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const organizationPlanId = (org.plan_id as string | null | undefined) ?? null;
+
+    const { data: liveSubscriptions, error: subErr } = await admin
+      .from("subscriptions")
+      .select("id, plan_id, status, started_at, created_at, updated_at")
+      .eq("organization_id", org.id)
+      .in("status", [...LIVE_SUBSCRIPTION_STATUSES])
+      .not("plan_id", "is", null)
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .order("started_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false, nullsFirst: false })
+      .limit(1);
+
+    if (subErr) {
+      console.error("[workspace-context] live subscription error:", subErr.message);
+      return jsonNoStore({ error: "تعذر قراءة اشتراك المنشأة" }, 500);
+    }
+
+    const liveSubscription = liveSubscriptions?.[0] ?? null;
+    const liveSubscriptionPlanId =
+      (liveSubscription?.plan_id as string | null | undefined) ?? null;
+    const effectivePlanId = liveSubscriptionPlanId ?? organizationPlanId;
+    const effectivePlanSource = liveSubscriptionPlanId
+      ? "live_subscription"
+      : organizationPlanId
+        ? "organization"
+        : "none";
+    const planMismatch = Boolean(
+      liveSubscriptionPlanId
+      && organizationPlanId
+      && liveSubscriptionPlanId !== organizationPlanId,
+    );
+
     let planSlug: PlanSlug = "basic";
-    let planId: string | null = null;
+    let effectivePlanSlug: string | null = null;
+    let planId: string | null = effectivePlanId;
     let planName: string | null = null;
-    if (org.plan_id) {
-      planId = org.plan_id as string;
+    if (effectivePlanId) {
       const { data: plan } = await admin
         .from("plans")
         .select("name, slug")
-        .eq("id", planId)
+        .eq("id", effectivePlanId)
         .maybeSingle();
       planSlug = normalizePlanSlug(plan?.slug);
+      effectivePlanSlug = (plan?.slug as string | null | undefined) ?? null;
       planName = (plan?.name as string | null | undefined) ?? null;
     }
 
     let enabledFeatures: WorkspaceFeature[] = [];
     let featuresConfigured = false;
 
-    if (planId) {
+    if (effectivePlanId) {
       const { data: features, error: featErr } = await admin
         .from("plan_features")
         .select("feature_key")
-        .eq("plan_id", planId);
+        .eq("plan_id", effectivePlanId);
 
       if (featErr) {
         console.error("[workspace-context] plan_features error:", featErr.message);
@@ -142,11 +188,11 @@ export async function GET(req: NextRequest) {
     }
 
     const planLimits: Record<string, number> = {};
-    if (planId) {
+    if (effectivePlanId) {
       const { data: limits } = await admin
         .from("plan_limits")
         .select("limit_key, limit_value")
-        .eq("plan_id", planId);
+        .eq("plan_id", effectivePlanId);
       for (const row of limits ?? []) {
         planLimits[row.limit_key] = row.limit_value;
       }
@@ -163,7 +209,13 @@ export async function GET(req: NextRequest) {
       organizationId: org.id,
       organizationStatus: org.status ?? null,
       organizationUpdatedAt: org.updated_at ?? null,
-      contextVersion: `${org.id}:${org.plan_id ?? "none"}:${org.updated_at ?? "na"}`,
+      effectivePlanId,
+      effectivePlanSlug,
+      effectivePlanSource,
+      organizationPlanId,
+      liveSubscriptionPlanId,
+      planMismatch,
+      contextVersion: `${org.id}:${effectivePlanId ?? "none"}:${org.updated_at ?? "na"}`,
     });
   } catch (err) {
     console.error("[workspace-context] unexpected:", err);
