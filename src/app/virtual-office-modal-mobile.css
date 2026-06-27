@@ -1,14 +1,14 @@
-/* C22-C-R5 — Full score mobile assignment focus mode
+/* C22-C-R6 — Compact iPhone office windows final polish
    Scope: OfficeControlModal presentation only.
 
    Goal:
-   Make تغيير الربط / ربط المكتب وتشغيله reach a 100/100 mobile UX target:
-   - iPhone full-height safe sheet
-   - assignment focus mode when opened
-   - clear vertical scrolling up/down
-   - readable unit names, codes, and types
-   - current selection always visible
-   - save/approval button always reachable
+   Professional 100/100 mobile balance for iPhone:
+   - premium smart sheet, not oversized full-page
+   - compact board/owner office window
+   - compact assignment focus mode
+   - visible internal scroll
+   - readable unit list
+   - current selection + save button reachable
 
    Safety:
    - No map/image/coordinate changes.
@@ -24,8 +24,8 @@
   --bm-office-text: #e6edf8;
   --bm-office-muted: #8ea3c4;
   --bm-office-panel-bg: rgba(7, 13, 30, 0.98);
-  --bm-office-scroll: rgba(34, 211, 238, 0.78);
-  --bm-office-scroll-track: rgba(2, 7, 22, 0.44);
+  --bm-office-scroll: rgba(34, 211, 238, 0.74);
+  --bm-office-scroll-track: rgba(2, 7, 22, 0.38);
 }
 
 /* Overlay */
@@ -38,12 +38,12 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] {
   touch-action: manipulation !important;
 }
 
-/* Claude Design modal shell */
+/* Desktop / tablet smart sheet */
 div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] {
   width: min(640px, 100%) !important;
-  height: min(94dvh, 860px) !important;
+  height: min(92dvh, 820px) !important;
   max-width: 100vw !important;
-  max-height: 94dvh !important;
+  max-height: 92dvh !important;
   border-radius: 22px !important;
   background: linear-gradient(180deg, #0d1830, #0a1222) !important;
   border: 1px solid rgba(120, 160, 220, 0.22) !important;
@@ -60,26 +60,26 @@ div[role="dialog"][aria-modal="true"][aria-label*="مكتب 05"] > div[dir="rtl"
 div[role="dialog"][aria-modal="true"][aria-label*="05"] > div[dir="rtl"] {
   background: linear-gradient(180deg, #140e2c, #0c0a1f) !important;
   border-color: rgba(168, 85, 247, 0.34) !important;
-  box-shadow: 0 24px 80px rgba(124, 58, 237, 0.3) !important;
+  box-shadow: 0 24px 78px rgba(124, 58, 237, 0.26) !important;
 }
 
 /* Fixed header */
 div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child {
   flex: none !important;
-  padding: 16px 18px 13px !important;
+  padding: 14px 16px 11px !important;
   border-bottom: 1px solid rgba(120, 160, 220, 0.12) !important;
   background: rgba(255, 255, 255, 0.025) !important;
 }
 
 div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child h2 {
   color: var(--bm-office-text) !important;
-  font-size: 18px !important;
+  font-size: 17px !important;
   line-height: 1.25 !important;
 }
 
 div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child button[aria-label="إغلاق"] {
-  width: 34px !important;
-  height: 34px !important;
+  width: 32px !important;
+  height: 32px !important;
   border-radius: 50% !important;
   background: rgba(255, 255, 255, 0.05) !important;
   border: 1px solid rgba(120, 160, 220, 0.18) !important;
@@ -91,7 +91,7 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir
   flex: none !important;
   display: flex !important;
   gap: 6px !important;
-  padding: 11px 14px !important;
+  padding: 9px 12px !important;
   margin: 0 !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
@@ -108,10 +108,10 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir
 
 div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > [role="tablist"] button {
   flex: none !important;
-  min-height: 35px !important;
-  padding: 8px 14px !important;
+  min-height: 33px !important;
+  padding: 7px 12px !important;
   border-radius: 10px !important;
-  font-size: 13px !important;
+  font-size: 12.5px !important;
   font-weight: 700 !important;
   scroll-snap-align: start;
 }
@@ -122,8 +122,8 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir
   min-height: 0 !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  padding: 16px 16px 22px !important;
-  gap: 12px !important;
+  padding: 12px 14px 14px !important;
+  gap: 9px !important;
   overscroll-behavior: contain !important;
   -webkit-overflow-scrolling: touch !important;
   scrollbar-width: thin;
@@ -139,6 +139,11 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir
   border-radius: 999px;
 }
 
+/* Make body cards less tall without changing React logic. */
+div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) > div {
+  border-radius: 13px !important;
+}
+
 /* Assignment card */
 div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) > div:has(> button[aria-expanded]) {
   background: linear-gradient(160deg, rgba(34, 211, 238, 0.08), rgba(99, 102, 241, 0.06)) !important;
@@ -151,7 +156,7 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
-  max-height: min(56dvh, 480px) !important;
+  max-height: min(58dvh, 460px) !important;
   border-color: rgba(34, 211, 238, 0.44) !important;
   box-shadow: 0 18px 42px rgba(6, 10, 28, 0.22), 0 0 0 1px rgba(34, 211, 238, 0.08) inset;
 }
@@ -164,7 +169,7 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir
 /* Expanded panel content scroll */
 div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) > div:has(> button[aria-expanded="true"]) > button[aria-expanded="true"] + div {
   min-height: 0 !important;
-  max-height: min(46dvh, 398px) !important;
+  max-height: min(49dvh, 390px) !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
   overscroll-behavior: contain !important;
@@ -198,133 +203,140 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir
 /* Footer */
 div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:last-child {
   flex: none !important;
-  padding: 13px 16px 16px !important;
+  padding: 10px 14px max(12px, env(safe-area-inset-bottom)) !important;
   border-top: 1px solid rgba(120, 160, 220, 0.14) !important;
   background: rgba(8, 12, 22, 0.6) !important;
 }
 
-/* Mobile 100/100 focus mode */
+/* Mobile final smart-sheet polish */
 @media (max-width: 767px) {
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] {
-    align-items: stretch !important;
-    justify-content: stretch !important;
-    padding: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: max(8px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)) !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] {
-    width: 100vw !important;
-    height: 100dvh !important;
-    max-width: 100vw !important;
-    max-height: 100dvh !important;
-    border-radius: 0 !important;
-    border-left: 0 !important;
-    border-right: 0 !important;
+    width: min(640px, calc(100vw - 20px)) !important;
+    height: min(91dvh, calc(100dvh - 74px)) !important;
+    max-height: min(91dvh, calc(100dvh - 74px)) !important;
+    border-radius: 22px !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child {
-    padding: max(10px, env(safe-area-inset-top)) 14px 9px !important;
+    padding: 10px 13px 8px !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child h2 {
-    font-size: 16px !important;
+    font-size: 15.5px !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child span {
-    font-size: 10px !important;
+    font-size: 9.8px !important;
+  }
+
+  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child button[aria-label="إغلاق"] {
+    width: 31px !important;
+    height: 31px !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > [role="tablist"] {
-    padding: 8px 10px !important;
+    padding: 7px 9px !important;
     gap: 5px !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > [role="tablist"] button {
-    min-height: 31px !important;
-    padding: 6px 11px !important;
-    font-size: 12px !important;
+    min-height: 30px !important;
+    padding: 5px 10px !important;
+    font-size: 11.5px !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) {
-    padding: 8px 10px max(10px, env(safe-area-inset-bottom)) !important;
-    gap: 8px !important;
+    padding: 8px 10px 10px !important;
+    gap: 7px !important;
   }
 
-  /* When assignment opens, turn the modal into a focused approval flow. */
+  /* Compact cards inside board/owner window. */
+  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) > div {
+    min-height: auto !important;
+  }
+
+  /* Footer buttons smaller and cleaner on iPhone. */
+  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:last-child {
+    padding: 8px 10px max(9px, env(safe-area-inset-bottom)) !important;
+    gap: 6px !important;
+  }
+
+  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:last-child button {
+    min-height: 32px !important;
+    font-size: 11px !important;
+    padding-inline: 9px !important;
+    border-radius: 10px !important;
+  }
+
+  /* Assignment focus: hide tabs/footer only while linking, but keep sheet compact. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"]:has(> div[dir="rtl"] > div:nth-child(3) > div > button[aria-expanded="true"]) > div[dir="rtl"] > [role="tablist"],
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"]:has(> div[dir="rtl"] > div:nth-child(3) > div > button[aria-expanded="true"]) > div[dir="rtl"] > div:last-child {
     display: none !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3):has(> div > button[aria-expanded="true"]) {
-    padding: 8px 10px max(10px, env(safe-area-inset-bottom)) !important;
+    padding: 8px 10px 10px !important;
     overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
   }
 
-  /* Hide other overview cards only while the manager is choosing the office link. */
+  /* Hide non-assignment cards while linking so manager focuses on approval. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3):has(> div > button[aria-expanded="true"]) > div:not(:has(> button[aria-expanded="true"])) {
     display: none !important;
   }
 
-  /* The opened assignment panel owns the full body height. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) > div:has(> button[aria-expanded="true"]) {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    height: auto !important;
-    border: 1px solid rgba(34, 211, 238, 0.52) !important;
+    border: 1px solid rgba(34, 211, 238, 0.5) !important;
     background: linear-gradient(180deg, rgba(8, 19, 42, 0.98), rgba(12, 10, 33, 0.98)) !important;
-    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.08) inset, 0 20px 48px rgba(0,0,0,0.28) !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) > div:has(> button[aria-expanded="true"]) > button[aria-expanded="true"] {
-    min-height: 44px !important;
-    padding: 9px 12px !important;
+    min-height: 41px !important;
+    padding: 8px 11px !important;
     border-bottom: 1px solid rgba(34, 211, 238, 0.16) !important;
   }
 
-  /* Full internal scroll area: up/down is obvious and reliable. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) > div:has(> button[aria-expanded="true"]) > button[aria-expanded="true"] + div {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     max-height: none !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 8px !important;
-    padding: 8px 8px 8px 10px !important;
+    gap: 7px !important;
+    padding: 7px 8px 8px 10px !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     overscroll-behavior: contain !important;
     -webkit-overflow-scrolling: touch !important;
     scrollbar-gutter: stable both-edges !important;
     scrollbar-width: auto !important;
-    scrollbar-color: rgba(34, 211, 238, 0.86) rgba(2, 7, 22, 0.48) !important;
-    background:
-      linear-gradient(var(--bm-office-panel-bg), var(--bm-office-panel-bg)) padding-box,
-      linear-gradient(180deg, rgba(34,211,238,.18), rgba(168,85,247,.16)) border-box !important;
+    scrollbar-color: rgba(34, 211, 238, 0.82) rgba(2, 7, 22, 0.44) !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) > div:has(> button[aria-expanded="true"]) > button[aria-expanded="true"] + div::-webkit-scrollbar {
-    width: 8px !important;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) > div:has(> button[aria-expanded="true"]) > button[aria-expanded="true"] + div::-webkit-scrollbar-track {
-    background: rgba(2, 7, 22, 0.48) !important;
-    border-radius: 999px !important;
+    width: 7px !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) > div:has(> button[aria-expanded="true"]) > button[aria-expanded="true"] + div::-webkit-scrollbar-thumb {
-    background: rgba(34, 211, 238, 0.86) !important;
+    background: rgba(34, 211, 238, 0.82) !important;
     border-radius: 999px !important;
-    border: 1px solid rgba(2, 7, 22, 0.46) !important;
   }
 
-  /* Keep the title, remove long helper text. */
+  /* Keep title, hide long helper paragraphs. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div > div:first-child {
     flex: none !important;
-    padding: 8px 9px !important;
-    border-radius: 12px !important;
+    padding: 7px 8px !important;
+    border-radius: 11px !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div > div:first-child p,
@@ -347,29 +359,29 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div > div:nth-of-type(2) button {
     flex: 1 0 auto !important;
-    min-height: 32px !important;
+    min-height: 31px !important;
     padding: 5px 10px !important;
-    font-size: 11px !important;
+    font-size: 10.8px !important;
   }
 
   /* Search */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div input[type="search"] {
-    min-height: 36px !important;
+    min-height: 35px !important;
     border-radius: 11px !important;
-    font-size: 12px !important;
+    font-size: 11.8px !important;
   }
 
-  /* Unit list: main available space, independent scroll. */
+  /* Unit list: main scroll area. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div label + div {
     flex: 1 1 auto !important;
-    min-height: 150px !important;
+    min-height: 122px !important;
     max-height: none !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior: contain !important;
     scrollbar-width: auto !important;
-    scrollbar-color: rgba(34, 211, 238, 0.78) rgba(2, 7, 22, 0.42) !important;
+    scrollbar-color: rgba(34, 211, 238, 0.76) rgba(2, 7, 22, 0.4) !important;
     padding-left: 4px !important;
     border-radius: 12px !important;
     background: rgba(2, 8, 23, 0.22) !important;
@@ -377,41 +389,41 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div label + div::-webkit-scrollbar {
-    width: 7px !important;
+    width: 6px !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div label + div::-webkit-scrollbar-thumb {
-    background: rgba(34, 211, 238, 0.78) !important;
+    background: rgba(34, 211, 238, 0.76) !important;
     border-radius: 999px !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div label + div button {
-    min-height: 44px !important;
-    padding: 8px 10px !important;
+    min-height: 40px !important;
+    padding: 7px 9px !important;
     border-radius: 11px !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div label + div button > span:first-child {
     white-space: normal !important;
-    line-height: 1.35 !important;
-    font-size: 12px !important;
-    max-width: 54% !important;
+    line-height: 1.3 !important;
+    font-size: 11.8px !important;
+    max-width: 55% !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div label + div button > span:last-child {
-    max-width: 44% !important;
+    max-width: 43% !important;
     justify-content: flex-end !important;
     flex-wrap: wrap !important;
     gap: 4px !important;
   }
 
-  /* Current selection and save button always visible. */
+  /* Selection and save button always visible, not oversized. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div label + div + div {
     flex: none !important;
     position: sticky !important;
-    bottom: 54px !important;
+    bottom: 50px !important;
     z-index: 7 !important;
-    padding: 8px 10px !important;
+    padding: 7px 9px !important;
     border-radius: 12px !important;
     background: rgba(6, 24, 24, 0.98) !important;
     border-color: rgba(16, 185, 129, 0.34) !important;
@@ -421,9 +433,9 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div > button:last-child {
     flex: none !important;
-    min-height: 48px !important;
+    min-height: 44px !important;
     border-radius: 13px !important;
-    font-size: 14px !important;
+    font-size: 13.2px !important;
     margin-top: 4px !important;
     position: sticky !important;
     bottom: 0 !important;
@@ -432,8 +444,14 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir
 }
 
 @media (max-width: 390px) {
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child {
-    padding: max(8px, env(safe-area-inset-top)) 12px 8px !important;
+  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] {
+    padding: max(7px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)) !important;
+  }
+
+  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] {
+    width: calc(100vw - 16px) !important;
+    height: min(90dvh, calc(100dvh - 82px)) !important;
+    max-height: min(90dvh, calc(100dvh - 82px)) !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child h2 {
@@ -441,18 +459,18 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div label + div {
-    min-height: 132px !important;
+    min-height: 110px !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[aria-expanded="true"] + div label + div button {
-    min-height: 42px !important;
+    min-height: 38px !important;
   }
 }
 
 @media (min-width: 768px) {
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] {
     width: min(640px, calc(100vw - 32px)) !important;
-    height: min(94dvh, 860px) !important;
+    height: min(92dvh, 820px) !important;
   }
 }
 
@@ -468,7 +486,7 @@ div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir
 @keyframes bmOfficeModalSheetUp {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.985);
+    transform: translateY(10px) scale(0.988);
   }
   to {
     opacity: 1;
