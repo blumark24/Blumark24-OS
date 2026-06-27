@@ -66,7 +66,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <MobileShellContext />
 
         <main
-          className={`flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4 lg:p-6 ${MOBILE_BOTTOM_NAV_INSET}`}
+          className={`flex-1 overflow-y-auto overflow-x-hidden px-premium-3 py-premium-3 sm:px-premium-4 sm:py-premium-4 lg:p-premium-6 ${MOBILE_BOTTOM_NAV_INSET}`}
         >
           {/*
             Defense-in-depth: every workspace page also wraps itself in
