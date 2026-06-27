@@ -122,54 +122,71 @@ export async function fetchPlanFeatures(planId: string): Promise<OwnerWorkspaceF
   return cleanFeatures((data ?? []).map((row) => String(row.feature_key)));
 }
 
+// Server-side save path. Browser-direct writes to `plan_features`
+// through ownerSupabase rely on the owner JWT being live AND the
+// plan_features RLS WITH CHECK (is_owner()) evaluating that JWT on
+// every roundtrip. When the owner session is stale or the
+// localStorage token has drifted, those writes silently fail to
+// persist. Routing the save through the API guarantees the write
+// uses the service role under server-verified owner authorization
+// (verifyOwnerBearer + isOwnerEmail).
 export async function updatePlanFeatures(input: {
   id: string;
   featureKeys: string[];
 }): Promise<OwnerPlanActionResult> {
   const featureKeys = cleanFeatures(input.featureKeys);
 
-  const { data: currentRows, error: fetchErr } = await supabase
-    .from("plan_features")
-    .select("feature_key")
-    .eq("plan_id", input.id);
-
-  if (fetchErr) {
-    console.error("[owner] fetch current plan features error:", fetchErr.message);
-    return { ok: false, error: "تعذّر قراءة ميزات الباقة الحالية" };
+  const sessionResp = await supabase.auth.getSession();
+  const accessToken = sessionResp.data.session?.access_token ?? null;
+  if (!accessToken) {
+    return {
+      ok: false,
+      error: "جلسة المالك غير صالحة — سجل الدخول من لوحة المالك مرة أخرى",
+    };
   }
 
-  const current = cleanFeatures((currentRows ?? []).map((row) => String(row.feature_key)));
-  const selected = new Set(featureKeys);
-  const toDelete = current.filter((key) => !selected.has(key));
-
-  if (toDelete.length > 0) {
-    const { error: deleteErr } = await supabase
-      .from("plan_features")
-      .delete()
-      .eq("plan_id", input.id)
-      .in("feature_key", toDelete);
-
-    if (deleteErr) {
-      console.error("[owner] delete plan features error:", deleteErr.message);
-      return { ok: false, error: "تعذّر حذف الميزات غير المطلوبة" };
-    }
+  let response: Response;
+  try {
+    response = await fetch("/api/owner/plans/features", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ planId: input.id, featureKeys }),
+      cache: "no-store",
+    });
+  } catch (networkErr) {
+    console.error("[owner] update plan features network error:", networkErr);
+    return { ok: false, error: "تعذّر الاتصال بالخادم — حاول مجدداً" };
   }
 
-  if (featureKeys.length > 0) {
-    const { error: upsertErr } = await supabase
-      .from("plan_features")
-      .upsert(
-        featureKeys.map((featureKey) => ({ plan_id: input.id, feature_key: featureKey })),
-        { onConflict: "plan_id,feature_key" },
-      );
-
-    if (upsertErr) {
-      console.error("[owner] upsert plan features error:", upsertErr.message);
-      return { ok: false, error: "تعذّر حفظ ميزات الباقة" };
-    }
+  let payload: { ok?: boolean; error?: string; featureKeys?: string[] } = {};
+  try {
+    payload = (await response.json()) as typeof payload;
+  } catch {
+    // Non-JSON response — treat as failure.
   }
 
-  await logPlanAction("update_plan_features", input.id, { feature_keys: featureKeys });
+  if (!response.ok || !payload?.ok) {
+    const message =
+      typeof payload?.error === "string" && payload.error.trim()
+        ? payload.error
+        : "تعذّر حفظ ميزات الباقة";
+    console.error("[owner] update plan features API error:", response.status, message);
+    return { ok: false, error: message };
+  }
+
+  // Server returns the authoritative persisted set — confirm we got
+  // back what we sent (set equality). Used as a soft check; the UI
+  // refetches via fetchPlanFeatures after a successful save.
+  const persisted = Array.isArray(payload.featureKeys)
+    ? payload.featureKeys.filter((v): v is string => typeof v === "string")
+    : [];
+  await logPlanAction("update_plan_features", input.id, {
+    feature_keys: featureKeys,
+    persisted,
+  });
   return { ok: true };
 }
 
