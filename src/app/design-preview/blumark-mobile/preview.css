@@ -1,0 +1,39 @@
+/* Scoped styles for the Blumark mobile design preview.
+   Loaded only by /design-preview/blumark-mobile/page.tsx so it
+   cannot leak into the production dashboard.
+
+   Keeps motion subtle, gates animations on prefers-reduced-motion,
+   and hides the inner phone scrollbar so the mockup looks clean. */
+
+@keyframes bm-preview-float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-18px) rotate(4deg); }
+}
+@keyframes bm-preview-float-mid {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-10px) rotate(-3deg); }
+}
+@keyframes bm-preview-pulse-glow {
+  0%, 100% { opacity: 0.08; transform: scale(1); }
+  50%      { opacity: 0.14; transform: scale(1.06); }
+}
+
+.bm-preview-float-slow { animation: bm-preview-float-slow 7s ease-in-out infinite; }
+.bm-preview-float-mid  { animation: bm-preview-float-mid 5s ease-in-out infinite; }
+.bm-preview-pulse-glow { animation: bm-preview-pulse-glow 4s ease-in-out infinite; }
+
+.bm-preview-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.bm-preview-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bm-preview-float-slow,
+  .bm-preview-float-mid,
+  .bm-preview-pulse-glow {
+    animation: none !important;
+  }
+}
