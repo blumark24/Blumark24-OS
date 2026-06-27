@@ -14,7 +14,9 @@ export type WorkspaceFeature =
   | "employees"
   | "strategy"
   | "finance"
-  | "automation";
+  | "automation"
+  | "virtual_office"
+  | "external_integrations";
 
 export type WorkspaceRouteId =
   | "dashboard"
@@ -63,6 +65,8 @@ export const PLAN_FEATURES: Record<PlanSlug, WorkspaceFeature[]> = {
     "finance",
     "strategy",
     "automation",
+    "virtual_office",
+    "external_integrations",
   ],
   enterprise: [
     "dashboard",
@@ -75,6 +79,8 @@ export const PLAN_FEATURES: Record<PlanSlug, WorkspaceFeature[]> = {
     "strategy",
     "automation",
     "ai",
+    "virtual_office",
+    "external_integrations",
   ],
 };
 
@@ -115,6 +121,8 @@ export const ALL_WORKSPACE_FEATURES: WorkspaceFeature[] = [
   "strategy",
   "finance",
   "automation",
+  "virtual_office",
+  "external_integrations",
 ];
 
 export const PLAN_LABELS_AR: Record<PlanSlug, string> = {
@@ -182,10 +190,9 @@ export const WORKSPACE_ROUTES: WorkspaceRouteDef[] = [
     iconName: "Network",
   },
   {
-    // Gating deferred to VIRTUAL-OFFICE-PLAN-GATING-1.
     id: "virtual_office",
     href: "/virtual-office",
-    feature: null,
+    feature: "virtual_office",
     permission: "view_dashboard",
     audience: "shared",
     iconName: "Building2",
