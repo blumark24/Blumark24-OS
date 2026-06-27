@@ -1,61 +1,27 @@
-/* C20-C — iPhone 15 Pro Max Smart Modal Scroll v2
-   Scoped to the office control modal only.
-   Goal: keep the same premium design while making the modal a real iPhone
-   sheet: fixed header, fixed footer, body-only scrolling, and a smart
-   assignment section that scrolls internally without hiding behind the footer. */
+/* C20-D — Office Modal Safe Flow
+   Restores the original office control window behavior after the aggressive
+   iPhone overrides. Keep the premium modal design intact. Use only low-risk,
+   scoped enhancements: body momentum scrolling and assignment-list scrolling.
+
+   Safety:
+   - No modal height/width override.
+   - No header/footer layout override.
+   - No React logic change.
+   - No map/image/coordinate changes.
+*/
 
 @media (max-width: 767px) {
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] {
-    align-items: center !important;
-    justify-content: center !important;
-    padding:
-      max(6px, env(safe-area-inset-top))
-      max(10px, env(safe-area-inset-right))
-      max(12px, env(safe-area-inset-bottom))
-      max(10px, env(safe-area-inset-left)) !important;
-    overflow: hidden !important;
-    overscroll-behavior: contain !important;
-    touch-action: manipulation !important;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] {
-    width: min(390px, calc(100vw - 28px)) !important;
-    max-width: 390px !important;
-    height: min(70dvh, calc(100dvh - 172px), 620px) !important;
-    max-height: min(70dvh, calc(100dvh - 172px), 620px) !important;
-    min-height: 0 !important;
-    border-radius: 22px !important;
-    overflow: hidden !important;
-    display: grid !important;
-    grid-template-rows: auto minmax(0, 1fr) auto !important;
-    transform: translateZ(0) !important;
-    contain: layout paint !important;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child {
-    padding: 10px 14px 8px !important;
-    flex-shrink: 0 !important;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child h2 {
-    font-size: 14px !important;
-    line-height: 1.32 !important;
-    max-width: 100% !important;
+    overscroll-behavior: contain;
+    touch-action: manipulation;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) {
-    min-height: 0 !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    padding: 8px 14px 16px !important;
-    gap: 7px !important;
-    overscroll-behavior: contain !important;
     -webkit-overflow-scrolling: touch !important;
-    scrollbar-width: thin !important;
-    scrollbar-color: rgba(125, 211, 252, 0.34) rgba(2, 7, 22, 0.34) !important;
-    scrollbar-gutter: stable !important;
-    scroll-padding-top: 44px !important;
-    scroll-padding-bottom: 96px !important;
+    overscroll-behavior: contain !important;
+    scroll-padding-bottom: max(28px, env(safe-area-inset-bottom)) !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(125, 211, 252, 0.24) rgba(2, 7, 22, 0.28);
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2)::-webkit-scrollbar {
@@ -63,131 +29,22 @@
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2)::-webkit-scrollbar-track {
-    background: rgba(2, 7, 22, 0.34);
+    background: rgba(2, 7, 22, 0.28);
     border-radius: 999px;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2)::-webkit-scrollbar-thumb {
-    background: rgba(125, 211, 252, 0.34);
+    background: rgba(125, 211, 252, 0.24);
     border-radius: 999px;
   }
 
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) [role="tablist"] {
-    position: sticky !important;
-    top: -8px !important;
-    z-index: 5 !important;
-    margin-inline: -2px !important;
-    padding: 5px 2px 7px !important;
-    background: linear-gradient(180deg, rgba(8, 14, 36, 0.99), rgba(8, 14, 36, 0.90)) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    scrollbar-width: none !important;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) [role="tablist"]::-webkit-scrollbar {
-    display: none;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) [role="tablist"] button {
-    min-height: 30px !important;
-    padding: 5px 9px !important;
-  }
-
-  /* Smart internal scroll for "ربط المكتب وتشغيله" without changing React logic. */
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) button[aria-expanded="true"] + div {
-    max-height: clamp(190px, 31dvh, 255px) !important;
-    overflow: hidden !important;
-    padding-bottom: 10px !important;
-  }
-
+  /* Smart scroll only inside the unit list of "ربط المكتب وتشغيله".
+     This does not resize the modal or move the footer. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) button[aria-expanded="true"] + div > div:nth-of-type(2) {
-    max-height: clamp(82px, 13.5dvh, 122px) !important;
+    max-height: min(150px, 18dvh) !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     overscroll-behavior: contain !important;
     -webkit-overflow-scrolling: touch !important;
-    padding-left: 2px !important;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) button[aria-expanded="true"] + div > div:nth-of-type(2)::-webkit-scrollbar {
-    width: 3px;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) button[aria-expanded="true"] + div > div:nth-of-type(2)::-webkit-scrollbar-thumb {
-    background: rgba(168, 85, 247, 0.35);
-    border-radius: 999px;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) button[aria-expanded="true"] + div > button {
-    position: sticky !important;
-    bottom: 0 !important;
-    z-index: 2 !important;
-    margin-top: 2px !important;
-    box-shadow: 0 -10px 22px rgba(8, 14, 36, 0.55), 0 0 18px rgba(139, 92, 246, 0.16) !important;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) {
-    flex-shrink: 0 !important;
-    padding: 8px 14px max(10px, env(safe-area-inset-bottom)) !important;
-    background: linear-gradient(180deg, rgba(8, 14, 36, 0.88), rgba(6, 10, 28, 0.99)) !important;
-    box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.30) !important;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) > div {
-    display: grid !important;
-    grid-template-columns: minmax(76px, 0.76fr) minmax(0, 1.55fr) !important;
-    gap: 7px !important;
-    align-items: stretch !important;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button {
-    min-width: 0 !important;
-    min-height: 40px !important;
-    border-radius: 12px !important;
-    padding-inline: 10px !important;
-    white-space: nowrap !important;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[style*="34,211,238"] {
-    grid-column: span 1 !important;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) button[style*="width: 100%"] {
-    grid-column: 1 / -1 !important;
-  }
-}
-
-/* iPhone 15 Pro Max portrait: 430×932 CSS viewport class. */
-@media (min-width: 391px) and (max-width: 440px) and (max-height: 940px) {
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] {
-    width: min(392px, calc(100vw - 28px)) !important;
-    height: min(68dvh, calc(100dvh - 184px), 600px) !important;
-    max-height: min(68dvh, calc(100dvh - 184px), 600px) !important;
-  }
-}
-
-@media (max-width: 390px) {
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] {
-    padding-inline: 10px !important;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] {
-    width: min(360px, calc(100vw - 22px)) !important;
-    max-width: 360px !important;
-    height: min(66dvh, calc(100dvh - 178px), 570px) !important;
-    max-height: min(66dvh, calc(100dvh - 178px), 570px) !important;
-    border-radius: 20px !important;
-  }
-
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:first-child,
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2),
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(3) {
-    padding-inline: 12px !important;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] {
-    transform: none !important;
   }
 }
