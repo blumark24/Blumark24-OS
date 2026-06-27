@@ -3,9 +3,9 @@
 // FullscreenOfficeExperience — C23-A
 // Uses registered interior assets for office entry, with the approved
 // external map crop as a safe fallback only when an asset is unavailable.
-// Adds a safe scene-control dock below the interior so controls do not cover the office.
+// Adds a safe digital-twin skills dock below the interior so controls do not cover the office.
 
-import { Activity, ArrowRight, Sparkles, UserCheck, Users, Video, Wand2, X } from "lucide-react";
+import { Activity, ArrowRight, BrainCircuit, GitMerge, ShieldCheck, Sparkles, UserCheck, Users, Video, Wand2, X, Zap } from "lucide-react";
 import { getOfficeInteriorProfile } from "@/lib/virtual-office/officeInteriorProfile";
 import type { MappingSource, OfficeRoom, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
 
@@ -70,42 +70,58 @@ export default function FullscreenOfficeExperience({
   const sceneLabel = usesInteriorAsset
     ? `${profile?.nameAr ?? "مكتب داخلي"} · ${profile?.functionAr ?? "مساحة عمل"}`
     : `2D من الأعلى · ${crop.label}`;
+  const integrationLabel = isLinked
+    ? `${mappingUnit?.typeLabel ?? "وحدة"} · ${mappingUnit?.code ?? "بدون كود"}`
+    : "بانتظار ربط الهيكل";
 
-  const tools = [
+  const digitalTwinSkills = [
     {
-      key: "characters",
-      icon: UserCheck,
-      label: "الشخصيات",
-      value: people.length > 0 ? String(people.length) : "جاهزة",
-      hint: people.length > 0 ? "شخصيات مرتبطة بالمكتب" : "تظهر بعد ربط الموظفين",
+      key: "twin-engine",
+      icon: BrainCircuit,
+      label: "محرك التوأم",
+      value: isLinked ? "متصل" : "جاهز",
+      hint: isLinked ? "يقرأ ربط المكتب من الهيكل" : "يتفعل بعد الربط",
+      color: "#22d3ee",
     },
     {
-      key: "employees",
-      icon: Users,
-      label: "الموظفون",
-      value: `${presentPeople.length} حاضر`,
-      hint: offlinePeople > 0 ? `${offlinePeople} غير حاضر` : "لا توجد بيانات حضور حقيقية بعد",
+      key: "org-sync",
+      icon: GitMerge,
+      label: "ربط الهيكل",
+      value: mappingUnit?.code ?? "آمن",
+      hint: mappingUnit?.name ?? "لا يوجد ربط محفوظ بعد",
+      color: "#10b981",
+    },
+    {
+      key: "presence",
+      icon: UserCheck,
+      label: "الحضور الذكي",
+      value: `${presentPeople.length}/${people.length}`,
+      hint: people.length > 0 ? `${offlinePeople} غير حاضر` : "لا توجد بيانات حضور حقيقية",
+      color: "#38bdf8",
     },
     {
       key: "meetings",
       icon: Video,
-      label: "الاجتماعات",
+      label: "غرفة الاجتماعات",
       value: "جاهزة",
-      hint: "واجهة فقط · لا صوت/فيديو خفي",
+      hint: "واجهة تشغيل آمنة بدون صوت خفي",
+      color: "#a855f7",
     },
     {
       key: "effects",
       icon: Sparkles,
-      label: "المؤثرات",
-      value: "آمنة",
+      label: "مؤثرات المشهد",
+      value: "نشطة",
       hint: "إضاءة وحركة بصرية فقط",
+      color: "#f59e0b",
     },
     {
       key: "motion",
       icon: Activity,
-      label: "الحركات",
-      value: "خفيفة",
-      hint: "بدون تتبع سري للحضور",
+      label: "حركة المكتب",
+      value: "هادئة",
+      hint: "حركة خفيفة بدون تتبع سري",
+      color: "#ec4899",
     },
   ] as const;
 
@@ -136,7 +152,7 @@ export default function FullscreenOfficeExperience({
       </div>
 
       <main className="bm-office-portal-main">
-        <section className="bm-office-scene-stack" aria-label="مشهد المكتب الداخلي وأدوات التشغيل">
+        <section className="bm-office-scene-stack" aria-label="مشهد المكتب الداخلي ومهارات التوأم الرقمي">
           <div className="bm-office-visual-frame">
             <div
               className={usesInteriorAsset ? "bm-office-interior-image" : "bm-office-crop-image"}
@@ -168,21 +184,29 @@ export default function FullscreenOfficeExperience({
           <div className="bm-office-control-dock" style={{ borderColor: `${accent}2e` }}>
             <div className="bm-office-dock-summary">
               <div>
-                <span style={{ color: accent }}>لوحة تشغيل المكتب</span>
+                <span style={{ color: accent }}>Digital Twin Skills</span>
                 <strong>{profile?.nameAr ?? displayName}</strong>
               </div>
-              <p>{profile?.functionAr ?? "تحكم آمن بالمكتب الافتراضي"} · {isLinked ? "مرتبط بالهيكل" : "جاهز بعد الربط"}</p>
+              <p>{profile?.functionAr ?? "تحكم آمن بالمكتب الافتراضي"} · {integrationLabel}</p>
             </div>
 
-            <div className="bm-office-tool-tabs" aria-label="أدوات المكتب">
-              {tools.map((tool) => {
-                const Icon = tool.icon;
+            <div className="bm-office-tool-tabs" aria-label="مهارات التوأم الرقمي">
+              {digitalTwinSkills.map((skill) => {
+                const Icon = skill.icon;
                 return (
-                  <button key={tool.key} type="button" className="bm-office-tool-tab">
-                    <span className="bm-office-tool-icon" style={{ color: accent }}><Icon size={14} /></span>
+                  <button
+                    key={skill.key}
+                    type="button"
+                    className="bm-office-tool-tab"
+                    style={{
+                      borderColor: `${skill.color}2e`,
+                      background: `linear-gradient(180deg, ${skill.color}14, rgba(255,255,255,0.026))`,
+                    }}
+                  >
+                    <span className="bm-office-tool-icon" style={{ color: skill.color, borderColor: `${skill.color}26`, background: `${skill.color}10` }}><Icon size={14} /></span>
                     <span className="bm-office-tool-copy">
-                      <b>{tool.label}</b>
-                      <small>{tool.value} · {tool.hint}</small>
+                      <b>{skill.label}</b>
+                      <small><em style={{ color: skill.color }}>{skill.value}</em> · {skill.hint}</small>
                     </span>
                   </button>
                 );
@@ -190,8 +214,9 @@ export default function FullscreenOfficeExperience({
             </div>
 
             <div className="bm-office-safety-note">
-              <Wand2 size={13} />
-              الشخصيات والاجتماعات والمؤثرات والحركات واجهة تشغيل آمنة · لا مراقبة سرية · لا صوت/فيديو خفي.
+              <ShieldCheck size={13} />
+              تكامل حقيقي مع بيانات المكتب المتاحة: ربط الهيكل، الموظفون، وحالة الربط. لا مراقبة سرية ولا صوت/فيديو خفي.
+              <span className="bm-office-ai-suggestion"><Zap size={12} /> اقتراح: اربط لاحقًا المهام والتقويم والحضور الفعلي لكل مكتب.</span>
             </div>
           </div>
         </section>
@@ -305,12 +330,14 @@ export default function FullscreenOfficeExperience({
           display: grid;
           grid-template-rows: minmax(0, 1fr) auto;
           gap: 12px;
+          align-content: start;
         }
         .bm-office-visual-frame {
           position: relative;
-          width: min(100%, calc((100dvh - 250px) * 1672 / 941));
+          width: min(100%, calc((100dvh - 248px) * 1672 / 941));
           aspect-ratio: ${IMAGE_ASPECT_RATIO};
-          max-height: calc(100dvh - 230px);
+          max-height: calc(100dvh - 226px);
+          margin-top: clamp(8px, 1.4dvh, 16px);
           justify-self: center;
           align-self: start;
           overflow: hidden;
@@ -411,7 +438,7 @@ export default function FullscreenOfficeExperience({
           border: 1px solid rgba(34,211,238,0.22);
           border-radius: 18px;
           padding: 12px;
-          background: linear-gradient(145deg, rgba(5,14,30,0.82), rgba(2,7,22,0.66));
+          background: linear-gradient(145deg, rgba(5,14,30,0.84), rgba(2,7,22,0.68));
           box-shadow: 0 24px 70px rgba(0,0,0,0.28), inset 0 0 28px rgba(34,211,238,0.035);
           backdrop-filter: blur(18px);
           -webkit-backdrop-filter: blur(18px);
@@ -436,6 +463,8 @@ export default function FullscreenOfficeExperience({
           font-size: 10px;
           font-weight: 950;
           margin-bottom: 4px;
+          direction: ltr;
+          text-align: right;
         }
         .bm-office-dock-summary strong {
           display: block;
@@ -456,15 +485,14 @@ export default function FullscreenOfficeExperience({
         .bm-office-tool-tabs {
           min-width: 0;
           display: grid;
-          grid-template-columns: repeat(5, minmax(0, 1fr));
+          grid-template-columns: repeat(6, minmax(0, 1fr));
           gap: 8px;
         }
         .bm-office-tool-tab {
           min-width: 0;
-          min-height: 76px;
-          border-radius: 14px;
+          min-height: 78px;
+          border-radius: 15px;
           border: 1px solid rgba(125,211,252,0.12);
-          background: linear-gradient(180deg, rgba(255,255,255,0.048), rgba(255,255,255,0.026));
           color: #dff7ff;
           cursor: default;
           padding: 10px;
@@ -473,15 +501,15 @@ export default function FullscreenOfficeExperience({
           justify-content: space-between;
           gap: 8px;
           text-align: right;
+          box-shadow: inset 0 0 22px rgba(255,255,255,0.018);
         }
         .bm-office-tool-icon {
-          width: 28px;
-          height: 28px;
-          border-radius: 10px;
+          width: 29px;
+          height: 29px;
+          border-radius: 11px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          background: rgba(34,211,238,0.08);
           border: 1px solid rgba(34,211,238,0.14);
         }
         .bm-office-tool-copy {
@@ -504,31 +532,52 @@ export default function FullscreenOfficeExperience({
           font-weight: 800;
           line-height: 1.35;
         }
+        .bm-office-tool-copy small em {
+          font-style: normal;
+          font-weight: 950;
+        }
         .bm-office-safety-note {
           grid-column: 1 / -1;
-          display: inline-flex;
+          display: flex;
           align-items: center;
           gap: 6px;
-          color: #5f7898;
+          color: #6c84a5;
           font-size: 10px;
           font-weight: 800;
           border-top: 1px solid rgba(255,255,255,0.05);
           padding-top: 8px;
+          flex-wrap: wrap;
+        }
+        .bm-office-ai-suggestion {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          color: #9fb6d7;
+          border: 1px solid rgba(34,211,238,0.12);
+          background: rgba(34,211,238,0.045);
+          padding: 3px 7px;
+          border-radius: 999px;
+        }
+        @media (max-width: 1024px) {
+          .bm-office-control-dock {
+            grid-template-columns: 1fr;
+          }
+          .bm-office-tool-tabs {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
         }
         @media (max-width: 860px) {
           .bm-office-scene-stack {
             gap: 10px;
           }
           .bm-office-visual-frame {
-            width: min(100%, calc((100dvh - 302px) * 1672 / 941));
-            max-height: calc(100dvh - 286px);
-          }
-          .bm-office-control-dock {
-            grid-template-columns: 1fr;
+            width: min(100%, calc((100dvh - 306px) * 1672 / 941));
+            max-height: calc(100dvh - 288px);
+            margin-top: 10px;
           }
           .bm-office-tool-tabs {
             overflow-x: auto;
-            grid-template-columns: repeat(5, minmax(132px, 1fr));
+            grid-template-columns: repeat(6, minmax(132px, 1fr));
             padding-bottom: 2px;
             scrollbar-width: thin;
             scrollbar-color: rgba(34,211,238,0.38) rgba(2,7,22,0.22);
@@ -556,10 +605,12 @@ export default function FullscreenOfficeExperience({
           .bm-office-scene-stack {
             min-height: calc(100dvh - 66px);
             grid-template-rows: auto auto;
+            gap: 9px;
           }
           .bm-office-visual-frame {
             width: 100%;
-            max-height: 43dvh;
+            max-height: 41dvh;
+            margin-top: 12px;
             border-radius: 14px;
           }
           .bm-office-control-dock {
@@ -571,11 +622,11 @@ export default function FullscreenOfficeExperience({
             padding: 9px 10px;
           }
           .bm-office-tool-tabs {
-            grid-template-columns: repeat(5, minmax(126px, 1fr));
+            grid-template-columns: repeat(6, minmax(132px, 1fr));
             gap: 7px;
           }
           .bm-office-tool-tab {
-            min-height: 70px;
+            min-height: 74px;
             padding: 9px;
           }
           .bm-office-safety-note {
