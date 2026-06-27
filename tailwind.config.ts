@@ -20,6 +20,41 @@ const config: Config = {
           border: "#1e3a5f",
           muted: "#8ba3c7",
         },
+        // Sprint 2B premium palette — additive. Existing `brand.*`
+        // classes continue to work; new components opt-in via `premium.*`.
+        premium: {
+          "navy-deep": "#020817",
+          "navy-midnight": "#071426",
+          "navy-royal": "#0B1F3A",
+          "blue-electric": "#147CFF",
+          "cyan-cyber": "#00D9FF",
+          "blue-ice": "#7DDCFF",
+          "violet-ai": "#7C3AED",
+          emerald: "#10B981",
+          amber: "#F59E0B",
+          red: "#EF4444",
+          "text-muted": "#94A3B8",
+          "text-primary": "#F8FAFC",
+        },
+      },
+      screens: {
+        // Additive. Tailwind's default `sm`/`md`/`lg`/`xl`/`2xl` remain.
+        // Premium breakpoints expose the documented mobile→wide ranges.
+        "premium-mobile": "360px",
+        "premium-tablet": "768px",
+        "premium-laptop": "1280px",
+        "premium-desktop": "1440px",
+        "premium-wide": "1920px",
+      },
+      spacing: {
+        "premium-1": "4px",
+        "premium-2": "8px",
+        "premium-3": "12px",
+        "premium-4": "16px",
+        "premium-5": "20px",
+        "premium-6": "24px",
+        "premium-8": "32px",
+        "premium-10": "40px",
       },
       fontFamily: {
         arabic: ["IBM Plex Sans Arabic", "Tajawal", "sans-serif"],
@@ -61,6 +96,10 @@ const config: Config = {
       },
       borderRadius: {
         "2xl": "16px",
+        "premium-md": "12px",
+        "premium-lg": "16px",
+        "premium-xl": "24px",
+        "premium-2xl": "32px",
       },
       boxShadow: {
         "glow-teal": "0 0 20px rgba(34,211,238,0.3)",
