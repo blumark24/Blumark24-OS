@@ -1,16 +1,17 @@
-/* C20-E — Smart Office Modal Scroll System
+/* C20-F — Smart Assignment Panel
    Scope: OfficeControlModal on mobile only.
 
-   This keeps the approved premium design and avoids the aggressive sizing that
-   broke the iPhone window. It applies a small, controlled modal size reduction,
-   improves the top mode/tabs spacing, and makes nested areas scroll inside
-   their own cards.
+   Purpose:
+   Keep the approved premium window design exactly as-is, but make the marked
+   assignment area useful: filter, scroll the unit list inside the card, select
+   a unit, and keep the confirmation button reachable without fighting the
+   external modal footer.
 
    Safety:
    - No React logic change.
+   - No OfficeControlModal.tsx change.
    - No map/image/coordinate changes.
-   - No footer redesign.
-   - No header redesign.
+   - No header/footer redesign.
    - No realtime/audio/video changes.
 */
 
@@ -20,18 +21,18 @@
     touch-action: manipulation;
   }
 
-  /* Small smart shrink only — keep the original visual proportions. */
+  /* Keep the original modal look; only make it slightly safer inside iPhone Safari. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] {
     width: min(430px, calc(100vw - 28px)) !important;
-    max-height: min(88dvh, calc(100dvh - 92px)) !important;
+    max-height: min(90dvh, calc(100dvh - 72px)) !important;
   }
 
-  /* Body owns vertical scrolling. Header/footer remain visually unchanged. */
+  /* Body remains the main scroll container. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) {
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior: contain !important;
-    scroll-padding-top: 42px !important;
-    scroll-padding-bottom: max(54px, env(safe-area-inset-bottom)) !important;
+    scroll-padding-top: 44px !important;
+    scroll-padding-bottom: max(70px, env(safe-area-inset-bottom)) !important;
     scrollbar-width: thin;
     scrollbar-color: rgba(125, 211, 252, 0.24) rgba(2, 7, 22, 0.28);
   }
@@ -50,19 +51,18 @@
     border-radius: 999px;
   }
 
-  /* Top mode strip: separate it from tabs so the two layers never collide. */
+  /* Marked top area: give the mode strip and tab bar clear lanes without redesign. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) > div:first-child {
     min-height: 34px !important;
-    margin-bottom: 5px !important;
+    margin-bottom: 6px !important;
     flex-shrink: 0 !important;
   }
 
-  /* Tab strip remains the same design, but gets a clean smart lane. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) [role="tablist"] {
     min-height: 38px !important;
     padding-top: 4px !important;
-    padding-bottom: 7px !important;
-    margin-bottom: 5px !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 6px !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
     -webkit-overflow-scrolling: touch !important;
@@ -78,10 +78,9 @@
     align-items: center !important;
   }
 
-  /* Smart accordion behavior for "ربط المكتب وتشغيله" / "تغيير الربط".
-     The card remains the same design; only its internal overflow is managed. */
+  /* Marked assignment card: smart window inside the modal, not a modal redesign. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) > div:has(> button[aria-expanded="true"]) {
-    max-height: min(42dvh, 390px) !important;
+    max-height: min(50dvh, 430px) !important;
     overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
@@ -91,22 +90,50 @@
     flex-shrink: 0 !important;
   }
 
+  /* Assignment content scrolls internally when filters/list/confirm exceed space. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) > div:has(> button[aria-expanded="true"]) > button[aria-expanded="true"] + div {
     min-height: 0 !important;
-    overflow: hidden !important;
+    max-height: min(40dvh, 344px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
     padding-bottom: 10px !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(168, 85, 247, 0.32) rgba(2, 7, 22, 0.20);
   }
 
-  /* Unit list gets its own scroll, so footer/buttons do not fight the list. */
+  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) > div:has(> button[aria-expanded="true"]) > button[aria-expanded="true"] + div::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) > div:has(> button[aria-expanded="true"]) > button[aria-expanded="true"] + div::-webkit-scrollbar-thumb {
+    background: rgba(168, 85, 247, 0.32);
+    border-radius: 999px;
+  }
+
+  /* Filter chips stay reachable at the top of the smart assignment panel. */
+  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) button[aria-expanded="true"] + div > div:first-of-type {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 2 !important;
+    padding-top: 2px !important;
+    padding-bottom: 6px !important;
+    background: linear-gradient(180deg, rgba(13, 16, 38, 0.98), rgba(13, 16, 38, 0.86)) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+  }
+
+  /* Unit list has its own scroll for agency/management/department/team selection. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) button[aria-expanded="true"] + div > div:nth-of-type(2) {
-    max-height: clamp(104px, 17dvh, 148px) !important;
+    max-height: clamp(126px, 21dvh, 190px) !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     overscroll-behavior: contain !important;
     -webkit-overflow-scrolling: touch !important;
     padding-left: 2px !important;
     scrollbar-width: thin;
-    scrollbar-color: rgba(168, 85, 247, 0.32) rgba(2, 7, 22, 0.24);
+    scrollbar-color: rgba(168, 85, 247, 0.34) rgba(2, 7, 22, 0.22);
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) button[aria-expanded="true"] + div > div:nth-of-type(2)::-webkit-scrollbar {
@@ -114,26 +141,39 @@
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) button[aria-expanded="true"] + div > div:nth-of-type(2)::-webkit-scrollbar-thumb {
-    background: rgba(168, 85, 247, 0.32);
+    background: rgba(168, 85, 247, 0.34);
     border-radius: 999px;
+  }
+
+  /* Confirmation remains inside the assignment card, not under the modal footer. */
+  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) button[aria-expanded="true"] + div > button:last-child {
+    position: sticky !important;
+    bottom: 0 !important;
+    z-index: 2 !important;
+    margin-top: 4px !important;
+    box-shadow: 0 -12px 22px rgba(8, 12, 30, 0.58), 0 0 16px rgba(139, 92, 246, 0.14) !important;
   }
 }
 
 @media (min-width: 391px) and (max-width: 440px) and (max-height: 940px) {
-  /* iPhone 15 Pro Max portrait class — slight shrink only. */
+  /* iPhone 15 Pro Max portrait class — keep the original feel with a light safety bound. */
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] {
-    max-height: min(86dvh, calc(100dvh - 104px)) !important;
+    max-height: min(88dvh, calc(100dvh - 84px)) !important;
+  }
+
+  div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) > div:has(> button[aria-expanded="true"]) {
+    max-height: min(48dvh, 420px) !important;
   }
 }
 
 @media (max-width: 390px) {
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] {
     width: min(430px, calc(100vw - 24px)) !important;
-    max-height: min(86dvh, calc(100dvh - 96px)) !important;
+    max-height: min(88dvh, calc(100dvh - 82px)) !important;
   }
 
   div[role="dialog"][aria-modal="true"][aria-label^="وحدة تحكم"] > div[dir="rtl"] > div:nth-child(2) button[aria-expanded="true"] + div > div:nth-of-type(2) {
-    max-height: clamp(92px, 16dvh, 132px) !important;
+    max-height: clamp(108px, 18dvh, 154px) !important;
   }
 }
 
