@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Building2, CheckCircle2, Network, ShieldCheck, Sparkles } from "lucide-react";
 
-const previewImageUrl = "/virtual-office/office-preview.svg";
+const previewImageUrl = "/virtual-office/office-preview.jpg";
 
 export const metadata: Metadata = {
   title: "المكتب الافتراضي | Blumark24 OS",
