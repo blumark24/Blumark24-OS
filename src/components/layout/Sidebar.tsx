@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, CheckSquare, UserCircle,
   DollarSign, Map, Bot, BarChart3, Settings, LogOut,
   ChevronLeft, Network, Zap, Activity, X, ArrowLeft,
-  Building2,
+  Building2, Lock,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import {
   getRouteLabel,
   WORKSPACE_ROUTES,
+  type WorkspaceRouteDef,
   type WorkspaceRouteId,
 } from "@/lib/features/packageFeatures";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
@@ -72,6 +73,40 @@ export default function Sidebar({
 
   const visibleRoutes = _wsNavLoading ? WORKSPACE_ROUTES : navRoutes;
 
+  // Virtual Office visibility recovery:
+  // The Virtual Office sidebar entry must always be visible to all tenant
+  // users — but remain gated. Packages that do not include `virtual_office`
+  // see it as a locked premium item with a "متقدم" badge. Clicking the
+  // locked item shows a toast, never navigates, and never bypasses the
+  // existing route guard / package gating.
+  const virtualOfficeRoute: WorkspaceRouteDef | null =
+    WORKSPACE_ROUTES.find((r) => r.id === "virtual_office") ?? null;
+  const enabledRouteIds = new Set(visibleRoutes.map((r) => r.id));
+  const showLockedVirtualOffice =
+    !_wsNavLoading && !!virtualOfficeRoute && !enabledRouteIds.has("virtual_office");
+
+  // Merge a locked Virtual Office entry between `org` and the next item
+  // (matches the documented nav order: between الهيكل الإداري للمنشأة and
+  // خطة النمو). Falls back to inserting before settings if `org` isn't
+  // visible for this package.
+  const renderedRoutes: Array<{ route: WorkspaceRouteDef; locked: boolean }> = [];
+  for (const route of visibleRoutes) {
+    renderedRoutes.push({ route, locked: false });
+    if (showLockedVirtualOffice && route.id === "org") {
+      renderedRoutes.push({ route: virtualOfficeRoute!, locked: true });
+    }
+  }
+  if (showLockedVirtualOffice && !renderedRoutes.some((r) => r.route.id === "virtual_office")) {
+    const settingsIdx = renderedRoutes.findIndex((r) => r.route.id === "settings");
+    const insertAt = settingsIdx >= 0 ? settingsIdx : renderedRoutes.length;
+    renderedRoutes.splice(insertAt, 0, { route: virtualOfficeRoute!, locked: true });
+  }
+
+  const handleLockedVirtualOfficeClick = () => {
+    toast.info("المكتب الافتراضي متاح في باقة متقدم أو مؤسسي");
+    onMobileClose?.();
+  };
+
   // Use tenant-aware label so an internal-only role (defense_manager /
   // attack_manager) that ever ends up on a customer profile is rewritten to
   // a neutral tenant-safe label instead of leaking "وكالة الدفاع/الهجوم".
@@ -122,37 +157,44 @@ export default function Sidebar({
 
       <nav className="flex-1 overflow-y-auto px-3 py-3">
         <ul className="space-y-1">
-          {visibleRoutes.map((route) => {
+          {renderedRoutes.map(({ route, locked }) => {
             const Icon = ICON_BY_NAME[route.iconName] ?? LayoutDashboard;
             const href = route.href;
             const label = getRouteLabel(route.id as WorkspaceRouteId);
-            const isActive = href === "/dashboard"
+            const isActive = !locked && (href === "/dashboard"
               ? pathname === "/dashboard"
-              : pathname.startsWith(href);
-            return (
-              <li key={href}>
-                <Link
-                  href={href}
-                  onClick={onMobileClose}
-                  className={cn(
-                    "flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-colors border",
-                    isActive
-                      ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#3B82F6]/15 to-transparent border-[rgba(34,211,238,0.24)] text-white shadow-[0_2px_10px_-4px_rgba(34,211,238,0.30)]"
-                      : "text-white/[0.72] hover:bg-white/[0.04] border-transparent"
-                  )}
-                  title={collapsed ? label : undefined}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon
-                      className={cn(
-                        "h-4 w-4 flex-shrink-0",
-                        isActive ? "text-[#22D3EE]" : "text-white/55"
-                      )}
-                      strokeWidth={1.6}
-                    />
-                    {!collapsed && <span className="truncate">{label}</span>}
-                  </div>
-                  {!collapsed && (
+              : pathname.startsWith(href));
+
+            const itemClass = cn(
+              "flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-colors border w-full text-right",
+              isActive
+                ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#3B82F6]/15 to-transparent border-[rgba(34,211,238,0.24)] text-white shadow-[0_2px_10px_-4px_rgba(34,211,238,0.30)]"
+                : locked
+                  ? "text-white/55 hover:bg-white/[0.04] border-transparent cursor-pointer"
+                  : "text-white/[0.72] hover:bg-white/[0.04] border-transparent"
+            );
+
+            const inner = (
+              <>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Icon
+                    className={cn(
+                      "h-4 w-4 flex-shrink-0",
+                      isActive ? "text-[#22D3EE]" : "text-white/55"
+                    )}
+                    strokeWidth={1.6}
+                  />
+                  {!collapsed && <span className="truncate">{label}</span>}
+                </div>
+                {!collapsed && (
+                  locked ? (
+                    <span className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-[#7C3AED]/40 bg-[#7C3AED]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#C4B5FD]">
+                        متقدم
+                      </span>
+                      <Lock className="h-3.5 w-3.5 text-white/40" strokeWidth={1.6} />
+                    </span>
+                  ) : (
                     <ArrowLeft
                       className={cn(
                         "h-3.5 w-3.5 flex-shrink-0",
@@ -160,8 +202,33 @@ export default function Sidebar({
                       )}
                       strokeWidth={1.6}
                     />
-                  )}
-                </Link>
+                  )
+                )}
+              </>
+            );
+
+            return (
+              <li key={`${route.id}-${locked ? "locked" : "open"}`}>
+                {locked ? (
+                  <button
+                    type="button"
+                    onClick={handleLockedVirtualOfficeClick}
+                    className={itemClass}
+                    title={collapsed ? `${label} — باقة متقدم أو مؤسسي` : "متاح في باقة متقدم أو مؤسسي"}
+                    aria-label={`${label} — متاح في باقة متقدم أو مؤسسي`}
+                  >
+                    {inner}
+                  </button>
+                ) : (
+                  <Link
+                    href={href}
+                    onClick={onMobileClose}
+                    className={itemClass}
+                    title={collapsed ? label : undefined}
+                  >
+                    {inner}
+                  </Link>
+                )}
               </li>
             );
           })}
