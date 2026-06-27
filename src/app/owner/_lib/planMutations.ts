@@ -66,6 +66,46 @@ export const OWNER_FEATURE_LABELS_AR: Record<OwnerWorkspaceFeature, string> = {
   external_integrations: "التكاملات المتقدمة",
 };
 
+const WORKSPACE_CONTEXT_REFRESH_KEY = "blumark_workspace_context_refresh";
+const WORKSPACE_CONTEXT_REFRESH_EVENT = "blumark:workspace-context-refresh";
+const WORKSPACE_CONTEXT_REFRESH_CHANNEL = "blumark:workspace-plan-events";
+
+function signalPlanFeaturesChanged(payload: {
+  planId: string;
+  featureKeys: OwnerWorkspaceFeature[];
+  updatedAt: string;
+}) {
+  if (typeof window === "undefined") return;
+
+  const message = {
+    type: "plan_features_changed",
+    planId: payload.planId,
+    featureKeys: payload.featureKeys,
+    updatedAt: payload.updatedAt,
+    stamp: Date.now(),
+  };
+
+  try {
+    window.localStorage.setItem(WORKSPACE_CONTEXT_REFRESH_KEY, JSON.stringify(message));
+  } catch {
+    /* storage may be unavailable in restricted browsers */
+  }
+
+  try {
+    window.dispatchEvent(new CustomEvent(WORKSPACE_CONTEXT_REFRESH_EVENT, { detail: message }));
+  } catch {
+    /* custom events may be unavailable in older embedded browsers */
+  }
+
+  try {
+    const channel = new BroadcastChannel(WORKSPACE_CONTEXT_REFRESH_CHANNEL);
+    channel.postMessage(message);
+    channel.close();
+  } catch {
+    /* BroadcastChannel is best-effort; focus/pageshow refresh remains as fallback */
+  }
+}
+
 async function logPlanAction(
   action: string,
   planId: string,
@@ -186,6 +226,11 @@ export async function updatePlanFeatures(input: {
   await logPlanAction("update_plan_features", input.id, {
     feature_keys: featureKeys,
     persisted,
+  });
+  signalPlanFeaturesChanged({
+    planId: input.id,
+    featureKeys,
+    updatedAt: new Date().toISOString(),
   });
   return { ok: true };
 }
