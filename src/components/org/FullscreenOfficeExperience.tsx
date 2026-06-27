@@ -1,10 +1,11 @@
 "use client";
 
-// FullscreenOfficeExperience — C22-C
+// FullscreenOfficeExperience — C23-A
 // Uses registered interior assets for office entry, with the approved
 // external map crop as a safe fallback only when an asset is unavailable.
+// Adds a safe scene-control dock below the interior so controls do not cover the office.
 
-import { ArrowRight, X } from "lucide-react";
+import { Activity, ArrowRight, Sparkles, UserCheck, Users, Video, Wand2, X } from "lucide-react";
 import { getOfficeInteriorProfile } from "@/lib/virtual-office/officeInteriorProfile";
 import type { MappingSource, OfficeRoom, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
 
@@ -50,7 +51,7 @@ export default function FullscreenOfficeExperience({
   room,
   mappingUnit,
   mappingSource,
-  officePeople: _officePeople,
+  officePeople,
   onClose,
 }: FullscreenOfficeExperienceProps) {
   const officeNum = room.officeNumber ?? 5;
@@ -62,9 +63,51 @@ export default function FullscreenOfficeExperience({
   const status = room.isCenter ? "مجلس الإدارة" : isLinked ? "مرتبط" : "جاهز للربط";
   const imageSrc = profile?.imageSrc ?? MAP_SRC;
   const usesInteriorAsset = Boolean(profile?.imageSrc);
+  const people = Array.isArray(officePeople) ? officePeople : [];
+  const presentPeople = people.filter((p) => p.status !== "offline");
+  const offlinePeople = people.length - presentPeople.length;
+  const shownPeople = people.slice(0, 5);
   const sceneLabel = usesInteriorAsset
     ? `${profile?.nameAr ?? "مكتب داخلي"} · ${profile?.functionAr ?? "مساحة عمل"}`
     : `2D من الأعلى · ${crop.label}`;
+
+  const tools = [
+    {
+      key: "characters",
+      icon: UserCheck,
+      label: "الشخصيات",
+      value: people.length > 0 ? String(people.length) : "جاهزة",
+      hint: people.length > 0 ? "شخصيات مرتبطة بالمكتب" : "تظهر بعد ربط الموظفين",
+    },
+    {
+      key: "employees",
+      icon: Users,
+      label: "الموظفون",
+      value: `${presentPeople.length} حاضر`,
+      hint: offlinePeople > 0 ? `${offlinePeople} غير حاضر` : "لا توجد بيانات حضور حقيقية بعد",
+    },
+    {
+      key: "meetings",
+      icon: Video,
+      label: "الاجتماعات",
+      value: "جاهزة",
+      hint: "واجهة فقط · لا صوت/فيديو خفي",
+    },
+    {
+      key: "effects",
+      icon: Sparkles,
+      label: "المؤثرات",
+      value: "آمنة",
+      hint: "إضاءة وحركة بصرية فقط",
+    },
+    {
+      key: "motion",
+      icon: Activity,
+      label: "الحركات",
+      value: "خفيفة",
+      hint: "بدون تتبع سري للحضور",
+    },
+  ] as const;
 
   return (
     <div role="dialog" aria-modal="true" aria-label={`داخل ${displayName}`} className="bm-office-portal-shell" dir="rtl">
@@ -93,37 +136,65 @@ export default function FullscreenOfficeExperience({
       </div>
 
       <main className="bm-office-portal-main">
-        <div className="bm-office-visual-frame">
-          <div
-            className={usesInteriorAsset ? "bm-office-interior-image" : "bm-office-crop-image"}
-            style={{
-              backgroundImage: `url(${imageSrc})`,
-              backgroundPosition: usesInteriorAsset ? "center" : crop.position,
-            }}
-          />
+        <section className="bm-office-scene-stack" aria-label="مشهد المكتب الداخلي وأدوات التشغيل">
+          <div className="bm-office-visual-frame">
+            <div
+              className={usesInteriorAsset ? "bm-office-interior-image" : "bm-office-crop-image"}
+              style={{
+                backgroundImage: `url(${imageSrc})`,
+                backgroundPosition: usesInteriorAsset ? "center" : crop.position,
+              }}
+            />
 
-          <div className="bm-office-crop-vignette" />
+            <div className="bm-office-crop-vignette" />
 
-          <div className="bm-office-crop-pill" style={{ borderColor: `${accent}33`, color: accent }}>
-            <span style={{ background: accent, boxShadow: `0 0 6px ${accent}` }} />
-            {`OFFICE ${fmt(officeNum)}`}
+            <div className="bm-office-crop-pill" style={{ borderColor: `${accent}33`, color: accent }}>
+              <span style={{ background: accent, boxShadow: `0 0 6px ${accent}` }} />
+              {`OFFICE ${fmt(officeNum)}`}
+            </div>
+
+            <div className="bm-office-presence-strip" aria-label="حالة الحضور داخل المكتب">
+              {shownPeople.length > 0 ? shownPeople.map((person) => (
+                <span key={person.id} className="bm-office-person-dot" title={`${person.name} · ${person.statusLabel}`}>
+                  <i style={{ background: person.statusColor, boxShadow: `0 0 10px ${person.statusColor}88` }} />
+                  <b style={{ borderColor: `${person.color}66`, color: person.color }}>{person.initials}</b>
+                </span>
+              )) : (
+                <span className="bm-office-empty-presence">الموظفون يظهرون بعد الربط</span>
+              )}
+            </div>
           </div>
 
-          <aside className="bm-office-asset-panel" style={{ borderColor: `${accent}30` }} aria-label="معاينة أصل المكتب الداخلي">
-            <div className="bm-office-asset-kicker" style={{ color: accent }}>
-              {usesInteriorAsset ? "INTERIOR ASSET" : "MAP FALLBACK"}
-            </div>
-            <div className="bm-office-asset-title">{profile?.nameAr ?? displayName}</div>
-            <div className="bm-office-asset-meta">
-              {profile?.functionAr ?? "معاينة من الخريطة الخارجية"} · {isLinked ? "مرتبط بالهيكل" : "جاهز بعد الربط"}
-            </div>
-            {!usesInteriorAsset && (
-              <div className="bm-office-asset-note">
-                يتم استخدام الخريطة الخارجية كبديل مؤقت حتى يتوفر أصل داخلي.
+          <div className="bm-office-control-dock" style={{ borderColor: `${accent}2e` }}>
+            <div className="bm-office-dock-summary">
+              <div>
+                <span style={{ color: accent }}>لوحة تشغيل المكتب</span>
+                <strong>{profile?.nameAr ?? displayName}</strong>
               </div>
-            )}
-          </aside>
-        </div>
+              <p>{profile?.functionAr ?? "تحكم آمن بالمكتب الافتراضي"} · {isLinked ? "مرتبط بالهيكل" : "جاهز بعد الربط"}</p>
+            </div>
+
+            <div className="bm-office-tool-tabs" aria-label="أدوات المكتب">
+              {tools.map((tool) => {
+                const Icon = tool.icon;
+                return (
+                  <button key={tool.key} type="button" className="bm-office-tool-tab">
+                    <span className="bm-office-tool-icon" style={{ color: accent }}><Icon size={14} /></span>
+                    <span className="bm-office-tool-copy">
+                      <b>{tool.label}</b>
+                      <small>{tool.value} · {tool.hint}</small>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="bm-office-safety-note">
+              <Wand2 size={13} />
+              الشخصيات والاجتماعات والمؤثرات والحركات واجهة تشغيل آمنة · لا مراقبة سرية · لا صوت/فيديو خفي.
+            </div>
+          </div>
+        </section>
       </main>
 
       <style>{`
@@ -223,16 +294,25 @@ export default function FullscreenOfficeExperience({
           min-height: 0;
           overflow: hidden;
           display: flex;
-          align-items: center;
+          align-items: stretch;
           justify-content: center;
-          padding: clamp(10px, 2vw, 22px);
-          background: radial-gradient(circle at 50% 48%, rgba(34,211,238,0.08), transparent 42%), #020716;
+          padding: clamp(10px, 1.7vw, 18px);
+          background: radial-gradient(circle at 50% 20%, rgba(34,211,238,0.08), transparent 44%), #020716;
+        }
+        .bm-office-scene-stack {
+          width: min(100%, 1180px);
+          min-height: 0;
+          display: grid;
+          grid-template-rows: minmax(0, 1fr) auto;
+          gap: 12px;
         }
         .bm-office-visual-frame {
           position: relative;
-          width: min(100%, calc((100dvh - 92px) * 1672 / 941));
+          width: min(100%, calc((100dvh - 250px) * 1672 / 941));
           aspect-ratio: ${IMAGE_ASPECT_RATIO};
-          max-height: calc(100dvh - 84px);
+          max-height: calc(100dvh - 230px);
+          justify-self: center;
+          align-self: start;
           overflow: hidden;
           border-radius: 18px;
           border: 1px solid rgba(125,211,252,0.16);
@@ -284,44 +364,175 @@ export default function FullscreenOfficeExperience({
           border-radius: 999px;
           flex-shrink: 0;
         }
-        .bm-office-asset-panel {
+        .bm-office-presence-strip {
           position: absolute;
-          right: 14px;
-          bottom: 14px;
-          width: min(310px, calc(100% - 28px));
+          left: 12px;
+          bottom: 12px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 8px;
+          border-radius: 999px;
+          background: rgba(2,7,22,0.58);
+          border: 1px solid rgba(125,211,252,0.14);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+        }
+        .bm-office-person-dot {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .bm-office-person-dot i {
+          width: 6px;
+          height: 6px;
+          border-radius: 999px;
+        }
+        .bm-office-person-dot b {
+          width: 24px;
+          height: 24px;
+          border-radius: 999px;
+          border: 1px solid;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255,255,255,0.05);
+          font-size: 9px;
+          font-weight: 950;
+        }
+        .bm-office-empty-presence {
+          color: #6f86a6;
+          font-size: 10px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+        .bm-office-control-dock {
+          min-height: 118px;
           border: 1px solid rgba(34,211,238,0.22);
           border-radius: 18px;
-          padding: 12px 14px;
-          background: linear-gradient(145deg, rgba(5,14,30,0.78), rgba(2,7,22,0.56));
-          box-shadow: 0 24px 70px rgba(0,0,0,0.34), inset 0 0 28px rgba(34,211,238,0.035);
+          padding: 12px;
+          background: linear-gradient(145deg, rgba(5,14,30,0.82), rgba(2,7,22,0.66));
+          box-shadow: 0 24px 70px rgba(0,0,0,0.28), inset 0 0 28px rgba(34,211,238,0.035);
           backdrop-filter: blur(18px);
           -webkit-backdrop-filter: blur(18px);
+          display: grid;
+          grid-template-columns: 230px minmax(0, 1fr);
+          gap: 12px;
+          align-items: stretch;
         }
-        .bm-office-asset-kicker {
-          font-size: 8px;
+        .bm-office-dock-summary {
+          min-width: 0;
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,0.06);
+          background: rgba(255,255,255,0.035);
+          padding: 10px 12px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 6px;
+        }
+        .bm-office-dock-summary span {
+          display: block;
+          font-size: 10px;
           font-weight: 950;
-          letter-spacing: 1.2px;
-          direction: ltr;
-          text-align: right;
-          opacity: 0.76;
+          margin-bottom: 4px;
         }
-        .bm-office-asset-title {
-          margin-top: 4px;
+        .bm-office-dock-summary strong {
+          display: block;
           color: #e8fbff;
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 950;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
-        .bm-office-asset-meta {
-          margin-top: 3px;
-          color: #8ba3c7;
-          font-size: 10.5px;
+        .bm-office-dock-summary p {
+          margin: 0;
+          color: #7f94b2;
+          font-size: 11px;
           font-weight: 800;
-        }
-        .bm-office-asset-note {
-          margin-top: 7px;
-          color: #526d8c;
-          font-size: 9.5px;
           line-height: 1.55;
+        }
+        .bm-office-tool-tabs {
+          min-width: 0;
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 8px;
+        }
+        .bm-office-tool-tab {
+          min-width: 0;
+          min-height: 76px;
+          border-radius: 14px;
+          border: 1px solid rgba(125,211,252,0.12);
+          background: linear-gradient(180deg, rgba(255,255,255,0.048), rgba(255,255,255,0.026));
+          color: #dff7ff;
+          cursor: default;
+          padding: 10px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 8px;
+          text-align: right;
+        }
+        .bm-office-tool-icon {
+          width: 28px;
+          height: 28px;
+          border-radius: 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(34,211,238,0.08);
+          border: 1px solid rgba(34,211,238,0.14);
+        }
+        .bm-office-tool-copy {
+          min-width: 0;
+        }
+        .bm-office-tool-copy b {
+          display: block;
+          color: #e8fbff;
+          font-size: 12px;
+          font-weight: 950;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .bm-office-tool-copy small {
+          display: block;
+          margin-top: 3px;
+          color: #7489a8;
+          font-size: 9.5px;
+          font-weight: 800;
+          line-height: 1.35;
+        }
+        .bm-office-safety-note {
+          grid-column: 1 / -1;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: #5f7898;
+          font-size: 10px;
+          font-weight: 800;
+          border-top: 1px solid rgba(255,255,255,0.05);
+          padding-top: 8px;
+        }
+        @media (max-width: 860px) {
+          .bm-office-scene-stack {
+            gap: 10px;
+          }
+          .bm-office-visual-frame {
+            width: min(100%, calc((100dvh - 302px) * 1672 / 941));
+            max-height: calc(100dvh - 286px);
+          }
+          .bm-office-control-dock {
+            grid-template-columns: 1fr;
+          }
+          .bm-office-tool-tabs {
+            overflow-x: auto;
+            grid-template-columns: repeat(5, minmax(132px, 1fr));
+            padding-bottom: 2px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(34,211,238,0.38) rgba(2,7,22,0.22);
+          }
         }
         @media (max-width: 640px) {
           .bm-office-portal-topbar {
@@ -338,19 +549,44 @@ export default function FullscreenOfficeExperience({
           }
           .bm-office-portal-main {
             padding: 8px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            align-items: start;
+          }
+          .bm-office-scene-stack {
+            min-height: calc(100dvh - 66px);
+            grid-template-rows: auto auto;
           }
           .bm-office-visual-frame {
             width: 100%;
+            max-height: 43dvh;
             border-radius: 14px;
           }
-          .bm-office-asset-panel {
-            right: 10px;
-            bottom: 10px;
-            padding: 10px 11px;
+          .bm-office-control-dock {
+            min-height: 0;
+            border-radius: 16px;
+            padding: 10px;
           }
-          .bm-office-asset-note,
-          .bm-office-asset-kicker {
-            display: none;
+          .bm-office-dock-summary {
+            padding: 9px 10px;
+          }
+          .bm-office-tool-tabs {
+            grid-template-columns: repeat(5, minmax(126px, 1fr));
+            gap: 7px;
+          }
+          .bm-office-tool-tab {
+            min-height: 70px;
+            padding: 9px;
+          }
+          .bm-office-safety-note {
+            align-items: flex-start;
+            line-height: 1.55;
+          }
+          .bm-office-presence-strip {
+            left: 8px;
+            bottom: 8px;
+            max-width: calc(100% - 16px);
+            overflow: hidden;
           }
         }
       `}</style>
