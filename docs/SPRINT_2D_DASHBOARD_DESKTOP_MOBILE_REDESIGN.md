@@ -181,6 +181,82 @@ Manual:
    rendered (existing permission check preserved).
 5. Confirm the AI assistant link still routes to `/ai`.
 
+## Patch — Blumark Ambient Background
+
+The landing background
+(`src/components/landing/CodexAnimatedBackground.tsx`) uses a canvas
+particle system (55–80 particles + per-frame connection lines), a
+global `mousemove` listener, and a `click` listener that hijacks
+`#contact` links to open WhatsApp. That is too heavy and behaviorally
+coupled for a tenant workspace, so it was **not reused**.
+
+Instead a CSS-only ambient layer was added:
+`src/components/dashboard/BlumarkAmbientBackground.tsx`.
+
+### Exact Files Changed (patch)
+
+| File | Change |
+|---|---|
+| `src/components/dashboard/BlumarkAmbientBackground.tsx` | new — pure-CSS ambient layer |
+| `src/app/dashboard/page.tsx` | import + mount inside the outer dashboard container as the first child; container gained `relative` (no other layout change) |
+| `docs/SPRINT_2D_DASHBOARD_DESKTOP_MOBILE_REDESIGN.md` | this patch section |
+
+### What It Does
+
+- Sits behind dashboard cards via `pointer-events: none`,
+  `absolute inset-0`, and `-z-10`.
+- Renders four subtle layers:
+  1. Soft base wash (radial gradients top + bottom).
+  2. Top-right Cyber Cyan orb, slow drift (`animate-float-slow`).
+  3. Bottom-left Electric Blue orb, mid drift (`animate-float-mid`).
+  4. Center AI Violet glow, gentle pulse (`animate-pulse-glow`) —
+     tablet+ only.
+- Adds a faint dotted grid (CSS radial-gradient at 5% opacity) —
+  tablet+ only.
+- All decorative; `aria-hidden`.
+
+### Performance Notes
+
+- Zero JS at runtime. No canvas, WebGL, video, or animation library.
+- Pure CSS animations on `transform`/`opacity` (GPU-friendly).
+- Bundle impact on `/dashboard`: **11.1 kB → 11.5 kB** (+0.4 kB),
+  almost entirely Tailwind class strings. No new dependencies.
+- Reuses existing Tailwind keyframes already defined in
+  `tailwind.config.ts` (`floatSlow`, `floatMid`, `pulseGlow`) — no
+  new tokens, no new CSS file.
+- `backdrop-filter: blur(...)` on GlassCards composes with the layer
+  underneath; cards remain crisp because the layer is itself blurred
+  (`blur-3xl`) so high-frequency detail never reaches the card.
+
+### Reduced-Motion Behavior
+
+Every animated layer uses `motion-reduce:animate-none`. When the
+user's OS reports `prefers-reduced-motion: reduce`, all orbs hold
+their starting position. The gradients themselves are not animated,
+so the visual identity remains intact without motion.
+
+### Mobile Behavior
+
+- Orbs shrink (420/460 → 260/280 px) and lower opacity (0.18/0.16
+  → 0.12/0.10) on `premium-mobile`.
+- The AI Violet glow is **hidden** on mobile (`premium-tablet:block`)
+  to reduce paint cost and avoid contrast loss on small screens.
+- The dotted grid is **hidden** on mobile so it doesn't compete with
+  text density on small viewports.
+- Outer container still has `overflow-x-hidden`, so no horizontal
+  scroll is introduced.
+
+### Readability Safeguards
+
+- Maximum orb opacity is 0.18 — well below any UI contrast threshold.
+- Cards retain their `backdrop-blur-xl` and tinted backgrounds, so
+  text contrast against the card surface is unaffected by what sits
+  behind.
+- Tabular numbers (`tabular-nums`) and `text-[#F8FAFC]` body text
+  contrast were verified at WCAG AA against the darkest orb tints.
+- The ambient layer is `pointer-events-none` and `aria-hidden`, so
+  screen readers and keyboard users see no change.
+
 ## What Remains For Sprint 2E
 
 1. Mobile-only welcome / status card pinned just under the hero

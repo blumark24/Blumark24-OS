@@ -16,6 +16,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import BlumarkAmbientBackground from "@/components/dashboard/BlumarkAmbientBackground";
 import { cn } from "@/lib/utils";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import { useDashboardSummary } from "@/hooks/useData";
@@ -350,7 +351,8 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div dir="rtl" className="flex min-w-0 max-w-full flex-col gap-premium-5 overflow-x-hidden">
+      <div dir="rtl" className="relative flex min-w-0 max-w-full flex-col gap-premium-5 overflow-x-hidden">
+        <BlumarkAmbientBackground />
         {/* ── 1. Hero / Executive welcome ─────────────────────────────────── */}
         <GlassCard variant="default" className="overflow-hidden">
           <div className="flex flex-col gap-premium-5 premium-laptop:flex-row premium-laptop:items-stretch premium-laptop:justify-between">
