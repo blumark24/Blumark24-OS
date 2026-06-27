@@ -115,6 +115,7 @@ export async function updateDepartment(
 }
 
 export async function deleteDepartment(id: string): Promise<void> {
+  await assertDepartmentSafeToDelete(id);
   const { error } = await supabase.from("departments").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
@@ -138,6 +139,7 @@ export async function updateTeam(id: string, input: Partial<TeamInput>): Promise
 }
 
 export async function deleteTeam(id: string): Promise<void> {
+  await assertTeamSafeToDelete(id);
   const { error } = await supabase.from("teams").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
@@ -164,8 +166,120 @@ export async function updatePosition(
 }
 
 export async function deletePosition(id: string): Promise<void> {
+  await assertPositionSafeToDelete(id);
   const { error } = await supabase.from("positions").delete().eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+// ─── Safe-delete guards (Sprint 1C) ──────────────────────────────────────────
+// Pre-flight checks that throw a clear Arabic error instead of cascading
+// deletes of related rows. RLS, FKs, and migrations are unchanged; these
+// guards make blocked cases visible to the caller in plain language.
+
+async function countActiveEmployeesInRelation(
+  field: "department_id" | "team_id" | "position_id",
+  id: string,
+): Promise<number> {
+  const { data: rels, error: relErr } = await supabase
+    .from("employee_relations")
+    .select("employee_id")
+    .eq(field, id);
+  if (relErr) throw new Error(relErr.message);
+  const employeeIds = Array.from(
+    new Set(
+      ((rels ?? []) as { employee_id: string | null }[])
+        .map((r) => r.employee_id)
+        .filter((v): v is string => typeof v === "string" && v.length > 0),
+    ),
+  );
+  if (employeeIds.length === 0) return 0;
+  const { count, error } = await supabase
+    .from("employees")
+    .select("id", { count: "exact", head: true })
+    .in("id", employeeIds)
+    .in("status", [...ACTIVE_EMPLOYEE_STATUS_VALUES]);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+async function countActiveVirtualOfficeMappings(
+  mappedUnitTypes: ("agency" | "management" | "department" | "team")[],
+  mappedUnitId: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("executive_office_room_mappings")
+    .select("id", { count: "exact", head: true })
+    .in("mapped_unit_type", mappedUnitTypes)
+    .eq("mapped_unit_id", mappedUnitId)
+    .eq("is_active", true);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+async function assertDepartmentSafeToDelete(id: string): Promise<void> {
+  const voCount = await countActiveVirtualOfficeMappings(
+    ["agency", "management", "department"],
+    id,
+  );
+  if (voCount > 0) {
+    throw new Error("لا يمكن حذف هذا القسم لأنه مرتبط بمكتب افتراضي.");
+  }
+
+  const activeEmployees = await countActiveEmployeesInRelation("department_id", id);
+  if (activeEmployees > 0) {
+    throw new Error("لا يمكن حذف هذا القسم لأنه يحتوي على موظفين.");
+  }
+
+  const { count: childCount, error: childErr } = await supabase
+    .from("departments")
+    .select("id", { count: "exact", head: true })
+    .eq("parent_id", id);
+  if (childErr) throw new Error(childErr.message);
+
+  const { count: teamCount, error: teamErr } = await supabase
+    .from("teams")
+    .select("id", { count: "exact", head: true })
+    .eq("department_id", id);
+  if (teamErr) throw new Error(teamErr.message);
+
+  const { count: positionRelCount, error: posErr } = await supabase
+    .from("employee_relations")
+    .select("id", { count: "exact", head: true })
+    .eq("department_id", id)
+    .not("position_id", "is", null);
+  if (posErr) throw new Error(posErr.message);
+
+  if ((childCount ?? 0) > 0 || (teamCount ?? 0) > 0 || (positionRelCount ?? 0) > 0) {
+    throw new Error("لا يمكن حذف هذا القسم لأنه يحتوي على فرق أو مناصب.");
+  }
+}
+
+async function assertTeamSafeToDelete(id: string): Promise<void> {
+  const voCount = await countActiveVirtualOfficeMappings(["team"], id);
+  if (voCount > 0) {
+    throw new Error("لا يمكن حذف هذا الفريق لأنه مرتبط بمكتب افتراضي.");
+  }
+
+  const activeEmployees = await countActiveEmployeesInRelation("team_id", id);
+  if (activeEmployees > 0) {
+    throw new Error("لا يمكن حذف هذا الفريق لأنه يحتوي على موظفين.");
+  }
+}
+
+async function assertPositionSafeToDelete(id: string): Promise<void> {
+  const activeEmployees = await countActiveEmployeesInRelation("position_id", id);
+  if (activeEmployees > 0) {
+    throw new Error("لا يمكن حذف هذا المنصب لأنه يحتوي على موظفين.");
+  }
+
+  const { count: childCount, error } = await supabase
+    .from("positions")
+    .select("id", { count: "exact", head: true })
+    .eq("parent_id", id);
+  if (error) throw new Error(error.message);
+  if ((childCount ?? 0) > 0) {
+    throw new Error("لا يمكن حذف هذا المنصب لأنه يحتوي على مناصب فرعية.");
+  }
 }
 
 
