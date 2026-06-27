@@ -89,13 +89,15 @@ content fills naturally without horizontal overflow.
 
 ---
 
-## 4. Visual system
+## 4. Visual system (V2 polish)
 
 | Element                  | Token / value                                                 |
 | ------------------------ | ------------------------------------------------------------- |
-| Deep navy background     | `#020817` + cyan/violet radial orbs                            |
-| Glass card surface       | `linear-gradient(135deg, rgba(11,31,58,.80), rgba(7,20,38,.80))` |
-| Card border              | `1px solid rgba(125, 220, 255, 0.18–0.22)`                     |
+| Deep navy background     | `#020817` with cyan SVG arcs + particle network + soft blue radial glow |
+| Glass card (compact)     | `.bm-glass` — `rgba(11,31,58,.45)→rgba(7,20,38,.55)`, `backdrop-filter: blur(14px) saturate(120%)` |
+| Glass card (hero)        | `.bm-glass-strong` — same but stronger glow + 16 px blur       |
+| Card border              | `1px solid rgba(125, 220, 255, 0.18–0.24)`                     |
+| Inner glow ring          | `.bm-glow-ring::before` — top-edge radial cyan halo            |
 | Glow accent (cyan)       | `rgba(0, 217, 255, 0.10–0.45)`                                 |
 | Electric blue accent     | `#147CFF`                                                      |
 | Cyber cyan accent        | `#00D9FF` / `#7DDCFF`                                          |
@@ -103,20 +105,27 @@ content fills naturally without horizontal overflow.
 | Warning amber            | `#F59E0B`                                                      |
 | Error / urgent           | `#EF4444`                                                      |
 | Orange (tiny accents)    | `#ff7a3d` (used sparingly, only as an accent)                  |
-| Muted text               | `#94A3B8`                                                      |
+| Muted text               | `#94A3B8` / softened `#B6C9E0` for card body                   |
 | Primary text             | `#F8FAFC`                                                      |
 | Font                     | `'IBM Plex Sans Arabic', 'Tajawal', sans-serif`                |
-| Card radius              | `16px` (`rounded-2xl`)                                         |
-| Layout direction         | RTL (Arabic-first)                                             |
+| Card radius              | `16 / 18 px` (compact / hero)                                  |
+| Layout direction         | RTL (Arabic-first); brand wordmark forced to `dir="ltr"`       |
 | Mobile target width      | 390 px – 430 px                                                |
+| Logo                     | `public/brand/blumark24-logo.svg` (official asset)             |
+| Avatar                   | Glass disc + `lucide-react User` icon — no external photos     |
 
-Animation: three soft floating orbs and one pulse on the violet glow.
-All gated by `prefers-reduced-motion: reduce`.
+Animation layers (all 6–9 s, low-contrast, gated by
+`prefers-reduced-motion: reduce`):
+
+- `bm-preview-pulse-glow` — soft blue glow behind the cards
+- `bm-preview-arcs` — cyan arcs breathe between 0.65 and 1.0 opacity
+- `bm-preview-particles` — particle network gently twinkles
 
 Charts: inline SVG only. No `recharts`, no client-only JS chart library,
 no external HTTP for assets.
 
-Icons: `lucide-react` only.
+Icons: `lucide-react` only. Real brand mark loaded from
+`public/brand/blumark24-logo.svg`.
 
 ---
 

@@ -15,21 +15,12 @@ interface KpiCardProps {
 function KpiCard({ label, value, trend, trendText, caption, Icon }: KpiCardProps) {
   const trendColor = trend === "up" ? "#10B981" : "#EF4444";
   return (
-    <div
-      className="relative rounded-2xl p-3 overflow-hidden"
-      style={{
-        background:
-          "linear-gradient(135deg, rgba(11,31,58,0.78) 0%, rgba(7,20,38,0.78) 100%)",
-        border: "1px solid rgba(125, 220, 255, 0.18)",
-        boxShadow:
-          "0 6px 22px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.04)",
-      }}
-    >
+    <div className="relative p-3 overflow-hidden bm-glass">
       <span
         aria-hidden
-        className="absolute -top-6 -left-6 h-16 w-16 rounded-full opacity-50 blur-2xl"
+        className="absolute -top-8 -left-8 h-20 w-20 rounded-full opacity-40 blur-2xl"
         style={{
-          background: "radial-gradient(circle, rgba(0,217,255,0.30), transparent 70%)",
+          background: "radial-gradient(circle, rgba(0,217,255,0.40), transparent 70%)",
         }}
       />
 
@@ -39,10 +30,11 @@ function KpiCard({ label, value, trend, trendText, caption, Icon }: KpiCardProps
           style={{
             background:
               "linear-gradient(135deg, rgba(0,217,255,0.18), rgba(20,124,255,0.18))",
-            border: "1px solid rgba(125, 220, 255, 0.30)",
+            border: "1px solid rgba(125, 220, 255, 0.32)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
           }}
         >
-          <Icon className="h-4 w-4 text-cyan-200" />
+          <Icon className="h-4 w-4" style={{ color: "#7DDCFF" }} />
         </div>
         <div className="flex flex-col items-end">
           <button
@@ -53,8 +45,8 @@ function KpiCard({ label, value, trend, trendText, caption, Icon }: KpiCardProps
             <MoreVertical className="h-3.5 w-3.5" />
           </button>
           <span
-            className="text-[10px] mt-1 font-medium"
-            style={{ color: "#94A3B8" }}
+            className="text-[10.5px] mt-1 font-medium"
+            style={{ color: "#B6C9E0" }}
           >
             {label}
           </span>
@@ -63,24 +55,22 @@ function KpiCard({ label, value, trend, trendText, caption, Icon }: KpiCardProps
 
       <div className="relative">
         <div
-          className="text-[20px] font-extrabold tracking-tight leading-none mb-1"
+          className="text-[20px] font-extrabold tracking-tight leading-none mb-1.5"
           style={{
             color: "#F8FAFC",
             fontVariantNumeric: "tabular-nums",
+            letterSpacing: "-0.01em",
           }}
         >
           {value}
         </div>
         <div className="flex items-center justify-between gap-2">
-          <span
-            className="text-[10px]"
-            style={{ color: "#94A3B8" }}
-          >
+          <span className="text-[10px]" style={{ color: "#94A3B8" }}>
             {caption}
           </span>
           <span
             className="text-[10px] font-bold flex items-center gap-0.5"
-            style={{ color: trendColor }}
+            style={{ color: trendColor, fontVariantNumeric: "tabular-nums" }}
           >
             {trendText}
             <span aria-hidden>{trend === "up" ? "↑" : "↓"}</span>

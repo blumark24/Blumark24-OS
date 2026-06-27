@@ -2,16 +2,7 @@ import { Sparkles, ChevronLeft } from "lucide-react";
 
 export default function AiAssistantCard() {
   return (
-    <div
-      className="relative rounded-2xl p-4 overflow-hidden"
-      style={{
-        background:
-          "linear-gradient(135deg, rgba(11,31,58,0.85) 0%, rgba(7,20,38,0.85) 100%)",
-        border: "1px solid rgba(125, 220, 255, 0.22)",
-        boxShadow:
-          "0 8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 22px rgba(0,217,255,0.10)",
-      }}
-    >
+    <div className="relative p-4 overflow-hidden bm-glass-strong bm-glow-ring">
       {/* Soft corner glow */}
       <span
         aria-hidden

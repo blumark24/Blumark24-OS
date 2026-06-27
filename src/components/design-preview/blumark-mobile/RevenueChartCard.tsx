@@ -47,16 +47,7 @@ export default function RevenueChartCard() {
   const [px, py] = line.coords[peakIndex];
 
   return (
-    <div
-      className="rounded-2xl p-4 overflow-hidden"
-      style={{
-        background:
-          "linear-gradient(135deg, rgba(11,31,58,0.80) 0%, rgba(7,20,38,0.80) 100%)",
-        border: "1px solid rgba(125, 220, 255, 0.18)",
-        boxShadow:
-          "0 8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)",
-      }}
-    >
+    <div className="p-4 overflow-hidden bm-glass-strong">
       <div className="flex items-center justify-between mb-3">
         <h3
           className="text-[14px] font-bold"
