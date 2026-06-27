@@ -105,13 +105,24 @@ RLS. Rows are immutable.
     decide whether to display them.
   - Sanitizes metadata before insert.
   - Trims and length-caps `action`, `target_type`, and `actor_email`.
-- `sanitizeAuditMetadata(input)` — keeps only keys in
-  `TENANT_AUDIT_METADATA_ALLOWLIST` and rejects keys matching
-  `/password|secret|token|api[_-]?key|authorization|cookie/i`.
-- `TENANT_AUDIT_METADATA_ALLOWLIST` — the canonical set:
+- `sanitizeAuditMetadata(input)` — recursive sanitizer:
+  - At the **top level**, keeps only keys in
+    `TENANT_AUDIT_METADATA_ALLOWLIST`.
+  - At **any depth** (inside `before` / `after` / arrays of objects),
+    drops any key matching
+    `/password|secret|token|api[_-]?key|authorization|cookie/i`.
+  - Recurses into nested objects and arrays up to
+    `MAX_METADATA_DEPTH = 3`. Anything deeper is dropped silently
+    (primitive scalars at any depth are preserved).
+  - Truncates each string to
+    `MAX_METADATA_STRING_LENGTH = 500` characters.
+  - Drops non-JSON values (functions, symbols, bigints).
+- `TENANT_AUDIT_METADATA_ALLOWLIST` — the canonical top-level set:
   `name, before, after, fixed_room_key, mapped_unit_type, mapped_unit_id,
   structure_level, parent_id, department_id, team_id, position_id,
   employee_id, reason, note`.
+- `MAX_METADATA_DEPTH`, `MAX_METADATA_STRING_LENGTH` — exported so
+  callers and tests can reference the same limits.
 
 The helper takes the Supabase client as an argument so callers control
 auth context. There is no module-level Supabase singleton.
@@ -196,6 +207,13 @@ CI without secrets):
 7. Call the helper with `metadata: { password: "x", note: "ok" }`.
    Expect the stored `metadata` to be `{ "note": "ok" }` (password key
    stripped by `sanitizeAuditMetadata`).
+   Then call with a nested payload such as
+   `metadata: { before: { name: "A", token: "abc" }, after: { name: "B" } }`.
+   Expect the stored value to be
+   `{ before: { name: "A" }, after: { name: "B" } }` — the nested
+   `token` is removed by the recursive sanitizer. Strings longer than
+   `MAX_METADATA_STRING_LENGTH` are truncated, and objects nested
+   deeper than `MAX_METADATA_DEPTH` are dropped.
 8. Call the helper with `actorUserId` set to another user's UUID.
    Expect the INSERT to be rejected by RLS WITH CHECK.
 

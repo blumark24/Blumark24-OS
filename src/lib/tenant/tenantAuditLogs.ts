@@ -25,6 +25,11 @@ export const TENANT_AUDIT_METADATA_ALLOWLIST = new Set<string>([
   "note",
 ]);
 
+// Substring-matched against every key at every depth. A key matching
+// any of these patterns is dropped along with its value, even if it
+// sits inside an allowlisted top-level field such as `before` or
+// `after`. This is the second line of defence after the top-level
+// allowlist.
 const FORBIDDEN_KEY_PATTERNS: RegExp[] = [
   /password/i,
   /secret/i,
@@ -34,14 +39,70 @@ const FORBIDDEN_KEY_PATTERNS: RegExp[] = [
   /cookie/i,
 ];
 
-/** Drop any key not in the allowlist or that looks like a secret. */
+// Sanitization limits. Anything deeper than MAX_METADATA_DEPTH is
+// dropped; strings longer than MAX_METADATA_STRING_LENGTH are
+// truncated. The defaults give callers room to record a
+// before/after summary without leaking unbounded payloads.
+export const MAX_METADATA_DEPTH = 3;
+export const MAX_METADATA_STRING_LENGTH = 500;
+
+function isForbiddenKey(key: string): boolean {
+  return FORBIDDEN_KEY_PATTERNS.some((re) => re.test(key));
+}
+
+function sanitizeMetadataValue(value: unknown, depth: number): unknown {
+  if (value === null) return null;
+  if (value === undefined) return undefined;
+  const t = typeof value;
+  if (t === "string") {
+    const s = value as string;
+    return s.length <= MAX_METADATA_STRING_LENGTH
+      ? s
+      : s.slice(0, MAX_METADATA_STRING_LENGTH);
+  }
+  if (t === "number" || t === "boolean") return value;
+  if (t === "bigint" || t === "symbol" || t === "function") return undefined;
+
+  if (Array.isArray(value)) {
+    if (depth >= MAX_METADATA_DEPTH) return undefined;
+    const arr: unknown[] = [];
+    for (const item of value) {
+      const sanitized = sanitizeMetadataValue(item, depth + 1);
+      if (sanitized !== undefined) arr.push(sanitized);
+    }
+    return arr;
+  }
+
+  if (t === "object") {
+    if (depth >= MAX_METADATA_DEPTH) return undefined;
+    const obj: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (isForbiddenKey(k)) continue;
+      const sanitized = sanitizeMetadataValue(v, depth + 1);
+      if (sanitized !== undefined) obj[k] = sanitized;
+    }
+    return obj;
+  }
+
+  return undefined;
+}
+
+/**
+ * Drop any top-level key not in the allowlist, drop any key (at any
+ * depth) matching the forbidden patterns, recurse into nested
+ * objects/arrays up to `MAX_METADATA_DEPTH`, and truncate strings to
+ * `MAX_METADATA_STRING_LENGTH`. Anything beyond those bounds — or
+ * any non-serializable value (function, symbol, bigint) — is dropped
+ * silently so the helper stays best-effort.
+ */
 export function sanitizeAuditMetadata(input: unknown): Record<string, unknown> {
   if (!input || typeof input !== "object" || Array.isArray(input)) return {};
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
     if (!TENANT_AUDIT_METADATA_ALLOWLIST.has(key)) continue;
-    if (FORBIDDEN_KEY_PATTERNS.some((re) => re.test(key))) continue;
-    out[key] = value;
+    if (isForbiddenKey(key)) continue;
+    const sanitized = sanitizeMetadataValue(value, 1);
+    if (sanitized !== undefined) out[key] = sanitized;
   }
   return out;
 }
