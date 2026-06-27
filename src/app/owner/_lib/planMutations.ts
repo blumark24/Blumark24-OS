@@ -19,6 +19,19 @@ export interface UpdatePlanLimitsInput {
   limits: PlanLimitsValues;
 }
 
+// Canonical list of feature keys the owner can toggle per plan.
+//
+// IMPORTANT: This list must stay aligned with WorkspaceFeature in
+// src/lib/features/packageFeatures.ts. Adding a feature there but not
+// here causes cleanFeatures() to silently drop the key during save —
+// which removes it from plan_features even if the DB or a previous
+// owner edit had set it. The Sprint 1B premium gate (virtual_office,
+// external_integrations) was missing here until this repair sprint.
+//
+// Runtime access is decided by `plan_features` rows, not plan slug:
+// /api/tenant/workspace-context reads the rows directly. Enterprise
+// (slug = "enterprise") and Advanced (slug = "advanced") must include
+// virtual_office and external_integrations to grant runtime access.
 export const OWNER_WORKSPACE_FEATURES = [
   "dashboard",
   "tasks",
@@ -30,6 +43,8 @@ export const OWNER_WORKSPACE_FEATURES = [
   "strategy",
   "automation",
   "ai",
+  "virtual_office",
+  "external_integrations",
 ] as const;
 
 export type OwnerWorkspaceFeature = typeof OWNER_WORKSPACE_FEATURES[number];
@@ -47,6 +62,8 @@ export const OWNER_FEATURE_LABELS_AR: Record<OwnerWorkspaceFeature, string> = {
   strategy: "الاستراتيجية",
   automation: "الأتمتة",
   ai: "الذكاء الاصطناعي",
+  virtual_office: "المكتب الافتراضي",
+  external_integrations: "التكاملات المتقدمة",
 };
 
 async function logPlanAction(
