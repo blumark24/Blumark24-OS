@@ -3,6 +3,23 @@
 import Link from "next/link";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import DashboardGlassBackground from "@/components/dashboard/DashboardGlassBackground";
+import GlassHeroCard from "@/components/dashboard/glass/GlassHeroCard";
+import GlassKpiCard, {
+  type GlassKpiTone,
+} from "@/components/dashboard/glass/GlassKpiCard";
+import GlassAiAssistantCard, {
+  type GlassInsight,
+} from "@/components/dashboard/glass/GlassAiAssistantCard";
+import GlassActivityCard, {
+  type GlassActivityItem,
+} from "@/components/dashboard/glass/GlassActivityCard";
+import GlassTasksCard, {
+  type GlassTaskRow,
+} from "@/components/dashboard/glass/GlassTasksCard";
+import GlassQuickActions, {
+  type GlassQuickAction,
+} from "@/components/dashboard/glass/GlassQuickActions";
+import GlassChartSurface from "@/components/dashboard/glass/GlassChartSurface";
 import "./dashboard-glass.css";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -11,8 +28,8 @@ import {
 import {
   Users, CheckCircle2, XCircle, AlertTriangle, Activity, Clock,
   UserCheck, DollarSign, CheckCircle, X, Sparkles, TrendingUp, Timer, Siren,
-  Bot, CheckSquare, UserPlus, FileText, Wallet, BarChart3, ListChecks,
-  ArrowLeft, ShieldCheck, Building2, Zap, Plus,
+  CheckSquare, UserPlus, FileText, Wallet, BarChart3, ListChecks,
+  Building2, Zap, Plus,
   Briefcase, Network, UserCog, CalendarDays, CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,11 +41,10 @@ import { usePermissions, mapAuthRoleToUserRole } from "@/contexts/PermissionsCon
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import type { UserRole } from "@/contexts/PermissionsContext";
 import {
-  WS_CARD, WS_CARD_HOVER, WS_INNER_CARD, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE, WS_AI_PILL,
-  WS_STATUS_CHIP, BOARD_THEME, WS_TINTS, type BoardKey, type KpiAccent,
+  WS_CARD, WS_CARD_HOVER, WS_INNER_CARD, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE,
+  WS_STATUS_CHIP, BOARD_THEME, type BoardKey, type KpiAccent,
 } from "@/components/ui/workspaceVisual";
-import { StatPill, QuickActionTile, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
-import { PremiumMetricCard } from "@/components/ui/PremiumMetricCard";
+import { StatPill, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
@@ -63,13 +79,13 @@ const CustomTooltip = ({
   );
 };
 
-const QUICK_ACTIONS: { href: string; label: string; icon: React.ElementType; tint: KpiAccent }[] = [
-  { href: "/tasks",     label: "مهمة جديدة",   icon: CheckSquare, tint: "cyan"    },
-  { href: "/clients",   label: "عميل جديد",    icon: UserPlus,    tint: "emerald" },
-  { href: "/finance",   label: "فاتورة جديدة", icon: FileText,    tint: "sky"     },
-  { href: "/finance",   label: "مصروف جديد",   icon: Wallet,      tint: "rose"    },
-  { href: "/employees", label: "موظف جديد",    icon: Users,       tint: "violet"  },
-  { href: "/reports",   label: "إنشاء تقرير",  icon: BarChart3,   tint: "amber"   },
+const QUICK_ACTIONS: GlassQuickAction[] = [
+  { href: "/tasks",     label: "مهمة جديدة",   Icon: CheckSquare },
+  { href: "/clients",   label: "عميل جديد",    Icon: UserPlus    },
+  { href: "/finance",   label: "فاتورة جديدة", Icon: FileText    },
+  { href: "/finance",   label: "مصروف جديد",   Icon: Wallet      },
+  { href: "/employees", label: "موظف جديد",    Icon: Users       },
+  { href: "/reports",   label: "إنشاء تقرير",  Icon: BarChart3   },
 ];
 
 // ─── Status colours ───────────────────────────────────────────────────────────
@@ -330,79 +346,43 @@ export default function DashboardPage() {
             dashboard, not only the hero. */}
         <DashboardGlassBackground />
 
-        {/* ─── Hero: welcome banner ──────────────────────────────────────── */}
-        <section className={cn(WS_SURFACE, "bm-dashboard-glass-strong bm-dashboard-halo p-4 sm:p-5 lg:p-6")}>
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_88%_-25%,rgba(34,211,238,0.18),transparent_55%),radial-gradient(110%_120%_at_8%_125%,rgba(124,58,237,0.16),transparent_55%)]" />
-
-          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            {/* Welcome + identity + live status metrics (right side on desktop) */}
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-start gap-3">
-                {companyLogoUrl && (
-                  <span
-                    aria-label="شعار المنشأة"
-                    role="img"
-                    className="mt-0.5 h-9 w-9 shrink-0 rounded-xl border border-white/10 bg-white/5 bg-cover bg-center"
-                    style={{ backgroundImage: `url(${companyLogoUrl})` }}
-                  />
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm text-[#8ba3c7]">مرحباً بك 👋</p>
-                  <h1 className="mt-0.5 truncate text-xl sm:text-2xl font-heading font-bold text-white">
-                    {employeeDisplayName}
-                  </h1>
-                </div>
-              </div>
-
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#8ba3c7]">
-                <span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} className="text-cyan-300" />{roleLabel}</span>
-                <span className={cn(
-                  "inline-flex items-center gap-1.5",
-                  companyIsFallback ? "text-white/40 italic" : "text-white/90 font-medium",
-                )}>
-                  <Building2 size={13} className={companyIsFallback ? "text-white/30" : "text-cyan-300"} />
-                  {companyName}
-                </span>
-                <span className={cn(
-                  "inline-flex items-center gap-1.5",
-                  departmentDisplay.isEmpty ? "text-white/40 italic" : "text-[#8ba3c7]",
-                )}>
-                  <Building2 size={13} className={departmentDisplay.isEmpty ? "text-white/30" : "text-cyan-300"} />
-                  {departmentDisplay.text}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{todayArabic()}
-                </span>
-              </div>
-
-              {/* Three compact live metrics (derived from existing data only; chips wrap, never clip) */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <StatPill icon={Zap}        label="أداء الفريق"  value={teamPerformance}             tint="emerald"       />
-                <StatPill icon={TrendingUp} label="الإنجاز"      value={`${kpi.completedTasksPct}%`} tint="cyan"          />
-                <StatPill icon={Activity}   label="حالة التشغيل" value={operationalStatus}           tint={operationalTint} />
-              </div>
-            </div>
-
-            {/* AI insight panel (left side on desktop; the mobile equivalent lives lower as a full card) */}
-            <div className="hidden lg:flex lg:w-[300px] lg:shrink-0">
-              <div className={cn(WS_INNER_CARD, "w-full p-4 backdrop-blur-sm")}>
-                <div className="mb-2 flex items-center gap-2">
-                  <span className={`${WS_ICON_ORB} w-8 h-8 shrink-0 bg-violet-400/10 ring-1 ring-violet-300/25`}>
-                    <Sparkles size={15} className="text-violet-300" />
-                  </span>
-                  <div className="text-[11px] font-medium text-cyan-200/90">رؤية ذكية من النظام</div>
-                </div>
-                <p className="text-sm leading-snug text-[#dbe6f7]">{aiInsight}</p>
-                <Link
-                  href="/ai"
-                  className={`mt-3 ${WS_AI_PILL}`}
-                >
-                  عرض التفاصيل <ArrowLeft size={14} />
-                </Link>
-              </div>
-            </div>
+        {/* ─── Hero: glass welcome / package card ────────────────────────── */}
+        <GlassHeroCard
+          userName={employeeDisplayName}
+          roleLabel={roleLabel}
+          companyName={companyName}
+          companyIsFallback={companyIsFallback}
+          planLabel={PLAN_LABELS_AR[planSlug]}
+          subscriptionStatusLabel={subscriptionStatusLabel}
+          todayLabel={todayArabic()}
+        >
+          {/* Three compact live metrics (derived only from existing data). */}
+          <div className="flex flex-wrap gap-2">
+            <StatPill icon={Zap}        label="أداء الفريق"  value={teamPerformance}             tint="emerald"          />
+            <StatPill icon={TrendingUp} label="الإنجاز"      value={`${kpi.completedTasksPct}%`} tint="cyan"             />
+            <StatPill icon={Activity}   label="حالة التشغيل" value={operationalStatus}           tint={operationalTint}  />
+            <span className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]",
+              departmentDisplay.isEmpty ? "italic" : "",
+            )}
+            style={{
+              background: "rgba(11,31,58,0.55)",
+              border: "1px solid rgba(125, 220, 255, 0.18)",
+              color: departmentDisplay.isEmpty ? "rgba(255,255,255,0.40)" : "#DBE6F7",
+            }}>
+              <Building2 size={12} style={{ color: departmentDisplay.isEmpty ? "rgba(255,255,255,0.30)" : "#7DDCFF" }} />
+              {departmentDisplay.text}
+            </span>
+            {companyLogoUrl && (
+              <span
+                aria-label="شعار المنشأة"
+                role="img"
+                className="h-7 w-7 rounded-full border border-cyan-300/30 bg-white/5 bg-cover bg-center"
+                style={{ backgroundImage: `url(${companyLogoUrl})` }}
+              />
+            )}
           </div>
-        </section>
+        </GlassHeroCard>
 
         {/* ─── Work identity block ────────────────────────────────────────── */}
         <section className={cn(WS_CARD, "bm-dashboard-glass p-4 sm:p-5")}>
@@ -465,142 +445,113 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* ─── KPI cards ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 auto-rows-fr items-stretch min-w-0">
+        {/* ─── KPI cards — compact glass tiles matching the approved preview ──── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 min-w-0">
           {kpiLoading
             ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
             : kpiCards.map((card) => {
-                const theme = card.key === "overdueTasks" && kpi.overdueTasks === 0
-                  ? BOARD_THEME.completedTasks
-                  : BOARD_THEME[card.key];
-                const progress =
-                  card.key === "completedTasks"
-                    ? kpi.completedTasksPct
-                    : card.key === "incompleteTasks"
-                      ? totalTasks
-                        ? Math.round((1 - kpi.incompleteTasks / totalTasks) * 100)
-                        : 100
-                      : card.key === "activeClients"
-                        ? totalClients
-                          ? Math.round((kpi.activeClients / totalClients) * 100)
-                          : 0
-                        : kpi.overdueTasks === 0
-                          ? 100
-                          : Math.max(15, 100 - kpi.overdueTasks * 12);
+                const tone: GlassKpiTone =
+                  card.key === "activeClients"   ? "cyan"
+                  : card.key === "completedTasks" ? "emerald"
+                  : card.key === "incompleteTasks" ? "amber"
+                  : kpi.overdueTasks > 0           ? "rose"
+                                                  : "emerald";
 
-                const footer =
-                  card.key === "activeClients" ? (
-                    <div className={`flex items-center gap-1.5 ${theme.accent}`}>
-                      <TrendingUp size={13} className="shrink-0" />
-                      <span className="truncate">{latestClient ? `آخر عميل: ${latestClient.name}` : "لا يوجد عميل جديد"}</span>
-                    </div>
-                  ) : card.key === "completedTasks" ? (
-                    <div className={`flex items-center gap-1.5 ${theme.accent}`}>
-                      <CheckCircle2 size={13} className="shrink-0" />
-                      <span className="truncate">معدل إنجاز مستقر اليوم</span>
-                    </div>
-                  ) : card.key === "incompleteTasks" ? (
-                    <div className={`flex items-center gap-1.5 ${theme.accent}`}>
-                      <span className="truncate">متبقي {kpi.incompleteTasks} من {totalTasks || 0}</span>
-                    </div>
-                  ) : (
-                    <div className={`flex items-center gap-1.5 ${theme.accent}`}>
-                      <Siren size={13} className="shrink-0" />
-                      <span className="truncate">{kpi.overdueTasks > 0 ? "تتطلب متابعة فورية" : "لا يوجد تعثر حرج"}</span>
-                    </div>
-                  );
+                const caption =
+                  card.key === "activeClients"
+                    ? (latestClient ? `آخر عميل: ${latestClient.name}` : "لا يوجد عميل جديد")
+                  : card.key === "completedTasks"
+                    ? "معدل إنجاز مستقر"
+                  : card.key === "incompleteTasks"
+                    ? `متبقي ${kpi.incompleteTasks} من ${totalTasks || 0}`
+                  : (kpi.overdueTasks > 0 ? "تتطلب متابعة فورية" : "لا يوجد تعثر حرج");
+
+                const trendText =
+                  card.key === "activeClients" && totalClients
+                    ? `${Math.round((kpi.activeClients / totalClients) * 100)}%`
+                  : card.key === "completedTasks"
+                    ? `${kpi.completedTasksPct}%`
+                  : card.key === "incompleteTasks" && totalTasks
+                    ? `${Math.max(0, Math.round((1 - kpi.incompleteTasks / totalTasks) * 100))}%`
+                  : card.key === "overdueTasks"
+                    ? (kpi.overdueTasks > 0 ? `${kpi.overdueTasks}` : "0")
+                  : undefined;
+
+                const trendDirection: "up" | "down" =
+                  card.key === "overdueTasks" && kpi.overdueTasks > 0 ? "down" : "up";
 
                 return (
-                  <PremiumMetricCard
+                  <GlassKpiCard
                     key={card.key}
                     label={card.label}
                     value={card.value}
-                    subtitle={card.subtitle}
-                    icon={card.icon}
-                    iconColor={card.iconColor}
-                    theme={theme}
-                    progress={progress}
-                    footer={footer}
-                    onLiveClick={() => setActiveBoard(card.key)}
-                    className="h-full"
+                    caption={caption}
+                    trendText={trendText}
+                    trendDirection={trendDirection}
+                    Icon={card.icon}
+                    tone={tone}
+                    onClick={() => setActiveBoard(card.key)}
                   />
                 );
               })}
         </div>
 
-        {/* ─── Smart Insights (rule-based, free — no external AI) ────────── */}
-        <section className={cn(WS_SURFACE, "bm-dashboard-glass p-4 sm:p-5")}>
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_92%_-20%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(110%_120%_at_5%_120%,rgba(34,211,238,0.12),transparent_55%)]" />
-          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start">
-            {/* Glowing AI avatar — on the left in RTL via order */}
-            <div className="order-first flex shrink-0 items-center justify-center sm:order-last sm:w-24">
-              <div className="relative grid h-16 w-16 place-items-center rounded-full bg-violet-500/10 ring-1 ring-violet-300/25">
-                <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(124,58,237,0.45),transparent_70%)] blur-md animate-pulse-glow" />
-                <Bot size={28} className="relative text-violet-200" />
-              </div>
+        {/* ─── AI assistant / smart insights — glass card ─────────────────── */}
+        <GlassAiAssistantCard
+          headline={aiInsight}
+          body="تحليل فوري مبني على بياناتك الحالية — لا يوجد ذكاء اصطناعي خارجي."
+          insights={smartInsights.map<GlassInsight>((ins) => ({
+            Icon: ins.icon as GlassInsight["Icon"],
+            text: ins.text,
+            tone: ins.tint,
+          }))}
+          href="/ai"
+        />
+
+        {isSuperAdmin && activeEmployeeNames.length > 0 && (
+          <section className={cn(WS_CARD, "bm-dashboard-glass p-3 sm:p-4")}>
+            <div className="flex flex-wrap items-center gap-2 relative z-10">
+              <span className="text-[11px]" style={{ color: "#94A3B8" }}>موظفون نشطون:</span>
+              {activeEmployeeNames.map((name) => (
+                <span key={name} className={cn(WS_STATUS_CHIP, "text-[11px] text-white/80")}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  {name}
+                </span>
+              ))}
             </div>
-
-            {/* Content */}
-            <div className="min-w-0 flex-1">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Sparkles size={16} className="shrink-0 text-violet-300" />
-                  <div className="min-w-0">
-                    <h2 className={`${WS_SECTION_TITLE} text-sm`}>رؤى ذكية من النظام</h2>
-                    <p className="truncate text-[11px] text-[#6b87ab]">تحليل فوري مبني على بياناتك الحالية</p>
-                  </div>
-                </div>
-                <Link href="/ai" className={`shrink-0 ${WS_AI_PILL}`}>
-                  عرض جميع الرؤى <ArrowLeft size={14} />
-                </Link>
-              </div>
-
-              <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {smartInsights.map((ins, i) => (
-                  <li key={i} className={cn(WS_INNER_CARD, "flex min-w-0 items-start gap-2.5 p-3")}>
-                    <span className={`${WS_ICON_ORB} w-8 h-8 shrink-0 ${WS_TINTS[ins.tint].orb}`}>
-                      <ins.icon size={15} className={WS_TINTS[ins.tint].icon} />
-                    </span>
-                    <p className="min-w-0 text-sm leading-snug text-[#dbe6f7]">{ins.text}</p>
-                  </li>
-                ))}
-              </ul>
-
-              {isSuperAdmin && activeEmployeeNames.length > 0 && (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] text-[#8ba3c7]">موظفون نشطون:</span>
-                  {activeEmployeeNames.map((name) => (
-                    <span key={name} className={cn(WS_STATUS_CHIP, "text-[11px] text-white/80")}>
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* ─── Analytics: performance + task distribution ────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "bm-dashboard-glass lg:col-span-2 p-5 sm:p-6")}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-            <div className="relative z-10 mb-5 flex items-center justify-between">
-              <h3 className={WS_SECTION_TITLE}>تحليلات الأداء — الإيرادات</h3>
-              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">آخر 12 شهر</span>
-            </div>
+          <GlassChartSurface
+            title="تحليلات الأداء — الإيرادات"
+            className="lg:col-span-2"
+            rightChip={
+              <span
+                className="rounded-lg px-2 py-1 text-xs"
+                style={{
+                  background: "rgba(11,31,58,0.55)",
+                  border: "1px solid rgba(125, 220, 255, 0.18)",
+                  color: "#94A3B8",
+                }}
+              >
+                آخر 12 شهر
+              </span>
+            }
+          >
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={salesData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.4)" />
-                <XAxis dataKey="month" tick={{ fill: "#8ba3c7", fontSize: 11 }} />
-                <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(125,220,255,0.10)" />
+                <XAxis dataKey="month" tick={{ fill: "#94A3B8", fontSize: 11 }} />
+                <YAxis tick={{ fill: "#94A3B8", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend formatter={(v) => v === "current" ? String(currentYear) : String(currentYear - 1)} />
-                <Line type="monotone" dataKey="current" stroke="#22d3ee" strokeWidth={2.5} dot={false} name="current" />
-                <Line type="monotone" dataKey="previous" stroke="#1e3a5f" strokeWidth={1.5} dot={false} name="previous" strokeDasharray="4 2" />
+                <Line type="monotone" dataKey="current" stroke="#7DDCFF" strokeWidth={2.5} dot={false} name="current" />
+                <Line type="monotone" dataKey="previous" stroke="#147CFF" strokeWidth={1.5} dot={false} name="previous" strokeDasharray="4 2" opacity={0.7} />
               </LineChart>
             </ResponsiveContainer>
-          </div>
+          </GlassChartSurface>
 
           <div className={cn(WS_CARD, WS_CARD_HOVER, "bm-dashboard-glass p-5 sm:p-6")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
@@ -765,55 +716,87 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "bm-dashboard-glass p-5 sm:p-6")}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-            <div className="relative z-10 mb-4 flex items-center justify-between">
-              <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>النشاطات الأخيرة</h3>
-            </div>
-            {actLoad ? (
-              <CardSkeleton rows={5} />
-            ) : activities.length === 0 ? (
-              <WorkspaceEmptyInline icon={Activity} title="لا توجد نشاطات بعد" accent="cyan" className="py-8" />
-            ) : (
-              <div className="space-y-3">
-                {activities.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3 border-b border-white/[0.05] pb-3 last:border-0 last:pb-0">
-                    <div className={`${WS_ICON_ORB} w-8 h-8 shrink-0 bg-cyan-400/10 ring-1 ring-cyan-300/20 text-[#22d3ee]`}>
-                      {activityIcons[activity.type] ?? <Activity size={14} />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm leading-snug text-white">{activity.description}</p>
-                      <div className="mt-1 flex items-center gap-1 text-xs text-[#6b87ab]"><Clock size={10} /><span>{timeAgo(activity.timestamp)}</span></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <GlassActivityCard
+            title="النشاطات الأخيرة"
+            href="/reports"
+            loading={actLoad}
+            emptyState={
+              <WorkspaceEmptyInline icon={Activity} title="لا توجد نشاطات بعد" accent="cyan" />
+            }
+            items={activities.map<GlassActivityItem>((activity) => ({
+              id: activity.id,
+              icon: activityIcons[activity.type] ?? <Activity size={14} />,
+              title: activity.description,
+              time: timeAgo(activity.timestamp),
+              tone: "cyan",
+            }))}
+          />
         </div>
 
-        {/* ─── Quick actions ─────────────────────────────────────────────── */}
-        <section className={cn(WS_SURFACE, "bm-dashboard-glass p-4 sm:p-5")}>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className={`${WS_SECTION_TITLE} text-sm`}>اختصارات سريعة</h2>
-            <span className="text-[11px] text-[#6b87ab]">اختصارات لأهم العمليات</span>
+        {/* ─── Tasks today (real top incomplete + overdue tasks) ────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <GlassTasksCard
+            title="مهام اليوم — متبقية"
+            href="/tasks"
+            loading={summaryLoading}
+            emptyState={
+              <WorkspaceEmptyInline icon={CheckSquare} title="لا توجد مهام مفتوحة" accent="emerald" />
+            }
+            rows={topFiveIncompleteTasks.map<GlassTaskRow>((t) => {
+              const due = t.dueDate ? shortArabicDate(t.dueDate) : null;
+              return {
+                id: t.id,
+                title: t.title,
+                progress: due ?? "—",
+                ratio: 0.5,
+                priorityLabel: due ? `موعد ${due}` : "بدون موعد",
+                priorityColor: "#F59E0B",
+              };
+            })}
+          />
+          <GlassTasksCard
+            title="مهام اليوم — متأخرة"
+            href="/tasks"
+            loading={summaryLoading}
+            emptyState={
+              <WorkspaceEmptyInline icon={CheckSquare} title="لا توجد مهام متأخرة 🎯" accent="emerald" />
+            }
+            rows={topFiveOverdueTasks.map<GlassTaskRow>((t) => {
+              const due = t.dueDate ? shortArabicDate(t.dueDate) : null;
+              return {
+                id: t.id,
+                title: t.title,
+                progress: due ?? "—",
+                ratio: 0.85,
+                priorityLabel: due ? `موعد ${due}` : "بدون موعد",
+                priorityColor: "#EF4444",
+              };
+            })}
+          />
+        </div>
+
+        {/* ─── Quick actions — glass strip matching the approved preview ─── */}
+        <div className="flex items-stretch gap-3">
+          {/* Central quick-create orb (links to the existing task create flow) */}
+          <Link
+            href="/tasks"
+            aria-label="إنشاء سريع"
+            className="grid h-auto w-16 shrink-0 place-items-center rounded-2xl text-white transition-opacity hover:opacity-90"
+            style={{
+              background: "linear-gradient(135deg, #00D9FF 0%, #147CFF 100%)",
+              boxShadow: "0 6px 18px rgba(0,217,255,0.45), inset 0 1px 0 rgba(255,255,255,0.30), 0 0 28px rgba(0,217,255,0.30)",
+              border: "1.5px solid rgba(255,255,255,0.30)",
+            }}
+          >
+            <Plus size={26} strokeWidth={2.2} />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <GlassQuickActions
+              actions={QUICK_ACTIONS}
+              caption="اختصارات لأهم العمليات"
+            />
           </div>
-          <div className="flex items-stretch gap-3">
-            {/* Central quick-create orb (links to the existing task create flow) */}
-            <Link
-              href="/tasks"
-              aria-label="إنشاء سريع"
-              className="grid h-auto w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_14px_34px_-12px_rgba(124,58,237,0.75)] transition-opacity hover:opacity-90"
-            >
-              <Plus size={26} strokeWidth={2.2} />
-            </Link>
-            <div className="grid min-w-0 flex-1 grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
-              {QUICK_ACTIONS.map((a) => (
-                <QuickActionTile key={a.label} href={a.href} label={a.label} icon={a.icon} tint={a.tint} />
-              ))}
-            </div>
-          </div>
-        </section>
+        </div>
 
         <section className={cn(WS_CARD, "bm-dashboard-glass p-4 sm:p-5")}>
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
