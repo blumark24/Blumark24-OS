@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveTenantSession } from "@/lib/tenant/resolveTenantSession";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { EXECUTIVE_OFFICE_FIXED_ROOM_KEYS } from "@/lib/tenant/executiveOfficeRoomMappings";
+import {
+  isMissingVirtualOfficeTableError,
+  resolveVirtualOfficeApiReadiness,
+  virtualOfficeTableMissingResponse,
+} from "@/lib/tenant/virtualOfficeReadiness";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,15 +35,26 @@ function handleError(err: unknown) {
   return json({ error: "تعذر تنفيذ الطلب" }, 500);
 }
 
-async function ensureDefaultRooms(client: ReturnType<typeof Object.create>, organizationId: string) {
-  const { data: existing } = await client
+async function ensureDefaultRooms(
+  client: SupabaseClient,
+  organizationId: string,
+): Promise<{ ok: true } | { ok: false; response: NextResponse }> {
+  const { data: existing, error: selectError } = await client
     .from("tenant_virtual_office_rooms")
     .select("room_key")
     .eq("organization_id", organizationId);
 
+  if (selectError) {
+    if (isMissingVirtualOfficeTableError(selectError)) {
+      return { ok: false, response: virtualOfficeTableMissingResponse() };
+    }
+    console.error(`${TAG} default rooms select:`, selectError);
+    return { ok: false, response: json({ error: "تعذر تحميل غرف المكتب الافتراضي" }, 500) };
+  }
+
   const existingKeys = new Set((existing ?? []).map((r: { room_key: string }) => r.room_key));
   const missing = EXECUTIVE_OFFICE_FIXED_ROOM_KEYS.filter((k) => !existingKeys.has(k));
-  if (missing.length === 0) return;
+  if (missing.length === 0) return { ok: true };
 
   const inserts = missing.map((key, i) => {
     const slotIndex = EXECUTIVE_OFFICE_FIXED_ROOM_KEYS.indexOf(key);
@@ -53,20 +69,30 @@ async function ensureDefaultRooms(client: ReturnType<typeof Object.create>, orga
     };
   });
 
-  await client.from("tenant_virtual_office_rooms").upsert(inserts, {
+  const { error: upsertError } = await client.from("tenant_virtual_office_rooms").upsert(inserts, {
     onConflict: "organization_id,room_key",
     ignoreDuplicates: true,
   });
+
+  if (upsertError) {
+    if (isMissingVirtualOfficeTableError(upsertError)) {
+      return { ok: false, response: virtualOfficeTableMissingResponse() };
+    }
+    console.error(`${TAG} default rooms upsert:`, upsertError);
+    return { ok: false, response: json({ error: "تعذر تجهيز غرف المكتب الافتراضي" }, 500) };
+  }
+
+  return { ok: true };
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await resolveTenantSession(req);
-    if (!session.ok) {
-      return json({ error: session.error, code: session.code }, session.status);
-    }
+    const readiness = await resolveVirtualOfficeApiReadiness(req);
+    if (!readiness.ok) return readiness.response;
+    const { session } = readiness;
 
-    await ensureDefaultRooms(session.client, session.organizationId);
+    const defaultRooms = await ensureDefaultRooms(session.client, session.organizationId);
+    if (!defaultRooms.ok) return defaultRooms.response;
 
     const { data, error } = await session.client
       .from("tenant_virtual_office_rooms")
@@ -75,6 +101,9 @@ export async function GET(req: NextRequest) {
       .order("room_number");
 
     if (error) {
+      if (isMissingVirtualOfficeTableError(error)) {
+        return virtualOfficeTableMissingResponse();
+      }
       console.error(`${TAG} select:`, error);
       return json({ error: "تعذر تحميل الغرف" }, 500);
     }
