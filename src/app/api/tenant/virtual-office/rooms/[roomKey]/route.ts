@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveTenantSession } from "@/lib/tenant/resolveTenantSession";
 import { isExecutiveOfficeFixedRoomKey } from "@/lib/tenant/executiveOfficeRoomMappings";
+import {
+  isMissingVirtualOfficeTableError,
+  resolveVirtualOfficeApiReadiness,
+  virtualOfficeTableMissingResponse,
+} from "@/lib/tenant/virtualOfficeReadiness";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,10 +32,9 @@ export async function PATCH(
       return json({ error: "لا يمكن إغلاق مكتب مجلس الإدارة." }, 400);
     }
 
-    const session = await resolveTenantSession(req);
-    if (!session.ok) {
-      return json({ error: session.error, code: session.code }, session.status);
-    }
+    const readiness = await resolveVirtualOfficeApiReadiness(req);
+    if (!readiness.ok) return readiness.response;
+    const { session } = readiness;
 
     if (!MANAGER_ROLES.has(session.role)) {
       return json({ error: "ليست لديك صلاحية إدارة المكاتب" }, 403);
@@ -62,6 +65,9 @@ export async function PATCH(
       .maybeSingle();
 
     if (error) {
+      if (isMissingVirtualOfficeTableError(error)) {
+        return virtualOfficeTableMissingResponse();
+      }
       console.error(`${TAG} update:`, error);
       return json({ error: "تعذر تحديث حالة الغرفة" }, 500);
     }

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveTenantSession } from "@/lib/tenant/resolveTenantSession";
+import {
+  isMissingVirtualOfficeTableError,
+  resolveVirtualOfficeApiReadiness,
+  virtualOfficeTableMissingResponse,
+} from "@/lib/tenant/virtualOfficeReadiness";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,10 +24,9 @@ function json(payload: unknown, status = 200) {
 // Never affects any other tenant (all queries scoped to organization_id).
 export async function POST(req: NextRequest) {
   try {
-    const session = await resolveTenantSession(req);
-    if (!session.ok) {
-      return json({ error: session.error, code: session.code }, session.status);
-    }
+    const readiness = await resolveVirtualOfficeApiReadiness(req);
+    if (!readiness.ok) return readiness.response;
+    const { session } = readiness;
 
     if (!MANAGER_ROLES.has(session.role)) {
       return json({ error: "ليست لديك صلاحية إعادة ضبط المكتب الافتراضي" }, 403);
@@ -51,6 +54,9 @@ export async function POST(req: NextRequest) {
       .eq("is_board", false);
 
     if (roomError) {
+      if (isMissingVirtualOfficeTableError(roomError)) {
+        return virtualOfficeTableMissingResponse();
+      }
       console.error(`${TAG} open rooms:`, roomError);
       return json({ error: "تعذر فتح المكاتب بعد إعادة الضبط" }, 500);
     }
