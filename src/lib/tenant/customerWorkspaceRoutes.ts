@@ -15,6 +15,7 @@ export const CUSTOMER_WORKSPACE_ROUTE_PREFIXES = [
   "/ai",
   "/automation",
   "/automations",
+  "/virtual-office",
   "/settings",
 ] as const;
 
