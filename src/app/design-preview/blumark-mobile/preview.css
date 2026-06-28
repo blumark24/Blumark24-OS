@@ -1,0 +1,80 @@
+/* Scoped styles for the Blumark mobile design preview.
+   Loaded only by /design-preview/blumark-mobile/page.tsx so it
+   cannot leak into the production dashboard.
+
+   Animations are all slow (5–14 s), low-contrast, and gated by
+   prefers-reduced-motion. */
+
+@keyframes bm-preview-pulse-glow {
+  0%, 100% { opacity: 0.12; transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: 0.20; transform: translate(-50%, -50%) scale(1.06); }
+}
+
+@keyframes bm-preview-arc-breathe {
+  0%, 100% { opacity: 0.65; }
+  50%      { opacity: 1; }
+}
+
+@keyframes bm-preview-particle-twinkle {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 0.45; }
+}
+
+.bm-preview-pulse-glow { animation: bm-preview-pulse-glow 6s ease-in-out infinite; }
+.bm-preview-arcs       { animation: bm-preview-arc-breathe 9s ease-in-out infinite; }
+.bm-preview-particles  { animation: bm-preview-particle-twinkle 7s ease-in-out infinite; }
+
+.bm-preview-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.bm-preview-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Shared premium glass surfaces. .bm-glass for compact KPI / strip
+   cards; .bm-glass-strong for hero cards (welcome, AI, chart). Both keep
+   the background visible while staying readable in Arabic. */
+.bm-glass {
+  background:
+    linear-gradient(135deg, rgba(11, 31, 58, 0.45) 0%, rgba(7, 20, 38, 0.55) 100%);
+  border: 1px solid rgba(125, 220, 255, 0.18);
+  border-radius: 16px;
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  box-shadow:
+    0 8px 28px rgba(2, 8, 23, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.bm-glass-strong {
+  background:
+    linear-gradient(135deg, rgba(11, 31, 58, 0.55) 0%, rgba(7, 20, 38, 0.65) 100%);
+  border: 1px solid rgba(125, 220, 255, 0.24);
+  border-radius: 18px;
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  box-shadow:
+    0 10px 32px rgba(2, 8, 23, 0.50),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 24px rgba(0, 217, 255, 0.10);
+}
+
+/* Subtle cyan inner-glow ring used by hero cards (welcome / AI). */
+.bm-glow-ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(0, 217, 255, 0.10), transparent 60%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bm-preview-pulse-glow,
+  .bm-preview-arcs,
+  .bm-preview-particles {
+    animation: none !important;
+  }
+}
