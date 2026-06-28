@@ -347,6 +347,12 @@ export function canAccessWorkspaceRoute(
   if (!satisfiesPermission(route.permission, hasPermission)) return false;
 
   if (!route.feature) return true;
+  if (
+    route.feature === "virtual_office"
+    && (ctx.planSlug === "advanced" || ctx.planSlug === "enterprise")
+  ) {
+    return true;
+  }
   return featureEnabled(ctx.enabledFeatures, route.feature);
 }
 
