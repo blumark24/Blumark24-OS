@@ -1,0 +1,82 @@
+/* Dashboard glass command — scoped styles & animations.
+ *
+ * Loaded only by `src/app/dashboard/page.tsx` (via the layout-level
+ * import in that file). Names are bm-dashboard-* so they never collide
+ * with the mobile preview (bm-preview-*) or any other surface.
+ *
+ * All motion is gated by prefers-reduced-motion: reduce. */
+
+@keyframes bm-dashboard-pulse-glow {
+  0%, 100% { opacity: 0.10; transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: 0.16; transform: translate(-50%, -50%) scale(1.05); }
+}
+
+@keyframes bm-dashboard-float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-22px) rotate(4deg); }
+}
+
+@keyframes bm-dashboard-float-mid {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-14px) rotate(-3deg); }
+}
+
+@keyframes bm-dashboard-arc-breathe {
+  0%, 100% { opacity: 0.70; }
+  50%      { opacity: 1; }
+}
+
+@keyframes bm-dashboard-particle-twinkle {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 0.55; }
+}
+
+.bm-dashboard-pulse-glow { animation: bm-dashboard-pulse-glow 7s ease-in-out infinite; }
+.bm-dashboard-float-slow { animation: bm-dashboard-float-slow 8s ease-in-out infinite; }
+.bm-dashboard-float-mid  { animation: bm-dashboard-float-mid 6s ease-in-out infinite; }
+.bm-dashboard-arcs       { animation: bm-dashboard-arc-breathe 10s ease-in-out infinite; }
+.bm-dashboard-particles  { animation: bm-dashboard-particle-twinkle 8s ease-in-out infinite; }
+
+/* Glass overlay class for dashboard cards.
+ *
+ * Layered on top of the shared WS_CARD / WS_SURFACE tokens via cn().
+ * This shifts the border tone toward cyan and adds a soft inset
+ * cyan halo — matching the approved preview language — without
+ * editing any shared visual token used by other pages. */
+.bm-dashboard-glass {
+  border-color: rgba(125, 220, 255, 0.22) !important;
+  box-shadow:
+    0 16px 40px rgba(2, 8, 23, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 24px rgba(0, 217, 255, 0.08) !important;
+}
+
+.bm-dashboard-glass-strong {
+  border-color: rgba(125, 220, 255, 0.28) !important;
+  box-shadow:
+    0 18px 44px rgba(2, 8, 23, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 28px rgba(0, 217, 255, 0.12) !important;
+}
+
+/* Subtle top-edge cyan halo for hero cards (welcome / smart insights). */
+.bm-dashboard-halo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(140% 60% at 50% 0%, rgba(0, 217, 255, 0.10), transparent 60%);
+  z-index: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bm-dashboard-pulse-glow,
+  .bm-dashboard-float-slow,
+  .bm-dashboard-float-mid,
+  .bm-dashboard-arcs,
+  .bm-dashboard-particles {
+    animation: none !important;
+  }
+}

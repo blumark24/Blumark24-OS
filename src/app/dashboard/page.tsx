@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import JellyfishBackground from "@/components/jellyfish/JellyfishBackground";
+import DashboardGlassBackground from "@/components/dashboard/DashboardGlassBackground";
+import "./dashboard-glass.css";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
@@ -323,10 +324,14 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className={cn(WS_PAGE, "min-w-0 max-w-full overflow-x-hidden")}>
+      <div className={cn(WS_PAGE, "relative min-w-0 max-w-full overflow-x-hidden")}>
+        {/* Page-level glass command background — sits behind every section
+            so the deep-navy + cyan-arc language carries across the full
+            dashboard, not only the hero. */}
+        <DashboardGlassBackground />
+
         {/* ─── Hero: welcome banner ──────────────────────────────────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5 lg:p-6`}>
-          <JellyfishBackground />
+        <section className={cn(WS_SURFACE, "bm-dashboard-glass-strong bm-dashboard-halo p-4 sm:p-5 lg:p-6")}>
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_88%_-25%,rgba(34,211,238,0.18),transparent_55%),radial-gradient(110%_120%_at_8%_125%,rgba(124,58,237,0.16),transparent_55%)]" />
 
           <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -400,7 +405,7 @@ export default function DashboardPage() {
         </section>
 
         {/* ─── Work identity block ────────────────────────────────────────── */}
-        <section className={cn(WS_CARD, "p-4 sm:p-5")}>
+        <section className={cn(WS_CARD, "bm-dashboard-glass p-4 sm:p-5")}>
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
           <div className="relative z-10">
             <div className="mb-3 flex items-center gap-1.5 text-[11px] text-cyan-300/80">
@@ -524,7 +529,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ─── Smart Insights (rule-based, free — no external AI) ────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
+        <section className={cn(WS_SURFACE, "bm-dashboard-glass p-4 sm:p-5")}>
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_92%_-20%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(110%_120%_at_5%_120%,rgba(34,211,238,0.12),transparent_55%)]" />
           <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start">
             {/* Glowing AI avatar — on the left in RTL via order */}
@@ -578,7 +583,7 @@ export default function DashboardPage() {
 
         {/* ─── Analytics: performance + task distribution ────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "lg:col-span-2 p-5 sm:p-6")}>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "bm-dashboard-glass lg:col-span-2 p-5 sm:p-6")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             <div className="relative z-10 mb-5 flex items-center justify-between">
               <h3 className={WS_SECTION_TITLE}>تحليلات الأداء — الإيرادات</h3>
@@ -597,7 +602,7 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
 
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "bm-dashboard-glass p-5 sm:p-6")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             <div className="relative z-10 mb-4 flex items-center justify-between">
               <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>توزيع المهام</h3>
@@ -634,7 +639,7 @@ export default function DashboardPage() {
 
         {/* ─── Employees by dept + satisfaction + quick summary ──────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "bm-dashboard-glass p-5 sm:p-6")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             <div className="relative z-10 mb-5 flex items-center justify-between">
               <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>الموظفون بالقسم</h3>
@@ -655,7 +660,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6 flex flex-col items-center justify-center")}>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "bm-dashboard-glass p-5 sm:p-6 flex flex-col items-center justify-center")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             <h3 className="relative z-10 mb-4 text-sm text-[rgba(203,213,225,0.72)]">معدل رضا العملاء</h3>
             {kpiLoading ? (
@@ -689,7 +694,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "bm-dashboard-glass p-5 sm:p-6")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             <div className="relative z-10 mb-4 flex items-center justify-between">
               <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>ملخص سريع</h3>
@@ -718,7 +723,7 @@ export default function DashboardPage() {
 
         {/* ─── Projects + recent activity ────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "lg:col-span-2 p-5 sm:p-6")}>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "bm-dashboard-glass lg:col-span-2 p-5 sm:p-6")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             <div className="relative z-10 mb-4 flex items-center justify-between">
               <h3 className={WS_SECTION_TITLE}>المشاريع النشطة</h3>
@@ -760,7 +765,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "bm-dashboard-glass p-5 sm:p-6")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             <div className="relative z-10 mb-4 flex items-center justify-between">
               <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>النشاطات الأخيرة</h3>
@@ -788,7 +793,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ─── Quick actions ─────────────────────────────────────────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
+        <section className={cn(WS_SURFACE, "bm-dashboard-glass p-4 sm:p-5")}>
           <div className="mb-4 flex items-center justify-between">
             <h2 className={`${WS_SECTION_TITLE} text-sm`}>اختصارات سريعة</h2>
             <span className="text-[11px] text-[#6b87ab]">اختصارات لأهم العمليات</span>
@@ -810,7 +815,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className={cn(WS_CARD, "p-4 sm:p-5")}>
+        <section className={cn(WS_CARD, "bm-dashboard-glass p-4 sm:p-5")}>
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
           <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
