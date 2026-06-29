@@ -121,4 +121,18 @@ export function getOfficeInteriorProfile(officeNumber?: number | null) {
   return OFFICE_INTERIOR_PROFILES[officeNumber] ?? null;
 }
 
+export function getOfficeInteriorImageSrc(officeNumber?: number | null) {
+  return getOfficeInteriorProfile(officeNumber)?.imageSrc ?? null;
+}
+
+export function hasDistinctOfficeInteriorImages() {
+  const imageSources = Object.values(OFFICE_INTERIOR_PROFILES).map((profile) => profile.imageSrc);
+
+  return (
+    imageSources.length === 9 &&
+    imageSources.every((src): src is string => Boolean(src)) &&
+    new Set(imageSources).size === imageSources.length
+  );
+}
+
 export const officeInteriorProfiles = OFFICE_INTERIOR_PROFILES;
