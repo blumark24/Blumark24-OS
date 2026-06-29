@@ -23,16 +23,20 @@ const IMAGE_SRC = "/assets/virtual-office/office-map-reference.webp";
 const IMAGE_ASPECT_RATIO = "1672 / 941";
 
 interface ChipPos { top: string; left: string; }
+// VIRTUAL-OFFICE-NUMBERING-LOCK-1
+// Visual 3×3 office numbering. Index = slot index in
+// VirtualOfficeDesign (officeNumber = slot + 1). Office 05 stays at
+// the visual center (board / مجلس الإدارة).
 const CHIP_POSITIONS: ChipPos[] = [
-  { top: "18%", left: "82%" }, // 01 أعلى يمين
+  { top: "18%", left: "19%" }, // 01 أعلى يسار
   { top: "18%", left: "50%" }, // 02 أعلى وسط
-  { top: "18%", left: "20%" }, // 03 أعلى يسار
-  { top: "48%", left: "82%" }, // 04 وسط يمين
+  { top: "18%", left: "82%" }, // 03 أعلى يمين
+  { top: "48%", left: "19%" }, // 04 وسط يسار
   { top: "48%", left: "50%" }, // 05 الوسط / مجلس الإدارة
-  { top: "48%", left: "19%" }, // 06 وسط يسار
-  { top: "79%", left: "82%" }, // 07 أسفل يمين
+  { top: "48%", left: "82%" }, // 06 وسط يمين
+  { top: "79%", left: "19%" }, // 07 أسفل يسار
   { top: "80%", left: "51%" }, // 08 أسفل وسط
-  { top: "79%", left: "19%" }, // 09 أسفل يسار
+  { top: "79%", left: "82%" }, // 09 أسفل يمين
 ];
 
 function dotColor(room: SceneRoom): string {

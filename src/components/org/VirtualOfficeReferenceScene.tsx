@@ -398,18 +398,22 @@ function CSSFloor({ slots, selectedRoomId, onRoomClick }: {
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1.12fr 1fr", gridTemplateRows: "minmax(140px,auto) minmax(172px,auto) minmax(140px,auto)", gap: 4, background: "rgba(16,28,50,0.55)", borderRadius: 14, overflow: "hidden", direction: "ltr" }}>
-      {/* Row 1: exec(1) | support(2) | meetings(8) */}
-      <div style={{ ...G(1, 1), ...bg(slots[1]) }} onClick={() => slots[1] && onRoomClick(slots[1]!)}>{slots[1] && <Inner room={slots[1]} />}</div>
-      <div style={{ ...G(2, 1), ...bg(slots[2]) }} onClick={() => slots[2] && onRoomClick(slots[2]!)}>{slots[2] && <Inner room={slots[2]} />}</div>
-      <div style={{ ...G(3, 1), ...bg(slots[8]) }} onClick={() => slots[8] && onRoomClick(slots[8]!)}>{slots[8] && <Inner room={slots[8]} />}</div>
-      {/* Row 2: marketing(3) | board(4) | finance(5) */}
+      {/* VIRTUAL-OFFICE-NUMBERING-LOCK-1 — visual 3×3 = officeNumber.
+          Slot index maps directly to office number (slot 0 → OFFICE 01,
+          slot 4 → OFFICE 05 / board, slot 8 → OFFICE 09). Every cell has
+          its own onClick — no dead zone. */}
+      {/* Row 1: OFFICE 01 | OFFICE 02 | OFFICE 03 */}
+      <div style={{ ...G(1, 1), ...bg(slots[0]) }} onClick={() => slots[0] && onRoomClick(slots[0]!)}>{slots[0] && <Inner room={slots[0]} />}</div>
+      <div style={{ ...G(2, 1), ...bg(slots[1]) }} onClick={() => slots[1] && onRoomClick(slots[1]!)}>{slots[1] && <Inner room={slots[1]} />}</div>
+      <div style={{ ...G(3, 1), ...bg(slots[2]) }} onClick={() => slots[2] && onRoomClick(slots[2]!)}>{slots[2] && <Inner room={slots[2]} />}</div>
+      {/* Row 2: OFFICE 04 | OFFICE 05 (board) | OFFICE 06 */}
       <div style={{ ...G(1, 2), ...bg(slots[3]) }} onClick={() => slots[3] && onRoomClick(slots[3]!)}>{slots[3] && <Inner room={slots[3]} />}</div>
       <div style={{ ...G(2, 2), ...bg(slots[4]), alignItems: "center", justifyContent: "center" }} onClick={() => slots[4] && onRoomClick(slots[4]!)}>{slots[4] && <Inner room={slots[4]} />}</div>
       <div style={{ ...G(3, 2), ...bg(slots[5]) }} onClick={() => slots[5] && onRoomClick(slots[5]!)}>{slots[5] && <Inner room={slots[5]} />}</div>
-      {/* Row 3: sales(0) | execution(6) | ai(7) */}
-      <div style={{ ...G(1, 3), ...bg(slots[0]) }} onClick={() => slots[0] && onRoomClick(slots[0]!)}>{slots[0] && <Inner room={slots[0]} />}</div>
-      <div style={{ ...G(2, 3), ...bg(slots[6]) }} onClick={() => slots[6] && onRoomClick(slots[6]!)}>{slots[6] && <Inner room={slots[6]} />}</div>
-      <div style={{ ...G(3, 3), ...bg(slots[7]), alignItems: "center", justifyContent: "center" }} onClick={() => slots[7] && onRoomClick(slots[7]!)}>{slots[7] && <Inner room={slots[7]} />}</div>
+      {/* Row 3: OFFICE 07 | OFFICE 08 (AI) | OFFICE 09 */}
+      <div style={{ ...G(1, 3), ...bg(slots[6]) }} onClick={() => slots[6] && onRoomClick(slots[6]!)}>{slots[6] && <Inner room={slots[6]} />}</div>
+      <div style={{ ...G(2, 3), ...bg(slots[7]), alignItems: "center", justifyContent: "center" }} onClick={() => slots[7] && onRoomClick(slots[7]!)}>{slots[7] && <Inner room={slots[7]} />}</div>
+      <div style={{ ...G(3, 3), ...bg(slots[8]) }} onClick={() => slots[8] && onRoomClick(slots[8]!)}>{slots[8] && <Inner room={slots[8]} />}</div>
     </div>
   );
 }
