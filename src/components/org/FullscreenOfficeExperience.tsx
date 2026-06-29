@@ -57,12 +57,13 @@ export default function FullscreenOfficeExperience({
   const officeNum = room.officeNumber ?? 5;
   const crop = OFFICE_CROPS[officeNum] ?? OFFICE_CROPS[5];
   const profile = getOfficeInteriorProfile(officeNum);
+  const interiorImageSrc = profile?.imageSrc ?? null;
   const isLinked = Boolean(mappingUnit) && !room.isUnassigned;
   const displayName = officeDisplayName(room, mappingUnit);
   const accent = profile?.accent ?? (room.isCenter ? "#a855f7" : isLinked ? "#10b981" : "#f59e0b");
   const status = room.isCenter ? "مجلس الإدارة" : isLinked ? "مرتبط" : "جاهز للربط";
-  const imageSrc = profile?.imageSrc ?? MAP_SRC;
-  const usesInteriorAsset = Boolean(profile?.imageSrc);
+  const imageSrc = interiorImageSrc ?? MAP_SRC;
+  const usesInteriorAsset = Boolean(interiorImageSrc);
   const people = Array.isArray(officePeople) ? officePeople : [];
   const presentPeople = people.filter((p) => p.status !== "offline");
   const offlinePeople = people.length - presentPeople.length;
