@@ -5,6 +5,7 @@ import {
   type Permission,
 } from "@/contexts/PermissionsContext";
 import {
+  normalizePlanSlug,
   type PlanSlug,
   type WorkspaceFeature,
 } from "@/lib/features/packageFeatures";
@@ -65,13 +66,11 @@ export type TenantAiAccessDeniedReason =
   | "platform_role"
   | "org_missing";
 
-const PLATFORM_AI_DENY_ROLES = new Set([
-  "super_admin",
-  "admin",
-  "general_manager",
-  "board_chairman",
-  "مدير_عام",
-]);
+// Platform Owner scope is determined ONLY by the email allowlist
+// (OWNER_EMAILS / isPlatformAdminEmail). Tenant-side roles such as
+// `admin`, `general_manager`, `board_chairman`, or `مدير_عام` are
+// legitimate tenant manager roles and must NOT be treated as
+// platform owner — they need the tenant AI context. See issue #492.
 
 const EMPLOYEE_SUMMARY_FALLBACK: TenantAiContextPayload["employees"] = {
   total: 0,
@@ -116,12 +115,11 @@ export function validateTenantAiAccess(input: {
   role: string;
   organizationId: string | null;
 }): { ok: true } | { ok: false; reason: TenantAiAccessDeniedReason } {
+  // Platform Owner: ONLY recognized through the email allowlist.
+  // Tenant roles (admin, general_manager, board_chairman, مدير_عام,
+  // super_admin, …) are valid tenant managers and keep tenant AI
+  // access as long as they are bound to an organization.
   if (isPlatformAdminEmail(input.email)) {
-    return { ok: false, reason: "platform_role" };
-  }
-
-  const role = String(input.role ?? "").trim();
-  if (PLATFORM_AI_DENY_ROLES.has(role)) {
     return { ok: false, reason: "platform_role" };
   }
 
@@ -264,7 +262,14 @@ function roleHasFinanceAccess(permissions: Permission[]): boolean {
   }
 }
 
-async function loadPackageContext(): Promise<{
+// Statuses considered a "live" subscription. Any of these wins over
+// the bare organizations.plan_id pointer.
+const LIVE_SUBSCRIPTION_STATUSES = ["active", "trialing", "past_due"] as const;
+
+async function loadPackageContext(
+  client: SupabaseClient,
+  organizationId: string,
+): Promise<{
   planSlug: PlanSlug;
   enabledFeatures: WorkspaceFeature[];
   planLimits: Record<string, number>;
@@ -272,7 +277,176 @@ async function loadPackageContext(): Promise<{
   orgName: string;
   organizationCode: string | null;
 }> {
-  return PACKAGE_CONTEXT_FALLBACK;
+  let orgName = PACKAGE_CONTEXT_FALLBACK.orgName;
+  let organizationCode: string | null = null;
+  let orgPlanId: string | null = null;
+
+  try {
+    const { data: org, error } = await client
+      .from("organizations")
+      .select("name, organization_code, plan_id")
+      .eq("id", organizationId)
+      .maybeSingle();
+    if (error) {
+      logContextReadFailure({
+        summary: "package",
+        table: "organizations",
+        operation: "select",
+        err: error,
+      });
+    } else if (org) {
+      const nm = typeof org.name === "string" ? org.name.trim() : "";
+      if (nm) orgName = nm;
+      organizationCode =
+        typeof org.organization_code === "string" ? org.organization_code : null;
+      orgPlanId = typeof org.plan_id === "string" ? org.plan_id : null;
+    }
+  } catch (err) {
+    logContextReadFailure({
+      summary: "package",
+      table: "organizations",
+      operation: "select",
+      err,
+    });
+  }
+
+  let livePlanId: string | null = null;
+  let subscriptionStatus: string | null = null;
+  try {
+    const { data: subs, error } = await client
+      .from("subscriptions")
+      .select("plan_id, status, created_at")
+      .eq("organization_id", organizationId)
+      .in("status", [...LIVE_SUBSCRIPTION_STATUSES])
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (error) {
+      logContextReadFailure({
+        summary: "package",
+        table: "subscriptions",
+        operation: "select",
+        err: error,
+      });
+    } else if (subs && subs.length > 0) {
+      const sub = subs[0];
+      livePlanId = typeof sub.plan_id === "string" ? sub.plan_id : null;
+      subscriptionStatus = typeof sub.status === "string" ? sub.status : null;
+    }
+  } catch (err) {
+    logContextReadFailure({
+      summary: "package",
+      table: "subscriptions",
+      operation: "select",
+      err,
+    });
+  }
+
+  const planId = livePlanId ?? orgPlanId;
+  if (!planId) {
+    return {
+      ...PACKAGE_CONTEXT_FALLBACK,
+      orgName,
+      organizationCode,
+      subscriptionStatus,
+    };
+  }
+
+  let planSlug: PlanSlug = PACKAGE_CONTEXT_FALLBACK.planSlug;
+  try {
+    const { data: plan, error } = await client
+      .from("plans")
+      .select("slug")
+      .eq("id", planId)
+      .maybeSingle();
+    if (error) {
+      logContextReadFailure({
+        summary: "package",
+        table: "plans",
+        operation: "select",
+        err: error,
+      });
+    } else if (plan) {
+      planSlug = normalizePlanSlug(
+        typeof plan.slug === "string" ? plan.slug : null,
+      );
+    }
+  } catch (err) {
+    logContextReadFailure({
+      summary: "package",
+      table: "plans",
+      operation: "select",
+      err,
+    });
+  }
+
+  let enabledFeatures: WorkspaceFeature[] = [];
+  try {
+    const { data: features, error } = await client
+      .from("plan_features")
+      .select("feature_key")
+      .eq("plan_id", planId);
+    if (error) {
+      logContextReadFailure({
+        summary: "package",
+        table: "plan_features",
+        operation: "select",
+        err: error,
+      });
+    } else if (features) {
+      enabledFeatures = features
+        .map((row) =>
+          typeof row.feature_key === "string"
+            ? (row.feature_key as WorkspaceFeature)
+            : null,
+        )
+        .filter((v): v is WorkspaceFeature => !!v);
+    }
+  } catch (err) {
+    logContextReadFailure({
+      summary: "package",
+      table: "plan_features",
+      operation: "select",
+      err,
+    });
+  }
+
+  const planLimits: Record<string, number> = {};
+  try {
+    const { data: limits, error } = await client
+      .from("plan_limits")
+      .select("limit_key, limit_value")
+      .eq("plan_id", planId);
+    if (error) {
+      logContextReadFailure({
+        summary: "package",
+        table: "plan_limits",
+        operation: "select",
+        err: error,
+      });
+    } else if (limits) {
+      for (const row of limits) {
+        const key = typeof row.limit_key === "string" ? row.limit_key : null;
+        const value = Number(row.limit_value);
+        if (key && Number.isFinite(value)) planLimits[key] = value;
+      }
+    }
+  } catch (err) {
+    logContextReadFailure({
+      summary: "package",
+      table: "plan_limits",
+      operation: "select",
+      err,
+    });
+  }
+
+  return {
+    planSlug,
+    enabledFeatures,
+    planLimits,
+    subscriptionStatus,
+    orgName,
+    organizationCode,
+  };
 }
 
 async function buildEmployeeSummary(
@@ -513,7 +687,7 @@ export async function buildTenantAiContext(
   },
 ): Promise<TenantAiContextPayload> {
   const pkg = await safeSummary("package", PACKAGE_CONTEXT_FALLBACK, () =>
-    loadPackageContext(),
+    loadPackageContext(client, input.organizationId),
   );
   const permissions = await safeSummary("permissions", [] as Permission[], () =>
     resolvePermissions(client, input.role),
