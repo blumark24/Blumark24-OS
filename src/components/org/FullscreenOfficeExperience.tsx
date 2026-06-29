@@ -6,7 +6,7 @@
 // Adds a safe digital-twin skills dock below the interior so controls do not cover the office.
 
 import { Activity, ArrowRight, BrainCircuit, GitMerge, ShieldCheck, Sparkles, UserCheck, Users, Video, Wand2, X, Zap } from "lucide-react";
-import { getOfficeInteriorImageSrc, getOfficeInteriorProfile } from "@/lib/virtual-office/officeInteriorProfile";
+import { getOfficeInteriorProfile } from "@/lib/virtual-office/officeInteriorProfile";
 import type { MappingSource, OfficeRoom, PreviewOrgUnit, PresencePerson } from "./VirtualOfficeDesign";
 
 const MAP_SRC = "/assets/virtual-office/office-map-reference.webp";
@@ -57,7 +57,7 @@ export default function FullscreenOfficeExperience({
   const officeNum = room.officeNumber ?? 5;
   const crop = OFFICE_CROPS[officeNum] ?? OFFICE_CROPS[5];
   const profile = getOfficeInteriorProfile(officeNum);
-  const interiorImageSrc = getOfficeInteriorImageSrc(officeNum);
+  const interiorImageSrc = profile?.imageSrc ?? null;
   const isLinked = Boolean(mappingUnit) && !room.isUnassigned;
   const displayName = officeDisplayName(room, mappingUnit);
   const accent = profile?.accent ?? (room.isCenter ? "#a855f7" : isLinked ? "#10b981" : "#f59e0b");
