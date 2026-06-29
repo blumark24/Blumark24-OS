@@ -1,10 +1,11 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   mergePermissionsForRole,
   mapAuthRoleToUserRole,
   type Permission,
 } from "@/contexts/PermissionsContext";
 import {
+  normalizePlanSlug,
   type PlanSlug,
   type WorkspaceFeature,
 } from "@/lib/features/packageFeatures";
@@ -65,13 +66,11 @@ export type TenantAiAccessDeniedReason =
   | "platform_role"
   | "org_missing";
 
-const PLATFORM_AI_DENY_ROLES = new Set([
-  "super_admin",
-  "admin",
-  "general_manager",
-  "board_chairman",
-  "مدير_عام",
-]);
+// Platform Owner scope is determined ONLY by the email allowlist
+// (OWNER_EMAILS / isPlatformAdminEmail). Tenant-side roles such as
+// `admin`, `general_manager`, `board_chairman`, or `مدير_عام` are
+// legitimate tenant manager roles and must NOT be treated as
+// platform owner — they need the tenant AI context. See issue #492.
 
 const EMPLOYEE_SUMMARY_FALLBACK: TenantAiContextPayload["employees"] = {
   total: 0,
@@ -116,12 +115,11 @@ export function validateTenantAiAccess(input: {
   role: string;
   organizationId: string | null;
 }): { ok: true } | { ok: false; reason: TenantAiAccessDeniedReason } {
+  // Platform Owner: ONLY recognized through the email allowlist.
+  // Tenant roles (admin, general_manager, board_chairman, مدير_عام,
+  // super_admin, …) are valid tenant managers and keep tenant AI
+  // access as long as they are bound to an organization.
   if (isPlatformAdminEmail(input.email)) {
-    return { ok: false, reason: "platform_role" };
-  }
-
-  const role = String(input.role ?? "").trim();
-  if (PLATFORM_AI_DENY_ROLES.has(role)) {
     return { ok: false, reason: "platform_role" };
   }
 
@@ -264,7 +262,253 @@ function roleHasFinanceAccess(permissions: Permission[]): boolean {
   }
 }
 
-async function loadPackageContext(): Promise<{
+// Statuses considered a "live" subscription. Any of these wins over
+// the bare organizations.plan_id pointer.
+const LIVE_SUBSCRIPTION_STATUSES = ["active", "trialing", "past_due"] as const;
+
+// Module-scoped, lazily-built service-role admin client. Used ONLY
+// for the five package-related reads below, and only when scoped to
+// `session.organizationId` (which is verified through the tenant
+// JWT in resolveTenantSession, never read from the request body).
+//
+// Why admin: organizations / subscriptions / plans / plan_features /
+// plan_limits are subject to RLS that can deny a paying tenant's
+// SELECT (depending on which policy iteration is deployed). A denied
+// read with the tenant client would silently fall back to "basic"
+// and demote paid customers — issue #492's reviewer note. The admin
+// client bypasses RLS but every query below filters by the verified
+// `organizationId` (or its derived `planId`), so no row outside the
+// caller's organization can be returned.
+//
+// SAFETY: only this module reads service_role; the env var is
+// Node-only and never reaches the client bundle. If the env vars are
+// missing (e.g. local dev without secrets), we fall back to the
+// tenant client — same behavior as before this patch.
+let cachedServiceRoleAdmin: SupabaseClient | null = null;
+function getServiceRoleAdmin(): SupabaseClient | null {
+  if (cachedServiceRoleAdmin) return cachedServiceRoleAdmin;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  if (!url || !key) return null;
+  try {
+    cachedServiceRoleAdmin = createClient(url, key, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    return cachedServiceRoleAdmin;
+  } catch (err) {
+    logContextReadFailure({
+      summary: "package",
+      table: "service_role_admin",
+      operation: "init",
+      err,
+    });
+    return null;
+  }
+}
+
+interface OrganizationReadResult {
+  orgName: string;
+  organizationCode: string | null;
+  orgPlanId: string | null;
+}
+
+interface SubscriptionReadResult {
+  livePlanId: string | null;
+  subscriptionStatus: string | null;
+}
+
+async function readOrganization(
+  reader: SupabaseClient,
+  organizationId: string,
+): Promise<OrganizationReadResult> {
+  const result: OrganizationReadResult = {
+    orgName: PACKAGE_CONTEXT_FALLBACK.orgName,
+    organizationCode: null,
+    orgPlanId: null,
+  };
+  try {
+    const { data: org, error } = await reader
+      .from("organizations")
+      .select("name, organization_code, plan_id")
+      .eq("id", organizationId)
+      .maybeSingle();
+    if (error) {
+      logContextReadFailure({
+        summary: "package",
+        table: "organizations",
+        operation: "select",
+        err: error,
+      });
+      return result;
+    }
+    if (org) {
+      const nm = typeof org.name === "string" ? org.name.trim() : "";
+      if (nm) result.orgName = nm;
+      result.organizationCode =
+        typeof org.organization_code === "string" ? org.organization_code : null;
+      result.orgPlanId = typeof org.plan_id === "string" ? org.plan_id : null;
+    }
+  } catch (err) {
+    logContextReadFailure({
+      summary: "package",
+      table: "organizations",
+      operation: "select",
+      err,
+    });
+  }
+  return result;
+}
+
+async function readLiveSubscription(
+  reader: SupabaseClient,
+  organizationId: string,
+): Promise<SubscriptionReadResult> {
+  const result: SubscriptionReadResult = {
+    livePlanId: null,
+    subscriptionStatus: null,
+  };
+  try {
+    const { data: subs, error } = await reader
+      .from("subscriptions")
+      .select("plan_id, status, created_at")
+      .eq("organization_id", organizationId)
+      .in("status", [...LIVE_SUBSCRIPTION_STATUSES])
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (error) {
+      logContextReadFailure({
+        summary: "package",
+        table: "subscriptions",
+        operation: "select",
+        err: error,
+      });
+      return result;
+    }
+    if (subs && subs.length > 0) {
+      const sub = subs[0];
+      result.livePlanId = typeof sub.plan_id === "string" ? sub.plan_id : null;
+      result.subscriptionStatus =
+        typeof sub.status === "string" ? sub.status : null;
+    }
+  } catch (err) {
+    logContextReadFailure({
+      summary: "package",
+      table: "subscriptions",
+      operation: "select",
+      err,
+    });
+  }
+  return result;
+}
+
+async function readPlanSlug(
+  reader: SupabaseClient,
+  planId: string,
+): Promise<PlanSlug> {
+  try {
+    const { data: plan, error } = await reader
+      .from("plans")
+      .select("slug")
+      .eq("id", planId)
+      .maybeSingle();
+    if (error) {
+      logContextReadFailure({
+        summary: "package",
+        table: "plans",
+        operation: "select",
+        err: error,
+      });
+      return PACKAGE_CONTEXT_FALLBACK.planSlug;
+    }
+    return normalizePlanSlug(
+      plan && typeof plan.slug === "string" ? plan.slug : null,
+    );
+  } catch (err) {
+    logContextReadFailure({
+      summary: "package",
+      table: "plans",
+      operation: "select",
+      err,
+    });
+    return PACKAGE_CONTEXT_FALLBACK.planSlug;
+  }
+}
+
+async function readPlanFeatures(
+  reader: SupabaseClient,
+  planId: string,
+): Promise<WorkspaceFeature[]> {
+  try {
+    const { data: features, error } = await reader
+      .from("plan_features")
+      .select("feature_key")
+      .eq("plan_id", planId);
+    if (error) {
+      logContextReadFailure({
+        summary: "package",
+        table: "plan_features",
+        operation: "select",
+        err: error,
+      });
+      return [];
+    }
+    return (features ?? [])
+      .map((row) =>
+        typeof row.feature_key === "string"
+          ? (row.feature_key as WorkspaceFeature)
+          : null,
+      )
+      .filter((v): v is WorkspaceFeature => !!v);
+  } catch (err) {
+    logContextReadFailure({
+      summary: "package",
+      table: "plan_features",
+      operation: "select",
+      err,
+    });
+    return [];
+  }
+}
+
+async function readPlanLimits(
+  reader: SupabaseClient,
+  planId: string,
+): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  try {
+    const { data: limits, error } = await reader
+      .from("plan_limits")
+      .select("limit_key, limit_value")
+      .eq("plan_id", planId);
+    if (error) {
+      logContextReadFailure({
+        summary: "package",
+        table: "plan_limits",
+        operation: "select",
+        err: error,
+      });
+      return out;
+    }
+    for (const row of limits ?? []) {
+      const key = typeof row.limit_key === "string" ? row.limit_key : null;
+      const value = Number(row.limit_value);
+      if (key && Number.isFinite(value)) out[key] = value;
+    }
+  } catch (err) {
+    logContextReadFailure({
+      summary: "package",
+      table: "plan_limits",
+      operation: "select",
+      err,
+    });
+  }
+  return out;
+}
+
+async function loadPackageContext(
+  client: SupabaseClient,
+  organizationId: string,
+): Promise<{
   planSlug: PlanSlug;
   enabledFeatures: WorkspaceFeature[];
   planLimits: Record<string, number>;
@@ -272,7 +516,44 @@ async function loadPackageContext(): Promise<{
   orgName: string;
   organizationCode: string | null;
 }> {
-  return PACKAGE_CONTEXT_FALLBACK;
+  // Prefer the admin client to avoid RLS-induced false negatives.
+  // Falls back to the tenant client when service-role env is absent
+  // (local dev / preview without secrets).
+  const reader = getServiceRoleAdmin() ?? client;
+
+  // Phase 1 — organization + live subscription in parallel. Both
+  // queries are scoped to the same `organizationId`.
+  const [org, sub] = await Promise.all([
+    readOrganization(reader, organizationId),
+    readLiveSubscription(reader, organizationId),
+  ]);
+
+  const planId = sub.livePlanId ?? org.orgPlanId;
+  if (!planId) {
+    return {
+      ...PACKAGE_CONTEXT_FALLBACK,
+      orgName: org.orgName,
+      organizationCode: org.organizationCode,
+      subscriptionStatus: sub.subscriptionStatus,
+    };
+  }
+
+  // Phase 2 — plan metadata in parallel. All scoped to `planId`,
+  // which itself derives from `organizationId` above.
+  const [planSlug, enabledFeatures, planLimits] = await Promise.all([
+    readPlanSlug(reader, planId),
+    readPlanFeatures(reader, planId),
+    readPlanLimits(reader, planId),
+  ]);
+
+  return {
+    planSlug,
+    enabledFeatures,
+    planLimits,
+    subscriptionStatus: sub.subscriptionStatus,
+    orgName: org.orgName,
+    organizationCode: org.organizationCode,
+  };
 }
 
 async function buildEmployeeSummary(
@@ -513,7 +794,7 @@ export async function buildTenantAiContext(
   },
 ): Promise<TenantAiContextPayload> {
   const pkg = await safeSummary("package", PACKAGE_CONTEXT_FALLBACK, () =>
-    loadPackageContext(),
+    loadPackageContext(client, input.organizationId),
   );
   const permissions = await safeSummary("permissions", [] as Permission[], () =>
     resolvePermissions(client, input.role),
