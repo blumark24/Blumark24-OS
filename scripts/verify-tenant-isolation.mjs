@@ -70,6 +70,26 @@ const VIRTUAL_OFFICE_SCOPE_FILES = [
 
 const CORE_WORKSPACE_TABLES = ["clients", "tasks", "transactions", "employees"];
 
+const TENANT_SCOPE_READINESS_FILES = [
+  {
+    path: "src/lib/tenant/scopedRoleResolver.ts",
+    tokens: [
+      "resolveScopedRoleFromOrgStructure",
+      "resolveCurrentScopedRole",
+      "agency_manager",
+      "management_manager",
+      "department_manager",
+      "managedAgencyIds",
+      "managedManagementIds",
+      "managedDepartmentIds",
+      "assignedDepartmentIds",
+      "organizationId !== null",
+      "structure?.departments ?? []",
+      "structure?.relations ?? []",
+    ],
+  },
+];
+
 function pass(msg) {
   console.log(`  ✓ ${msg}`);
 }
@@ -219,16 +239,47 @@ async function checkCoreWorkspaceCrudGuards() {
   return ok;
 }
 
+async function checkTenantScopeReadiness() {
+  console.log("\n5. Tenant scoped role readiness");
+  let ok = true;
+
+  for (const item of TENANT_SCOPE_READINESS_FILES) {
+    try {
+      const content = await readFile(join(ROOT, item.path), "utf8");
+      pass(`${item.path} exists`);
+
+      for (const token of item.tokens) {
+        if (content.includes(token)) pass(`${item.path} includes ${token}`);
+        else ok = fail(`${item.path} missing ${token}`);
+      }
+
+      const isReadOnly =
+        content.includes("fetchOrgStructure") &&
+        !content.includes(".insert(") &&
+        !content.includes(".update(") &&
+        !content.includes(".delete(") &&
+        !content.includes(".upsert(");
+
+      if (isReadOnly) pass(`${item.path} is read-only`);
+      else ok = fail(`${item.path} may include writes or miss the read source`);
+    } catch {
+      ok = fail(`Missing tenant scoped role readiness file: ${item.path}`);
+    }
+  }
+
+  return ok;
+}
+
 async function checkLiveDatabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
   if (!url || !key) {
-    console.log("\n5. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
+    console.log("\n6. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
     console.log("   Manual QA: sign in as two different org users and confirm each sees only own data.");
     return true;
   }
 
-  console.log("\n5. Live Supabase checks");
+  console.log("\n6. Live Supabase checks");
   let ok = true;
   try {
     const { createClient } = await import("@supabase/supabase-js");
@@ -259,6 +310,7 @@ async function main() {
     checkRlsPatterns(),
     checkVirtualOfficeScopeLayer(),
     checkCoreWorkspaceCrudGuards(),
+    checkTenantScopeReadiness(),
     checkLiveDatabase(),
   ]);
   const allOk = results.every(Boolean);
