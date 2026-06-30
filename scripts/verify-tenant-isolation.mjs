@@ -83,6 +83,9 @@ const TENANT_SCOPE_READINESS_FILES = [
       "managedManagementIds",
       "managedDepartmentIds",
       "assignedDepartmentIds",
+      "organizationId !== null",
+      "structure?.departments ?? []",
+      "structure?.relations ?? []",
     ],
   },
 ];

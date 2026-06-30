@@ -29,7 +29,7 @@ export interface ScopedRoleResolution {
 
 interface ResolveScopedRoleInput {
   profile: ScopedRoleProfile | null | undefined;
-  structure: Pick<OrgStructureSnapshot, "departments" | "relations">;
+  structure?: Partial<Pick<OrgStructureSnapshot, "departments" | "relations">> | null;
 }
 
 const ORGANIZATION_MANAGER_ROLES = new Set([
@@ -52,7 +52,7 @@ function isSameOrganization(
   organizationId: string | null,
   item: Pick<Department | EmployeeRelation, "organization_id">,
 ): boolean {
-  return !organizationId || item.organization_id === organizationId;
+  return organizationId !== null && item.organization_id === organizationId;
 }
 
 function findManagedDepartments(
@@ -94,12 +94,15 @@ export function resolveScopedRoleFromOrgStructure({
   const baseRole = normalizeRole(profile?.role);
   const organizationId = profile?.organization_id ?? null;
   const profileId = profile?.id ?? null;
-  const isOrganizationManager = ORGANIZATION_MANAGER_ROLES.has(baseRole);
+  const departments = structure?.departments ?? [];
+  const relations = structure?.relations ?? [];
+  const isOrganizationManager =
+    organizationId !== null && ORGANIZATION_MANAGER_ROLES.has(baseRole);
 
   const managedDepartments = findManagedDepartments(
     profileId,
     organizationId,
-    structure.departments,
+    departments,
   );
 
   const managedAgencyIds = uniqueIds(
@@ -123,7 +126,7 @@ export function resolveScopedRoleFromOrgStructure({
   const assignedDepartmentIds = findAssignedDepartmentIds(
     profile?.employeeIds,
     organizationId,
-    structure.relations,
+    relations,
   );
 
   const scopedRole: TenantScopedRole = isOrganizationManager
