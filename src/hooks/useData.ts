@@ -31,6 +31,11 @@ export interface DataPageOptions {
 }
 
 type SupabaseWriteResult = { data: unknown; error: { message: string } | null };
+type CoreTenantTable = "clients" | "tasks" | "transactions" | "employees";
+
+let cachedOrgId: string | null = null;
+let cachedOrgUserId: string | null = null;
+let cachedOrgIdPromise: Promise<string> | null = null;
 
 function getReadRange(options: DataPageOptions = {}, defaultLimit = DEFAULT_LIST_LIMIT) {
   const limit = Math.max(1, Math.min(options.limit ?? defaultLimit, 500));
@@ -53,48 +58,185 @@ function formatDbWriteError(entityLabel: string, message: string): string {
   return msg || `فشل حفظ ${entityLabel}`;
 }
 
-async function requireTenantOrgId(): Promise<string> {
-  const orgId = await resolveCurrentOrgId();
-  if (!orgId) {
-    throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول أو تواصل مع الدعم");
-  }
-  return orgId;
+function clearTenantOrgCache() {
+  cachedOrgId = null;
+  cachedOrgUserId = null;
+  cachedOrgIdPromise = null;
 }
 
-function subscribeToTenantTable(
-  table: "clients" | "tasks" | "transactions" | "employees",
-  refetch: () => void,
-): () => void {
-  let cancelled = false;
-  let channel: ReturnType<typeof supabase.channel> | null = null;
+async function getCurrentSessionUserId(): Promise<string | null> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw new Error(error.message);
+  return data.session?.user?.id ?? null;
+}
 
-  void requireTenantOrgId()
-    .then((organization_id) => {
-      if (cancelled) return;
-      // Defense-in-depth: keep realtime invalidations scoped to the current tenant.
-      channel = supabase
-        .channel(`${table}-rt:${organization_id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table,
-            filter: `organization_id=eq.${organization_id}`,
-          },
-          () => refetch(),
-        )
-        .subscribe();
+async function requireTenantOrgId(): Promise<string> {
+  const userId = await getCurrentSessionUserId();
+  if (!userId) {
+    clearTenantOrgCache();
+    throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول أو تواصل مع الدعم");
+  }
+
+  if (cachedOrgUserId && cachedOrgUserId !== userId) {
+    clearTenantOrgCache();
+  }
+
+  if (cachedOrgId && cachedOrgUserId === userId) {
+    return cachedOrgId;
+  }
+
+  if (cachedOrgIdPromise && cachedOrgUserId === userId) {
+    return cachedOrgIdPromise;
+  }
+
+  cachedOrgUserId = userId;
+  const promise = resolveCurrentOrgId()
+    .then((orgId) => {
+      if (!orgId) {
+        clearTenantOrgCache();
+        throw new Error("تعذر تحديد منشأتك — أعد تسجيل الدخول أو تواصل مع الدعم");
+      }
+
+      cachedOrgId = orgId;
+      cachedOrgUserId = userId;
+      return orgId;
     })
     .catch((err) => {
-      console.warn(`[tenant-realtime] ${table} subscription skipped:`, err);
+      clearTenantOrgCache();
+      throw err;
+    })
+    .finally(() => {
+      if (cachedOrgIdPromise === promise) {
+        cachedOrgIdPromise = null;
+      }
     });
 
-  return () => {
-    cancelled = true;
+  cachedOrgIdPromise = promise;
+  return promise;
+}
+
+function subscribeToTenantTable(table: CoreTenantTable, refetch: () => void): () => void {
+  let disposed = false;
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+  let currentOrgId: string | null = null;
+  let currentUserId: string | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let subscribePromise: Promise<void> | null = null;
+
+  const clearRetryTimer = () => {
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  };
+
+  const removeCurrentChannel = () => {
     if (channel) {
       void supabase.removeChannel(channel);
+      channel = null;
     }
+    currentOrgId = null;
+  };
+
+  const ensureSubscribed = async () => {
+    if (subscribePromise) return subscribePromise;
+
+    subscribePromise = (async () => {
+      try {
+        const userId = await getCurrentSessionUserId();
+        if (disposed) return;
+
+        if (!userId) {
+          clearTenantOrgCache();
+          currentUserId = null;
+          removeCurrentChannel();
+          return;
+        }
+
+        if (currentUserId && currentUserId !== userId) {
+          clearTenantOrgCache();
+          removeCurrentChannel();
+        }
+        currentUserId = userId;
+
+        const organization_id = await requireTenantOrgId();
+        if (disposed) return;
+
+        if (channel && currentOrgId === organization_id) {
+          return;
+        }
+
+        removeCurrentChannel();
+        currentOrgId = organization_id;
+        // Defense-in-depth: keep realtime invalidations scoped to the current tenant.
+        channel = supabase
+          .channel(`${table}-rt:${organization_id}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table,
+              filter: `organization_id=eq.${organization_id}`,
+            },
+            () => refetch(),
+          )
+          .subscribe();
+      } catch (err) {
+        if (!disposed) {
+          console.warn(`[tenant-realtime] ${table} subscription deferred:`, err);
+        }
+      }
+    })().finally(() => {
+      subscribePromise = null;
+    });
+
+    return subscribePromise;
+  };
+
+  const scheduleSubscribe = () => {
+    if (disposed) return;
+    clearRetryTimer();
+    retryTimer = setTimeout(() => {
+      void ensureSubscribed();
+    }, 0);
+  };
+
+  void ensureSubscribed();
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((event, session) => {
+    const nextUserId = session?.user?.id ?? null;
+
+    if (event === "SIGNED_OUT" || !nextUserId) {
+      clearTenantOrgCache();
+      currentUserId = null;
+      removeCurrentChannel();
+      return;
+    }
+
+    if (currentUserId && currentUserId !== nextUserId) {
+      clearTenantOrgCache();
+      removeCurrentChannel();
+    }
+
+    currentUserId = nextUserId;
+    if (
+      event === "SIGNED_IN" ||
+      event === "INITIAL_SESSION" ||
+      event === "TOKEN_REFRESHED" ||
+      event === "USER_UPDATED"
+    ) {
+      scheduleSubscribe();
+    }
+  });
+
+  return () => {
+    disposed = true;
+    clearRetryTimer();
+    removeCurrentChannel();
+    subscription.unsubscribe();
   };
 }
 

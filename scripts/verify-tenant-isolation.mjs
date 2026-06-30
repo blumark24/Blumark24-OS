@@ -161,6 +161,30 @@ async function checkCoreWorkspaceCrudGuards() {
     ok = fail("useData missing tenant-scoped realtime subscription helper");
   }
 
+  if (source.includes("cachedOrgId") && source.includes("cachedOrgIdPromise")) {
+    pass("useData caches current organization_id between tenant operations");
+  } else {
+    ok = fail("useData missing organization_id cache");
+  }
+
+  if (source.includes("supabase.auth.onAuthStateChange") && source.includes('event === "SIGNED_IN"')) {
+    pass("tenant realtime subscriptions retry when auth session becomes ready");
+  } else {
+    ok = fail("tenant realtime subscriptions may not retry on auth readiness");
+  }
+
+  if (source.includes('event === "SIGNED_OUT"') && source.includes("clearTenantOrgCache()")) {
+    pass("tenant org cache is cleared on sign-out");
+  } else {
+    ok = fail("tenant org cache may survive sign-out");
+  }
+
+  if (source.includes("subscription.unsubscribe()")) {
+    pass("tenant realtime auth listener is cleaned up on unmount");
+  } else {
+    ok = fail("tenant realtime auth listener may leak after unmount");
+  }
+
   for (const table of CORE_WORKSPACE_TABLES) {
     const readGuard = new RegExp(
       `from\\("${table}"\\)[\\s\\S]{0,240}select\\([\\s\\S]{0,240}\\.eq\\("organization_id", organization_id\\)`,
