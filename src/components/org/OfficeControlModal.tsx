@@ -258,6 +258,9 @@ export default function OfficeControlModal({
       u.name,
       u.typeLabel,
       u.code ?? "",
+      u.hierarchyPath,
+      u.managerName,
+      u.managerLabel,
     ].some((value) => String(value ?? "").toLowerCase().includes(normalizedSearch));
   });
 
