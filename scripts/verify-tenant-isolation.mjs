@@ -68,6 +68,8 @@ const VIRTUAL_OFFICE_SCOPE_FILES = [
   },
 ];
 
+const CORE_WORKSPACE_TABLES = ["clients", "tasks", "transactions", "employees"];
+
 function pass(msg) {
   console.log(`  ✓ ${msg}`);
 }
@@ -148,16 +150,61 @@ async function checkVirtualOfficeScopeLayer() {
   return ok;
 }
 
+async function checkCoreWorkspaceCrudGuards() {
+  console.log("\n4. Core workspace CRUD tenant guards");
+  let ok = true;
+  const source = await readFile(join(ROOT, "src/hooks/useData.ts"), "utf8");
+
+  if (source.includes("function subscribeToTenantTable")) {
+    pass("useData has tenant-scoped realtime subscription helper");
+  } else {
+    ok = fail("useData missing tenant-scoped realtime subscription helper");
+  }
+
+  for (const table of CORE_WORKSPACE_TABLES) {
+    const readGuard = new RegExp(
+      `from\\("${table}"\\)[\\s\\S]{0,240}select\\([\\s\\S]{0,240}\\.eq\\("organization_id", organization_id\\)`,
+    );
+    const updateGuard = new RegExp(
+      `from\\("${table}"\\)[\\s\\S]{0,280}update\\([\\s\\S]{0,280}\\.eq\\("id", id\\)[\\s\\S]{0,180}\\.eq\\("organization_id", organization_id\\)`,
+    );
+    const deleteGuard = new RegExp(
+      `from\\("${table}"\\)[\\s\\S]{0,240}delete\\([\\s\\S]{0,240}\\.eq\\("id", id\\)[\\s\\S]{0,180}\\.eq\\("organization_id", organization_id\\)`,
+    );
+    const realtimeGuard = source.includes(`return subscribeToTenantTable("${table}", refetch);`);
+
+    if (readGuard.test(source)) pass(`${table} reads include organization_id guard`);
+    else ok = fail(`${table} reads may rely on RLS only`);
+
+    if (updateGuard.test(source)) pass(`${table} updates include id + organization_id guard`);
+    else ok = fail(`${table} updates may be id-only`);
+
+    if (deleteGuard.test(source)) pass(`${table} deletes include id + organization_id guard`);
+    else ok = fail(`${table} deletes may be id-only`);
+
+    if (realtimeGuard) pass(`${table} realtime subscription is tenant-scoped`);
+    else ok = fail(`${table} realtime subscription may be table-wide`);
+  }
+
+  if (source.includes("insert([{ ...employeeToDB(item), organization_id }]")) {
+    pass("employees inserts stamp organization_id");
+  } else {
+    ok = fail("employees inserts may not stamp organization_id");
+  }
+
+  return ok;
+}
+
 async function checkLiveDatabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
   if (!url || !key) {
-    console.log("\n4. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
+    console.log("\n5. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
     console.log("   Manual QA: sign in as two different org users and confirm each sees only own data.");
     return true;
   }
 
-  console.log("\n4. Live Supabase checks");
+  console.log("\n5. Live Supabase checks");
   let ok = true;
   try {
     const { createClient } = await import("@supabase/supabase-js");
@@ -187,6 +234,7 @@ async function main() {
     checkMigrationFiles(),
     checkRlsPatterns(),
     checkVirtualOfficeScopeLayer(),
+    checkCoreWorkspaceCrudGuards(),
     checkLiveDatabase(),
   ]);
   const allOk = results.every(Boolean);

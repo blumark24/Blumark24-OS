@@ -61,6 +61,43 @@ async function requireTenantOrgId(): Promise<string> {
   return orgId;
 }
 
+function subscribeToTenantTable(
+  table: "clients" | "tasks" | "transactions" | "employees",
+  refetch: () => void,
+): () => void {
+  let cancelled = false;
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+
+  void requireTenantOrgId()
+    .then((organization_id) => {
+      if (cancelled) return;
+      // Defense-in-depth: keep realtime invalidations scoped to the current tenant.
+      channel = supabase
+        .channel(`${table}-rt:${organization_id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table,
+            filter: `organization_id=eq.${organization_id}`,
+          },
+          () => refetch(),
+        )
+        .subscribe();
+    })
+    .catch((err) => {
+      console.warn(`[tenant-realtime] ${table} subscription skipped:`, err);
+    });
+
+  return () => {
+    cancelled = true;
+    if (channel) {
+      void supabase.removeChannel(channel);
+    }
+  };
+}
+
 async function runDbWrite(
   entityLabel: string,
   query: PromiseLike<SupabaseWriteResult>,
@@ -314,9 +351,11 @@ const AUTOMATION_LOG_COLUMNS = "id, rule_id, rule_title, result, status, created
 
 async function fetchClients(options?: DataPageOptions): Promise<Client[]> {
   const { from, to } = getReadRange(options);
+  const organization_id = await requireTenantOrgId();
   const { data, error } = await supabase
     .from("clients")
     .select(CLIENT_COLUMNS)
+    .eq("organization_id", organization_id)
     .order("created_at", { ascending: false })
     .range(from, to);
   if (error) throw new Error(error.message);
@@ -328,11 +367,7 @@ export function useClients(options?: DataPageOptions) {
   const { setData, refetch } = result;
 
   useEffect(() => {
-    const ch = supabase
-      .channel("clients-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "clients" }, () => refetch())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return subscribeToTenantTable("clients", refetch);
   }, [refetch]);
 
   const insert = useCallback(async (item: Omit<Client, "id" | "createdAt">) => {
@@ -353,9 +388,14 @@ export function useClients(options?: DataPageOptions) {
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Client>) => {
+    const organization_id = await requireTenantOrgId();
     await runDbWrite(
       "العميل",
-      supabase.from("clients").update(clientUpdateToDB(changes)).eq("id", id),
+      supabase
+        .from("clients")
+        .update(clientUpdateToDB(changes))
+        .eq("id", id)
+        .eq("organization_id", organization_id),
       "انتهت مهلة تحديث العميل",
     );
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
@@ -363,9 +403,14 @@ export function useClients(options?: DataPageOptions) {
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
+    const organization_id = await requireTenantOrgId();
     await runDbWrite(
       "العميل",
-      supabase.from("clients").delete().eq("id", id),
+      supabase
+        .from("clients")
+        .delete()
+        .eq("id", id)
+        .eq("organization_id", organization_id),
       "انتهت مهلة حذف العميل",
     );
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
@@ -379,9 +424,11 @@ export function useClients(options?: DataPageOptions) {
 
 async function fetchTasks(options?: DataPageOptions): Promise<Task[]> {
   const { from, to } = getReadRange(options);
+  const organization_id = await requireTenantOrgId();
   const { data, error } = await supabase
     .from("tasks")
     .select(TASK_COLUMNS)
+    .eq("organization_id", organization_id)
     .order("created_at", { ascending: false })
     .range(from, to);
   if (error) throw new Error(error.message);
@@ -393,11 +440,7 @@ export function useTasks(options?: DataPageOptions) {
   const { refetch } = result;
 
   useEffect(() => {
-    const ch = supabase
-      .channel("tasks-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => refetch())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return subscribeToTenantTable("tasks", refetch);
   }, [refetch]);
 
   const insert = useCallback(async (item: Omit<Task, "id" | "createdAt">) => {
@@ -418,13 +461,18 @@ export function useTasks(options?: DataPageOptions) {
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Task>) => {
+    const organization_id = await requireTenantOrgId();
     const patch = { ...taskUpdateToDB(changes) };
     if (changes.dueDate !== undefined && !String(changes.dueDate).trim()) {
       patch.due_date = todayIsoDate();
     }
     await runDbWrite(
       "المهمة",
-      supabase.from("tasks").update(patch).eq("id", id),
+      supabase
+        .from("tasks")
+        .update(patch)
+        .eq("id", id)
+        .eq("organization_id", organization_id),
       "انتهت مهلة تحديث المهمة",
     );
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
@@ -432,9 +480,14 @@ export function useTasks(options?: DataPageOptions) {
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
+    const organization_id = await requireTenantOrgId();
     await runDbWrite(
       "المهمة",
-      supabase.from("tasks").delete().eq("id", id),
+      supabase
+        .from("tasks")
+        .delete()
+        .eq("id", id)
+        .eq("organization_id", organization_id),
       "انتهت مهلة حذف المهمة",
     );
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
@@ -448,9 +501,11 @@ export function useTasks(options?: DataPageOptions) {
 
 async function fetchTransactions(options?: DataPageOptions): Promise<Transaction[]> {
   const { from, to } = getReadRange(options);
+  const organization_id = await requireTenantOrgId();
   const { data, error } = await supabase
     .from("transactions")
     .select(TRANSACTION_COLUMNS)
+    .eq("organization_id", organization_id)
     .order("created_at", { ascending: false })
     .range(from, to);
   if (error) throw new Error(error.message);
@@ -462,11 +517,7 @@ export function useTransactions(options?: DataPageOptions) {
   const { refetch } = result;
 
   useEffect(() => {
-    const ch = supabase
-      .channel("transactions-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => refetch())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return subscribeToTenantTable("transactions", refetch);
   }, [refetch]);
 
   const insert = useCallback(async (item: Omit<Transaction, "id">) => {
@@ -496,9 +547,14 @@ export function useTransactions(options?: DataPageOptions) {
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Omit<Transaction, "id">>) => {
+    const organization_id = await requireTenantOrgId();
     await runDbWrite(
       "المعاملة",
-      supabase.from("transactions").update(changes).eq("id", id),
+      supabase
+        .from("transactions")
+        .update(changes)
+        .eq("id", id)
+        .eq("organization_id", organization_id),
       "انتهت مهلة تحديث المعاملة",
     );
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
@@ -506,9 +562,14 @@ export function useTransactions(options?: DataPageOptions) {
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
+    const organization_id = await requireTenantOrgId();
     await runDbWrite(
       "المعاملة",
-      supabase.from("transactions").delete().eq("id", id),
+      supabase
+        .from("transactions")
+        .delete()
+        .eq("id", id)
+        .eq("organization_id", organization_id),
       "انتهت مهلة حذف المعاملة",
     );
     await withSoftTimeout(refetch(), REFETCH_TIMEOUT);
@@ -522,9 +583,11 @@ export function useTransactions(options?: DataPageOptions) {
 
 async function fetchEmployees(options?: DataPageOptions): Promise<Employee[]> {
   const { from, to } = getReadRange(options);
+  const organization_id = await requireTenantOrgId();
   const { data, error } = await supabase
     .from("employees")
     .select(EMPLOYEE_COLUMNS)
+    .eq("organization_id", organization_id)
     .in("status", [...ACTIVE_EMPLOYEE_STATUS_VALUES])
     .order("created_at", { ascending: false })
     .range(from, to);
@@ -537,16 +600,13 @@ export function useEmployees(options?: DataPageOptions) {
   const { refetch } = result;
 
   useEffect(() => {
-    const ch = supabase
-      .channel("employees-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, () => refetch())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return subscribeToTenantTable("employees", refetch);
   }, [refetch]);
 
   const insert = useCallback(async (item: Omit<Employee, "id">) => {
+    const organization_id = await requireTenantOrgId();
     const { error } = await withTimeout(
-      Promise.resolve(supabase.from("employees").insert([employeeToDB(item)])),
+      Promise.resolve(supabase.from("employees").insert([{ ...employeeToDB(item), organization_id }])),
       DB_WRITE_TIMEOUT, "انتهت مهلة إضافة الموظف"
     );
     if (error) throw new Error(error.message);
@@ -555,8 +615,15 @@ export function useEmployees(options?: DataPageOptions) {
   }, [refetch]);
 
   const update = useCallback(async (id: string, changes: Partial<Employee>) => {
+    const organization_id = await requireTenantOrgId();
     const { error } = await withTimeout(
-      Promise.resolve(supabase.from("employees").update(employeeUpdateToDB(changes)).eq("id", id)),
+      Promise.resolve(
+        supabase
+          .from("employees")
+          .update(employeeUpdateToDB(changes))
+          .eq("id", id)
+          .eq("organization_id", organization_id),
+      ),
       DB_WRITE_TIMEOUT, "انتهت مهلة تحديث الموظف"
     );
     if (error) throw new Error(error.message);
@@ -565,8 +632,15 @@ export function useEmployees(options?: DataPageOptions) {
   }, [refetch]);
 
   const remove = useCallback(async (id: string) => {
+    const organization_id = await requireTenantOrgId();
     const { error } = await withTimeout(
-      Promise.resolve(supabase.from("employees").delete().eq("id", id)),
+      Promise.resolve(
+        supabase
+          .from("employees")
+          .delete()
+          .eq("id", id)
+          .eq("organization_id", organization_id),
+      ),
       DB_WRITE_TIMEOUT, "انتهت مهلة حذف الموظف"
     );
     if (error) throw new Error(error.message);
