@@ -13,7 +13,7 @@ import {
   Layers, MapPin, Globe, Zap, BrainCircuit, GitMerge,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import type { OrgStructureSnapshot } from "@/lib/org/types";
+import type { Department, OrgStructureSnapshot } from "@/lib/org/types";
 import type { Employee, Task } from "@/types";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { supabase } from "@/lib/supabaseClient";
@@ -29,6 +29,15 @@ import FullscreenOfficeExperience from "./FullscreenOfficeExperience";
 // C16.2-I: scoped office data only — no global fallback.
 import { buildScopedOfficeData } from "@/lib/virtual-office/officeScopeViewModel";
 import { emptyScopedOfficeMetricPatch, toScopedOfficeMetricPatch } from "@/lib/virtual-office/scopedOfficeMetrics";
+// VIRTUAL-OFFICE-MANUAL-HIERARCHY-MAPPING-1
+// Manual hierarchy enrichment for the unit picker — no auto-linking,
+// no Supabase writes, no Auth/RLS/migration changes. OFFICE 05 stays
+// the fixed board / decision center regardless of any unit shown here.
+import {
+  buildDepartmentHierarchyPath,
+  formatHierarchyPath,
+  managerLabelForLevel,
+} from "@/lib/virtual-office/orgHierarchy";
 
 // EXECUTIVE-OFFICE-NUMBERED-EMPTY-OFFICES-1
 // 9 real office slots (01–09). Slot 4 (office 05) = مكتب مجلس الإدارة (board).
@@ -63,6 +72,14 @@ export interface PreviewOrgUnit {
   code: string | null;
   employeeCount: number;
   taskCount: number;
+  // VIRTUAL-OFFICE-MANUAL-HIERARCHY-MAPPING-1
+  // Optional manual-mapping enrichment. The picker uses these to
+  // display the hierarchy path (وكالة > إدارة > قسم) and the
+  // level-appropriate manager label without changing how the unit is
+  // saved or how OFFICE 05 (board) is handled.
+  hierarchyPath?: string;
+  managerName?: string | null;
+  managerLabel?: string;
 }
 
 export interface VirtualOfficeDesignProps {
@@ -397,6 +414,7 @@ const VIRTUAL_OFFICE_ROOMS_API = "/api/tenant/virtual-office/rooms";
 function buildPreviewOrgUnits(
   snapshot: OrgStructureSnapshot | null,
   tasks: Task[],
+  employees: Employee[] = [],
 ): PreviewOrgUnit[] {
   const departments = Array.isArray(snapshot?.departments) ? snapshot!.departments : [];
   const teams = Array.isArray(snapshot?.teams) ? snapshot!.teams : [];
@@ -406,6 +424,27 @@ function buildPreviewOrgUnits(
   const countForEmployees = (employeeIds: Set<string>) =>
     safeTasks.filter((task) => task?.assigneeId && employeeIds.has(task.assigneeId)).length;
 
+  // VIRTUAL-OFFICE-MANUAL-HIERARCHY-MAPPING-1
+  // Employee-id → display name for the manager label lookup. This is
+  // a derived view only — no Supabase read, no auto-linking.
+  const employeeNameById = new Map<string, string>();
+  for (const emp of employees) {
+    if (emp && typeof emp.id === "string") {
+      const label = (typeof emp.name === "string" && emp.name.trim())
+        ? emp.name.trim()
+        : (typeof emp.email === "string" ? emp.email : "");
+      if (label) employeeNameById.set(emp.id, label);
+    }
+  }
+
+  // Build the parent_id index once and reuse it across every
+  // department's hierarchy walk, instead of paying O(N) per row
+  // inside buildDepartmentHierarchyPath.
+  const departmentsById = new Map<string, Department>();
+  for (const dept of departments) {
+    if (dept && typeof dept.id === "string") departmentsById.set(dept.id, dept);
+  }
+
   const departmentUnits = departments.map((department) => {
     const type = (department.structure_level ?? "department") as PreviewOrgUnitType;
     const employeeIds = new Set(
@@ -414,6 +453,11 @@ function buildPreviewOrgUnits(
         .map((relation) => relation.employee_id)
         .filter((id): id is string => typeof id === "string"),
     );
+    const hierarchyNodes = buildDepartmentHierarchyPath(departments, department.id, departmentsById);
+    const hierarchyPath = formatHierarchyPath(hierarchyNodes);
+    const managerName = department.manager_id
+      ? (employeeNameById.get(department.manager_id) ?? null)
+      : null;
     return {
       id: `department:${department.id}`,
       name: department.name,
@@ -422,9 +466,15 @@ function buildPreviewOrgUnits(
       code: department.department_code ?? department.publicCode ?? null,
       employeeCount: employeeIds.size,
       taskCount: countForEmployees(employeeIds),
+      hierarchyPath: hierarchyPath || undefined,
+      managerName,
+      managerLabel: managerLabelForLevel(department.structure_level),
     };
   });
 
+  // Teams stay as a technical / subordinate option — never the
+  // primary unit of the administrative hierarchy. The picker keeps
+  // them visible so existing mappings still work.
   const teamUnits = teams.map((team) => {
     const employeeIds = new Set(
       relations
@@ -767,8 +817,8 @@ export default function VirtualOfficeDesign({
   const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
   const safeEmps  = useMemo(() => Array.isArray(employees) ? employees : [], [employees]);
   const previewOrgUnits = useMemo(
-    () => buildPreviewOrgUnits(snapshot, safeTasks),
-    [snapshot, safeTasks],
+    () => buildPreviewOrgUnits(snapshot, safeTasks, safeEmps),
+    [snapshot, safeTasks, safeEmps],
   );
 
   // C16.2-I: scoped office data only — no global fallback.
