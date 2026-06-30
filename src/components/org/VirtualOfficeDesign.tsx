@@ -13,7 +13,7 @@ import {
   Layers, MapPin, Globe, Zap, BrainCircuit, GitMerge,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import type { OrgStructureSnapshot } from "@/lib/org/types";
+import type { Department, OrgStructureSnapshot } from "@/lib/org/types";
 import type { Employee, Task } from "@/types";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { supabase } from "@/lib/supabaseClient";
@@ -437,6 +437,14 @@ function buildPreviewOrgUnits(
     }
   }
 
+  // Build the parent_id index once and reuse it across every
+  // department's hierarchy walk, instead of paying O(N) per row
+  // inside buildDepartmentHierarchyPath.
+  const departmentsById = new Map<string, Department>();
+  for (const dept of departments) {
+    if (dept && typeof dept.id === "string") departmentsById.set(dept.id, dept);
+  }
+
   const departmentUnits = departments.map((department) => {
     const type = (department.structure_level ?? "department") as PreviewOrgUnitType;
     const employeeIds = new Set(
@@ -445,7 +453,7 @@ function buildPreviewOrgUnits(
         .map((relation) => relation.employee_id)
         .filter((id): id is string => typeof id === "string"),
     );
-    const hierarchyNodes = buildDepartmentHierarchyPath(departments, department.id);
+    const hierarchyNodes = buildDepartmentHierarchyPath(departments, department.id, departmentsById);
     const hierarchyPath = formatHierarchyPath(hierarchyNodes);
     const managerName = department.manager_id
       ? (employeeNameById.get(department.manager_id) ?? null)

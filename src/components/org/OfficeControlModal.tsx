@@ -686,10 +686,11 @@ export default function OfficeControlModal({
                               background: sel ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.03)",
                               padding: "6px 9px", cursor: "pointer",
                               display: "flex", flexDirection: "column", alignItems: "stretch", gap: 2,
+                              minWidth: 0,
                             }}
                           >
-                            <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                              <span style={{ fontSize: 11, fontWeight: 700, color: sel ? "#e9d5ff" : "#c0d4ee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, minWidth: 0 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: sel ? "#e9d5ff" : "#c0d4ee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: "1 1 0%" }}>
                                 {unit.name}
                               </span>
                               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
@@ -707,7 +708,7 @@ export default function OfficeControlModal({
                                 Hierarchy path is display-only; the saved
                                 mapping continues to be plain mapped_unit_id. */}
                             {unit.hierarchyPath && (
-                              <span style={{ fontSize: 9, color: "#6b87ab", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              <span style={{ fontSize: 9, color: "#6b87ab", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, display: "block" }}>
                                 {unit.hierarchyPath}
                               </span>
                             )}
@@ -718,12 +719,12 @@ export default function OfficeControlModal({
                   )}
 
                   {selectedUnit && (
-                    <div style={{ borderRadius: 12, border: "1px solid rgba(16,185,129,0.18)", background: "rgba(16,185,129,0.06)", padding: "8px 10px" }}>
+                    <div style={{ borderRadius: 12, border: "1px solid rgba(16,185,129,0.18)", background: "rgba(16,185,129,0.06)", padding: "8px 10px", minWidth: 0 }}>
                       <div style={{ fontSize: 9.5, color: "#6ee7b7", fontWeight: 900, marginBottom: 3 }}>الاختيار الحالي</div>
-                      <div style={{ fontSize: 11, color: "#dff7ff", fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: 11, color: "#dff7ff", fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                         {selectedUnit.name}
                       </div>
-                      <div style={{ fontSize: 9.5, color: "#6b87ab", marginTop: 2 }}>
+                      <div style={{ fontSize: 9.5, color: "#6b87ab", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                         {selectedUnit.typeLabel}{selectedUnit.code ? ` · ${selectedUnit.code}` : ""}
                       </div>
                       {/* VIRTUAL-OFFICE-MANUAL-HIERARCHY-MAPPING-1
@@ -731,12 +732,12 @@ export default function OfficeControlModal({
                           manager label. Display-only — does not change
                           what gets saved or how OFFICE 05 behaves. */}
                       {selectedUnit.hierarchyPath && (
-                        <div style={{ fontSize: 9.5, color: "#8ba3c7", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: 9.5, color: "#8ba3c7", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                           {selectedUnit.hierarchyPath}
                         </div>
                       )}
                       {selectedUnit.managerLabel && (
-                        <div style={{ fontSize: 9.5, color: "#a3b8d4", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: 9.5, color: "#a3b8d4", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                           {selectedUnit.managerLabel}: {selectedUnit.managerName ?? "—"}
                         </div>
                       )}

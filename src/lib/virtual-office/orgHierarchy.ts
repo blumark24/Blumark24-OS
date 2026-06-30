@@ -39,12 +39,22 @@ const MAX_HIERARCHY_DEPTH = 8;
 export function buildDepartmentHierarchyPath(
   departments: ReadonlyArray<Department> | null | undefined,
   departmentId: string | null | undefined,
+  departmentsById?: Map<string, Department>,
 ): HierarchyNode[] {
-  if (!departments || !departmentId) return [];
+  if (!departmentId) return [];
 
-  const byId = new Map<string, Department>();
-  for (const dept of departments) {
-    if (dept && typeof dept.id === "string") byId.set(dept.id, dept);
+  // Reuse a caller-built index when provided (avoids O(N) rebuild per
+  // department in hot loops like buildPreviewOrgUnits). Falls back to
+  // an internal build so the helper stays usable standalone.
+  let byId: Map<string, Department>;
+  if (departmentsById) {
+    byId = departmentsById;
+  } else {
+    if (!departments) return [];
+    byId = new Map<string, Department>();
+    for (const dept of departments) {
+      if (dept && typeof dept.id === "string") byId.set(dept.id, dept);
+    }
   }
 
   const out: HierarchyNode[] = [];
