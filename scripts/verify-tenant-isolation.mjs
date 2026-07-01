@@ -111,6 +111,25 @@ const TENANT_SCOPE_READINESS_FILES = [
   },
 ];
 
+const TENANT_SCOPE_AUDIT_FILES = [
+  {
+    path: "docs/tenant-scoped-role-enforcement-readiness.md",
+    tokens: [
+      "Scoped Role Enforcement Readiness",
+      "scopedRoleResolver",
+      "scopedRoleVisibilityContract",
+      "PermissionsContext",
+      "PageGuard",
+      "useData",
+      "dashboard-summary",
+      "aiContext",
+      "officeScope",
+      "enforcement is not enabled",
+      "no DB/RLS/Auth/UI changes",
+    ],
+  },
+];
+
 function pass(msg) {
   console.log(`  ✓ ${msg}`);
 }
@@ -301,16 +320,37 @@ async function checkTenantScopeReadiness() {
   return ok;
 }
 
+async function checkTenantScopeAuditDocs() {
+  console.log("\n6. Tenant scoped role audit docs");
+  let ok = true;
+
+  for (const item of TENANT_SCOPE_AUDIT_FILES) {
+    try {
+      const content = await readFile(join(ROOT, item.path), "utf8");
+      pass(`${item.path} exists`);
+
+      for (const token of item.tokens) {
+        if (content.includes(token)) pass(`${item.path} includes ${token}`);
+        else ok = fail(`${item.path} missing ${token}`);
+      }
+    } catch {
+      ok = fail(`Missing tenant scoped role audit doc: ${item.path}`);
+    }
+  }
+
+  return ok;
+}
+
 async function checkLiveDatabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
   if (!url || !key) {
-    console.log("\n6. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
+    console.log("\n7. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
     console.log("   Manual QA: sign in as two different org users and confirm each sees only own data.");
     return true;
   }
 
-  console.log("\n6. Live Supabase checks");
+  console.log("\n7. Live Supabase checks");
   let ok = true;
   try {
     const { createClient } = await import("@supabase/supabase-js");
@@ -342,6 +382,7 @@ async function main() {
     checkVirtualOfficeScopeLayer(),
     checkCoreWorkspaceCrudGuards(),
     checkTenantScopeReadiness(),
+    checkTenantScopeAuditDocs(),
     checkLiveDatabase(),
   ]);
   const allOk = results.every(Boolean);
