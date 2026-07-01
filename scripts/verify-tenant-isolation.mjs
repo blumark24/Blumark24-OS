@@ -88,6 +88,27 @@ const TENANT_SCOPE_READINESS_FILES = [
       "structure?.relations ?? []",
     ],
   },
+  {
+    path: "src/lib/tenant/scopedRoleVisibilityContract.ts",
+    tokens: [
+      "SCOPED_ROLE_VISIBILITY_DEFINITIONS",
+      "buildScopedRoleVisibilityContract",
+      "listScopedRoleVisibilityDefinitions",
+      "organization_manager",
+      "agency_manager",
+      "management_manager",
+      "department_manager",
+      "employee",
+      "contractOnly: true",
+      "enforcementEnabled: false",
+      "managedAgencyIds",
+      "managedManagementIds",
+      "managedDepartmentIds",
+      "assignedDepartmentIds",
+      "ScopedRoleResolution",
+      "TenantScopedRole",
+    ],
+  },
 ];
 
 function pass(msg) {
@@ -254,7 +275,6 @@ async function checkTenantScopeReadiness() {
       }
 
       const isReadOnly =
-        content.includes("fetchOrgStructure") &&
         !content.includes(".insert(") &&
         !content.includes(".update(") &&
         !content.includes(".delete(") &&
@@ -262,6 +282,17 @@ async function checkTenantScopeReadiness() {
 
       if (isReadOnly) pass(`${item.path} is read-only`);
       else ok = fail(`${item.path} may include writes or miss the read source`);
+
+      const hasNoUiOrRouteCoupling =
+        !content.includes("PermissionsContext") &&
+        !content.includes("PageGuard") &&
+        !content.includes("@/app/") &&
+        !content.includes("@/components/") &&
+        !content.includes("next/router") &&
+        !content.includes("next/navigation");
+
+      if (hasNoUiOrRouteCoupling) pass(`${item.path} has no UI, route, PageGuard, or PermissionsContext coupling`);
+      else ok = fail(`${item.path} may be coupled to UI, routes, PageGuard, or PermissionsContext`);
     } catch {
       ok = fail(`Missing tenant scoped role readiness file: ${item.path}`);
     }
