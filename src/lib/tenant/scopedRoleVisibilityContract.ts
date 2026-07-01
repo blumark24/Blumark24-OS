@@ -7,6 +7,13 @@ export type TenantVisibilityBoundary =
   | "managed_departments"
   | "assigned_departments";
 
+type VisibilitySourceField =
+  | "managedAgencyIds"
+  | "managedManagementIds"
+  | "managedDepartmentIds"
+  | "assignedDepartmentIds"
+  | null;
+
 export interface ScopedRoleVisibilityContract {
   scopedRole: TenantScopedRole;
   boundary: TenantVisibilityBoundary;
@@ -24,6 +31,7 @@ export interface ScopedRoleVisibilityContract {
 export interface ScopedRoleVisibilityDefinition {
   scopedRole: TenantScopedRole;
   boundary: TenantVisibilityBoundary;
+  sourceField: VisibilitySourceField;
   ownRecordOnly: boolean;
   includesFutureChildren: boolean;
   contractOnly: true;
@@ -38,6 +46,7 @@ export const SCOPED_ROLE_VISIBILITY_DEFINITIONS: Record<
   organization_manager: {
     scopedRole: "organization_manager",
     boundary: "organization",
+    sourceField: null,
     ownRecordOnly: false,
     includesFutureChildren: true,
     contractOnly: true,
@@ -47,6 +56,7 @@ export const SCOPED_ROLE_VISIBILITY_DEFINITIONS: Record<
   agency_manager: {
     scopedRole: "agency_manager",
     boundary: "managed_agencies",
+    sourceField: "managedAgencyIds",
     ownRecordOnly: false,
     includesFutureChildren: true,
     contractOnly: true,
@@ -56,6 +66,7 @@ export const SCOPED_ROLE_VISIBILITY_DEFINITIONS: Record<
   management_manager: {
     scopedRole: "management_manager",
     boundary: "managed_managements",
+    sourceField: "managedManagementIds",
     ownRecordOnly: false,
     includesFutureChildren: true,
     contractOnly: true,
@@ -65,6 +76,7 @@ export const SCOPED_ROLE_VISIBILITY_DEFINITIONS: Record<
   department_manager: {
     scopedRole: "department_manager",
     boundary: "managed_departments",
+    sourceField: "managedDepartmentIds",
     ownRecordOnly: false,
     includesFutureChildren: false,
     contractOnly: true,
@@ -74,6 +86,7 @@ export const SCOPED_ROLE_VISIBILITY_DEFINITIONS: Record<
   employee: {
     scopedRole: "employee",
     boundary: "assigned_departments",
+    sourceField: "assignedDepartmentIds",
     ownRecordOnly: true,
     includesFutureChildren: false,
     contractOnly: true,
@@ -82,115 +95,39 @@ export const SCOPED_ROLE_VISIBILITY_DEFINITIONS: Record<
   },
 };
 
-function emptyContract(
-  scopedRole: TenantScopedRole,
-  organizationId: string | null,
+export function listScopedRoleVisibilityDefinitions(): ScopedRoleVisibilityDefinition[] {
+  return Object.values(SCOPED_ROLE_VISIBILITY_DEFINITIONS);
+}
+
+function readVisibleIds(
+  resolution: ScopedRoleResolution,
+  sourceField: VisibilitySourceField,
+): string[] {
+  return sourceField ? resolution[sourceField] : [];
+}
+
+export function buildScopedRoleVisibilityContract(
+  resolution: ScopedRoleResolution,
 ): ScopedRoleVisibilityContract {
-  const definition = SCOPED_ROLE_VISIBILITY_DEFINITIONS.employee;
+  const definition = SCOPED_ROLE_VISIBILITY_DEFINITIONS[resolution.scopedRole];
+  const visibleIds = readVisibleIds(resolution, definition.sourceField);
+
   return {
-    scopedRole,
+    scopedRole: definition.scopedRole,
     boundary: definition.boundary,
-    organizationId,
-    visibleAgencyIds: [],
-    visibleManagementIds: [],
-    visibleDepartmentIds: [],
+    organizationId: resolution.organizationId,
+    visibleAgencyIds: definition.sourceField === "managedAgencyIds" ? visibleIds : [],
+    visibleManagementIds: definition.sourceField === "managedManagementIds" ? visibleIds : [],
+    visibleDepartmentIds: definition.sourceField === "managedDepartmentIds" ||
+      definition.sourceField === "assignedDepartmentIds"
+      ? visibleIds
+      : [],
     ownRecordOnly: definition.ownRecordOnly,
     includesFutureChildren: definition.includesFutureChildren,
     contractOnly: definition.contractOnly,
     enforcementEnabled: definition.enforcementEnabled,
     description: definition.description,
   };
-}
-
-export function listScopedRoleVisibilityDefinitions(): ScopedRoleVisibilityDefinition[] {
-  return Object.values(SCOPED_ROLE_VISIBILITY_DEFINITIONS);
-}
-
-export function buildScopedRoleVisibilityContract(
-  resolution: ScopedRoleResolution,
-): ScopedRoleVisibilityContract {
-  const organizationId = resolution.organizationId;
-  const definition = SCOPED_ROLE_VISIBILITY_DEFINITIONS[resolution.scopedRole];
-
-  switch (resolution.scopedRole) {
-    case "organization_manager":
-      return {
-        scopedRole: "organization_manager",
-        boundary: definition.boundary,
-        organizationId,
-        visibleAgencyIds: [],
-        visibleManagementIds: [],
-        visibleDepartmentIds: [],
-        ownRecordOnly: definition.ownRecordOnly,
-        includesFutureChildren: definition.includesFutureChildren,
-        contractOnly: definition.contractOnly,
-        enforcementEnabled: definition.enforcementEnabled,
-        description: definition.description,
-      };
-
-    case "agency_manager":
-      return {
-        scopedRole: "agency_manager",
-        boundary: definition.boundary,
-        organizationId,
-        visibleAgencyIds: resolution.managedAgencyIds,
-        visibleManagementIds: [],
-        visibleDepartmentIds: [],
-        ownRecordOnly: definition.ownRecordOnly,
-        includesFutureChildren: definition.includesFutureChildren,
-        contractOnly: definition.contractOnly,
-        enforcementEnabled: definition.enforcementEnabled,
-        description: definition.description,
-      };
-
-    case "management_manager":
-      return {
-        scopedRole: "management_manager",
-        boundary: definition.boundary,
-        organizationId,
-        visibleAgencyIds: [],
-        visibleManagementIds: resolution.managedManagementIds,
-        visibleDepartmentIds: [],
-        ownRecordOnly: definition.ownRecordOnly,
-        includesFutureChildren: definition.includesFutureChildren,
-        contractOnly: definition.contractOnly,
-        enforcementEnabled: definition.enforcementEnabled,
-        description: definition.description,
-      };
-
-    case "department_manager":
-      return {
-        scopedRole: "department_manager",
-        boundary: definition.boundary,
-        organizationId,
-        visibleAgencyIds: [],
-        visibleManagementIds: [],
-        visibleDepartmentIds: resolution.managedDepartmentIds,
-        ownRecordOnly: definition.ownRecordOnly,
-        includesFutureChildren: definition.includesFutureChildren,
-        contractOnly: definition.contractOnly,
-        enforcementEnabled: definition.enforcementEnabled,
-        description: definition.description,
-      };
-
-    case "employee":
-      return {
-        scopedRole: "employee",
-        boundary: definition.boundary,
-        organizationId,
-        visibleAgencyIds: [],
-        visibleManagementIds: [],
-        visibleDepartmentIds: resolution.assignedDepartmentIds,
-        ownRecordOnly: definition.ownRecordOnly,
-        includesFutureChildren: definition.includesFutureChildren,
-        contractOnly: definition.contractOnly,
-        enforcementEnabled: definition.enforcementEnabled,
-        description: definition.description,
-      };
-
-    default:
-      return emptyContract(resolution.scopedRole, organizationId);
-  }
 }
 
 export const defineScopedRoleVisibilityContract = buildScopedRoleVisibilityContract;
