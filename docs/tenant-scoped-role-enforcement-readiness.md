@@ -32,7 +32,7 @@ Verification phrase: no DB/RLS/Auth/UI changes.
 
 ## Enforcement Decision
 
-- enforcement is not enabled.
+- Scoped role enforcement is not enabled.
 - Scoped role enforcement must not be enabled inside this audit PR.
 - Any future enforcement must be introduced in a separate PR.
 - Future enforcement should start with read-only shadow checks, then move gradually through scoped manifests and optional guards.

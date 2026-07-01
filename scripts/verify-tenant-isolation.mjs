@@ -124,7 +124,7 @@ const TENANT_SCOPE_AUDIT_FILES = [
       "dashboard-summary",
       "aiContext",
       "officeScope",
-      "enforcement is not enabled",
+      "Scoped role enforcement is not enabled",
       "no DB/RLS/Auth/UI changes",
     ],
   },
