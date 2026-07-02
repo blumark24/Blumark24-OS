@@ -136,6 +136,8 @@ const TENANT_AUDIT_WIRING_FILES = [
   "src/lib/tenant/executiveOfficeRoomMappings.ts",
 ];
 
+const AI_CHAT_RATE_LIMIT_FILE = "src/app/api/ai/chat/route.ts";
+
 function pass(msg) {
   console.log(`  ✓ ${msg}`);
 }
@@ -390,16 +392,56 @@ async function checkTenantAuditLogWiring() {
   return ok;
 }
 
+async function checkAiChatDurableRateLimit() {
+  console.log("\n8. AI chat durable rate limit");
+  let ok = true;
+
+  try {
+    const content = await readFile(join(ROOT, AI_CHAT_RATE_LIMIT_FILE), "utf8");
+    pass(`${AI_CHAT_RATE_LIMIT_FILE} exists`);
+
+    if (content.includes('"@/lib/rateLimit"') || content.includes("'@/lib/rateLimit'")) {
+      ok = fail(`${AI_CHAT_RATE_LIMIT_FILE} imports the legacy in-memory rate limiter`);
+    } else {
+      pass(`${AI_CHAT_RATE_LIMIT_FILE} does not import the legacy in-memory rate limiter`);
+    }
+
+    if (
+      content.includes('"@/lib/security/rateLimit"') ||
+      content.includes("'@/lib/security/rateLimit'")
+    ) {
+      pass(`${AI_CHAT_RATE_LIMIT_FILE} imports the durable server-side rate limiter`);
+    } else {
+      ok = fail(`${AI_CHAT_RATE_LIMIT_FILE} missing durable rate limiter import`);
+    }
+
+    for (const token of ["buildRateLimitKey", "getClientIp"]) {
+      if (content.includes(token)) pass(`${AI_CHAT_RATE_LIMIT_FILE} uses ${token}`);
+      else ok = fail(`${AI_CHAT_RATE_LIMIT_FILE} missing ${token}`);
+    }
+
+    if (/await\s+checkRateLimit\s*\(/.test(content)) {
+      pass(`${AI_CHAT_RATE_LIMIT_FILE} awaits checkRateLimit`);
+    } else {
+      ok = fail(`${AI_CHAT_RATE_LIMIT_FILE} does not await checkRateLimit`);
+    }
+  } catch {
+    ok = fail(`Missing AI chat route file: ${AI_CHAT_RATE_LIMIT_FILE}`);
+  }
+
+  return ok;
+}
+
 async function checkLiveDatabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
   if (!url || !key) {
-    console.log("\n8. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
+    console.log("\n9. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
     console.log("   Manual QA: sign in as two different org users and confirm each sees only own data.");
     return true;
   }
 
-  console.log("\n8. Live Supabase checks");
+  console.log("\n9. Live Supabase checks");
   let ok = true;
   try {
     const { createClient } = await import("@supabase/supabase-js");
@@ -433,6 +475,7 @@ async function main() {
     checkTenantScopeReadiness(),
     checkTenantScopeAuditDocs(),
     checkTenantAuditLogWiring(),
+    checkAiChatDurableRateLimit(),
     checkLiveDatabase(),
   ]);
   const allOk = results.every(Boolean);
