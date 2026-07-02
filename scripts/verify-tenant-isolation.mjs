@@ -138,6 +138,13 @@ const TENANT_AUDIT_WIRING_FILES = [
 
 const AI_CHAT_RATE_LIMIT_FILE = "src/app/api/ai/chat/route.ts";
 
+// Phase 4C-1 — owner tenant lifecycle guard.
+const TENANT_LIFECYCLE_GUARD_FILE = "src/lib/owner/tenantLifecycleGuard.ts";
+const OWNER_ORG_QUERIES_FILE = "src/app/owner/_lib/ownerQueries.ts";
+// Owner flow directories scanned for organization hard deletes and
+// organization_code / customer_code mutation.
+const OWNER_FLOW_DIRS = ["src/app/owner", "src/app/api/owner", "src/lib/owner"];
+
 function pass(msg) {
   console.log(`  ✓ ${msg}`);
 }
@@ -441,16 +448,134 @@ async function checkAiChatDurableRateLimit() {
   return ok;
 }
 
+async function listFilesRecursive(dir) {
+  const out = [];
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...(await listFilesRecursive(full)));
+    else if (/\.(ts|tsx|mjs|js)$/.test(entry.name)) out.push(full);
+  }
+  return out;
+}
+
+async function checkOwnerTenantLifecycleGuard() {
+  console.log("\n9. Owner tenant lifecycle guard");
+  let ok = true;
+
+  // 9a. Guard helper exists with the required policy surface.
+  try {
+    const guard = await readFile(join(ROOT, TENANT_LIFECYCLE_GUARD_FILE), "utf8");
+    pass(`${TENANT_LIFECYCLE_GUARD_FILE} exists`);
+
+    const guardTokens = [
+      "assessTenantLifecycle",
+      "evaluateTenantLifecycleAction",
+      "summarizeTenantLifecycleAssessment",
+      "ORGANIZATION_HARD_DELETE_ALLOWED = false",
+      '"subscriptions"',
+      '"invoices"',
+      '"employees"',
+      '"tenant_audit_logs"',
+      '"executive_office_room_mappings"',
+      '"soft_delete_only"',
+      "mustArchiveOrSuspendInstead",
+      "customer/organization codes are immutable and must never be reused",
+    ];
+    for (const token of guardTokens) {
+      if (guard.includes(token)) pass(`${TENANT_LIFECYCLE_GUARD_FILE} includes ${token}`);
+      else ok = fail(`${TENANT_LIFECYCLE_GUARD_FILE} missing ${token}`);
+    }
+
+    const guardIsReadOnly =
+      !guard.includes(".insert(") &&
+      !guard.includes(".update(") &&
+      !guard.includes(".delete(") &&
+      !guard.includes(".upsert(");
+    if (guardIsReadOnly) pass(`${TENANT_LIFECYCLE_GUARD_FILE} is read-only (assessment never mutates)`);
+    else ok = fail(`${TENANT_LIFECYCLE_GUARD_FILE} contains writes`);
+  } catch {
+    ok = fail(`Missing tenant lifecycle guard file: ${TENANT_LIFECYCLE_GUARD_FILE}`);
+  }
+
+  // 9b. Owner soft delete stays soft and runs the guard first.
+  try {
+    const queries = await readFile(join(ROOT, OWNER_ORG_QUERIES_FILE), "utf8");
+    const softDeleteBody = queries.match(
+      /export async function softDeleteOrganization[\s\S]{0,2200}?\n\}/,
+    )?.[0];
+    if (!softDeleteBody) {
+      ok = fail(`${OWNER_ORG_QUERIES_FILE} missing softDeleteOrganization`);
+    } else {
+      if (softDeleteBody.includes("deleted_at: now") && softDeleteBody.includes('status: "cancelled"')) {
+        pass("softDeleteOrganization marks deleted_at + status='cancelled' (soft delete only)");
+      } else {
+        ok = fail("softDeleteOrganization missing deleted_at/status cancelled soft-delete markers");
+      }
+      if (softDeleteBody.includes(".delete(")) {
+        ok = fail("softDeleteOrganization performs a hard delete");
+      } else {
+        pass("softDeleteOrganization never calls .delete()");
+      }
+      if (
+        softDeleteBody.includes("assessTenantLifecycle") &&
+        softDeleteBody.includes("evaluateTenantLifecycleAction")
+      ) {
+        pass("softDeleteOrganization runs the tenant lifecycle guard before archiving");
+      } else {
+        ok = fail("softDeleteOrganization does not run the tenant lifecycle guard");
+      }
+      if (softDeleteBody.includes("deleted_by")) {
+        pass("softDeleteOrganization records deleted_by in the audit metadata");
+      } else {
+        ok = fail("softDeleteOrganization missing deleted_by audit metadata");
+      }
+    }
+  } catch {
+    ok = fail(`Missing owner queries file: ${OWNER_ORG_QUERIES_FILE}`);
+  }
+
+  // 9c. No owner flow hard-deletes organizations, and organization_code /
+  // customer_code are never mutated (immutable, never reused).
+  const orgHardDelete = /from\(\s*["']organizations["']\s*\)[\s\S]{0,300}?\.delete\(/;
+  const codeMutation = /\.update\(\s*\{[\s\S]{0,300}?(organization_code|customer_code)\s*:/;
+
+  for (const dir of OWNER_FLOW_DIRS) {
+    const files = await listFilesRecursive(join(ROOT, dir));
+    let dirOk = true;
+    for (const file of files) {
+      const content = await readFile(file, "utf8");
+      const rel = file.slice(ROOT.length + 1);
+      if (orgHardDelete.test(content)) {
+        dirOk = false;
+        ok = fail(`${rel} hard-deletes organizations`);
+      }
+      if (codeMutation.test(content)) {
+        dirOk = false;
+        ok = fail(`${rel} mutates organization_code/customer_code (codes are immutable, never reused)`);
+      }
+    }
+    if (dirOk) pass(`${dir} has no organization hard delete and no org-code mutation`);
+  }
+
+  return ok;
+}
+
 async function checkLiveDatabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
   if (!url || !key) {
-    console.log("\n9. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
+    console.log("\n10. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
     console.log("   Manual QA: sign in as two different org users and confirm each sees only own data.");
     return true;
   }
 
-  console.log("\n9. Live Supabase checks");
+  console.log("\n10. Live Supabase checks");
   let ok = true;
   try {
     const { createClient } = await import("@supabase/supabase-js");
@@ -485,6 +610,7 @@ async function main() {
     checkTenantScopeAuditDocs(),
     checkTenantAuditLogWiring(),
     checkAiChatDurableRateLimit(),
+    checkOwnerTenantLifecycleGuard(),
     checkLiveDatabase(),
   ]);
   const allOk = results.every(Boolean);

@@ -10,6 +10,11 @@ import {
   canSuspendSubscription,
   LIVE_SUBSCRIPTION_STATUSES,
 } from "@/lib/billing/lifecycle";
+import {
+  assessTenantLifecycle,
+  evaluateTenantLifecycleAction,
+  summarizeTenantLifecycleAssessment,
+} from "@/lib/owner/tenantLifecycleGuard";
 import type { Accent } from "../_data";
 import {
   computeMrr,
@@ -1200,7 +1205,20 @@ export async function createPlan(input: NewPlanInput): Promise<CreatePlanResult>
 // Soft-delete a customer tenant: mark deleted_at + status='cancelled'. No rows are
 // removed; the org simply leaves the active list and can be restored by clearing
 // deleted_at. The protect_internal_organization trigger rejects this on internal orgs.
+//
+// Phase 4C-1: the tenant lifecycle guard runs first. Hard delete of organizations
+// is never performed here or anywhere in the owner flow — an org with linked
+// subscriptions, invoices, employees, audit logs, or virtual office mappings can
+// only be archived (this soft delete) or suspended. The linked-record summary is
+// written to owner_audit_logs alongside the acting owner (deleted_by).
+// customer/organization codes are immutable and must never be reused.
 export async function softDeleteOrganization(input: { id: string }): Promise<OwnerActionResult> {
+  const assessment = await assessTenantLifecycle(supabase, input.id);
+  const decision = evaluateTenantLifecycleAction("soft_delete", assessment);
+  if (!decision.allowed) {
+    return { ok: false, error: decision.reason ?? "لا يمكن حذف المنشأة — يجب أرشفتها أو تعليقها" };
+  }
+
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("organizations")
@@ -1212,7 +1230,21 @@ export async function softDeleteOrganization(input: { id: string }): Promise<Own
     return { ok: false, error: "تعذّر حذف المنشأة — حاول مجدداً" };
   }
 
-  await logOwnerAction("soft_delete_organization", input.id, {});
+  // organizations has no deleted_by column (no schema change in this phase);
+  // the acting owner is recorded as deleted_by in the audit metadata instead.
+  let deletedBy = "unknown";
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    deletedBy = userData?.user?.email ?? "unknown";
+  } catch {
+    // best-effort only
+  }
+
+  await logOwnerAction("soft_delete_organization", input.id, {
+    mode: decision.mode,
+    deleted_by: deletedBy,
+    ...summarizeTenantLifecycleAssessment(assessment),
+  });
   return { ok: true };
 }
 
