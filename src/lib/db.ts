@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { logTenantAuditEvent } from "@/lib/tenant/tenantAuditLogs";
 
 const DEFAULT_HEADER_LIST_LIMIT = 20;
 const MAX_HEADER_LIST_LIMIT = 100;
@@ -316,6 +317,35 @@ export async function resolveCurrentOrgId(): Promise<string | null> {
   return data as string;
 }
 
+async function recordTenantUserAudit(input: {
+  organizationId: string;
+  action: string;
+  targetId: string;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const result = await logTenantAuditEvent({
+      client: supabase,
+      organizationId: input.organizationId,
+      actorUserId: userData?.user?.id ?? null,
+      actorEmail: userData?.user?.email ?? null,
+      action: input.action,
+      targetType: "profile",
+      targetId: input.targetId,
+      metadata: input.metadata,
+    });
+    if (!result.ok) {
+      console.warn("[db] tenant audit log skipped:", result.error);
+    }
+  } catch (error) {
+    console.warn(
+      "[db] tenant audit log failed:",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
 export interface TenantWorkspaceSettings {
   company_info: Record<string, unknown>;
   notifications: Record<string, unknown>;
@@ -469,6 +499,15 @@ export async function updateProfileRole(userId: string, role: string): Promise<v
     .eq("id", userId)
     .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
+  await recordTenantUserAudit({
+    organizationId: orgId,
+    action: "tenant_user.role.updated",
+    targetId: userId,
+    metadata: {
+      employee_id: userId,
+      after: { role },
+    },
+  });
 }
 
 // Self-service: a user updates ONLY their own basic profile fields. Always
@@ -522,6 +561,15 @@ export async function toggleProfileStatus(userId: string, isActive: boolean): Pr
     .eq("id", userId)
     .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
+  await recordTenantUserAudit({
+    organizationId: orgId,
+    action: isActive ? "tenant_user.activated" : "tenant_user.deactivated",
+    targetId: userId,
+    metadata: {
+      employee_id: userId,
+      after: { is_active: isActive },
+    },
+  });
 }
 
 // ─── System Settings ───────────────────────────────────────────────────────────

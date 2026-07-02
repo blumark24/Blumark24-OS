@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { logTenantAuditEvent } from "@/lib/tenant/tenantAuditLogs";
 import type {
   Department,
   DepartmentInput,
@@ -18,6 +19,37 @@ async function resolveOrgId(): Promise<string> {
   const { data, error } = await supabase.rpc("current_org_id");
   if (error || !data) throw new Error("تعذر تحديد المنشأة أو صلاحيات الوصول.");
   return data as string;
+}
+
+async function recordOrgStructureAudit(input: {
+  organizationId?: string | null;
+  action: string;
+  targetType: string;
+  targetId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const organizationId = input.organizationId ?? (await resolveOrgId());
+    const { data: userData } = await supabase.auth.getUser();
+    const result = await logTenantAuditEvent({
+      client: supabase,
+      organizationId,
+      actorUserId: userData?.user?.id ?? null,
+      actorEmail: userData?.user?.email ?? null,
+      action: input.action,
+      targetType: input.targetType,
+      targetId: input.targetId,
+      metadata: input.metadata,
+    });
+    if (!result.ok) {
+      console.warn("[structureDb] tenant audit log skipped:", result.error);
+    }
+  } catch (error) {
+    console.warn(
+      "[structureDb] tenant audit log failed:",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
 }
 
 export async function fetchOrgStructure(): Promise<OrgStructureSnapshot> {
@@ -91,6 +123,17 @@ export async function createDepartment(input: DepartmentInput): Promise<Departme
     .select("*")
     .single();
   if (error) throw new Error(error.message);
+  await recordOrgStructureAudit({
+    organizationId: data.organization_id,
+    action: "org_structure.department.created",
+    targetType: "department",
+    targetId: data.id,
+    metadata: {
+      name: data.name,
+      structure_level: data.structure_level,
+      parent_id: data.parent_id,
+    },
+  });
   return data as Department;
 }
 
@@ -111,6 +154,17 @@ export async function updateDepartment(
   if (input.name !== undefined) {
     await propagateDepartmentLabels(id, input.name);
   }
+  await recordOrgStructureAudit({
+    organizationId: data.organization_id,
+    action: "org_structure.department.updated",
+    targetType: "department",
+    targetId: data.id,
+    metadata: {
+      name: data.name,
+      structure_level: data.structure_level,
+      parent_id: data.parent_id,
+    },
+  });
   return data as Department;
 }
 
@@ -118,12 +172,28 @@ export async function deleteDepartment(id: string): Promise<void> {
   await assertDepartmentSafeToDelete(id);
   const { error } = await supabase.from("departments").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await recordOrgStructureAudit({
+    action: "org_structure.department.deleted",
+    targetType: "department",
+    targetId: id,
+    metadata: { reason: "delete" },
+  });
 }
 
 export async function createTeam(input: TeamInput): Promise<Team> {
   const organization_id = await resolveOrgId();
   const { data, error } = await supabase.from("teams").insert({ ...input, organization_id }).select("*").single();
   if (error) throw new Error(error.message);
+  await recordOrgStructureAudit({
+    organizationId: data.organization_id,
+    action: "org_structure.team.created",
+    targetType: "team",
+    targetId: data.id,
+    metadata: {
+      name: data.name,
+      department_id: data.department_id,
+    },
+  });
   return data as Team;
 }
 
@@ -135,6 +205,16 @@ export async function updateTeam(id: string, input: Partial<TeamInput>): Promise
     .select("*")
     .single();
   if (error) throw new Error(error.message);
+  await recordOrgStructureAudit({
+    organizationId: data.organization_id,
+    action: "org_structure.team.updated",
+    targetType: "team",
+    targetId: data.id,
+    metadata: {
+      name: data.name,
+      department_id: data.department_id,
+    },
+  });
   return data as Team;
 }
 
@@ -142,12 +222,29 @@ export async function deleteTeam(id: string): Promise<void> {
   await assertTeamSafeToDelete(id);
   const { error } = await supabase.from("teams").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await recordOrgStructureAudit({
+    action: "org_structure.team.deleted",
+    targetType: "team",
+    targetId: id,
+    metadata: { reason: "delete" },
+  });
 }
 
 export async function createPosition(input: PositionInput): Promise<Position> {
   const organization_id = await resolveOrgId();
   const { data, error } = await supabase.from("positions").insert({ ...input, organization_id }).select("*").single();
   if (error) throw new Error(error.message);
+  await recordOrgStructureAudit({
+    organizationId: data.organization_id,
+    action: "org_structure.position.created",
+    targetType: "position",
+    targetId: data.id,
+    metadata: {
+      name: data.title,
+      parent_id: data.parent_id,
+      position_id: data.id,
+    },
+  });
   return data as Position;
 }
 
@@ -162,6 +259,17 @@ export async function updatePosition(
     .select("*")
     .single();
   if (error) throw new Error(error.message);
+  await recordOrgStructureAudit({
+    organizationId: data.organization_id,
+    action: "org_structure.position.updated",
+    targetType: "position",
+    targetId: data.id,
+    metadata: {
+      name: data.title,
+      parent_id: data.parent_id,
+      position_id: data.id,
+    },
+  });
   return data as Position;
 }
 
@@ -169,6 +277,15 @@ export async function deletePosition(id: string): Promise<void> {
   await assertPositionSafeToDelete(id);
   const { error } = await supabase.from("positions").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await recordOrgStructureAudit({
+    action: "org_structure.position.deleted",
+    targetType: "position",
+    targetId: id,
+    metadata: {
+      position_id: id,
+      reason: "delete",
+    },
+  });
 }
 
 // ─── Safe-delete guards (Sprint 1C) ──────────────────────────────────────────
@@ -329,6 +446,19 @@ export async function upsertEmployeeRelation(
     .single();
   if (error) throw new Error(error.message);
   await syncEmployeeDepartmentLabel(input.employee_id, input.department_id);
+  await recordOrgStructureAudit({
+    organizationId: data.organization_id,
+    action: "org_structure.employee_relation.upserted",
+    targetType: "employee_relation",
+    targetId: data.id,
+    metadata: {
+      employee_id: data.employee_id,
+      department_id: data.department_id,
+      team_id: data.team_id,
+      position_id: data.position_id,
+      reason: "upsert_employee_relation",
+    },
+  });
   return data as EmployeeRelation;
 }
 
@@ -345,4 +475,10 @@ export async function assignEmployeeToOrgUnit(
 export async function deleteEmployeeRelation(id: string): Promise<void> {
   const { error } = await supabase.from("employee_relations").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await recordOrgStructureAudit({
+    action: "org_structure.employee_relation.deleted",
+    targetType: "employee_relation",
+    targetId: id,
+    metadata: { reason: "delete_employee_relation" },
+  });
 }
