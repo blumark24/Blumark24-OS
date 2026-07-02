@@ -420,6 +420,15 @@ async function checkAiChatDurableRateLimit() {
       else ok = fail(`${AI_CHAT_RATE_LIMIT_FILE} missing ${token}`);
     }
 
+    const keyBuilderMatch = content.match(/buildRateLimitKey\(\{\s*([\s\S]*?)\s*\}\);/);
+    if (!keyBuilderMatch) {
+      ok = fail(`${AI_CHAT_RATE_LIMIT_FILE} missing buildRateLimitKey object`);
+    } else if (/\bip\b/.test(keyBuilderMatch[1])) {
+      ok = fail(`${AI_CHAT_RATE_LIMIT_FILE} includes ip in buildRateLimitKey`);
+    } else {
+      pass(`${AI_CHAT_RATE_LIMIT_FILE} excludes ip from buildRateLimitKey`);
+    }
+
     if (/await\s+checkRateLimit\s*\(/.test(content)) {
       pass(`${AI_CHAT_RATE_LIMIT_FILE} awaits checkRateLimit`);
     } else {

@@ -158,7 +158,6 @@ export async function POST(req: NextRequest) {
   const rateLimitKey = buildRateLimitKey({
     scope: "ai_chat",
     user_id: auth.userId,
-    ip,
     route: "/api/ai/chat",
   });
   const rateLimitResult = await checkRateLimit({
