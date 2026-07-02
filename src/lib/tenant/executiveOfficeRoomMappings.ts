@@ -101,8 +101,8 @@ async function recordRoomMappingAudit(input: {
     const result = await logTenantAuditEvent({
       client: input.client,
       organizationId: input.organizationId,
-      actorUserId: userData.user?.id ?? null,
-      actorEmail: userData.user?.email ?? null,
+      actorUserId: userData?.user?.id ?? null,
+      actorEmail: userData?.user?.email ?? null,
       action: input.action,
       targetType: "executive_office_room_mapping",
       targetId: input.targetId,

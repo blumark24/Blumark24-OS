@@ -328,8 +328,8 @@ async function recordTenantUserAudit(input: {
     const result = await logTenantAuditEvent({
       client: supabase,
       organizationId: input.organizationId,
-      actorUserId: userData.user?.id ?? null,
-      actorEmail: userData.user?.email ?? null,
+      actorUserId: userData?.user?.id ?? null,
+      actorEmail: userData?.user?.email ?? null,
       action: input.action,
       targetType: "profile",
       targetId: input.targetId,

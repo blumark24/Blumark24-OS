@@ -34,8 +34,8 @@ async function recordOrgStructureAudit(input: {
     const result = await logTenantAuditEvent({
       client: supabase,
       organizationId,
-      actorUserId: userData.user?.id ?? null,
-      actorEmail: userData.user?.email ?? null,
+      actorUserId: userData?.user?.id ?? null,
+      actorEmail: userData?.user?.email ?? null,
       action: input.action,
       targetType: input.targetType,
       targetId: input.targetId,
