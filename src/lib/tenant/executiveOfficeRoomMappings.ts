@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logTenantAuditEvent } from "@/lib/tenant/tenantAuditLogs";
 
 export const EXECUTIVE_OFFICE_FIXED_ROOM_KEYS = [
   "executive",
@@ -87,6 +88,36 @@ const UUID_RE =
 
 const MAPPING_COLUMNS =
   "id, organization_id, fixed_room_key, mapped_unit_type, mapped_unit_id, display_name, is_active, created_at, updated_at";
+
+async function recordRoomMappingAudit(input: {
+  client: SupabaseClient;
+  organizationId: string;
+  action: string;
+  targetId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const { data: userData } = await input.client.auth.getUser();
+    const result = await logTenantAuditEvent({
+      client: input.client,
+      organizationId: input.organizationId,
+      actorUserId: userData.user?.id ?? null,
+      actorEmail: userData.user?.email ?? null,
+      action: input.action,
+      targetType: "executive_office_room_mapping",
+      targetId: input.targetId,
+      metadata: input.metadata,
+    });
+    if (!result.ok) {
+      console.warn("[executiveOfficeRoomMappings] tenant audit log skipped:", result.error);
+    }
+  } catch (error) {
+    console.warn(
+      "[executiveOfficeRoomMappings] tenant audit log failed:",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -329,6 +360,18 @@ export async function replaceExecutiveOfficeRoomMapping(input: {
   if (error) {
     throw mapSupabaseRoomMappingError(error, "تعذر إنشاء ربط الغرفة");
   }
+  await recordRoomMappingAudit({
+    client: input.client,
+    organizationId: input.organizationId,
+    action: "executive_office_room_mapping.replaced",
+    targetId: data.id,
+    metadata: {
+      fixed_room_key: data.fixed_room_key,
+      mapped_unit_type: data.mapped_unit_type,
+      mapped_unit_id: data.mapped_unit_id,
+      after: { name: data.display_name },
+    },
+  });
   return data;
 }
 
@@ -376,6 +419,18 @@ export async function updateExecutiveOfficeRoomMapping(input: {
       "لا يوجد ربط نشط لهذه الغرفة",
     );
   }
+  await recordRoomMappingAudit({
+    client: input.client,
+    organizationId: input.organizationId,
+    action: "executive_office_room_mapping.updated",
+    targetId: data.id,
+    metadata: {
+      fixed_room_key: data.fixed_room_key,
+      mapped_unit_type: data.mapped_unit_type,
+      mapped_unit_id: data.mapped_unit_id,
+      after: { name: data.display_name },
+    },
+  });
   return data;
 }
 
@@ -395,6 +450,18 @@ export async function deactivateExecutiveOfficeRoomMapping(input: {
 
   if (error) {
     throw mapSupabaseRoomMappingError(error, "تعذر إلغاء ربط الغرفة");
+  }
+  if (data) {
+    await recordRoomMappingAudit({
+      client: input.client,
+      organizationId: input.organizationId,
+      action: "executive_office_room_mapping.deactivated",
+      targetId: data.id,
+      metadata: {
+        fixed_room_key: input.fixedRoomKey,
+        reason: "soft_deactivate",
+      },
+    });
   }
   return { deactivated: Boolean(data) };
 }

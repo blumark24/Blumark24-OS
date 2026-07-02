@@ -130,6 +130,12 @@ const TENANT_SCOPE_AUDIT_FILES = [
   },
 ];
 
+const TENANT_AUDIT_WIRING_FILES = [
+  "src/lib/db.ts",
+  "src/lib/org/structureDb.ts",
+  "src/lib/tenant/executiveOfficeRoomMappings.ts",
+];
+
 function pass(msg) {
   console.log(`  ✓ ${msg}`);
 }
@@ -341,16 +347,59 @@ async function checkTenantScopeAuditDocs() {
   return ok;
 }
 
+async function checkTenantAuditLogWiring() {
+  console.log("\n7. Tenant audit log wiring");
+  let ok = true;
+  let externalAuditUsage = false;
+
+  for (const relativePath of TENANT_AUDIT_WIRING_FILES) {
+    if (relativePath.startsWith("src/components/") || relativePath.startsWith("src/app/")) {
+      ok = fail(`${relativePath} is a UI or route file, outside audit wiring scope`);
+      continue;
+    }
+    if (relativePath.startsWith("supabase/migrations/")) {
+      ok = fail(`${relativePath} is a migration file, outside audit wiring scope`);
+      continue;
+    }
+
+    try {
+      const content = await readFile(join(ROOT, relativePath), "utf8");
+      pass(`${relativePath} exists`);
+      if (content.includes("logTenantAuditEvent")) {
+        externalAuditUsage = true;
+        pass(`${relativePath} uses logTenantAuditEvent`);
+      } else {
+        ok = fail(`${relativePath} missing logTenantAuditEvent usage`);
+      }
+      if (content.includes("try {") && content.includes("console.warn")) {
+        pass(`${relativePath} has best-effort try/catch warning path`);
+      } else {
+        ok = fail(`${relativePath} missing best-effort try/catch warning path`);
+      }
+    } catch {
+      ok = fail(`Missing tenant audit wiring file: ${relativePath}`);
+    }
+  }
+
+  if (externalAuditUsage) {
+    pass("logTenantAuditEvent is used outside src/lib/tenant/tenantAuditLogs.ts");
+  } else {
+    ok = fail("logTenantAuditEvent is not wired outside its helper file");
+  }
+
+  return ok;
+}
+
 async function checkLiveDatabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
   if (!url || !key) {
-    console.log("\n7. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
+    console.log("\n8. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
     console.log("   Manual QA: sign in as two different org users and confirm each sees only own data.");
     return true;
   }
 
-  console.log("\n7. Live Supabase checks");
+  console.log("\n8. Live Supabase checks");
   let ok = true;
   try {
     const { createClient } = await import("@supabase/supabase-js");
@@ -383,6 +432,7 @@ async function main() {
     checkCoreWorkspaceCrudGuards(),
     checkTenantScopeReadiness(),
     checkTenantScopeAuditDocs(),
+    checkTenantAuditLogWiring(),
     checkLiveDatabase(),
   ]);
   const allOk = results.every(Boolean);
