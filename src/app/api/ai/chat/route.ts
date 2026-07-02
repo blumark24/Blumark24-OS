@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { checkRateLimit, resolveIp } from "@/lib/rateLimit";
+import { buildRateLimitKey, checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -154,15 +154,39 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUser(req);
   if (!auth.ok) return auth.response;
 
-  // Rate limit per user (fallback to IP if userId somehow unavailable).
-  const rateLimitKey = `ai-chat:user:${auth.userId ?? resolveIp(req)}`;
-  const rl = checkRateLimit(rateLimitKey, RATE_LIMIT, RATE_WINDOW_MS);
-  if (!rl.ok) {
+  const ip = getClientIp(req);
+  const rateLimitKey = buildRateLimitKey({
+    scope: "ai_chat",
+    user_id: auth.userId,
+    route: "/api/ai/chat",
+  });
+  const rateLimitResult = await checkRateLimit({
+    scope: "ai_chat",
+    key: rateLimitKey,
+    limit: RATE_LIMIT,
+    windowMs: RATE_WINDOW_MS,
+    user_id: auth.userId,
+    ip,
+    route: "/api/ai/chat",
+    target_type: "ai",
+    target_id: "chat",
+    metadata: {
+      organization_id: auth.organizationId ?? null,
+    },
+  });
+  if (!rateLimitResult.allowed) {
+    const resetAtMs = new Date(rateLimitResult.resetAt).getTime();
+    const retryAfterSeconds = Math.max(0, Math.ceil((resetAtMs - Date.now()) / 1000));
+
     return NextResponse.json(
       { error: "RATE_LIMITED", message: "تجاوزت الحد المسموح من الطلبات. حاول مجدداً بعد دقيقة." },
       {
         status: 429,
-        headers: { "Retry-After": String(Math.ceil(rl.resetInMs / 1000)) },
+        headers: {
+          "Retry-After": String(retryAfterSeconds),
+          "X-RateLimit-Reset": rateLimitResult.resetAt,
+          "Cache-Control": "no-store",
+        },
       },
     );
   }
