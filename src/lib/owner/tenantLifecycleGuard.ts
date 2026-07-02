@@ -88,8 +88,14 @@ export async function assessTenantLifecycle(
   const linkedRecords = {} as TenantLinkedRecordCounts;
   const checkErrors: string[] = [];
 
-  for (const table of TENANT_LIFECYCLE_LINKED_TABLES) {
-    const { count, error } = await countLinkedRows(client, table, organizationId);
+  const results = await Promise.all(
+    TENANT_LIFECYCLE_LINKED_TABLES.map(async (table) => ({
+      table,
+      ...(await countLinkedRows(client, table, organizationId)),
+    })),
+  );
+
+  for (const { table, count, error } of results) {
     linkedRecords[table] = count;
     if (error) {
       checkErrors.push(error);
