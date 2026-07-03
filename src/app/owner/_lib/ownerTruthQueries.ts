@@ -264,6 +264,23 @@ export async function fetchBillingOperationsSummary(): Promise<BillingOperations
     }
   }
 
+  // Phase 4C-2: prefer a lifecycle-aware active count (visible customer
+  // orgs only, non-internal billing) computed from the same rows used for
+  // MRR; fall back to the raw HEAD count when those reads failed.
+  let subscriptionsActiveVisible = subscriptionsActive;
+  if (!subsRes.error && !orgsRes.error) {
+    const orgRows = (orgsRes.data ?? []) as DbOrganization[];
+    const visibleOrgIds = new Set(
+      orgRows.filter((o) => !o.is_internal && !o.deleted_at).map((o) => o.id),
+    );
+    subscriptionsActiveVisible = ((subsRes.data ?? []) as DbSubscription[]).filter(
+      (s) =>
+        s.status === "active"
+        && s.billing_cycle !== "internal"
+        && visibleOrgIds.has(s.organization_id),
+    ).length;
+  }
+
   const failed = failedPaymentsToday ?? 0;
   const pending = pendingPayments ?? 0;
   const pastDue = subscriptionsPastDue ?? 0;
@@ -283,7 +300,7 @@ export async function fetchBillingOperationsSummary(): Promise<BillingOperations
     failedPaymentsToday,
     monthlyRecurringRevenueApprox,
     invoicesOpen,
-    subscriptionsActive,
+    subscriptionsActive: subscriptionsActiveVisible,
     subscriptionsPastDue,
     latestPaymentAt,
     latestBillingEventAt,
@@ -601,13 +618,24 @@ export async function fetchOrgStatusSummary(): Promise<OrgStatusSummary> {
 }
 
 export async function fetchSubStatusSummary(): Promise<SubStatusSummary> {
-  const [total, active, cancelled, canceled, suspended, trialing] = await Promise.all([
+  // Phase 4C-2: active/trialing are computed from rows checked against
+  // organization lifecycle instead of raw HEAD counts, so subscriptions
+  // linked to soft-deleted or internal organizations never count as active.
+  const [total, cancelled, canceled, suspended, liveRows, orgRows] = await Promise.all([
     supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal"),
-    supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal").eq("status", "active"),
     supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal").eq("status", "cancelled"),
     supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal").eq("status", "canceled"),
     supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal").eq("status", "suspended"),
-    supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal").eq("status", "trialing"),
+    supabase
+      .from("subscriptions")
+      .select("organization_id, status")
+      .in("status", ["active", "trialing"])
+      .neq("billing_cycle", "internal")
+      .limit(2000),
+    supabase
+      .from("organizations")
+      .select("id, is_internal, deleted_at")
+      .limit(2000),
   ]);
 
   if (total.error) {
@@ -616,12 +644,21 @@ export async function fetchSubStatusSummary(): Promise<SubStatusSummary> {
     return EMPTY_SUB;
   }
 
+  const visibleOrgIds = new Set(
+    ((orgRows.data ?? []) as { id: string; is_internal: boolean; deleted_at: string | null }[])
+      .filter((o) => !o.is_internal && !o.deleted_at)
+      .map((o) => o.id),
+  );
+  const live = (liveRows.data ?? []) as { organization_id: string; status: string }[];
+  const activeCount   = live.filter((s) => s.status === "active"   && visibleOrgIds.has(s.organization_id)).length;
+  const trialingCount = live.filter((s) => s.status === "trialing" && visibleOrgIds.has(s.organization_id)).length;
+
   return {
     total:     total.count     ?? 0,
-    active:    active.count    ?? 0,
+    active:    activeCount,
     cancelled: (cancelled.count ?? 0) + (canceled.count ?? 0),
     suspended: suspended.count ?? 0,
-    trialing:  trialing.count  ?? 0,
+    trialing:  trialingCount,
   };
 }
 

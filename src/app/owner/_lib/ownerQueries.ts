@@ -21,6 +21,11 @@ import {
   fetchCustomerStaffCount,
   type OwnerKpiValue,
 } from "./ownerTruthQueries";
+import {
+  classifySubscriptionLifecycle,
+  SUBSCRIPTION_LIFECYCLE_LABEL_AR,
+  type SubscriptionLifecycleClass,
+} from "./ownerSubscriptionReconciliation";
 
 // ─── Raw DB row types ────────────────────────────────────────────────────────
 
@@ -157,6 +162,13 @@ export interface DisplaySubscriptionFull {
   orgName: string;
   orgSlug: string | null;
   isInternal: boolean;
+  // Phase 4C-2 — organization lifecycle data on the owner subscription
+  // read model, so archived / internal / orphaned subscriptions are
+  // classified instead of silently counting as customer subscriptions.
+  orgDeletedAt: string | null;
+  orgStatusRaw: DbOrganization["status"] | null;
+  lifecycle: SubscriptionLifecycleClass;
+  lifecycleLabelAr: string;
   planId: string;
   planName: string;
   planSlug: string;
@@ -557,7 +569,9 @@ export async function fetchSubscriptionsPage(): Promise<DisplaySubscriptionFull[
       .from("subscriptions")
       .select("id, organization_id, plan_id, status, billing_cycle, started_at, ends_at, created_at")
       .order("created_at"),
-    supabase.from("organizations").select("id, name, slug, is_internal"),
+    // Phase 4C-2: the org read includes deleted_at + status so every
+    // subscription can be classified against its tenant's lifecycle.
+    supabase.from("organizations").select("id, name, slug, is_internal, deleted_at, status"),
     supabase.from("plans").select("id, name, slug"),
   ]);
 
@@ -569,19 +583,30 @@ export async function fetchSubscriptionsPage(): Promise<DisplaySubscriptionFull[
   if (plansRes.error) console.error("[owner] subs plans fetch error:", plansRes.error.message);
 
   const rawSubs  = (subsRes.data  ?? []) as DbSubscriptionRow[];
-  const rawOrgs  = (orgsRes.data  ?? []) as Pick<DbOrganization, "id" | "name" | "slug" | "is_internal">[];
+  const rawOrgs  = (orgsRes.data  ?? []) as Pick<
+    DbOrganization,
+    "id" | "name" | "slug" | "is_internal" | "deleted_at" | "status"
+  >[];
   const rawPlans = (plansRes.data ?? []) as Pick<DbPlan, "id" | "name" | "slug">[];
 
   return rawSubs.map((sub) => {
     const org  = rawOrgs.find((o) => o.id === sub.organization_id);
     const plan = rawPlans.find((p) => p.id === sub.plan_id);
     const planSlug = plan?.slug ?? "";
+    const lifecycle = classifySubscriptionLifecycle(
+      sub.status,
+      org ? { isInternal: org.is_internal === true, deletedAt: org.deleted_at } : null,
+    );
     return {
       id: sub.id,
       organizationId: sub.organization_id,
       orgName: org?.name ?? "—",
       orgSlug: org?.slug ?? null,
       isInternal: org?.is_internal === true,
+      orgDeletedAt: org?.deleted_at ?? null,
+      orgStatusRaw: org?.status ?? null,
+      lifecycle,
+      lifecycleLabelAr: SUBSCRIPTION_LIFECYCLE_LABEL_AR[lifecycle],
       planId: sub.plan_id,
       planName: plan?.name ?? "—",
       planSlug,
