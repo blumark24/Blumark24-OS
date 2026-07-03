@@ -116,11 +116,6 @@ type ProfileRow = {
   organization_id?: string | null;
 };
 
-type ExtRow = {
-  avatar_url?: string | null;
-  force_password_change?: boolean | null;
-};
-
 async function fetchProfileRow(authUserId: string, email: string): Promise<ProfileRow | null> {
   const SAFE_COLS =
     "id, name, role, email, avatar, department, is_active, organization_id";
@@ -145,34 +140,22 @@ async function fetchProfileRow(authUserId: string, email: string): Promise<Profi
   return (byEmail as ProfileRow) ?? null;
 }
 
-async function fetchExtendedColumns(authUserId: string): Promise<ExtRow | null> {
-  try {
-    const { data } = await supabase
-      .from("profiles")
-      .select("avatar_url, force_password_change")
-      .eq("id", authUserId)
-      .maybeSingle();
-    return (data as ExtRow | null) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function buildUserFromProfile(
+function buildUserFromProfile(
   authUserId: string,
   email: string,
   profile: ProfileRow,
-): Promise<AuthUser> {
-  const ext = await fetchExtendedColumns(authUserId);
+): AuthUser {
   return {
     id:                  authUserId,
     email:               profile.email ?? email,
     name:                profile.name ?? (email ? email.split("@")[0] : ""),
     role:                profile.role ?? "",
     department:          profile.department ?? undefined,
-    avatar:              ext?.avatar_url ?? profile.avatar ?? undefined,
+    avatar:              profile.avatar ?? undefined,
     is_active:           profile.is_active !== false,
-    forcePasswordChange: ext?.force_password_change === true,
+    // The production profiles schema currently has no force_password_change
+    // column. Keep the field false until a reviewed schema migration adds it.
+    forcePasswordChange: false,
     organizationId:      profile.organization_id ?? null,
   };
 }
@@ -194,7 +177,7 @@ async function resolveCurrentUserProfile(): Promise<ResolveResult> {
     }
     const profile = await fetchProfileRow(authUser.id, email);
     if (profile) {
-      const built = await buildUserFromProfile(authUser.id, email, profile);
+      const built = buildUserFromProfile(authUser.id, email, profile);
       return { kind: "ok", user: built };
     }
   }
