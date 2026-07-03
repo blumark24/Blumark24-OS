@@ -30,6 +30,11 @@ import {
   type PlanOption,
   type DisplayOrgFull,
 } from "../../_lib/ownerQueries";
+import {
+  isActiveVisibleCustomerSubscription,
+  summarizeSubscriptionLifecycle,
+  type SubscriptionLifecycleClass,
+} from "../../_lib/ownerSubscriptionReconciliation";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -57,6 +62,17 @@ const BILLING_BADGE: Record<string, string> = {
   "شهري":  "bg-[#22d3ee]/10 text-[#22d3ee]/80",
   "سنوي":  "bg-[#1e6fd9]/10 text-[#5b9bf0]",
   "داخلي": "bg-[#a855f7]/10 text-[#c084fc]",
+};
+
+// Phase 4C-2 — compact lifecycle badges (organization state per subscription).
+// "internal" reuses the existing داخلي badge next to the org name, so it is
+// not rendered a second time here.
+const LIFECYCLE_BADGE: Record<SubscriptionLifecycleClass, string> = {
+  visible:      "bg-[#10b981]/10 text-[#34d399]/80 border border-[#10b981]/15",
+  archived:     "bg-white/[0.05] text-white/45 border border-white/[0.10]",
+  needs_review: "bg-[#f59e0b]/12 text-[#fbbf24] border border-[#f59e0b]/25",
+  internal:     "bg-[#a855f7]/10 text-[#c084fc] border border-[#a855f7]/20",
+  orphaned:     "bg-[#ef4444]/12 text-[#f87171] border border-[#ef4444]/25",
 };
 
 // ─── Skeleton ──────────────────────────────────────────────────────────────────
@@ -718,6 +734,17 @@ function SubRow({
               داخلي
             </span>
           )}
+          {/* Phase 4C-2 — organization lifecycle badge */}
+          {sub.lifecycle !== "internal" && (
+            <span
+              className={cn(
+                "flex-shrink-0 text-[10px] rounded-md px-1.5 py-0.5",
+                LIFECYCLE_BADGE[sub.lifecycle],
+              )}
+            >
+              {sub.lifecycleLabelAr}
+            </span>
+          )}
         </div>
         <p className="text-[11px] text-white/40 mt-0.5 truncate">
           {sub.planName} · {sub.startedAt}
@@ -791,7 +818,9 @@ function applyFilter(
 ): DisplaySubscriptionFull[] {
   let result = subs;
   if (filter === "internal") result = result.filter((s) => s.isInternal);
-  else if (filter === "active") result = result.filter((s) => s.isActive && !s.isInternal);
+  // Phase 4C-2: "active" means active/trialing on a visible (non-deleted,
+  // non-internal) organization — archived/needs-review subs never show here.
+  else if (filter === "active") result = result.filter(isActiveVisibleCustomerSubscription);
   else if (filter === "suspended") result = result.filter((s) => s.statusRaw === "suspended");
   else if (filter === "cancelled") result = result.filter((s) => s.statusRaw === "cancelled");
 
@@ -837,7 +866,10 @@ export default function SubscriptionsPageContent() {
   }
 
   const filtered = applyFilter(subs, filter, search);
-  const activeCount = subs.filter((s) => s.isActive && !s.isInternal).length;
+  // Phase 4C-2: active = active/trialing subscriptions on visible customer
+  // organizations only (org not soft-deleted, not internal).
+  const lifecycleSummary = summarizeSubscriptionLifecycle(subs);
+  const activeCount = lifecycleSummary.activeVisible;
   const suspendedCount = subs.filter((s) => s.statusRaw === "suspended").length;
   const cancelledCount = subs.filter((s) => s.statusRaw === "cancelled").length;
   const internalCount = subs.filter((s) => s.isInternal).length;
@@ -876,6 +908,34 @@ export default function SubscriptionsPageContent() {
         <KpiCard label="معلقة" value={suspendedCount} icon={PauseCircle} accent="text-[#fbbf24]" iconBg="bg-[#f59e0b]/10" />
         <KpiCard label="ملغاة" value={cancelledCount} icon={XCircle} accent="text-white/40" iconBg="bg-white/[0.06]" />
       </div>
+
+      {/* ── Phase 4C-2: lifecycle reconciliation summary ─────────────────────── */}
+      {!loading && subs.length > 0 && (
+        <div className="glass-card rounded-2xl px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+          <span className="flex items-center gap-1.5 text-[11.5px] text-white/45">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#34d399]" />
+            الاشتراكات الظاهرة
+            <span className="text-[12px] font-semibold text-white/80">{lifecycleSummary.visible}</span>
+          </span>
+          <span className="flex items-center gap-1.5 text-[11.5px] text-white/45">
+            <span className="h-1.5 w-1.5 rounded-full bg-white/30" />
+            الاشتراكات المؤرشفة
+            <span className="text-[12px] font-semibold text-white/80">{lifecycleSummary.archived}</span>
+          </span>
+          <span className="flex items-center gap-1.5 text-[11.5px] text-white/45">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#fbbf24]" />
+            يتطلب مراجعة
+            <span className="text-[12px] font-semibold text-white/80">{lifecycleSummary.needsReview}</span>
+          </span>
+          {lifecycleSummary.orphaned > 0 && (
+            <span className="flex items-center gap-1.5 text-[11.5px] text-white/45">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#f87171]" />
+              بدون منشأة
+              <span className="text-[12px] font-semibold text-white/80">{lifecycleSummary.orphaned}</span>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ── Filter + search ──────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row gap-3">

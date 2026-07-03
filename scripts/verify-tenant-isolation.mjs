@@ -141,6 +141,23 @@ const AI_CHAT_RATE_LIMIT_FILE = "src/app/api/ai/chat/route.ts";
 // Phase 4C-1 — owner tenant lifecycle guard.
 const TENANT_LIFECYCLE_GUARD_FILE = "src/lib/owner/tenantLifecycleGuard.ts";
 const OWNER_ORG_QUERIES_FILE = "src/app/owner/_lib/ownerQueries.ts";
+// Phase 4C-2 — owner organizations/subscriptions reconciliation.
+const OWNER_SUB_RECONCILIATION_FILE = "src/app/owner/_lib/ownerSubscriptionReconciliation.ts";
+const OWNER_SUBSCRIPTIONS_PAGE_FILE =
+  "src/app/owner/subscriptions/_components/SubscriptionsPageContent.tsx";
+const OWNER_TRUTH_QUERIES_FILE = "src/app/owner/_lib/ownerTruthQueries.ts";
+
+// Slice one exported function out of a source file (from its declaration to
+// the next `export` at column 0). Used for per-function static assertions.
+function extractExportedFunction(source, name) {
+  const start = source.indexOf(`export async function ${name}`);
+  if (start === -1) return null;
+  const afterStart = start + `export async function ${name}`.length;
+  const nextExport = source.slice(afterStart).search(/\nexport /);
+  return nextExport === -1
+    ? source.slice(start)
+    : source.slice(start, afterStart + nextExport);
+}
 // Owner flow directories scanned for organization hard deletes and
 // organization_code / customer_code mutation.
 const OWNER_FLOW_DIRS = ["src/app/owner", "src/app/api/owner", "src/lib/owner"];
@@ -566,16 +583,206 @@ async function checkOwnerTenantLifecycleGuard() {
   return ok;
 }
 
+// Phase 4C-2 — owner organizations/subscriptions reconciliation.
+// Static checks that the owner subscription read model carries organization
+// lifecycle data, archived subscriptions never count as active visible
+// customer subscriptions, and the Phase 4C-1 guarantees still hold.
+async function checkOwnerSubscriptionReconciliation() {
+  console.log("\n10. Owner subscriptions reconciliation (Phase 4C-2)");
+  let ok = true;
+
+  // 10a. Reconciliation model exists, is pure/read-only, and names all classes.
+  try {
+    const recon = await readFile(join(ROOT, OWNER_SUB_RECONCILIATION_FILE), "utf8");
+    pass(`${OWNER_SUB_RECONCILIATION_FILE} exists`);
+
+    const reconTokens = [
+      "classifySubscriptionLifecycle",
+      "isActiveVisibleCustomerSubscription",
+      "summarizeSubscriptionLifecycle",
+      "SUBSCRIPTION_LIFECYCLE_LABEL_AR",
+      '"visible"',
+      '"archived"',
+      '"needs_review"',
+      '"internal"',
+      '"orphaned"',
+    ];
+    for (const token of reconTokens) {
+      if (recon.includes(token)) pass(`${OWNER_SUB_RECONCILIATION_FILE} includes ${token}`);
+      else ok = fail(`${OWNER_SUB_RECONCILIATION_FILE} missing ${token}`);
+    }
+
+    const reconIsReadOnly =
+      !recon.includes(".insert(") &&
+      !recon.includes(".update(") &&
+      !recon.includes(".delete(") &&
+      !recon.includes(".upsert(") &&
+      !recon.includes("supabase.from(");
+    if (reconIsReadOnly) pass(`${OWNER_SUB_RECONCILIATION_FILE} is a pure read-only classifier (no queries, no writes)`);
+    else ok = fail(`${OWNER_SUB_RECONCILIATION_FILE} contains queries or writes`);
+  } catch {
+    ok = fail(`Missing reconciliation model file: ${OWNER_SUB_RECONCILIATION_FILE}`);
+  }
+
+  // 10b. Owner subscription read model includes organization.deleted_at
+  // and classifies every row.
+  try {
+    const queries = await readFile(join(ROOT, OWNER_ORG_QUERIES_FILE), "utf8");
+    const subsPageBody = queries.match(
+      /export async function fetchSubscriptionsPage[\s\S]{0,3000}?\n\}/,
+    )?.[0];
+    if (!subsPageBody) {
+      ok = fail(`${OWNER_ORG_QUERIES_FILE} missing fetchSubscriptionsPage`);
+    } else {
+      if (/organizations"\)\.select\("[^"]*deleted_at/.test(subsPageBody)) {
+        pass("fetchSubscriptionsPage reads organizations.deleted_at (lifecycle data on the read model)");
+      } else {
+        ok = fail("fetchSubscriptionsPage does not read organizations.deleted_at");
+      }
+      if (subsPageBody.includes("classifySubscriptionLifecycle")) {
+        pass("fetchSubscriptionsPage classifies each subscription against org lifecycle");
+      } else {
+        ok = fail("fetchSubscriptionsPage does not classify subscriptions");
+      }
+    }
+  } catch {
+    ok = fail(`Missing owner queries file: ${OWNER_ORG_QUERIES_FILE}`);
+  }
+
+  // 10c. Archived subscriptions are never counted as active visible
+  // customer subscriptions on the owner subscriptions page.
+  try {
+    const page = await readFile(join(ROOT, OWNER_SUBSCRIPTIONS_PAGE_FILE), "utf8");
+    if (
+      page.includes("isActiveVisibleCustomerSubscription") &&
+      page.includes("lifecycleSummary.activeVisible")
+    ) {
+      pass("subscriptions page active count uses the lifecycle-aware visible-customer rule");
+    } else {
+      ok = fail("subscriptions page active count is not lifecycle-aware (archived subs may count as active)");
+    }
+    if (page.includes("lifecycleLabelAr")) {
+      pass("subscriptions page renders lifecycle badges");
+    } else {
+      ok = fail("subscriptions page missing lifecycle badges");
+    }
+  } catch {
+    ok = fail(`Missing subscriptions page file: ${OWNER_SUBSCRIPTIONS_PAGE_FILE}`);
+  }
+
+  // 10d. Phase 4C-1 guarantees still hold: hard delete of organizations
+  // stays forbidden and organization codes stay immutable.
+  try {
+    const guard = await readFile(join(ROOT, TENANT_LIFECYCLE_GUARD_FILE), "utf8");
+    if (guard.includes("ORGANIZATION_HARD_DELETE_ALLOWED = false")) {
+      pass("organization hard delete remains forbidden (ORGANIZATION_HARD_DELETE_ALLOWED = false)");
+    } else {
+      ok = fail("ORGANIZATION_HARD_DELETE_ALLOWED is no longer pinned to false");
+    }
+    if (guard.includes("customer/organization codes are immutable and must never be reused")) {
+      pass("organization_code/customer_code immutability contract is still documented in the guard");
+    } else {
+      ok = fail("organization code immutability contract missing from the guard");
+    }
+  } catch {
+    ok = fail(`Missing tenant lifecycle guard file: ${TENANT_LIFECYCLE_GUARD_FILE}`);
+  }
+
+  // 10e. Reconciliation counts are exact database-side counts — never
+  // computed from capped row samples. active/trialing visible customer
+  // counts must use organizations!inner lifecycle filters, and no
+  // limit-based sampling may feed active counts or MRR.
+  try {
+    const truth = await readFile(join(ROOT, OWNER_TRUTH_QUERIES_FILE), "utf8");
+
+    const subSummary = extractExportedFunction(truth, "fetchSubStatusSummary");
+    if (!subSummary) {
+      ok = fail(`${OWNER_TRUTH_QUERIES_FILE} missing fetchSubStatusSummary`);
+    } else {
+      if (subSummary.includes(".limit(")) {
+        ok = fail("fetchSubStatusSummary uses .limit() — counts must be exact, not sampled");
+      } else {
+        pass("fetchSubStatusSummary has no limit-based sampling");
+      }
+      if (subSummary.includes("liveRows") || subSummary.includes("visibleOrgIds")) {
+        ok = fail("fetchSubStatusSummary counts active/trialing from client-side filtered row samples");
+      } else {
+        pass("fetchSubStatusSummary does not filter row samples client-side for counts");
+      }
+      if (
+        subSummary.includes("organizations!inner") &&
+        subSummary.includes('.eq("organizations.is_internal", false)') &&
+        subSummary.includes('.is("organizations.deleted_at", null)') &&
+        subSummary.includes('.neq("billing_cycle", "internal")')
+      ) {
+        pass("fetchSubStatusSummary active/trialing use exact organizations!inner lifecycle counts");
+      } else {
+        ok = fail("fetchSubStatusSummary missing organizations!inner lifecycle-filtered exact counts");
+      }
+    }
+
+    const billingSummary = extractExportedFunction(truth, "fetchBillingOperationsSummary");
+    if (!billingSummary) {
+      ok = fail(`${OWNER_TRUTH_QUERIES_FILE} missing fetchBillingOperationsSummary`);
+    } else {
+      if (billingSummary.includes(".limit(1000)") || billingSummary.includes(".limit(2000)")) {
+        ok = fail("fetchBillingOperationsSummary uses capped row limits for reconciliation counts");
+      } else {
+        pass("fetchBillingOperationsSummary has no .limit(1000)/.limit(2000) sampling");
+      }
+      if (billingSummary.includes("subscriptionsActiveVisible")) {
+        ok = fail("fetchBillingOperationsSummary computes active count from a sample array");
+      } else {
+        pass("fetchBillingOperationsSummary does not compute active count from sample arrays");
+      }
+      if (
+        billingSummary.includes("organizations!inner") &&
+        billingSummary.includes('.eq("organizations.is_internal", false)') &&
+        billingSummary.includes('.is("organizations.deleted_at", null)')
+      ) {
+        pass("fetchBillingOperationsSummary active count is an exact organizations!inner lifecycle count");
+      } else {
+        ok = fail("fetchBillingOperationsSummary active count missing organizations!inner lifecycle filter");
+      }
+      if (billingSummary.includes("mrrReadsTruncated")) {
+        pass("fetchBillingOperationsSummary marks MRR unavailable when reads are truncated (never a capped-sample MRR)");
+      } else {
+        ok = fail("fetchBillingOperationsSummary missing MRR truncation guard");
+      }
+    }
+  } catch {
+    ok = fail(`Missing owner truth queries file: ${OWNER_TRUTH_QUERIES_FILE}`);
+  }
+
+  // 10f. No client component ("use client") reads the service-role key.
+  const srcFiles = await listFilesRecursive(join(ROOT, "src"));
+  let serviceRoleLeaks = 0;
+  for (const file of srcFiles) {
+    if (!/\.(ts|tsx)$/.test(file)) continue;
+    const content = await readFile(file, "utf8");
+    const isClientComponent = /^\s*["']use client["']/.test(content);
+    if (isClientComponent && content.includes("process.env.SUPABASE_SERVICE_ROLE_KEY")) {
+      serviceRoleLeaks += 1;
+      ok = fail(`${file.slice(ROOT.length + 1)} is a client component reading SUPABASE_SERVICE_ROLE_KEY`);
+    }
+  }
+  if (serviceRoleLeaks === 0) {
+    pass("no client component reads process.env.SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  return ok;
+}
+
 async function checkLiveDatabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
   if (!url || !key) {
-    console.log("\n10. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
+    console.log("\n11. Live Supabase checks (skipped — set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)");
     console.log("   Manual QA: sign in as two different org users and confirm each sees only own data.");
     return true;
   }
 
-  console.log("\n10. Live Supabase checks");
+  console.log("\n11. Live Supabase checks");
   let ok = true;
   try {
     const { createClient } = await import("@supabase/supabase-js");
@@ -611,6 +818,7 @@ async function main() {
     checkTenantAuditLogWiring(),
     checkAiChatDurableRateLimit(),
     checkOwnerTenantLifecycleGuard(),
+    checkOwnerSubscriptionReconciliation(),
     checkLiveDatabase(),
   ]);
   const allOk = results.every(Boolean);
