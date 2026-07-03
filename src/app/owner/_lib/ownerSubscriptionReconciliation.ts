@@ -56,15 +56,18 @@ export function classifySubscriptionLifecycle(
 
 /**
  * The only subscriptions that may count as "active" in owner KPIs and MRR:
- * status active/trialing AND a visible (non-internal, non-deleted) org.
+ * status active/trialing AND a visible (non-internal, non-deleted) org AND
+ * a customer billing cycle (never billing_cycle = 'internal').
  * Archived, needs_review, internal, and orphaned subscriptions never count.
  */
 export function isActiveVisibleCustomerSubscription(row: {
   statusRaw: string;
+  billingCycleRaw?: string | null;
   lifecycle: SubscriptionLifecycleClass;
 }): boolean {
   return (
     row.lifecycle === "visible"
+    && row.billingCycleRaw !== "internal"
     && (row.statusRaw === "active" || row.statusRaw === "trialing")
   );
 }
@@ -79,7 +82,7 @@ export interface SubscriptionLifecycleSummary {
 }
 
 export function summarizeSubscriptionLifecycle(
-  rows: { statusRaw: string; lifecycle: SubscriptionLifecycleClass }[],
+  rows: { statusRaw: string; billingCycleRaw?: string | null; lifecycle: SubscriptionLifecycleClass }[],
 ): SubscriptionLifecycleSummary {
   const summary: SubscriptionLifecycleSummary = {
     visible: 0,

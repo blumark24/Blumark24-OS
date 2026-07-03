@@ -145,6 +145,19 @@ const OWNER_ORG_QUERIES_FILE = "src/app/owner/_lib/ownerQueries.ts";
 const OWNER_SUB_RECONCILIATION_FILE = "src/app/owner/_lib/ownerSubscriptionReconciliation.ts";
 const OWNER_SUBSCRIPTIONS_PAGE_FILE =
   "src/app/owner/subscriptions/_components/SubscriptionsPageContent.tsx";
+const OWNER_TRUTH_QUERIES_FILE = "src/app/owner/_lib/ownerTruthQueries.ts";
+
+// Slice one exported function out of a source file (from its declaration to
+// the next `export` at column 0). Used for per-function static assertions.
+function extractExportedFunction(source, name) {
+  const start = source.indexOf(`export async function ${name}`);
+  if (start === -1) return null;
+  const afterStart = start + `export async function ${name}`.length;
+  const nextExport = source.slice(afterStart).search(/\nexport /);
+  return nextExport === -1
+    ? source.slice(start)
+    : source.slice(start, afterStart + nextExport);
+}
 // Owner flow directories scanned for organization hard deletes and
 // organization_code / customer_code mutation.
 const OWNER_FLOW_DIRS = ["src/app/owner", "src/app/api/owner", "src/lib/owner"];
@@ -675,7 +688,73 @@ async function checkOwnerSubscriptionReconciliation() {
     ok = fail(`Missing tenant lifecycle guard file: ${TENANT_LIFECYCLE_GUARD_FILE}`);
   }
 
-  // 10e. No client component ("use client") reads the service-role key.
+  // 10e. Reconciliation counts are exact database-side counts — never
+  // computed from capped row samples. active/trialing visible customer
+  // counts must use organizations!inner lifecycle filters, and no
+  // limit-based sampling may feed active counts or MRR.
+  try {
+    const truth = await readFile(join(ROOT, OWNER_TRUTH_QUERIES_FILE), "utf8");
+
+    const subSummary = extractExportedFunction(truth, "fetchSubStatusSummary");
+    if (!subSummary) {
+      ok = fail(`${OWNER_TRUTH_QUERIES_FILE} missing fetchSubStatusSummary`);
+    } else {
+      if (subSummary.includes(".limit(")) {
+        ok = fail("fetchSubStatusSummary uses .limit() — counts must be exact, not sampled");
+      } else {
+        pass("fetchSubStatusSummary has no limit-based sampling");
+      }
+      if (subSummary.includes("liveRows") || subSummary.includes("visibleOrgIds")) {
+        ok = fail("fetchSubStatusSummary counts active/trialing from client-side filtered row samples");
+      } else {
+        pass("fetchSubStatusSummary does not filter row samples client-side for counts");
+      }
+      if (
+        subSummary.includes("organizations!inner") &&
+        subSummary.includes('.eq("organizations.is_internal", false)') &&
+        subSummary.includes('.is("organizations.deleted_at", null)') &&
+        subSummary.includes('.neq("billing_cycle", "internal")')
+      ) {
+        pass("fetchSubStatusSummary active/trialing use exact organizations!inner lifecycle counts");
+      } else {
+        ok = fail("fetchSubStatusSummary missing organizations!inner lifecycle-filtered exact counts");
+      }
+    }
+
+    const billingSummary = extractExportedFunction(truth, "fetchBillingOperationsSummary");
+    if (!billingSummary) {
+      ok = fail(`${OWNER_TRUTH_QUERIES_FILE} missing fetchBillingOperationsSummary`);
+    } else {
+      if (billingSummary.includes(".limit(1000)") || billingSummary.includes(".limit(2000)")) {
+        ok = fail("fetchBillingOperationsSummary uses capped row limits for reconciliation counts");
+      } else {
+        pass("fetchBillingOperationsSummary has no .limit(1000)/.limit(2000) sampling");
+      }
+      if (billingSummary.includes("subscriptionsActiveVisible")) {
+        ok = fail("fetchBillingOperationsSummary computes active count from a sample array");
+      } else {
+        pass("fetchBillingOperationsSummary does not compute active count from sample arrays");
+      }
+      if (
+        billingSummary.includes("organizations!inner") &&
+        billingSummary.includes('.eq("organizations.is_internal", false)') &&
+        billingSummary.includes('.is("organizations.deleted_at", null)')
+      ) {
+        pass("fetchBillingOperationsSummary active count is an exact organizations!inner lifecycle count");
+      } else {
+        ok = fail("fetchBillingOperationsSummary active count missing organizations!inner lifecycle filter");
+      }
+      if (billingSummary.includes("mrrReadsTruncated")) {
+        pass("fetchBillingOperationsSummary marks MRR unavailable when reads are truncated (never a capped-sample MRR)");
+      } else {
+        ok = fail("fetchBillingOperationsSummary missing MRR truncation guard");
+      }
+    }
+  } catch {
+    ok = fail(`Missing owner truth queries file: ${OWNER_TRUTH_QUERIES_FILE}`);
+  }
+
+  // 10f. No client component ("use client") reads the service-role key.
   const srcFiles = await listFilesRecursive(join(ROOT, "src"));
   let serviceRoleLeaks = 0;
   for (const file of srcFiles) {

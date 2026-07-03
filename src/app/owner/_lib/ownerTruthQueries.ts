@@ -206,12 +206,18 @@ export async function fetchBillingOperationsSummary(): Promise<BillingOperations
         .select("*", { count: "exact", head: true })
         .in("status", ["open", "pending", "issued", "overdue"]),
     ),
+    // Phase 4C-2: exact database-side count of active visible customer
+    // subscriptions — non-internal billing cycle, on a non-internal,
+    // non-soft-deleted organization (organizations!inner join filter).
     resolveCountResult(
       "subscriptions",
       supabase
         .from("subscriptions")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "active"),
+        .select("id, organizations!inner(id)", { count: "exact", head: true })
+        .neq("billing_cycle", "internal")
+        .eq("status", "active")
+        .eq("organizations.is_internal", false)
+        .is("organizations.deleted_at", null),
     ),
     resolveCountResult(
       "subscriptions",
@@ -230,28 +236,38 @@ export async function fetchBillingOperationsSummary(): Promise<BillingOperations
     numericValue: null,
   };
 
+  // MRR inputs: no artificial row caps. `count: "exact"` lets us detect a
+  // PostgREST server-side max-rows truncation — MRR is only computed when
+  // every read returned its complete result set, never from a capped sample.
   const [subsRes, orgsRes, plansRes] = await Promise.all([
     supabase
       .from("subscriptions")
-      .select("id, organization_id, plan_id, status, billing_cycle, started_at, ends_at")
-      .in("status", ["active", "trialing"])
-      .limit(1000),
+      .select("id, organization_id, plan_id, status, billing_cycle, started_at, ends_at", { count: "exact" })
+      .in("status", ["active", "trialing"]),
     supabase
       .from("organizations")
-      .select("id, name, slug, organization_code, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at")
-      .limit(1000),
+      .select("id, name, slug, organization_code, owner_email, plan_id, status, notes, is_internal, deleted_at, created_at", { count: "exact" }),
     supabase
       .from("plans")
-      .select("id, name, slug, price_monthly, price_annual, is_active, sort_order, created_at")
-      .limit(100),
+      .select("id, name, slug, price_monthly, price_annual, is_active, sort_order, created_at", { count: "exact" }),
   ]);
 
-  if (!subsRes.error && !orgsRes.error && !plansRes.error) {
+  const isTruncated = (res: { data: unknown[] | null; count: number | null }): boolean =>
+    res.count !== null && (res.data?.length ?? 0) < res.count;
+
+  const mrrReadsTruncated =
+    isTruncated(subsRes) || isTruncated(orgsRes) || isTruncated(plansRes);
+
+  if (!subsRes.error && !orgsRes.error && !plansRes.error && !mrrReadsTruncated) {
     monthlyRecurringRevenueApprox = computeMrr(
       (subsRes.data ?? []) as DbSubscription[],
       (orgsRes.data ?? []) as DbOrganization[],
       (plansRes.data ?? []) as DbPlanFull[],
     );
+  } else if (mrrReadsTruncated) {
+    // Result set exceeded what a single read returns — surface the Arabic
+    // unavailable state instead of a wrong MRR built from a partial sample.
+    console.warn("[owner] billing MRR reads truncated by server row cap — MRR marked unavailable");
   } else {
     if (subsRes.error && !isMissingTableError(subsRes.error)) {
       console.warn("[owner] billing MRR subscriptions fetch failed:", subsRes.error.message);
@@ -262,23 +278,6 @@ export async function fetchBillingOperationsSummary(): Promise<BillingOperations
     if (plansRes.error && !isMissingTableError(plansRes.error)) {
       console.warn("[owner] billing MRR plans fetch failed:", plansRes.error.message);
     }
-  }
-
-  // Phase 4C-2: prefer a lifecycle-aware active count (visible customer
-  // orgs only, non-internal billing) computed from the same rows used for
-  // MRR; fall back to the raw HEAD count when those reads failed.
-  let subscriptionsActiveVisible = subscriptionsActive;
-  if (!subsRes.error && !orgsRes.error) {
-    const orgRows = (orgsRes.data ?? []) as DbOrganization[];
-    const visibleOrgIds = new Set(
-      orgRows.filter((o) => !o.is_internal && !o.deleted_at).map((o) => o.id),
-    );
-    subscriptionsActiveVisible = ((subsRes.data ?? []) as DbSubscription[]).filter(
-      (s) =>
-        s.status === "active"
-        && s.billing_cycle !== "internal"
-        && visibleOrgIds.has(s.organization_id),
-    ).length;
   }
 
   const failed = failedPaymentsToday ?? 0;
@@ -300,7 +299,7 @@ export async function fetchBillingOperationsSummary(): Promise<BillingOperations
     failedPaymentsToday,
     monthlyRecurringRevenueApprox,
     invoicesOpen,
-    subscriptionsActive: subscriptionsActiveVisible,
+    subscriptionsActive,
     subscriptionsPastDue,
     latestPaymentAt,
     latestBillingEventAt,
@@ -618,24 +617,35 @@ export async function fetchOrgStatusSummary(): Promise<OrgStatusSummary> {
 }
 
 export async function fetchSubStatusSummary(): Promise<SubStatusSummary> {
-  // Phase 4C-2: active/trialing are computed from rows checked against
-  // organization lifecycle instead of raw HEAD counts, so subscriptions
+  // Phase 4C-2: active/trialing are exact database-side counts joined
+  // against organization lifecycle via organizations!inner, so subscriptions
   // linked to soft-deleted or internal organizations never count as active.
-  const [total, cancelled, canceled, suspended, liveRows, orgRows] = await Promise.all([
+  // No capped row samples — counts stay correct at 1000+ tenants.
+  const [total, cancelled, canceled, suspended, activeVisible, trialingVisible] = await Promise.all([
     supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal"),
     supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal").eq("status", "cancelled"),
     supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal").eq("status", "canceled"),
     supabase.from("subscriptions").select("*", { count: "exact", head: true }).neq("billing_cycle", "internal").eq("status", "suspended"),
-    supabase
-      .from("subscriptions")
-      .select("organization_id, status")
-      .in("status", ["active", "trialing"])
-      .neq("billing_cycle", "internal")
-      .limit(2000),
-    supabase
-      .from("organizations")
-      .select("id, is_internal, deleted_at")
-      .limit(2000),
+    resolveCountResult(
+      "subscriptions",
+      supabase
+        .from("subscriptions")
+        .select("id, organizations!inner(id)", { count: "exact", head: true })
+        .neq("billing_cycle", "internal")
+        .eq("status", "active")
+        .eq("organizations.is_internal", false)
+        .is("organizations.deleted_at", null),
+    ),
+    resolveCountResult(
+      "subscriptions",
+      supabase
+        .from("subscriptions")
+        .select("id, organizations!inner(id)", { count: "exact", head: true })
+        .neq("billing_cycle", "internal")
+        .eq("status", "trialing")
+        .eq("organizations.is_internal", false)
+        .is("organizations.deleted_at", null),
+    ),
   ]);
 
   if (total.error) {
@@ -644,21 +654,12 @@ export async function fetchSubStatusSummary(): Promise<SubStatusSummary> {
     return EMPTY_SUB;
   }
 
-  const visibleOrgIds = new Set(
-    ((orgRows.data ?? []) as { id: string; is_internal: boolean; deleted_at: string | null }[])
-      .filter((o) => !o.is_internal && !o.deleted_at)
-      .map((o) => o.id),
-  );
-  const live = (liveRows.data ?? []) as { organization_id: string; status: string }[];
-  const activeCount   = live.filter((s) => s.status === "active"   && visibleOrgIds.has(s.organization_id)).length;
-  const trialingCount = live.filter((s) => s.status === "trialing" && visibleOrgIds.has(s.organization_id)).length;
-
   return {
-    total:     total.count     ?? 0,
-    active:    activeCount,
+    total:     total.count      ?? 0,
+    active:    activeVisible    ?? 0,
     cancelled: (cancelled.count ?? 0) + (canceled.count ?? 0),
-    suspended: suspended.count ?? 0,
-    trialing:  trialingCount,
+    suspended: suspended.count  ?? 0,
+    trialing:  trialingVisible  ?? 0,
   };
 }
 
