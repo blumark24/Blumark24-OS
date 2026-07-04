@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TAG = "[ai/chat]";
+const SAFE_AI_UNAVAILABLE_MESSAGE = "تعذر تشغيل المساعد الذكي حالياً — حاول لاحقاً";
 
 // 20 requests per user per minute — enough for active use, blocks runaway loops.
 const RATE_LIMIT = 20;
@@ -25,7 +26,7 @@ const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 function resolveModel(): string {
   const env = (process.env.ANTHROPIC_MODEL ?? "").trim();
   if (env && VALID_MODELS.has(env)) return env;
-  if (env) console.warn(`${TAG} ANTHROPIC_MODEL="${env}" is not in allowlist — using default`);
+  if (env) console.warn(`${TAG} ANTHROPIC_MODEL is not in allowlist — using default`);
   return DEFAULT_MODEL;
 }
 
@@ -105,7 +106,7 @@ async function requireAuthenticatedUser(
       ok: false,
       response: NextResponse.json(
         { error: "AUTH_UNAVAILABLE", message: "إعداد الخادم غير مكتمل" },
-        { status: 503 },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
       ),
     };
   }
@@ -116,7 +117,7 @@ async function requireAuthenticatedUser(
       ok: false,
       response: NextResponse.json(
         { error: "UNAUTHORIZED", message: "يجب تسجيل الدخول لاستخدام المساعد الذكي" },
-        { status: 401 },
+        { status: 401, headers: { "Cache-Control": "no-store" } },
       ),
     };
   }
@@ -135,7 +136,7 @@ async function requireAuthenticatedUser(
       ok: false,
       response: NextResponse.json(
         { error: "UNAUTHORIZED", message: "جلسة غير صالحة أو منتهية" },
-        { status: 401 },
+        { status: 401, headers: { "Cache-Control": "no-store" } },
       ),
     };
   }
@@ -193,10 +194,10 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
   if (!apiKey) {
-    console.warn(`${TAG} ANTHROPIC_API_KEY not set — returning 503`);
+    console.warn(`${TAG} AI provider unavailable`);
     return NextResponse.json(
-      { error: "AI_KEY_MISSING", message: "مفتاح الذكاء الاصطناعي غير مضبوط" },
-      { status: 503 },
+      { error: "AI_UNAVAILABLE", message: SAFE_AI_UNAVAILABLE_MESSAGE },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }
 
@@ -204,12 +205,12 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
+    return NextResponse.json({ error: "INVALID_BODY" }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
 
   const userMessage = typeof body.message === "string" ? body.message.trim().slice(0, 2000) : "";
   if (!userMessage) {
-    return NextResponse.json({ error: "EMPTY_MESSAGE" }, { status: 400 });
+    return NextResponse.json({ error: "EMPTY_MESSAGE" }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
 
   const kpi = body.kpi;
@@ -252,7 +253,9 @@ export async function POST(req: NextRequest) {
         } catch (streamErr) {
           // AbortError means the client disconnected — not a bug
           if (!(streamErr instanceof Error && streamErr.name === "AbortError")) {
-            console.error(`${TAG} stream error:`, streamErr);
+            console.error(`${TAG} stream error`, {
+              name: streamErr instanceof Error ? streamErr.name : "UnknownError",
+            });
           }
         } finally {
           controller.close();
@@ -268,8 +271,12 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`${TAG} Anthropic error: ${msg}`);
-    return NextResponse.json({ error: "AI_ERROR", message: msg }, { status: 502 });
+    console.error(`${TAG} AI provider error`, {
+      name: err instanceof Error ? err.name : "UnknownError",
+    });
+    return NextResponse.json(
+      { error: "AI_ERROR", message: SAFE_AI_UNAVAILABLE_MESSAGE },
+      { status: 502, headers: { "Cache-Control": "no-store" } },
+    );
   }
 }
