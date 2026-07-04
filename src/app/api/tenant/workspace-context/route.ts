@@ -138,17 +138,29 @@ export async function GET(req: NextRequest) {
     const liveSubscription = liveSubscriptions?.[0] ?? null;
     const liveSubscriptionPlanId =
       (liveSubscription?.plan_id as string | null | undefined) ?? null;
-    const effectivePlanId = liveSubscriptionPlanId ?? organizationPlanId;
-    const effectivePlanSource = liveSubscriptionPlanId
-      ? "live_subscription"
-      : organizationPlanId
-        ? "organization"
+
+    // Owner Center sets `organizations.plan_id`, so customer workspace must use it
+    // as the primary source of truth. A live subscription is only a fallback when
+    // the organization record has not been assigned a plan yet.
+    const effectivePlanId = organizationPlanId ?? liveSubscriptionPlanId;
+    const effectivePlanSource = organizationPlanId
+      ? "organization"
+      : liveSubscriptionPlanId
+        ? "live_subscription"
         : "none";
     const planMismatch = Boolean(
       liveSubscriptionPlanId
       && organizationPlanId
       && liveSubscriptionPlanId !== organizationPlanId,
     );
+
+    if (planMismatch) {
+      console.warn("[workspace-context] plan mismatch detected; using organization plan", {
+        organizationId: org.id,
+        organizationPlanId,
+        liveSubscriptionPlanId,
+      });
+    }
 
     let planSlug: PlanSlug = "basic";
     let effectivePlanSlug: string | null = null;
