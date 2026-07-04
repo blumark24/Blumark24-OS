@@ -11,6 +11,13 @@ export interface PackageHierarchyCard {
   accent: string;
 }
 
+const PLAN_LABELS: Record<PlanSlug, string> = {
+  basic: "بسيط",
+  growth: "نمو",
+  advanced: "متقدم",
+  enterprise: "مؤسسي",
+};
+
 export const PACKAGE_HIERARCHY_CARDS: PackageHierarchyCard[] = [
   {
     plan: "basic",
@@ -30,6 +37,12 @@ export const PACKAGE_HIERARCHY_CARDS: PackageHierarchyCard[] = [
     chainAr: "مجلس الإدارة ← وكالات (حتى 5) ← إدارة ← قسم",
     accent: "#ff7a3d",
   },
+  {
+    plan: "enterprise",
+    titleAr: "مؤسسي",
+    chainAr: "مجلس الإدارة ← وكالات موسعة ← إدارات ← أقسام",
+    accent: "#10b981",
+  },
 ];
 
 export const STRUCTURE_LEVEL_LABELS: Record<StructureLevel, string> = {
@@ -46,6 +59,7 @@ export function allowedStructureLevels(plan: PlanSlug): StructureLevel[] {
     case "growth":
       return ["management", "department"];
     case "advanced":
+    case "enterprise":
       return ["agency", "management", "department"];
     default:
       return ["department"];
@@ -78,7 +92,7 @@ export function validateParentForLevel(
     if (!parentId) return null;
     if (!parent) return "الإدارة الأب غير موجودة";
     const pLevel = getLevelFromDepartment(parent);
-    if (pLevel !== "agency") return "الإدارة يجب أن تكون تابعة لوكالة في الباقة المتقدمة، أو بدون أب في باقة النمو";
+    if (pLevel !== "agency") return "الإدارة يجب أن تكون تابعة لوكالة في الباقة المتقدمة أو المؤسسية، أو بدون أب في باقة النمو";
     return null;
   }
 
@@ -104,7 +118,7 @@ export function canCreateStructureLevel(
   if (isStructureLevelLocked(plan, level)) {
     return {
       allowed: false,
-      reason: `مستوى «${STRUCTURE_LEVEL_LABELS[level]}» غير متاح في باقة ${plan === "basic" ? "بسيط" : plan === "growth" ? "نمو" : "متقدم"}. قم بالترقية لفتحه.`,
+      reason: `مستوى «${STRUCTURE_LEVEL_LABELS[level]}» غير متاح في باقة ${PLAN_LABELS[plan]}. قم بالترقية لفتحه.`,
     };
   }
 
@@ -127,7 +141,7 @@ export function inferDefaultParentId(
 ): string | null {
   if (level === "agency") return null;
   if (level === "management") {
-    if (plan === "advanced") {
+    if (plan === "advanced" || plan === "enterprise") {
       const agency = departments.find((d) => getLevelFromDepartment(d) === "agency");
       return agency?.id ?? null;
     }
@@ -209,7 +223,7 @@ export function getOrgRoleDefinitions(isInternal: boolean) {
 export function rulesForPlan(plan: PlanSlug): string[] {
   const levels = allowedStructureLevels(plan);
   const lines = [
-    `باقتك الحالية: ${plan === "basic" ? "بسيط" : plan === "growth" ? "نمو" : "متقدم"}`,
+    `باقتك الحالية: ${PLAN_LABELS[plan]}`,
     `المستويات المتاحة: ${levels.map((l) => STRUCTURE_LEVEL_LABELS[l]).join(" · ")}`,
     "مجلس الإدارة ثابت ويمثل قمة الهيكل لمنشأتك.",
     "الموظفون يُربطون بالأقسام والفرق ويُحفظون في قاعدة البيانات.",
@@ -224,14 +238,18 @@ export function rulesForPlan(plan: PlanSlug): string[] {
     lines.push("باقة متقدم: حتى 5 وكالات، 20 إدارة، 50 قسم.");
     lines.push("يمكنك إضافة أكثر من وكالة تحت مجلس الإدارة.");
   }
+  if (plan === "enterprise") {
+    lines.push("باقة مؤسسي: الوكالات والإدارات والأقسام متاحة بحدود موسعة.");
+    lines.push("يمكنك بناء هيكل منشأة كبير تحت مجلس الإدارة.");
+  }
   if (plan === "growth") {
     lines.push("حدود باقة نمو: 5 إدارات، 15 قسمًا.");
   }
   if (plan === "basic") {
     lines.push("حدود الباقة البسيطة: 3 أقسام تحت المجلس مباشرة.");
   }
-  if (plan !== "advanced") {
-    lines.push("مستوى «وكالة» مقفل — ترقية للباقة المتقدمة.");
+  if (plan !== "advanced" && plan !== "enterprise") {
+    lines.push("مستوى «وكالة» مقفل — ترقية للباقة المتقدمة أو المؤسسية.");
   }
   if (plan === "basic") {
     lines.push("مستوى «إدارة» مقفل — ترقية لباقة نمو أو أعلى.");

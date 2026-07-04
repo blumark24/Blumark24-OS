@@ -156,7 +156,7 @@ function PlanCard({
 
 export default function OrgPackagePlanCards({ plan }: { plan: PlanSlug }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
       {PACKAGE_HIERARCHY_CARDS.map((card) => (
         <PlanCard key={card.plan} card={card} active={card.plan === plan} />
       ))}
