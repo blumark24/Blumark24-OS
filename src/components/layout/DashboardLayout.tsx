@@ -6,6 +6,7 @@ import Header from "./Header";
 import MobileShellContext from "./MobileShellContext";
 import MobileBottomNav, { MOBILE_BOTTOM_NAV_INSET } from "./MobileBottomNav";
 import WorkspaceRouteGuard from "@/components/ui/WorkspaceRouteGuard";
+import CustomerOnboardingBanner from "@/components/ui/CustomerOnboardingBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { AlertTriangle } from "lucide-react";
@@ -74,7 +75,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             forgets PageGuard cannot expose internal-only or package-disabled
             routes to a tenant via a direct URL.
           */}
-          <WorkspaceRouteGuard>{children}</WorkspaceRouteGuard>
+          <WorkspaceRouteGuard>
+            <CustomerOnboardingBanner />
+            {children}
+          </WorkspaceRouteGuard>
         </main>
 
         <MobileBottomNav />
