@@ -63,7 +63,7 @@ export default function TwinFlowTasksPage() {
       const key = task.assigneeName || "غير محدد";
       loads.set(key, (loads.get(key) ?? 0) + 1);
     }
-    const load = [...loads.entries()].sort((a, b) => b[1] - a[1])[0] ?? ["غير محدد", 0];
+    const load = Array.from(loads.entries()).sort((a, b) => b[1] - a[1])[0] ?? ["غير محدد", 0];
     return { active, late, review, urgent, focusTask, load };
   }, [tasks]);
 
