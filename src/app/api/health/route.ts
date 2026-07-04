@@ -124,19 +124,25 @@ export async function GET(req: NextRequest) {
     metadata: { deep },
   });
 
+  const publicHealth = {
+    status,
+    app: APP_NAME,
+    timestamp: new Date().toISOString(),
+    request_id: ctx.requestId,
+    duration_ms: durationMs,
+  };
+
+  if (!deep) {
+    return apiSuccess(ctx, publicHealth, status === "ok" ? 200 : 503);
+  }
+
   return apiSuccess(
     ctx,
     {
-      status,
-      app: APP_NAME,
+      ...publicHealth,
       environment: getEnvironmentName(),
-      timestamp: new Date().toISOString(),
       ...getVersionInfo(),
-      request_id: ctx.requestId,
-      duration_ms: durationMs,
       deep,
-      env: envPresence,
-      releaseReadiness,
       checks,
     },
     status === "ok" ? 200 : 503,
