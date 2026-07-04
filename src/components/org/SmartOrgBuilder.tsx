@@ -225,7 +225,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
   };
 
   const toolbarLevels = (["agency", "management", "department"] as StructureLevel[]).filter(
-    (level) => level !== "agency" || plan === "advanced",
+    (level) => allowedStructureLevels(plan).includes(level),
   );
 
   const openAddTeam = () => {
@@ -336,7 +336,7 @@ function SmartOrgFlowInner({ canManage, orgLabel }: InnerProps) {
                 باقة {planLimits.planLabelAr}
               </span>
               <span className="text-[#6b87ab] text-[10px]">
-                {plan === "advanced" && (
+                {(plan === "advanced" || plan === "enterprise") && (
                   <>
                     وكالة {countDepartmentsAtLevel(data?.departments ?? [], "agency")}/
                     {planLimits.structureCaps.agency} ·{" "}
