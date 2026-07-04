@@ -19,6 +19,7 @@ export default function OrgPage() {
   const { user } = useAuth();
   const { userRole, hasPermission } = usePermissions();
   const { planSlug, organizationId } = useTenantWorkspace();
+  const planLabel = PLAN_LABELS_AR[planSlug];
   const effectiveRole =
     userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
   const canManageStructure = canManageTenantOrgStructure(effectiveRole, hasPermission);
@@ -29,7 +30,7 @@ export default function OrgPage() {
         <div className={WS_PAGE}>
           <PageHero
             title="الهيكل الإداري"
-            subtitle={`مخطط تشغيلي ذكي لمنشأتك · باقة ${PLAN_LABELS_AR[planSlug]}${
+            subtitle={`مخطط تشغيلي ذكي لمنشأتك · باقة ${planLabel}${
               organizationId ? "" : ""
             }`}
           >
@@ -41,9 +42,9 @@ export default function OrgPage() {
           <section className="rounded-2xl border border-[#22d3ee]/18 bg-[#0d1f3c]/45 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-sm font-bold text-white">مرتبط بخطة النمو</h2>
+                <h2 className="text-sm font-bold text-white">مرتبط بباقتك الحالية: {planLabel}</h2>
                 <p className="mt-1 text-xs leading-relaxed text-[#8ba3c7]">
-                  بعد تحديد الأقسام والمسؤولين، يمكن استخدام الهيكل الإداري لمتابعة تنفيذ مراحل النمو.
+                  بعد تحديد الأقسام والمسؤولين، يمكن استخدام الهيكل الإداري لمتابعة تنفيذ مراحل المنشأة حسب صلاحيات الباقة.
                 </p>
               </div>
               <span className="w-fit rounded-full border border-amber-300/22 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold text-amber-200">
