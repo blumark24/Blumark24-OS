@@ -2,12 +2,30 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { AlertTriangle, Bell, CalendarDays, CheckCircle2, ChevronLeft, Clock3, Folder, HelpCircle, LayoutGrid, MessageSquare, Play, Radar, Send, Settings } from "lucide-react";
+import {
+  Activity,
+  Bell,
+  Building2,
+  CalendarDays,
+  ChevronLeft,
+  FileText,
+  HelpCircle,
+  Home,
+  LayoutGrid,
+  MessageSquare,
+  MoreHorizontal,
+  PenTool,
+  Play,
+  Search,
+  Send,
+  Users,
+} from "lucide-react";
 import PageGuard from "@/components/ui/PageGuard";
 import { useTasks } from "@/hooks/useData";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
-import type { TaskStatus } from "@/types";
+import type { Task, TaskStatus } from "@/types";
+import "./twin-desk.css";
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
   جديدة: "جديدة",
@@ -29,11 +47,83 @@ function daysUntil(dueDate: string) {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
 }
 
-function StatBox({ label, value, tone }: { label: string; value: number | string; tone: string }) {
+/** Progress derived from task status (no fabricated per-task percentages). */
+function statusProgress(status: TaskStatus | undefined) {
+  switch (status) {
+    case "مكتملة":
+      return 100;
+    case "بانتظار_المراجعة":
+      return 75;
+    case "قيد_التنفيذ":
+      return 50;
+    default:
+      return 20;
+  }
+}
+
+/** Truthful relative deadline text — no fake ticking clock. */
+function dueRelative(dueDate: string | undefined, status: TaskStatus | undefined) {
+  if (!dueDate) return { big: "بلا موعد", sub: "لم يُحدَّد موعد للمهمة" };
+  if (status === "مكتملة") return { big: "مكتملة", sub: "تم الإنجاز" };
+  const d = daysUntil(dueDate);
+  if (d < 0) return { big: `متأخرة ${Math.abs(d)} يوم`, sub: "يُصعَّد إلى المسؤول المباشر" };
+  if (d === 0) return { big: "ينتهي اليوم", sub: "قبل نهاية الدوام" };
+  if (d === 1) return { big: "غداً", sub: "خلال يوم واحد" };
+  return { big: `خلال ${d} يوم`, sub: "ضمن المهلة الحالية" };
+}
+
+function ProgressRing({ value, size = 64, stroke = 6 }: { value: number; size?: number; stroke?: number }) {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ * (1 - Math.min(100, Math.max(0, value)) / 100);
   return (
-    <div className={`rounded-2xl border p-3 text-center ${tone}`}>
-      <div className="text-[11px] font-bold">{label}</div>
-      <div className="mt-1 text-2xl font-black text-white">{value}</div>
+    <div className="pring" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="#00D9FF"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circ}
+          strokeDashoffset={offset}
+          style={{ filter: "drop-shadow(0 0 6px rgba(0,217,255,.6))" }}
+        />
+      </svg>
+      <span className="pv" style={{ fontSize: size < 70 ? 13 : 16 }}>
+        {Math.round(value)}%
+      </span>
+    </div>
+  );
+}
+
+function PressureGauge({ value }: { value: number }) {
+  const semi = Math.PI * 70; // ~219.9
+  const dash = (semi * Math.min(100, Math.max(0, value))) / 100;
+  return (
+    <div className="gauge">
+      <svg viewBox="0 0 170 96" role="img" aria-label={`ضغط العمل ${value} بالمئة`}>
+        <defs>
+          <linearGradient id="twinGauge" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#FFB454" />
+            <stop offset="1" stopColor="#FF6B6B" />
+          </linearGradient>
+        </defs>
+        <path d="M15 88 A70 70 0 0 1 155 88" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="12" strokeLinecap="round" />
+        <path
+          d="M15 88 A70 70 0 0 1 155 88"
+          fill="none"
+          stroke="url(#twinGauge)"
+          strokeWidth="12"
+          strokeLinecap="round"
+          strokeDasharray={`${dash} 400`}
+          style={{ filter: "drop-shadow(0 0 8px rgba(255,150,90,.5))" }}
+        />
+      </svg>
+      <div className="gv">{value}%</div>
     </div>
   );
 }
@@ -50,17 +140,32 @@ export default function MyTwinDeskPage() {
     const review = active.filter((task) => task.status === "بانتظار_المراجعة");
     const done = tasks.filter((task) => task.status === "مكتملة");
     const doing = active.filter((task) => task.status === "قيد_التنفيذ");
+    const urgent = active.filter((task) => task.priority === "عاجلة");
     const dueSoon = active.filter((task) => {
       const diff = daysUntil(task.dueDate);
       return diff >= 0 && diff <= 2;
     });
-    const focusTask = late[0] ?? active.find((task) => task.priority === "عاجلة" || task.priority === "عالية") ?? dueSoon[0] ?? active[0] ?? null;
-    return { active, late, review, done, doing, dueSoon, focusTask };
+    const focusTask: Task | null =
+      late[0] ??
+      active.find((task) => task.priority === "عاجلة" || task.priority === "عالية") ??
+      dueSoon[0] ??
+      active[0] ??
+      null;
+    const others = active.filter((task) => task.id !== focusTask?.id).slice(0, 3);
+    return { active, late, review, done, doing, urgent, dueSoon, focusTask, others };
   }, [tasks]);
 
   const focus = insight.focusTask;
-  const employeeName = user?.email?.split("@")[0] || focus?.assigneeName || "الموظف";
-  const pressure = insight.active.length >= 6 ? "ضغط مرتفع" : insight.active.length >= 3 ? "ضغط متوسط" : "طبيعي";
+  const employeeName = user?.name?.trim() || user?.email?.split("@")[0] || focus?.assigneeName || "الموظف";
+  const initial = employeeName.charAt(0);
+  const department = user?.department?.trim() || "قسم التصميم";
+  const roleLabel = user?.role?.trim() || "عضو الفريق";
+
+  const activeCount = insight.active.length;
+  const pressurePct = Math.min(99, activeCount * 13);
+  const pressureLabel = activeCount >= 6 ? "ضغط مرتفع" : activeCount >= 3 ? "ضغط متوسط" : "طبيعي";
+  const progress = statusProgress(focus?.status);
+  const eta = dueRelative(focus?.dueDate, focus?.status);
 
   const changeStatus = async (status: TaskStatus, message: string) => {
     if (!focus) return;
@@ -75,90 +180,643 @@ export default function MyTwinDeskPage() {
     }
   };
 
+  const busy = !focus || !!savingAction;
+
+  // ---- shared pieces reused across desktop & mobile ----
+  const radarPanel = (
+    <>
+      <div className="p-title">
+        رادار التنبيهات الذكي <span className="en">ALERT RADAR</span>
+      </div>
+      <div className="radar-wrap">
+        <div className="radar">
+          <span className="r-ring a" />
+          <span className="r-ring b" />
+          <span className="r-ring c" />
+          <span className="r-x" />
+          <span className="r-y" />
+          <span className="sweep" />
+          <span className="blip d" style={{ top: "34%", insetInlineStart: "26%" }} />
+          <span className="blip w" style={{ top: "56%", insetInlineStart: "66%" }} />
+          <span className="blip v" style={{ top: "68%", insetInlineStart: "38%" }} />
+          <span className="blip i" style={{ top: "24%", insetInlineStart: "58%" }} />
+        </div>
+      </div>
+      <div className="alerts">
+        <div className="alert d">
+          <span className="led" />
+          <span>
+            <span className="a1">مهمة متأخرة</span>
+            <br />
+            <span className="a2">{insight.late[0]?.title ?? "لا مهام متأخرة"}</span>
+          </span>
+          <span className="a-eta">{insight.late.length}</span>
+        </div>
+        <div className="alert w">
+          <span className="led" />
+          <span>
+            <span className="a1">قريبة من الموعد</span>
+            <br />
+            <span className="a2">خلال يومين أو أقل</span>
+          </span>
+          <span className="a-eta">{insight.dueSoon.length}</span>
+        </div>
+        <div className="alert v">
+          <span className="led" />
+          <span>
+            <span className="a1">بانتظار اعتماد</span>
+            <br />
+            <span className="a2">تحتاج قرار المسؤول</span>
+          </span>
+          <span className="a-eta">{insight.review.length}</span>
+        </div>
+        <div className="alert i">
+          <span className="led" />
+          <span>
+            <span className="a1">مهام نشطة</span>
+            <br />
+            <span className="a2">قيد المتابعة الآن</span>
+          </span>
+          <span className="a-eta">{activeCount}</span>
+        </div>
+      </div>
+      <div className="gauge-card">
+        <div className="p-title" style={{ justifyContent: "center" }}>
+          مؤشر ضغط العمل
+        </div>
+        <PressureGauge value={pressurePct} />
+        <div className="gauge-l1">{pressureLabel}</div>
+        <div className="gauge-l2">لديك {activeCount} مهام نشطة</div>
+      </div>
+    </>
+  );
+
+  const statsRow = (
+    <div className="stats4">
+      <div className="stat d">
+        <div className="sv">{insight.urgent.length}</div>
+        <div className="sl">عاجلة</div>
+      </div>
+      <div className="stat b">
+        <div className="sv">{insight.doing.length}</div>
+        <div className="sl">قيد التنفيذ</div>
+      </div>
+      <div className="stat v">
+        <div className="sv">{insight.review.length}</div>
+        <div className="sl">بانتظار اعتماد</div>
+      </div>
+      <div className="stat s">
+        <div className="sv">{insight.done.length}</div>
+        <div className="sl">مكتملة</div>
+      </div>
+    </div>
+  );
+
+  const miniMap = (
+    <div className="map-stage">
+      <div className="map-plane">
+        <div className="mz hi">
+          <span className="grid" />
+          <span className="floorlite" />
+          <span className="pin" />
+          <span className="tag">
+            <span className="zl">قسم التصميم</span>
+            <span className="zs">ضغط مرتفع</span>
+          </span>
+        </div>
+        <div className="mz ok">
+          <span className="grid" />
+          <span className="floorlite" />
+          <span className="pin" />
+          <span className="tag">
+            <span className="zl">قسم المحتوى</span>
+            <span className="zs">طبيعي</span>
+          </span>
+        </div>
+        <div className="mz ok">
+          <span className="grid" />
+          <span className="floorlite" />
+          <span className="pin" />
+          <span className="tag">
+            <span className="zl">قسم الطباعة</span>
+            <span className="zs">طبيعي</span>
+          </span>
+        </div>
+        <div className="mz md">
+          <span className="grid" />
+          <span className="floorlite" />
+          <span className="pin" />
+          <span className="tag">
+            <span className="zl">قسم التسويق</span>
+            <span className="zs">ضغط متوسط</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <PageGuard permission="manage_tasks">
-      <main dir="rtl" className="min-h-screen bg-[#020711] p-3 text-white sm:p-4">
-        <div className="mx-auto max-w-[1800px] rounded-[34px] border border-white/10 bg-[#06101f] p-3 shadow-[0_30px_120px_rgba(0,0,0,.62)]">
-          <header className="mb-3 grid grid-cols-1 gap-3 rounded-[26px] border border-white/10 bg-black/25 p-4 lg:grid-cols-[300px_1fr_330px] lg:items-center">
-            <div className="text-right">
-              <div className="text-2xl font-black">Blumark24 OS</div>
-              <div className="text-xs text-[#8ba3c7]">Digital Twin Intelligence</div>
+      <div className="twindesk" dir="rtl">
+        {/* ============================= DESKTOP ============================= */}
+        <div className="deskframe">
+          {/* command bar */}
+          <header className="cmdbar">
+            <div className="logo">
+              <span className="orb">B</span>
+              <span>
+                <span className="t1">Blumark24 OS</span>
+                <br />
+                <span className="t2">DIGITAL TWIN INTELLIGENCE</span>
+              </span>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-black">مرحباً {employeeName}</div>
-              <div className="text-xs text-[#8ba3c7]">قسم التصميم · إدارة الطباعة والنشر</div>
+            <div className="greet">
+              <div className="g1">مرحباً {employeeName}</div>
+              <div className="g2">
+                {department} · {roleLabel}
+              </div>
             </div>
-            <div className="flex items-center justify-end gap-2">
-              {[Bell, MessageSquare, Settings].map((Icon, index) => <button key={index} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-cyan-100"><Icon size={18} /></button>)}
-              <Link href="/tasks" className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-4 text-sm font-bold text-cyan-100"><ChevronLeft size={15} />رجوع للمهام</Link>
+            <div className="cmd-actions">
+              <Link href="/tasks" className="back-btn">
+                <ChevronLeft size={14} /> رجوع للمهام
+              </Link>
+              <span className="icon-btn">
+                <Search />
+              </span>
+              <span className="icon-btn">
+                <Bell />
+                {insight.late.length > 0 ? <span className="bdg">{insight.late.length}</span> : null}
+              </span>
+              <span className="icon-btn">
+                <MessageSquare />
+                {insight.review.length > 0 ? <span className="bdg">{insight.review.length}</span> : null}
+              </span>
+              <span className="icon-btn">
+                <Activity />
+              </span>
+            </div>
+            <div className="cmd-user">
+              <span className="av">
+                {initial}
+                <i />
+              </span>
+              <span>
+                <span className="n1">{employeeName}</span>
+                <br />
+                <span className="n2">{roleLabel}</span>
+              </span>
             </div>
           </header>
 
-          <section className="grid grid-cols-1 gap-3 xl:grid-cols-[310px_minmax(0,1fr)_430px]">
-            <aside className="space-y-3">
-              <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
-                <div className="mb-3 text-center text-sm font-bold">رادار التنبيهات الذكي</div>
-                <div className="mx-auto mb-5 grid h-36 w-36 place-items-center rounded-full border border-cyan-300/25 bg-cyan-400/10 shadow-[0_0_44px_rgba(34,211,238,.26)]"><Radar size={62} className="text-cyan-100" /></div>
-                <div className="space-y-2">
-                  <div className="rounded-2xl border border-red-400/25 bg-red-500/10 p-3"><div className="flex items-center gap-2 text-sm font-bold text-red-200"><AlertTriangle size={15} /> مهمة متأخرة</div><div className="mt-1 text-xs text-[#8ba3c7]">{insight.late.length} تحتاج إجراء</div></div>
-                  <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 p-3"><div className="flex items-center gap-2 text-sm font-bold text-amber-200"><Clock3 size={15} /> قريبة من الموعد</div><div className="mt-1 text-xs text-[#8ba3c7]">{insight.dueSoon.length} خلال يومين</div></div>
-                  <div className="rounded-2xl border border-violet-300/25 bg-violet-500/10 p-3"><div className="flex items-center gap-2 text-sm font-bold text-violet-200"><HelpCircle size={15} /> طلبات مساعدة</div><div className="mt-1 text-xs text-[#8ba3c7]">جاهزة للربط بالمسؤول</div></div>
+          {/* main three-column grid */}
+          <div className="f-main">
+            <aside className="panel">{radarPanel}</aside>
+
+            {/* cinematic scene (hero) */}
+            <div className="scene">
+              <div className="room">
+                <div className="wall" />
+                <div className="vlines" />
+                <div className="sidelight l" />
+                <div className="sidelight r" />
+                <span className="ceil am" />
+                <span className="ceil cy" />
+                <div className="floor" />
+                <div className="floorpool" />
+                <span className="fring r1" />
+                <span className="fring r3" />
+                <span className="fring r2" />
+              </div>
+
+              <div className="scene-title">
+                <div className="t1">مكتبي الذكـي</div>
+                <div className="t2">MY TWIN DESK</div>
+              </div>
+              <div className="zone-sign zl">
+                <div className="z1">إدارة الطباعة والنشر</div>
+                <div className="z2">الطابق الثاني</div>
+              </div>
+              <div className="zone-sign zr">
+                <div className="z1">{department}</div>
+                <div className="z2">مكتب {employeeName} · {pressureLabel}</div>
+              </div>
+
+              <div className="shelf">
+                <span className="row" style={{ top: "26%" }} />
+                <span className="row" style={{ top: "52%" }} />
+                <span className="row" style={{ top: "78%" }} />
+                <span className="box" style={{ left: 14, top: "8%", width: 38, height: 14 }} />
+                <span className="box" style={{ left: 60, top: "8%", width: 46, height: 14 }} />
+                <span className="box" style={{ left: 20, top: "34%", width: 60, height: 14 }} />
+                <span className="box" style={{ left: 16, top: "60%", width: 40, height: 14 }} />
+                <span className="box" style={{ left: 62, top: "60%", width: 44, height: 14 }} />
+              </div>
+              <div className="screenwall">
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+              </div>
+
+              <div className="set">
+                <div className="monitor">
+                  <div className="b">B</div>
+                  <div className="bm">BLUMARK24 · DIGITAL TWIN OFFICE</div>
+                  <div className="scan" />
+                  <span className="stand" />
+                </div>
+                <div className="chair">
+                  <div className="cbk" />
+                  <div className="cst" />
+                  <div className="cpo" />
+                  <div className="cbase" />
+                </div>
+                <div className="desk" />
+                <div className="desk-chip">
+                  <i /> {employeeName} · نشط الآن
                 </div>
               </div>
-              <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4 text-center">
-                <div className="text-sm font-bold">مؤشر ضغط العمل</div>
-                <div className="mx-auto my-3 grid h-28 w-28 place-items-center rounded-full border-[12px] border-amber-400/70 bg-amber-400/10 text-3xl font-black">{Math.min(99, insight.active.length * 13)}%</div>
-                <div className="text-xs text-[#8ba3c7]">لديك {insight.active.length} مهام نشطة</div>
-              </div>
-            </aside>
 
-            <main className="space-y-3">
-              <div className="relative min-h-[520px] overflow-hidden rounded-[34px] border border-cyan-200/20 bg-[#07101e] shadow-[0_24px_100px_rgba(0,0,0,.55)]">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_62%,rgba(34,211,238,.28),transparent_25%),radial-gradient(circle_at_18%_25%,rgba(245,158,11,.18),transparent_22%),radial-gradient(circle_at_84%_24%,rgba(34,211,238,.16),transparent_21%),linear-gradient(180deg,rgba(14,30,55,.3),rgba(0,0,0,.75))]" />
-                <div className="absolute left-12 top-28 h-64 w-40 rounded-3xl border border-amber-200/20 bg-amber-400/10 shadow-[0_0_44px_rgba(245,158,11,.12)]" />
-                <div className="absolute right-12 top-28 h-64 w-40 rounded-3xl border border-cyan-200/20 bg-cyan-400/10 shadow-[0_0_44px_rgba(34,211,238,.12)]" />
-                <div className="absolute inset-x-0 top-10 text-center"><div className="text-5xl font-black">مكتبي الذكي</div><div className="mt-2 text-base text-cyan-100/80">My Twin Desk</div></div>
-                <div className="absolute left-20 top-40 rounded-2xl border border-white/10 bg-black/45 px-5 py-3 text-right backdrop-blur"><div className="font-bold">إدارة الطباعة والنشر</div><div className="text-xs text-[#8ba3c7]">الطابق 2</div></div>
-                <div className="absolute right-20 top-40 rounded-2xl border border-white/10 bg-black/45 px-5 py-3 text-right backdrop-blur"><div className="font-bold">قسم التصميم</div><div className="text-xs text-[#8ba3c7]">مكتب {employeeName}</div></div>
-                <div className="absolute left-1/2 top-[45%] h-28 w-80 -translate-x-1/2 rounded-[38px] border border-cyan-200/25 bg-slate-400/10 shadow-[0_0_60px_rgba(34,211,238,.24)]" />
-                <div className="absolute left-1/2 top-[35%] grid h-28 w-44 -translate-x-1/2 place-items-center rounded-2xl border border-cyan-300/25 bg-black/55"><div className="text-center"><div className="text-6xl font-black text-cyan-200">B</div><div className="text-[10px] tracking-[.3em] text-cyan-100">BLUMARK24</div></div></div>
-                <div className="absolute left-1/2 top-[67%] h-32 w-[76%] -translate-x-1/2 rounded-[50%] border border-cyan-300/35" />
-                <div className="absolute left-1/2 top-[72%] h-24 w-[54%] -translate-x-1/2 rounded-[50%] border border-amber-200/25" />
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-2xl border border-white/12 bg-black/35 px-5 py-2 text-xs font-bold backdrop-blur">استكشاف المكتب الافتراضي</div>
-                <div className="absolute bottom-6 right-6 rounded-2xl border border-cyan-200/15 bg-cyan-300/8 px-4 py-3 text-right"><div className="text-[10px] text-[#8ba3c7]">حالة المقعد</div><div className="text-sm font-bold text-cyan-100">{employeeName} · {pressure}</div></div>
+              <div className="holo">
+                <div className="head" />
+                <div className="body" />
+                <div className="disc" />
               </div>
 
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-                {[['ملفاتي', Folder], ['الموافقات', CheckCircle2], ['التقويم', CalendarDays], ['الدردشة', MessageSquare], ['المهام', LayoutGrid], ['الإعدادات', Settings]].map(([label, Icon]) => { const ToolIcon = Icon as typeof Folder; return <div key={label as string} className="grid min-h-[92px] place-items-center rounded-2xl border border-white/10 bg-white/[0.045] p-3 text-center"><ToolIcon size={26} className="mb-2 text-cyan-100" /><div className="text-xs font-bold">{label as string}</div></div>; })}
-              </div>
-            </main>
+              <span className="particle" style={{ width: 3, height: 3, top: "36%", left: "20%" }} />
+              <span className="particle" style={{ width: 2, height: 2, top: "28%", left: "72%", animationDelay: "2.2s" }} />
+              <span className="particle" style={{ width: 3, height: 3, top: "50%", left: "82%", animationDelay: "4s" }} />
+              <span className="particle" style={{ width: 2, height: 2, top: "56%", left: "12%", animationDelay: "5.5s" }} />
 
-            <aside className="space-y-3 rounded-3xl border border-white/10 bg-white/[0.035] p-4">
-              <div className="mb-2 flex items-center justify-between"><div className="text-sm font-bold">مهامي اليوم</div><div className="text-sm font-bold">{loading ? "—" : insight.active.length} مهام</div></div>
-              <div className="grid grid-cols-4 gap-2">
-                <StatBox label="عاجلة" value={insight.late.length || 1} tone="border-red-400/25 bg-red-500/12 text-red-200" />
-                <StatBox label="قيد التنفيذ" value={insight.doing.length} tone="border-blue-400/25 bg-blue-500/12 text-blue-200" />
-                <StatBox label="بانتظار اعتماد" value={insight.review.length} tone="border-violet-400/25 bg-violet-500/12 text-violet-200" />
-                <StatBox label="مكتملة" value={insight.done.length} tone="border-emerald-400/25 bg-emerald-500/12 text-emerald-200" />
+              <span className="explore-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+                  <path d="M2 10a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3h-3.5l-1.8-2h-3.4l-1.8 2H5a3 3 0 0 1-3-3z" />
+                </svg>{" "}
+                استكشاف المكتب الافتراضي
+              </span>
+              <div className="fog" />
+              <div className="vig" />
+            </div>
+
+            {/* today tasks + next task */}
+            <aside className="panel">
+              <div className="p-title">
+                مهامي اليوم <span style={{ fontSize: 12, color: "var(--muted)" }}>{loading ? "—" : `${activeCount} مهام`}</span>
               </div>
-              <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
-                <div className="mb-2 text-xs text-[#8ba3c7]">المهمة القادمة</div>
-                <h2 className="text-2xl font-black leading-relaxed">{focus?.title || "لا توجد مهام نشطة"}</h2>
-                {focus ? <div className="mt-2 text-xs text-[#8ba3c7]">{STATUS_LABEL[focus.status]} · {focus.priority} · {focus.dueDate}</div> : null}
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-cyan-400" style={{ width: focus?.status === "بانتظار_المراجعة" ? "72%" : focus?.status === "قيد_التنفيذ" ? "48%" : "22%" }} /></div>
-                <div className="mt-4 grid gap-2">
-                  <button disabled={!focus || !!savingAction} onClick={() => changeStatus("قيد_التنفيذ", "تم بدء العمل على المهمة")} className="btn-primary min-h-12 justify-center gap-2 text-base"><Play size={17} />ابدأ العمل</button>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button disabled={!focus || !!savingAction} onClick={() => toast.info("تم تسجيل طلب المساعدة.")} className="btn-secondary min-h-11 justify-center gap-2"><HelpCircle size={15} />أحتاج مساعدة</button>
-                    <button disabled={!focus || !!savingAction} onClick={() => changeStatus("بانتظار_المراجعة", "تم إرسال المهمة للمراجعة")} className="btn-secondary min-h-11 justify-center gap-2"><Send size={15} />للمراجعة</button>
+              {statsRow}
+
+              {focus ? (
+                <div className="next-task">
+                  <div className="nt-head">
+                    <span className={`badge ${focus.priority === "عاجلة" ? "d" : "b"}`}>
+                      <span className="led" /> {focus.priority}
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--ice)", fontWeight: 800 }}>{STATUS_LABEL[focus.status]}</span>
+                  </div>
+                  <div className="nt-title">{focus.title}</div>
+                  <div className="nt-due">
+                    {eta.big}
+                    {focus.clientName ? ` · ${focus.clientName}` : ""}
+                  </div>
+                  <div className="nt-mid">
+                    <div className="esc-box">
+                      <div className="e1">الوقت المتبقي قبل التصعيد</div>
+                      <div className="e2">{eta.big}</div>
+                      <div className="e3">{eta.sub}</div>
+                    </div>
+                    <ProgressRing value={progress} size={64} stroke={6} />
+                  </div>
+                  <div className="nt-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={busy}
+                      onClick={() => changeStatus("قيد_التنفيذ", "تم بدء العمل على المهمة")}
+                    >
+                      <Play size={16} /> ابدأ العمل
+                    </button>
+                    <div className="row2">
+                      <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => toast.info("تم تسجيل طلب المساعدة.")}>
+                        <HelpCircle size={15} /> أحتاج مساعدة
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        disabled={busy}
+                        onClick={() => changeStatus("بانتظار_المراجعة", "تم إرسال المهمة للمراجعة")}
+                      >
+                        <Send size={15} /> للمراجعة
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="space-y-2">{insight.active.slice(0, 3).map((task) => <div key={task.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3"><div className="text-sm font-bold">{task.title}</div><div className="mt-1 text-xs text-[#8ba3c7]">{STATUS_LABEL[task.status]} · {task.dueDate}</div></div>)}</div>
+              ) : (
+                <div className="next-task">
+                  <div className="nt-title">لا توجد مهام نشطة اليوم</div>
+                  <div className="nt-due">مكتبك الذكي جاهز — ستظهر مهامك القادمة هنا فور إسنادها.</div>
+                </div>
+              )}
+
+              {insight.others.length > 0 ? (
+                <>
+                  <div className="subhead">المهام الأخرى</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {insight.others.map((task) => (
+                      <div key={task.id} className="mini-task">
+                        <span className="badge v" style={{ fontSize: 9 }}>
+                          {STATUS_LABEL[task.status]}
+                        </span>
+                        <span>
+                          <span className="mt1">{task.title}</span>
+                          <br />
+                          <span className="mt2">
+                            {task.priority} · {task.dueDate}
+                          </span>
+                        </span>
+                        <span className="arr">‹</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : null}
             </aside>
-          </section>
+          </div>
+
+          {/* bottom strip: task path · escalation · mini map */}
+          <div className="f-bottom">
+            <div className="panel">
+              <div className="p-title">
+                مسار المهمة في الهيكل الإداري <span className="en">TASK PATH</span>
+              </div>
+              <div className="pathflow">
+                <div className="pnode done">
+                  <span className="pc">
+                    <Users size={17} />
+                  </span>
+                  <span className="pl">مجلس الإدارة</span>
+                  <span className="ps">أعلى مستوى</span>
+                </div>
+                <span className="plink" />
+                <div className="pnode done">
+                  <span className="pc">
+                    <LayoutGrid size={16} />
+                  </span>
+                  <span className="pl">وكالة التشغيل</span>
+                  <span className="ps">المستوى الثاني</span>
+                </div>
+                <span className="plink" />
+                <div className="pnode done">
+                  <span className="pc">
+                    <Building2 size={16} />
+                  </span>
+                  <span className="pl">إدارة الطباعة والنشر</span>
+                  <span className="ps">المستوى الثالث</span>
+                </div>
+                <span className="plink" />
+                <div className="pnode now">
+                  <span className="pc">
+                    <PenTool size={16} />
+                  </span>
+                  <span className="pl">{department}</span>
+                  <span className="ps">المستوى الرابع</span>
+                </div>
+                <span className="plink" />
+                <div className="pnode now">
+                  <span className="pc">{initial}</span>
+                  <span className="pl">{employeeName}</span>
+                  <span className="ps">المستوى الخامس</span>
+                </div>
+                <span className="plink" />
+                <div className="pnode">
+                  <span className="pc">
+                    <FileText size={15} />
+                  </span>
+                  <span className="pl">المهمة</span>
+                  <span className="ps">{focus?.title ?? "—"}</span>
+                </div>
+              </div>
+              <div className="pathbar">
+                <span style={{ fontSize: 10.5, color: "var(--muted)", fontWeight: 700 }}>تقدّم المهمة في المسار</span>
+                <span className="track">
+                  <span className="fill" style={{ width: `${progress}%` }} />
+                </span>
+                <b>{progress}%</b>
+              </div>
+            </div>
+
+            <div className="panel esc-panel">
+              <div className="p-title" style={{ justifyContent: "center" }}>
+                مؤقت التصعيد <span className="en">ESCALATION</span>
+              </div>
+              <div className="e1">التصعيد التالي إلى المسؤول المباشر</div>
+              <div className="e2">{eta.big}</div>
+              <div className="e3">عند تجاوز موعد المهمة دون تحديث</div>
+            </div>
+
+            <div className="panel map-panel">
+              <div className="p-title">
+                خريطة المكتب الافتراضي <span className="en">TWIN OFFICE MAP · معاينة</span>
+              </div>
+              {miniMap}
+            </div>
+          </div>
+
+          {/* bottom nav */}
+          <nav className="f-nav">
+            <Link href="/dashboard" className="navb">
+              <Home /> الرئيسية
+            </Link>
+            <span className="navb on">
+              <LayoutGrid /> المهام
+            </span>
+            <span className="nav-orb">B</span>
+            <span className="navb">
+              <CalendarDays /> التقويم
+            </span>
+            <span className="navb">
+              <FileText /> الملاحظات
+            </span>
+            <span className="navb">
+              <MoreHorizontal /> المزيد
+            </span>
+          </nav>
         </div>
-      </main>
+
+        {/* ============================= MOBILE ============================= */}
+        <div className="mobframe">
+          <div className="m-top">
+            <span className="orb">B</span>
+            <span>
+              <span className="t1">مكتبي الذكي</span>
+              <br />
+              <span className="t2">MY TWIN DESK</span>
+            </span>
+            <span className="spacer" />
+            <span className="icon-btn">
+              <Bell />
+              {insight.late.length > 0 ? <span className="bdg">{insight.late.length}</span> : null}
+            </span>
+            <span className="av" style={{ position: "relative", width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(160deg,#2C4A78,#122340)", border: "2px solid rgba(125,220,255,.35)", display: "grid", placeItems: "center", fontWeight: 900, fontSize: 13, color: "var(--ice)" }}>
+              {initial}
+            </span>
+          </div>
+
+          <div className="m-hero">
+            <div className="ht">
+              <span>
+                <span className="h1">مرحباً {employeeName}</span>
+                <br />
+                <span className="h2">{department}</span>
+              </span>
+              <span className="badge w">
+                <span className="led" /> {pressureLabel} {pressurePct}%
+              </span>
+            </div>
+            <div className="m-floor" />
+            <div className="m-rays" />
+            <span className="fring r1" />
+            <span className="fring r2" />
+            <div className="m-chair" />
+            <div className="m-mon">B</div>
+            <div className="m-desk" />
+            <span className="explore-btn" style={{ bottom: 12, padding: "8px 16px", fontSize: 10.5 }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" width={13} height={13}>
+                <path d="M2 10a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3h-3.5l-1.8-2h-3.4l-1.8 2H5a3 3 0 0 1-3-3z" />
+              </svg>{" "}
+              استكشاف المكتب
+            </span>
+            <div className="m-vig" />
+          </div>
+
+          <div className="m-q">
+            وش أسوي الآن؟ <span className="en">WHAT&apos;S NEXT</span>
+          </div>
+
+          {focus ? (
+            <div className="m-next">
+              <div className="nt-head">
+                <span className={`badge ${focus.priority === "عاجلة" ? "d" : "b"}`}>
+                  <span className="led" /> {focus.priority}
+                </span>
+                <span style={{ fontSize: 9.5, color: "var(--muted)" }}>{eta.big}</span>
+              </div>
+              <div className="nt-title">{focus.title}</div>
+              <div className="nt-mid" style={{ marginTop: 10 }}>
+                <div className="esc-box">
+                  <div className="e1">المتبقي قبل التصعيد</div>
+                  <div className="e2">{eta.big}</div>
+                </div>
+                <ProgressRing value={progress} size={62} stroke={6} />
+              </div>
+              <div className="nt-actions" style={{ marginTop: 11 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ height: 46, fontSize: 14 }}
+                  disabled={busy}
+                  onClick={() => changeStatus("قيد_التنفيذ", "تم بدء العمل على المهمة")}
+                >
+                  <Play size={16} /> ابدأ العمل
+                </button>
+                <div className="row2">
+                  <button type="button" className="btn btn-secondary" style={{ height: 38, fontSize: 11.5 }} disabled={busy} onClick={() => toast.info("تم تسجيل طلب المساعدة.")}>
+                    أحتاج مساعدة
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ height: 38, fontSize: 11.5 }}
+                    disabled={busy}
+                    onClick={() => changeStatus("بانتظار_المراجعة", "تم إرسال المهمة للمراجعة")}
+                  >
+                    للمراجعة
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="m-next">
+              <div className="nt-title">لا توجد مهام نشطة اليوم</div>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>ستظهر مهمتك القادمة هنا فور إسنادها.</div>
+            </div>
+          )}
+
+          <div className="m-stats">
+            <div className="stat d">
+              <div className="sv">{insight.urgent.length}</div>
+              <div className="sl">عاجلة</div>
+            </div>
+            <div className="stat b">
+              <div className="sv">{insight.doing.length}</div>
+              <div className="sl">قيد التنفيذ</div>
+            </div>
+            <div className="stat v">
+              <div className="sv">{insight.review.length}</div>
+              <div className="sl">اعتماد</div>
+            </div>
+            <div className="stat s">
+              <div className="sv">{insight.done.length}</div>
+              <div className="sl">مكتملة</div>
+            </div>
+          </div>
+
+          <div className="m-row">
+            <div className="m-radar-card">
+              <div className="radar">
+                <span className="r-ring a" />
+                <span className="r-ring b" />
+                <span className="r-ring c" />
+                <span className="sweep" />
+                <span className="blip d" style={{ top: "32%", insetInlineStart: "30%" }} />
+                <span className="blip v" style={{ top: "62%", insetInlineStart: "58%" }} />
+              </div>
+            </div>
+            <div className="m-alerts">
+              <div className="alert d">
+                <span className="led" />
+                <span>
+                  <span className="a1">مهام متأخرة</span>
+                  <br />
+                  <span className="a2">{insight.late.length} تحتاج إجراء</span>
+                </span>
+              </div>
+              <div className="alert i">
+                <span className="led" />
+                <span>
+                  <span className="a1">بانتظار اعتماد</span>
+                  <br />
+                  <span className="a2">{insight.review.length} مهمة</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="m-map">
+            <div className="p-title" style={{ fontSize: 11.5 }}>
+              خريطة المكتب الافتراضي <span className="en">معاينة</span>
+            </div>
+            {miniMap}
+          </div>
+
+          <nav className="m-nav">
+            <Link href="/dashboard" className="navb">
+              <Home /> الرئيسية
+            </Link>
+            <span className="navb on">
+              <LayoutGrid /> المهام
+            </span>
+            <span className="nav-orb">B</span>
+            <span className="navb">
+              <CalendarDays /> التقويم
+            </span>
+            <span className="navb">
+              <MoreHorizontal /> المزيد
+            </span>
+          </nav>
+        </div>
+      </div>
     </PageGuard>
   );
 }
