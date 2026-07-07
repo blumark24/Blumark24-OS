@@ -49,6 +49,7 @@ function daysUntil(dueDate: string) {
 
 /** Progress derived from task status (no fabricated per-task percentages). */
 function statusProgress(status: TaskStatus | undefined) {
+  if (!status) return 0;
   switch (status) {
     case "مكتملة":
       return 100;
@@ -66,6 +67,7 @@ function dueRelative(dueDate: string | undefined, status: TaskStatus | undefined
   if (!dueDate) return { big: "بلا موعد", sub: "لم يُحدَّد موعد للمهمة" };
   if (status === "مكتملة") return { big: "مكتملة", sub: "تم الإنجاز" };
   const d = daysUntil(dueDate);
+  if (Number.isNaN(d)) return { big: "تاريخ غير صالح", sub: "يرجى التحقق من تاريخ الاستحقاق" };
   if (d < 0) return { big: `متأخرة ${Math.abs(d)} يوم`, sub: "يُصعَّد إلى المسؤول المباشر" };
   if (d === 0) return { big: "ينتهي اليوم", sub: "قبل نهاية الدوام" };
   if (d === 1) return { big: "غداً", sub: "خلال يوم واحد" };
@@ -182,6 +184,22 @@ export default function MyTwinDeskPage() {
 
   const busy = !focus || !!savingAction;
 
+  if (loading) {
+    return (
+      <PageGuard permission="manage_tasks">
+        <div className="twindesk" dir="rtl" style={{ display: "grid", placeItems: "center", minHeight: "100vh" }}>
+          <div style={{ textAlign: "center" }}>
+            <svg width={50} height={50} viewBox="0 0 50 50" className="animate-spin" style={{ margin: "0 auto 16px" }}>
+              <circle cx={25} cy={25} r={20} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth={4} />
+              <circle cx={25} cy={25} r={20} fill="none" stroke="#00D9FF" strokeWidth={4} strokeLinecap="round" strokeDasharray="30 150" />
+            </svg>
+            <p style={{ color: "var(--muted)", fontSize: 14, fontWeight: 700 }}>جارٍ تحميل مكتبك الذكي…</p>
+          </div>
+        </div>
+      </PageGuard>
+    );
+  }
+
   // ---- shared pieces reused across desktop & mobile ----
   const radarPanel = (
     <>
@@ -196,10 +214,10 @@ export default function MyTwinDeskPage() {
           <span className="r-x" />
           <span className="r-y" />
           <span className="sweep" />
-          <span className="blip d" style={{ top: "34%", insetInlineStart: "26%" }} />
-          <span className="blip w" style={{ top: "56%", insetInlineStart: "66%" }} />
-          <span className="blip v" style={{ top: "68%", insetInlineStart: "38%" }} />
-          <span className="blip i" style={{ top: "24%", insetInlineStart: "58%" }} />
+          {insight.late.length > 0 && <span className="blip d" style={{ top: "34%", insetInlineStart: "26%" }} />}
+          {insight.dueSoon.length > 0 && <span className="blip w" style={{ top: "56%", insetInlineStart: "66%" }} />}
+          {insight.review.length > 0 && <span className="blip v" style={{ top: "68%", insetInlineStart: "38%" }} />}
+          {activeCount > 0 && <span className="blip i" style={{ top: "24%", insetInlineStart: "58%" }} />}
         </div>
       </div>
       <div className="alerts">
@@ -769,8 +787,8 @@ export default function MyTwinDeskPage() {
                 <span className="r-ring b" />
                 <span className="r-ring c" />
                 <span className="sweep" />
-                <span className="blip d" style={{ top: "32%", insetInlineStart: "30%" }} />
-                <span className="blip v" style={{ top: "62%", insetInlineStart: "58%" }} />
+                {insight.late.length > 0 && <span className="blip d" style={{ top: "32%", insetInlineStart: "30%" }} />}
+                {insight.review.length > 0 && <span className="blip v" style={{ top: "62%", insetInlineStart: "58%" }} />}
               </div>
             </div>
             <div className="m-alerts">
@@ -804,9 +822,9 @@ export default function MyTwinDeskPage() {
             <Link href="/dashboard" className="navb">
               <Home /> الرئيسية
             </Link>
-            <span className="navb on">
+            <Link href="/tasks" className="navb on">
               <LayoutGrid /> المهام
-            </span>
+            </Link>
             <span className="nav-orb">B</span>
             <span className="navb">
               <CalendarDays /> التقويم

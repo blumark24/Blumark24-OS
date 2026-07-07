@@ -402,7 +402,7 @@
 .twindesk .mobframe .m-hero,.twindesk .mobframe .m-next,.twindesk .mobframe .m-stats,.twindesk .mobframe .m-row,.twindesk .mobframe .m-map,.twindesk .mobframe .m-top,.twindesk .mobframe .m-nav{flex:none}
 .twindesk .mobframe .m-map{min-height:150px}
 .twindesk .f-mob{width:auto}
-@media (max-width:1279px){.twindesk .deskframe{display:none}.twindesk .mobframe{display:flex}}
+@media (max-width:1279.98px){.twindesk .deskframe{display:none}.twindesk .mobframe{display:flex}}
 @media (min-width:1280px){.twindesk .mobframe{display:none}}
 .twindesk{overflow-x:hidden}
 .twindesk .mobframe{width:100%}
