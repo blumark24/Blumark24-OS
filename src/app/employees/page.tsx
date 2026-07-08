@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { departmentColor } from "@/lib/services/departments";
 import { useOrgStructure } from "@/hooks/useOrgStructure";
@@ -32,11 +32,12 @@ import { TENANT_ASSIGNABLE_ROLES, TENANT_JOB_TITLES, DEFAULT_TENANT_JOB_TITLE } 
 import { isEmployeeActive, canonicalEmployeeStatus, employeeStatusLabel } from "@/lib/tenant/employeeStatus";
 import { allowedStructureLevels } from "@/lib/org/packageHierarchy";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
-import { useEmployees, useOrgProfileIds } from "@/hooks/useData";
+import { useEmployees, useOrgProfileIds, useTasks } from "@/hooks/useData";
 import { useToast } from "@/contexts/ToastContext";
 import PageGuard from "@/components/ui/PageGuard";
 import { createAuthUser, updateAuthUser } from "@/lib/db";
 import { withSoftTimeout, withTimeout } from "@/lib/asyncHelpers";
+import { createOrgScopeResolver } from "@/lib/org/orgScopeResolver";
 
 const statusBadge = (status: string) =>
   isEmployeeActive(status) ? "status-active" : "status-inactive";
@@ -64,6 +65,7 @@ type FormState = {
 
 function EmployeesContent() {
   const { data: employees, loading, error, update, refetch, setData } = useEmployees();
+  const { data: tasks } = useTasks();
   const { data: orgSnapshot, loading: orgLoading } = useOrgStructure(true);
   // Profile-linkage: an employee is "linked" when employees.id matches a
   // profiles.id in THIS organization (RLS scopes the set to the caller's org).
@@ -156,6 +158,53 @@ function EmployeesContent() {
     inactive: employees.filter((e) => effectiveState(e) === "inactive").length,
     review:   employees.filter((e) => effectiveState(e) === "review").length,
   };
+
+  const orgResolver = useMemo(
+    () => createOrgScopeResolver(orgSnapshot, employees),
+    [orgSnapshot, employees],
+  );
+
+  const presencePreview = useMemo(() => {
+    const activeTaskCountByEmployee = new Map<string, number>();
+    tasks.forEach((task) => {
+      if (task.status === "مكتملة") return;
+      const scope = orgResolver.resolveTaskAssignee(task);
+      const key = scope.employeeId ?? task.assigneeId ?? task.assigneeName;
+      if (!key) return;
+      activeTaskCountByEmployee.set(key, (activeTaskCountByEmployee.get(key) ?? 0) + 1);
+    });
+
+    const rows = employees.map((employee) => {
+      const scope = orgResolver.resolveEmployee(employee);
+      const activeTasks = activeTaskCountByEmployee.get(employee.id) ?? activeTaskCountByEmployee.get(employee.name) ?? 0;
+      const state = !linkLoading && !linkedProfileIds.has(employee.id)
+        ? "review"
+        : isEmployeeActive(employee.status)
+          ? "active"
+          : "inactive";
+      const outsideStructure = !scope.isLinkedToOrg;
+      const highWorkload = activeTasks >= 4;
+      return {
+        id: employee.id,
+        name: employee.name,
+        department: scope.departmentLabel,
+        manager: scope.managerName,
+        state,
+        activeTasks,
+        outsideStructure,
+        highWorkload,
+      };
+    });
+
+    return {
+      rows,
+      outsideStructure: rows.filter((row) => row.outsideStructure).length,
+      highWorkload: rows.filter((row) => row.highWorkload).length,
+      needsReview: rows.filter((row) => row.state === "review" || row.outsideStructure).length,
+      active: rows.filter((row) => row.state === "active").length,
+      inactive: rows.filter((row) => row.state === "inactive").length,
+    };
+  }, [employees, linkLoading, linkedProfileIds, orgResolver, tasks]);
 
   const filtered = employees.filter((e) => {
     const q = search.toLowerCase();
@@ -525,6 +574,51 @@ function EmployeesContent() {
           <KpiStatCard label="الموظفون النشطون" value={String(stats.active)} icon={Users} accent="emerald" showLive={false} showSparkline={false} />
           <KpiStatCard label="الأقسام" value={String(stats.depts)} icon={Users} accent="sky" showLive={false} showSparkline={false} />
         </div>
+
+        {!loading && employees.length > 0 && (
+          <section className={cn(WS_CARD, "overflow-hidden p-0")}>
+            <div className="border-b border-white/[0.06] bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.13),transparent_38%),rgba(255,255,255,0.025)] p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="font-heading text-base font-bold text-white">معاينة الحضور الذكي المرتبط بالهيكل</h2>
+                  <p className="mt-1 text-xs leading-5 text-[#8ba3c7]">
+                    معاينة تشغيلية فقط: لا يوجد حضور وانصراف فعلي في هذه المرحلة.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-5">
+                  <div className="rounded-xl border border-emerald-300/15 bg-emerald-400/10 px-3 py-2 text-emerald-100"><strong className="block text-lg text-white">{presencePreview.active}</strong>نشط</div>
+                  <div className="rounded-xl border border-slate-300/15 bg-white/[0.04] px-3 py-2 text-[#d7e7ff]"><strong className="block text-lg text-white">{presencePreview.inactive}</strong>غير نشط</div>
+                  <div className="rounded-xl border border-amber-300/15 bg-amber-400/10 px-3 py-2 text-amber-100"><strong className="block text-lg text-white">{presencePreview.needsReview}</strong>مراجعة</div>
+                  <div className="rounded-xl border border-red-300/15 bg-red-500/10 px-3 py-2 text-red-100"><strong className="block text-lg text-white">{presencePreview.outsideStructure}</strong>خارج الهيكل</div>
+                  <div className="rounded-xl border border-cyan-300/15 bg-cyan-400/10 px-3 py-2 text-cyan-100"><strong className="block text-lg text-white">{presencePreview.highWorkload}</strong>حمل مرتفع</div>
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-2 p-4 md:grid-cols-2 xl:grid-cols-4">
+              {presencePreview.rows.slice(0, 4).map((row) => (
+                <div key={row.id} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-bold text-white">{row.name}</div>
+                      <div className="mt-0.5 truncate text-[11px] text-[#8ba3c7]">{row.department} · المدير: {row.manager}</div>
+                    </div>
+                    <span className={cn(
+                      "badge shrink-0 text-[10px]",
+                      row.outsideStructure ? "bg-red-500/10 text-red-300" :
+                      row.highWorkload ? "bg-amber-500/10 text-amber-300" :
+                      row.state === "active" ? "status-active" :
+                      row.state === "inactive" ? "status-inactive" :
+                      "bg-amber-500/10 text-amber-300",
+                    )}>
+                      {row.outsideStructure ? "خارج الهيكل" : row.highWorkload ? "حمل مرتفع" : row.state === "active" ? "نشط" : row.state === "inactive" ? "غير نشط" : "مراجعة"}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-xs text-[#8ba3c7]">مهام نشطة: {row.activeTasks}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Filters */}
         <div className="space-y-3">

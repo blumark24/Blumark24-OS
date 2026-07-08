@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { AlertTriangle, Bell, CalendarDays, CheckCircle2, ChevronLeft, Clock3, Folder, HelpCircle, LayoutGrid, MessageSquare, Play, Radar, Send, Settings } from "lucide-react";
+import { Bell, CalendarDays, CheckCircle2, ChevronLeft, Folder, HelpCircle, LayoutGrid, MessageSquare, Play, Radar, Send, Settings } from "lucide-react";
 import PageGuard from "@/components/ui/PageGuard";
-import { useTasks } from "@/hooks/useData";
+import { useEmployees, useTasks } from "@/hooks/useData";
+import { useOrgStructure } from "@/hooks/useOrgStructure";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
+import { ORG_UNKNOWN_LABEL, createOrgScopeResolver } from "@/lib/org/orgScopeResolver";
 import type { TaskStatus } from "@/types";
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
@@ -18,13 +20,17 @@ const STATUS_LABEL: Record<TaskStatus, string> = {
 };
 
 function isOverdue(dueDate: string, status: TaskStatus) {
-  return status !== "مكتملة" && new Date(dueDate) < new Date();
+  if (status === "مكتملة") return false;
+  const target = new Date(dueDate);
+  if (Number.isNaN(target.getTime())) return false;
+  return target < new Date();
 }
 
 function daysUntil(dueDate: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const target = new Date(dueDate);
+  if (Number.isNaN(target.getTime())) return Number.POSITIVE_INFINITY;
   target.setHours(0, 0, 0, 0);
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
 }
@@ -40,15 +46,48 @@ function StatBox({ label, value, tone }: { label: string; value: number | string
 
 export default function MyTwinDeskPage() {
   const { data: tasks, loading, update } = useTasks();
+  const { data: employees } = useEmployees();
+  const { data: orgSnapshot } = useOrgStructure(true);
   const { user } = useAuth();
   const toast = useToast();
   const [savingAction, setSavingAction] = useState<string | null>(null);
 
+  const orgResolver = useMemo(
+    () => createOrgScopeResolver(orgSnapshot, employees),
+    [orgSnapshot, employees],
+  );
+
+  const currentEmployee = useMemo(() => {
+    const userId = user?.id;
+    const userEmail = user?.email?.toLowerCase();
+    return employees.find((employee) =>
+      (userId && employee.id === userId) ||
+      (userEmail && employee.email?.toLowerCase() === userEmail),
+    ) ?? null;
+  }, [employees, user?.email, user?.id]);
+
+  const employeeName = currentEmployee?.name || user?.email?.split("@")[0] || "الموظف";
+  const employeeScope = useMemo(
+    () => orgResolver.resolveEmployee(currentEmployee ?? {
+      id: user?.id ?? "",
+      name: employeeName,
+      email: user?.email ?? "",
+      department: user?.department ?? "",
+    }),
+    [currentEmployee, employeeName, orgResolver, user?.department, user?.email, user?.id],
+  );
+
+  const assignedTasks = useMemo(() => {
+    const ids = new Set([user?.id, currentEmployee?.id].filter(Boolean));
+    const names = new Set([currentEmployee?.name, user?.email, employeeName].filter(Boolean));
+    return tasks.filter((task) => ids.has(task.assigneeId) || names.has(task.assigneeName));
+  }, [currentEmployee?.id, currentEmployee?.name, employeeName, tasks, user?.email, user?.id]);
+
   const insight = useMemo(() => {
-    const active = tasks.filter((task) => task.status !== "مكتملة");
+    const active = assignedTasks.filter((task) => task.status !== "مكتملة");
     const late = active.filter((task) => task.status === "متأخرة" || isOverdue(task.dueDate, task.status));
     const review = active.filter((task) => task.status === "بانتظار_المراجعة");
-    const done = tasks.filter((task) => task.status === "مكتملة");
+    const done = assignedTasks.filter((task) => task.status === "مكتملة");
     const doing = active.filter((task) => task.status === "قيد_التنفيذ");
     const dueSoon = active.filter((task) => {
       const diff = daysUntil(task.dueDate);
@@ -56,11 +95,37 @@ export default function MyTwinDeskPage() {
     });
     const focusTask = late[0] ?? active.find((task) => task.priority === "عاجلة" || task.priority === "عالية") ?? dueSoon[0] ?? active[0] ?? null;
     return { active, late, review, done, doing, dueSoon, focusTask };
-  }, [tasks]);
+  }, [assignedTasks]);
 
   const focus = insight.focusTask;
-  const employeeName = user?.email?.split("@")[0] || focus?.assigneeName || "الموظف";
   const pressure = insight.active.length >= 6 ? "ضغط مرتفع" : insight.active.length >= 3 ? "ضغط متوسط" : "طبيعي";
+
+  const radarGroups = useMemo(() => {
+    const sameManager = insight.active.filter((task) => {
+      const scope = orgResolver.resolveTaskAssignee(task);
+      return Boolean(employeeScope.managerId && scope.managerId === employeeScope.managerId);
+    });
+    const sameDepartment = insight.active.filter((task) => {
+      const scope = orgResolver.resolveTaskAssignee(task);
+      return Boolean(
+        (employeeScope.departmentId && scope.departmentId === employeeScope.departmentId) ||
+        (employeeScope.departmentLabel !== ORG_UNKNOWN_LABEL && scope.departmentLabel === employeeScope.departmentLabel),
+      );
+    });
+    const otherDepartments = insight.active.filter((task) => {
+      const scope = orgResolver.resolveTaskAssignee(task);
+      return scope.departmentLabel !== ORG_UNKNOWN_LABEL && scope.departmentLabel !== employeeScope.departmentLabel;
+    });
+
+    return [
+      { label: "مديري المباشر", count: sameManager.length, tone: "border-cyan-300/25 bg-cyan-400/10 text-cyan-100" },
+      { label: "قسمي", count: sameDepartment.length, tone: "border-blue-300/25 bg-blue-400/10 text-blue-100" },
+      { label: "أقسام أخرى", count: otherDepartments.length, tone: "border-white/10 bg-white/[0.045] text-[#d7e7ff]" },
+      { label: "مرتبطة بعميل", count: insight.active.filter((task) => task.clientId || task.clientName).length, tone: "border-amber-300/25 bg-amber-400/10 text-amber-100" },
+      { label: "متأخرة", count: insight.late.length, tone: "border-red-400/25 bg-red-500/10 text-red-100" },
+      { label: "للمراجعة", count: insight.review.length, tone: "border-violet-300/25 bg-violet-500/10 text-violet-100" },
+    ];
+  }, [employeeScope.departmentId, employeeScope.departmentLabel, employeeScope.managerId, insight.active, insight.late.length, insight.review.length, orgResolver]);
 
   const changeStatus = async (status: TaskStatus, message: string) => {
     if (!focus) return;
@@ -76,7 +141,7 @@ export default function MyTwinDeskPage() {
   };
 
   return (
-    <PageGuard permission="manage_tasks">
+    <PageGuard permission="manage_tasks" immersive>
       <main dir="rtl" className="min-h-screen bg-[#020711] p-3 text-white sm:p-4">
         <div className="mx-auto max-w-[1800px] rounded-[34px] border border-white/10 bg-[#06101f] p-3 shadow-[0_30px_120px_rgba(0,0,0,.62)]">
           <header className="mb-3 grid grid-cols-1 gap-3 rounded-[26px] border border-white/10 bg-black/25 p-4 lg:grid-cols-[300px_1fr_330px] lg:items-center">
@@ -86,7 +151,7 @@ export default function MyTwinDeskPage() {
             </div>
             <div className="text-center">
               <div className="text-2xl font-black">مرحباً {employeeName}</div>
-              <div className="text-xs text-[#8ba3c7]">قسم التصميم · إدارة الطباعة والنشر</div>
+              <div className="text-xs text-[#8ba3c7]">{employeeScope.departmentLabel} · المدير المباشر: {employeeScope.managerName}</div>
             </div>
             <div className="flex items-center justify-end gap-2">
               {[Bell, MessageSquare, Settings].map((Icon, index) => <button key={index} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-cyan-100"><Icon size={18} /></button>)}
@@ -100,9 +165,18 @@ export default function MyTwinDeskPage() {
                 <div className="mb-3 text-center text-sm font-bold">رادار التنبيهات الذكي</div>
                 <div className="mx-auto mb-5 grid h-36 w-36 place-items-center rounded-full border border-cyan-300/25 bg-cyan-400/10 shadow-[0_0_44px_rgba(34,211,238,.26)]"><Radar size={62} className="text-cyan-100" /></div>
                 <div className="space-y-2">
-                  <div className="rounded-2xl border border-red-400/25 bg-red-500/10 p-3"><div className="flex items-center gap-2 text-sm font-bold text-red-200"><AlertTriangle size={15} /> مهمة متأخرة</div><div className="mt-1 text-xs text-[#8ba3c7]">{insight.late.length} تحتاج إجراء</div></div>
-                  <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 p-3"><div className="flex items-center gap-2 text-sm font-bold text-amber-200"><Clock3 size={15} /> قريبة من الموعد</div><div className="mt-1 text-xs text-[#8ba3c7]">{insight.dueSoon.length} خلال يومين</div></div>
-                  <div className="rounded-2xl border border-violet-300/25 bg-violet-500/10 p-3"><div className="flex items-center gap-2 text-sm font-bold text-violet-200"><HelpCircle size={15} /> طلبات مساعدة</div><div className="mt-1 text-xs text-[#8ba3c7]">جاهزة للربط بالمسؤول</div></div>
+                  {radarGroups.some((group) => group.count > 0) ? radarGroups.map((group) => (
+                    <div key={group.label} className={`rounded-2xl border p-3 ${group.tone}`}>
+                      <div className="flex items-center justify-between gap-2 text-sm font-bold">
+                        <span>{group.label}</span>
+                        <span className="text-white">{group.count}</span>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-center text-xs text-[#8ba3c7]">
+                      لا توجد تنبيهات تشغيلية حالياً.
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4 text-center">
@@ -118,8 +192,8 @@ export default function MyTwinDeskPage() {
                 <div className="absolute left-12 top-28 h-64 w-40 rounded-3xl border border-amber-200/20 bg-amber-400/10 shadow-[0_0_44px_rgba(245,158,11,.12)]" />
                 <div className="absolute right-12 top-28 h-64 w-40 rounded-3xl border border-cyan-200/20 bg-cyan-400/10 shadow-[0_0_44px_rgba(34,211,238,.12)]" />
                 <div className="absolute inset-x-0 top-10 text-center"><div className="text-5xl font-black">مكتبي الذكي</div><div className="mt-2 text-base text-cyan-100/80">My Twin Desk</div></div>
-                <div className="absolute left-20 top-40 rounded-2xl border border-white/10 bg-black/45 px-5 py-3 text-right backdrop-blur"><div className="font-bold">إدارة الطباعة والنشر</div><div className="text-xs text-[#8ba3c7]">الطابق 2</div></div>
-                <div className="absolute right-20 top-40 rounded-2xl border border-white/10 bg-black/45 px-5 py-3 text-right backdrop-blur"><div className="font-bold">قسم التصميم</div><div className="text-xs text-[#8ba3c7]">مكتب {employeeName}</div></div>
+                <div className="absolute left-20 top-40 rounded-2xl border border-white/10 bg-black/45 px-5 py-3 text-right backdrop-blur"><div className="font-bold">{employeeScope.managerScopeLabel}</div><div className="text-xs text-[#8ba3c7]">نطاق المدير</div></div>
+                <div className="absolute right-20 top-40 rounded-2xl border border-white/10 bg-black/45 px-5 py-3 text-right backdrop-blur"><div className="font-bold">{employeeScope.departmentLabel}</div><div className="text-xs text-[#8ba3c7]">مكتب {employeeName}</div></div>
                 <div className="absolute left-1/2 top-[45%] h-28 w-80 -translate-x-1/2 rounded-[38px] border border-cyan-200/25 bg-slate-400/10 shadow-[0_0_60px_rgba(34,211,238,.24)]" />
                 <div className="absolute left-1/2 top-[35%] grid h-28 w-44 -translate-x-1/2 place-items-center rounded-2xl border border-cyan-300/25 bg-black/55"><div className="text-center"><div className="text-6xl font-black text-cyan-200">B</div><div className="text-[10px] tracking-[.3em] text-cyan-100">BLUMARK24</div></div></div>
                 <div className="absolute left-1/2 top-[67%] h-32 w-[76%] -translate-x-1/2 rounded-[50%] border border-cyan-300/35" />
@@ -136,7 +210,7 @@ export default function MyTwinDeskPage() {
             <aside className="space-y-3 rounded-3xl border border-white/10 bg-white/[0.035] p-4">
               <div className="mb-2 flex items-center justify-between"><div className="text-sm font-bold">مهامي اليوم</div><div className="text-sm font-bold">{loading ? "—" : insight.active.length} مهام</div></div>
               <div className="grid grid-cols-4 gap-2">
-                <StatBox label="عاجلة" value={insight.late.length || 1} tone="border-red-400/25 bg-red-500/12 text-red-200" />
+                <StatBox label="عاجلة" value={insight.late.length} tone="border-red-400/25 bg-red-500/12 text-red-200" />
                 <StatBox label="قيد التنفيذ" value={insight.doing.length} tone="border-blue-400/25 bg-blue-500/12 text-blue-200" />
                 <StatBox label="بانتظار اعتماد" value={insight.review.length} tone="border-violet-400/25 bg-violet-500/12 text-violet-200" />
                 <StatBox label="مكتملة" value={insight.done.length} tone="border-emerald-400/25 bg-emerald-500/12 text-emerald-200" />
@@ -144,7 +218,7 @@ export default function MyTwinDeskPage() {
               <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
                 <div className="mb-2 text-xs text-[#8ba3c7]">المهمة القادمة</div>
                 <h2 className="text-2xl font-black leading-relaxed">{focus?.title || "لا توجد مهام نشطة"}</h2>
-                {focus ? <div className="mt-2 text-xs text-[#8ba3c7]">{STATUS_LABEL[focus.status]} · {focus.priority} · {focus.dueDate}</div> : null}
+                {focus ? <div className="mt-2 text-xs text-[#8ba3c7]">{STATUS_LABEL[focus.status]} · {focus.priority} · {focus.dueDate} · {orgResolver.taskSourceLabel(focus)}</div> : null}
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-cyan-400" style={{ width: focus?.status === "بانتظار_المراجعة" ? "72%" : focus?.status === "قيد_التنفيذ" ? "48%" : "22%" }} /></div>
                 <div className="mt-4 grid gap-2">
                   <button disabled={!focus || !!savingAction} onClick={() => changeStatus("قيد_التنفيذ", "تم بدء العمل على المهمة")} className="btn-primary min-h-12 justify-center gap-2 text-base"><Play size={17} />ابدأ العمل</button>
@@ -154,7 +228,7 @@ export default function MyTwinDeskPage() {
                   </div>
                 </div>
               </div>
-              <div className="space-y-2">{insight.active.slice(0, 3).map((task) => <div key={task.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3"><div className="text-sm font-bold">{task.title}</div><div className="mt-1 text-xs text-[#8ba3c7]">{STATUS_LABEL[task.status]} · {task.dueDate}</div></div>)}</div>
+              <div className="space-y-2">{insight.active.slice(0, 3).map((task) => <div key={task.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3"><div className="text-sm font-bold">{task.title}</div><div className="mt-1 text-xs text-[#8ba3c7]">{STATUS_LABEL[task.status]} · {task.dueDate} · {orgResolver.taskSourceLabel(task)}</div></div>)}</div>
             </aside>
           </section>
         </div>
