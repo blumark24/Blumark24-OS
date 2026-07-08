@@ -498,7 +498,7 @@ export default function MyTwinDeskPage() {
   const busy = !currentTask || !!savingAction;
 
   return (
-    <PageGuard permission="manage_tasks">
+    <PageGuard permission="manage_tasks" immersive>
       <main className="twindesk" dir="rtl">
         {loading ? (
           <div className="td-loading">
