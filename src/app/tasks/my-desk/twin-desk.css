@@ -82,6 +82,7 @@
   background:conic-gradient(from 0deg,rgba(0,217,255,.4),rgba(0,217,255,.05) 62deg,transparent 95deg);
   animation:tdspin 5.2s linear infinite}
 .twindesk .radar .blip{position:absolute;width:9px;height:9px;border-radius:50%;animation:tdpulse 2s ease-in-out infinite}
+.twindesk .radar .radar-empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;font-size:10px;font-weight:900;color:var(--muted);letter-spacing:.02em}
 .twindesk .blip.d{background:var(--danger);box-shadow:0 0 12px var(--danger)}
 .twindesk .blip.w{background:var(--warn);box-shadow:0 0 12px var(--warn)}
 .twindesk .blip.v{background:var(--decision);box-shadow:0 0 12px var(--decision)}
@@ -203,7 +204,7 @@
   background:linear-gradient(180deg,rgba(0,217,255,.55),rgba(0,217,255,.06));
   -webkit-mask:repeating-linear-gradient(0deg,#000 0 2.5px,transparent 2.5px 4.5px);mask:repeating-linear-gradient(0deg,#000 0 2.5px,transparent 2.5px 4.5px)}
 .twindesk .holo .disc{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:60px;height:15px;border-radius:50%;
-  border:1px solid rgba(0,217,255,.5);box-shadow:0 0 20px rgba(0,217,255,.45);background:radial-gradient(50% 50%,rgba(0,217,255,.28),transparent 70%)}
+  border:1px solid rgba(0,217,255,.5);box-shadow:0 0 20px rgba(0,217,255,.45);background:radial-gradient(50% 50% at 50% 50%,rgba(0,217,255,.28),transparent 70%)}
 @keyframes tdholofloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 .twindesk .particle{position:absolute;border-radius:50%;background:rgba(125,220,255,.85);pointer-events:none;animation:tddrift 9s ease-in-out infinite}
 @keyframes tddrift{0%,100%{transform:translateY(0);opacity:.15}50%{transform:translateY(-30px);opacity:.75}}

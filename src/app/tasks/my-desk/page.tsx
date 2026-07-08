@@ -35,16 +35,29 @@ const STATUS_LABEL: Record<TaskStatus, string> = {
   متأخرة: "متأخرة",
 };
 
-function isOverdue(dueDate: string, status: TaskStatus) {
-  return status !== "مكتملة" && new Date(dueDate) < new Date();
+function parseDueDate(dueDate: string | undefined) {
+  if (!dueDate?.trim()) return null;
+  const target = new Date(dueDate);
+  return Number.isNaN(target.getTime()) ? null : target;
 }
 
-function daysUntil(dueDate: string) {
+function isOverdue(dueDate: string | undefined, status: TaskStatus) {
+  const target = parseDueDate(dueDate);
+  return status !== "مكتملة" && !!target && target < new Date();
+}
+
+function daysUntil(dueDate: string | undefined) {
+  const target = parseDueDate(dueDate);
+  if (!target) return Number.NaN;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const target = new Date(dueDate);
   target.setHours(0, 0, 0, 0);
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
+}
+
+function dueDateLabel(dueDate: string | undefined) {
+  if (!dueDate?.trim()) return "بلا موعد";
+  return parseDueDate(dueDate) ? dueDate : "تاريخ غير صالح";
 }
 
 /** Progress derived from task status (no fabricated per-task percentages). */
@@ -62,13 +75,13 @@ function statusProgress(status: TaskStatus | undefined) {
   }
 }
 
-/** Truthful relative deadline text — no fake ticking clock. */
+/** Truthful relative deadline text; this is a due-date signal, not an SLA timer. */
 function dueRelative(dueDate: string | undefined, status: TaskStatus | undefined) {
   if (!dueDate) return { big: "بلا موعد", sub: "لم يُحدَّد موعد للمهمة" };
   if (status === "مكتملة") return { big: "مكتملة", sub: "تم الإنجاز" };
   const d = daysUntil(dueDate);
   if (Number.isNaN(d)) return { big: "تاريخ غير صالح", sub: "يرجى التحقق من تاريخ الاستحقاق" };
-  if (d < 0) return { big: `متأخرة ${Math.abs(d)} يوم`, sub: "يُصعَّد إلى المسؤول المباشر" };
+  if (d < 0) return { big: `متأخرة ${Math.abs(d)} يوم`, sub: "تحتاج تحديث حالة أو إعادة جدولة" };
   if (d === 0) return { big: "ينتهي اليوم", sub: "قبل نهاية الدوام" };
   if (d === 1) return { big: "غداً", sub: "خلال يوم واحد" };
   return { big: `خلال ${d} يوم`, sub: "ضمن المهلة الحالية" };
@@ -145,7 +158,7 @@ export default function MyTwinDeskPage() {
     const urgent = active.filter((task) => task.priority === "عاجلة");
     const dueSoon = active.filter((task) => {
       const diff = daysUntil(task.dueDate);
-      return diff >= 0 && diff <= 2;
+      return Number.isFinite(diff) && diff >= 0 && diff <= 2;
     });
     const focusTask: Task | null =
       late[0] ??
@@ -168,6 +181,10 @@ export default function MyTwinDeskPage() {
   const pressureLabel = activeCount >= 6 ? "ضغط مرتفع" : activeCount >= 3 ? "ضغط متوسط" : "طبيعي";
   const progress = statusProgress(focus?.status);
   const eta = dueRelative(focus?.dueDate, focus?.status);
+  const alertCount = insight.late.length + insight.dueSoon.length + insight.review.length;
+  const hasOperationalAlerts = alertCount > 0;
+  const slaStatus = focus ? "لا يوجد SLA محدد" : "لا يوجد مسار نشط";
+  const slaHint = focus ? "نعرض موعد المهمة فقط بدون عداد تصعيد." : "سيظهر موعد المهمة عند وجود مهمة نشطة.";
 
   const changeStatus = async (status: TaskStatus, message: string) => {
     if (!focus) return;
@@ -217,7 +234,7 @@ export default function MyTwinDeskPage() {
           {insight.late.length > 0 && <span className="blip d" style={{ top: "34%", insetInlineStart: "26%" }} />}
           {insight.dueSoon.length > 0 && <span className="blip w" style={{ top: "56%", insetInlineStart: "66%" }} />}
           {insight.review.length > 0 && <span className="blip v" style={{ top: "68%", insetInlineStart: "38%" }} />}
-          {activeCount > 0 && <span className="blip i" style={{ top: "24%", insetInlineStart: "58%" }} />}
+          {!hasOperationalAlerts && <span className="radar-empty">لا تنبيهات</span>}
         </div>
       </div>
       <div className="alerts">
@@ -500,7 +517,7 @@ export default function MyTwinDeskPage() {
                   </div>
                   <div className="nt-mid">
                     <div className="esc-box">
-                      <div className="e1">الوقت المتبقي قبل التصعيد</div>
+                      <div className="e1">موعد المهمة</div>
                       <div className="e2">{eta.big}</div>
                       <div className="e3">{eta.sub}</div>
                     </div>
@@ -550,7 +567,7 @@ export default function MyTwinDeskPage() {
                           <span className="mt1">{task.title}</span>
                           <br />
                           <span className="mt2">
-                            {task.priority} · {task.dueDate}
+                            {task.priority} · {dueDateLabel(task.dueDate)}
                           </span>
                         </span>
                         <span className="arr">‹</span>
@@ -626,11 +643,11 @@ export default function MyTwinDeskPage() {
 
             <div className="panel esc-panel">
               <div className="p-title" style={{ justifyContent: "center" }}>
-                مؤقت التصعيد <span className="en">ESCALATION</span>
+                حالة SLA <span className="en">HONEST SLA</span>
               </div>
-              <div className="e1">التصعيد التالي إلى المسؤول المباشر</div>
-              <div className="e2">{eta.big}</div>
-              <div className="e3">عند تجاوز موعد المهمة دون تحديث</div>
+              <div className="e1">{slaHint}</div>
+              <div className="e2">{slaStatus}</div>
+              <div className="e3">لا يوجد عداد تصعيد بدون بيانات SLA صريحة.</div>
             </div>
 
             <div className="panel map-panel">
@@ -723,7 +740,7 @@ export default function MyTwinDeskPage() {
               <div className="nt-title">{focus.title}</div>
               <div className="nt-mid" style={{ marginTop: 10 }}>
                 <div className="esc-box">
-                  <div className="e1">المتبقي قبل التصعيد</div>
+                  <div className="e1">موعد المهمة</div>
                   <div className="e2">{eta.big}</div>
                 </div>
                 <ProgressRing value={progress} size={62} stroke={6} />
@@ -789,6 +806,7 @@ export default function MyTwinDeskPage() {
                 <span className="sweep" />
                 {insight.late.length > 0 && <span className="blip d" style={{ top: "32%", insetInlineStart: "30%" }} />}
                 {insight.review.length > 0 && <span className="blip v" style={{ top: "62%", insetInlineStart: "58%" }} />}
+                {!hasOperationalAlerts && <span className="radar-empty">هادئ</span>}
               </div>
             </div>
             <div className="m-alerts">
