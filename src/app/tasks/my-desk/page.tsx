@@ -320,7 +320,7 @@ function NextTaskCard({
   if (!task) {
     return (
       <div className="td-next-task empty">
-        <span className="td-kicker">وش أسوي الآن؟</span>
+        <span className="td-kicker">المهمة القادمة</span>
         <strong>لا توجد مهمة نشطة الآن</strong>
         <p>عند إسناد مهمة جديدة ستظهر هنا مع الإجراء التالي مباشرة.</p>
       </div>
