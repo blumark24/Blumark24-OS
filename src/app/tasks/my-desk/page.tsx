@@ -3,47 +3,38 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  Activity,
   Bell,
-  Building2,
   CalendarDays,
   ChevronLeft,
-  FileText,
-  HelpCircle,
+  CircleHelp,
+  ClipboardList,
   Home,
   LayoutGrid,
   MessageSquare,
   MoreHorizontal,
-  PenTool,
   Play,
-  Search,
   Send,
-  Users,
 } from "lucide-react";
 import PageGuard from "@/components/ui/PageGuard";
-import { useTasks } from "@/hooks/useData";
-import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
+import { useTasks } from "@/hooks/useData";
 import type { Task, TaskStatus } from "@/types";
 import "./twin-desk.css";
 
-const STATUS_LABEL: Record<TaskStatus, string> = {
-  جديدة: "جديدة",
-  قيد_التنفيذ: "قيد التنفيذ",
-  بانتظار_المراجعة: "بانتظار اعتماد",
-  مكتملة: "مكتملة",
-  متأخرة: "متأخرة",
+type AlertTone = "danger" | "warn" | "decision";
+
+type AlertItem = {
+  id: string;
+  label: string;
+  count: number;
+  tone: AlertTone;
+  note: string;
 };
 
 function parseDueDate(dueDate: string | undefined) {
   if (!dueDate?.trim()) return null;
   const target = new Date(dueDate);
   return Number.isNaN(target.getTime()) ? null : target;
-}
-
-function isOverdue(dueDate: string | undefined, status: TaskStatus) {
-  const target = parseDueDate(dueDate);
-  return status !== "مكتملة" && !!target && target < new Date();
 }
 
 function daysUntil(dueDate: string | undefined) {
@@ -55,14 +46,24 @@ function daysUntil(dueDate: string | undefined) {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
 }
 
-function dueDateLabel(dueDate: string | undefined) {
-  if (!dueDate?.trim()) return "بلا موعد";
-  return parseDueDate(dueDate) ? dueDate : "تاريخ غير صالح";
+function isOverdue(task: Task) {
+  const target = parseDueDate(task.dueDate);
+  return task.status !== "مكتملة" && !!target && target < new Date();
 }
 
-/** Progress derived from task status (no fabricated per-task percentages). */
+function dueText(task: Task | null) {
+  if (!task) return "لا توجد مهمة نشطة";
+  if (!task.dueDate?.trim()) return "بلا موعد محدد";
+  const diff = daysUntil(task.dueDate);
+  if (!Number.isFinite(diff)) return "تاريخ غير صالح";
+  if (task.status === "مكتملة") return "مكتملة";
+  if (diff < 0) return `متأخرة ${Math.abs(diff)} يوم`;
+  if (diff === 0) return "تنتهي اليوم";
+  if (diff === 1) return "غداً";
+  return `خلال ${diff} يوم`;
+}
+
 function statusProgress(status: TaskStatus | undefined) {
-  if (!status) return 0;
   switch (status) {
     case "مكتملة":
       return 100;
@@ -70,127 +71,419 @@ function statusProgress(status: TaskStatus | undefined) {
       return 75;
     case "قيد_التنفيذ":
       return 50;
+    case "جديدة":
+    case "متأخرة":
+      return 18;
     default:
-      return 20;
+      return 0;
   }
 }
 
-/** Truthful relative deadline text; this is a due-date signal, not an SLA timer. */
-function dueRelative(dueDate: string | undefined, status: TaskStatus | undefined) {
-  if (!dueDate) return { big: "بلا موعد", sub: "لم يُحدَّد موعد للمهمة" };
-  if (status === "مكتملة") return { big: "مكتملة", sub: "تم الإنجاز" };
-  const d = daysUntil(dueDate);
-  if (Number.isNaN(d)) return { big: "تاريخ غير صالح", sub: "يرجى التحقق من تاريخ الاستحقاق" };
-  if (d < 0) return { big: `متأخرة ${Math.abs(d)} يوم`, sub: "تحتاج تحديث حالة أو إعادة جدولة" };
-  if (d === 0) return { big: "ينتهي اليوم", sub: "قبل نهاية الدوام" };
-  if (d === 1) return { big: "غداً", sub: "خلال يوم واحد" };
-  return { big: `خلال ${d} يوم`, sub: "ضمن المهلة الحالية" };
+function pressureLabel(activeCount: number) {
+  if (activeCount >= 6) return "ضغط مرتفع";
+  if (activeCount >= 3) return "ضغط متوسط";
+  return "طبيعي";
 }
 
-function ProgressRing({ value, size = 64, stroke = 6 }: { value: number; size?: number; stroke?: number }) {
-  const r = (size - stroke) / 2;
-  const circ = 2 * Math.PI * r;
-  const offset = circ * (1 - Math.min(100, Math.max(0, value)) / 100);
+function priorityTone(priority: Task["priority"] | undefined) {
+  if (priority === "عاجلة") return "danger";
+  if (priority === "عالية") return "warn";
+  return "info";
+}
+
+function TwinDeskHeader({
+  employeeName,
+  department,
+  alertCount,
+}: {
+  employeeName: string;
+  department: string;
+  alertCount: number;
+}) {
   return (
-    <div className="pring" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth={stroke} />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="#00D9FF"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
-          style={{ filter: "drop-shadow(0 0 6px rgba(0,217,255,.6))" }}
-        />
-      </svg>
-      <span className="pv" style={{ fontSize: size < 70 ? 13 : 16 }}>
-        {Math.round(value)}%
-      </span>
+    <header className="td-command">
+      <div className="td-brand">
+        <span className="td-logo">B</span>
+        <span>
+          <strong>Blumark24 OS</strong>
+          <small>Digital Twin Intelligence</small>
+        </span>
+      </div>
+
+      <div className="td-greeting">
+        <strong>مرحباً {employeeName}</strong>
+        <span>{department} · مكتبي الذكي</span>
+      </div>
+
+      <div className="td-command-actions">
+        <Link href="/tasks" className="td-top-button">
+          <ChevronLeft size={15} />
+          رجوع للمهام
+        </Link>
+        <span className="td-top-button td-icon-pill">
+          <Bell size={15} />
+          تنبيهات
+          {alertCount > 0 ? <i>{alertCount}</i> : null}
+        </span>
+        <span className="td-top-button td-icon-pill">
+          <MessageSquare size={15} />
+          دردشة
+        </span>
+      </div>
+    </header>
+  );
+}
+
+function AlertRadarPanel({ alerts, activeCount, pressure }: { alerts: AlertItem[]; activeCount: number; pressure: number }) {
+  const hasAlerts = alerts.some((alert) => alert.count > 0);
+
+  return (
+    <aside className="td-panel td-radar-panel">
+      <div className="td-panel-title">
+        <strong>رادار التنبيهات الذكي</strong>
+        <span>SMART ALERT RADAR</span>
+      </div>
+
+      <div className="td-radar">
+        <span className="td-radar-ring r1" />
+        <span className="td-radar-ring r2" />
+        <span className="td-radar-ring r3" />
+        <span className="td-radar-sweep" />
+        {alerts[0]?.count > 0 ? <span className="td-blip danger" /> : null}
+        {alerts[1]?.count > 0 ? <span className="td-blip warn" /> : null}
+        {alerts[2]?.count > 0 ? <span className="td-blip decision" /> : null}
+        {!hasAlerts ? <span className="td-radar-empty">لا تنبيهات</span> : null}
+      </div>
+
+      <div className="td-alert-list">
+        {alerts.map((alert) => (
+          <div className={`td-alert ${alert.tone}`} key={alert.id}>
+            <span className="td-led" />
+            <span>
+              <strong>{alert.label}</strong>
+              <small>{alert.note}</small>
+            </span>
+            <b>{alert.count}</b>
+          </div>
+        ))}
+      </div>
+
+      <WorkPressureGauge value={pressure} label={pressureLabel(activeCount)} activeCount={activeCount} />
+    </aside>
+  );
+}
+
+function WorkPressureGauge({ value, label, activeCount }: { value: number; label: string; activeCount: number }) {
+  const radius = 27;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - Math.min(100, Math.max(0, value)) / 100);
+
+  return (
+    <div className="td-pressure">
+      <div className="td-pressure-title">مؤشر ضغط العمل</div>
+      <div className="td-pressure-body">
+        <div className="td-ring">
+          <svg viewBox="0 0 64 64" aria-label={`ضغط العمل ${value}%`}>
+            <circle cx="32" cy="32" r={radius} />
+            <circle cx="32" cy="32" r={radius} style={{ strokeDasharray: circumference, strokeDashoffset: offset }} />
+          </svg>
+          <strong>{value}%</strong>
+        </div>
+        <span>
+          <strong>{label}</strong>
+          <small>لديك {activeCount} مهام نشطة</small>
+        </span>
+      </div>
     </div>
   );
 }
 
-function PressureGauge({ value }: { value: number }) {
-  const semi = Math.PI * 70; // ~219.9
-  const dash = (semi * Math.min(100, Math.max(0, value))) / 100;
+function CinematicOfficeScene({ employeeName, department, pressure }: { employeeName: string; department: string; pressure: string }) {
   return (
-    <div className="gauge">
-      <svg viewBox="0 0 170 96" role="img" aria-label={`ضغط العمل ${value} بالمئة`}>
-        <defs>
-          <linearGradient id="twinGauge" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#FFB454" />
-            <stop offset="1" stopColor="#FF6B6B" />
-          </linearGradient>
-        </defs>
-        <path d="M15 88 A70 70 0 0 1 155 88" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="12" strokeLinecap="round" />
-        <path
-          d="M15 88 A70 70 0 0 1 155 88"
-          fill="none"
-          stroke="url(#twinGauge)"
-          strokeWidth="12"
-          strokeLinecap="round"
-          strokeDasharray={`${dash} 400`}
-          style={{ filter: "drop-shadow(0 0 8px rgba(255,150,90,.5))" }}
-        />
-      </svg>
-      <div className="gv">{value}%</div>
+    <section className="td-scene" aria-label="مشهد المكتب الذكي السينمائي">
+      <div className="td-light-rays" />
+      <div className="td-back-wall">
+        <div className="td-wall-glass" />
+        <div className="td-screen-logo">B</div>
+      </div>
+      <div className="td-side-glass right" />
+      <div className="td-side-glass left" />
+      <div className="td-zone right">
+        <span />
+        {department}
+      </div>
+      <div className="td-zone left">
+        <span />
+        إدارة الطباعة والنشر
+      </div>
+      <div className="td-floor">
+        <span className="td-floor-grid" />
+        <span className="td-floor-ring main" />
+        <span className="td-floor-ring back" />
+        <span className="td-floor-glow" />
+      </div>
+      <div className="td-chair">
+        <span className="seat" />
+        <span className="back" />
+      </div>
+      <div className="td-holo">
+        <span className="body" />
+        <span className="shadow" />
+      </div>
+      <div className="td-status-chip">ACTIVE · نشط</div>
+      <div className="td-desk">
+        <span className="top" />
+        <span className="front" />
+        <span className="shadow" />
+      </div>
+      <div className="td-scene-caption">
+        <strong>{employeeName}</strong>
+        <span>{pressure}</span>
+      </div>
+    </section>
+  );
+}
+
+function TodayTasksPanel({
+  currentTask,
+  urgentCount,
+  doingCount,
+  reviewCount,
+  completedCount,
+  progress,
+  busy,
+  onStart,
+  onReview,
+  onHelp,
+}: {
+  currentTask: Task | null;
+  urgentCount: number;
+  doingCount: number;
+  reviewCount: number;
+  completedCount: number;
+  progress: number;
+  busy: boolean;
+  onStart: () => void;
+  onReview: () => void;
+  onHelp: () => void;
+}) {
+  return (
+    <aside className="td-panel td-tasks-panel">
+      <div className="td-panel-title">
+        <strong>مهامي اليوم</strong>
+        <span>TODAY TASKS</span>
+      </div>
+
+      <div className="td-stats-grid">
+        <StatCard tone="danger" value={urgentCount} label="عاجلة" />
+        <StatCard tone="info" value={doingCount} label="قيد التنفيذ" />
+        <StatCard tone="decision" value={reviewCount} label="بانتظار مراجعة" />
+        <StatCard tone="success" value={completedCount} label="مكتملة" />
+      </div>
+
+      <NextTaskCard
+        task={currentTask}
+        progress={progress}
+        busy={busy}
+        onStart={onStart}
+        onReview={onReview}
+        onHelp={onHelp}
+      />
+    </aside>
+  );
+}
+
+function StatCard({ tone, value, label }: { tone: "danger" | "info" | "decision" | "success" | "warn"; value: number | string; label: string }) {
+  return (
+    <div className={`td-stat ${tone}`}>
+      <strong>{value}</strong>
+      <span>{label}</span>
     </div>
+  );
+}
+
+function NextTaskCard({
+  task,
+  progress,
+  busy,
+  onStart,
+  onReview,
+  onHelp,
+}: {
+  task: Task | null;
+  progress: number;
+  busy: boolean;
+  onStart: () => void;
+  onReview: () => void;
+  onHelp: () => void;
+}) {
+  if (!task) {
+    return (
+      <div className="td-next-task empty">
+        <span className="td-kicker">وش أسوي الآن؟</span>
+        <strong>لا توجد مهمة نشطة الآن</strong>
+        <p>عند إسناد مهمة جديدة ستظهر هنا مع الإجراء التالي مباشرة.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="td-next-task">
+      <div className="td-next-head">
+        <span className="td-kicker">المهمة القادمة</span>
+        <span className={`td-status ${priorityTone(task.priority)}`}>{task.priority}</span>
+      </div>
+      <h2>{task.title}</h2>
+      <p>
+        {dueText(task)}
+        {task.clientName ? ` · ${task.clientName}` : ""}
+      </p>
+      <div className="td-progress-row">
+        <span>التقدم</span>
+        <b>{progress}%</b>
+      </div>
+      <div className="td-progress-track">
+        <span style={{ width: `${progress}%` }} />
+      </div>
+      <div className="td-actions">
+        <button type="button" className="td-primary-action" disabled={busy} onClick={onStart}>
+          <Play size={15} />
+          ابدأ العمل
+        </button>
+        <button type="button" className="td-secondary-action help" disabled={busy} onClick={onHelp}>
+          <CircleHelp size={15} />
+          أحتاج مساعدة
+        </button>
+        <button type="button" className="td-secondary-action" disabled={busy} onClick={onReview}>
+          <Send size={15} />
+          للمراجعة
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TaskPath({ employeeName, department, task }: { employeeName: string; department: string; task: Task | null }) {
+  return (
+    <section className="td-path">
+      <span>PATH</span>
+      <b>مجلس الإدارة</b>
+      <i>←</i>
+      <b>وكالة التشغيل</b>
+      <i>←</i>
+      <b>إدارة الطباعة والنشر</b>
+      <i>←</i>
+      <b>{department}</b>
+      <i>←</i>
+      <b>{employeeName}</b>
+      <i>←</i>
+      <strong>{task?.title ?? "لا توجد مهمة نشطة"}</strong>
+    </section>
+  );
+}
+
+function MiniOfficeMap() {
+  const zones = [
+    { name: "قسم التصميم", label: "ضغط مرتفع", tone: "danger" },
+    { name: "قسم المحتوى", label: "طبيعي", tone: "info" },
+    { name: "قسم الطباعة", label: "طبيعي", tone: "success" },
+    { name: "قسم التسويق", label: "ضغط متوسط", tone: "warn" },
+  ];
+
+  return (
+    <section className="td-map-panel">
+      <div className="td-map-head">
+        <strong>خريطة المكتب الافتراضي</strong>
+        <span>PREVIEW · معاينة</span>
+      </div>
+      <div className="td-map-grid">
+        {zones.map((zone) => (
+          <div className={`td-map-zone ${zone.tone}`} key={zone.name}>
+            <span>
+              <b>{zone.name}</b>
+              <small>{zone.label}</small>
+            </span>
+            <i />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BottomTwinNav() {
+  return (
+    <nav className="td-bottom-nav" aria-label="تنقل My Twin Desk">
+      <Link href="/dashboard">
+        <Home size={16} />
+        الرئيسية
+      </Link>
+      <Link href="/tasks" className="on">
+        <LayoutGrid size={16} />
+        المهام
+      </Link>
+      <span className="td-nav-logo">B</span>
+      <span>
+        <CalendarDays size={16} />
+        التقويم
+      </span>
+      <span>
+        <ClipboardList size={16} />
+        الملاحظات
+      </span>
+      <span>
+        <MoreHorizontal size={16} />
+        المزيد
+      </span>
+    </nav>
   );
 }
 
 export default function MyTwinDeskPage() {
   const { data: tasks, loading, update } = useTasks();
-  const { user } = useAuth();
   const toast = useToast();
-  const [savingAction, setSavingAction] = useState<string | null>(null);
+  const [savingAction, setSavingAction] = useState<TaskStatus | null>(null);
 
   const insight = useMemo(() => {
     const active = tasks.filter((task) => task.status !== "مكتملة");
-    const late = active.filter((task) => task.status === "متأخرة" || isOverdue(task.dueDate, task.status));
+    const late = active.filter((task) => task.status === "متأخرة" || isOverdue(task));
     const review = active.filter((task) => task.status === "بانتظار_المراجعة");
-    const done = tasks.filter((task) => task.status === "مكتملة");
     const doing = active.filter((task) => task.status === "قيد_التنفيذ");
+    const completed = tasks.filter((task) => task.status === "مكتملة");
     const urgent = active.filter((task) => task.priority === "عاجلة");
     const dueSoon = active.filter((task) => {
       const diff = daysUntil(task.dueDate);
       return Number.isFinite(diff) && diff >= 0 && diff <= 2;
     });
-    const focusTask: Task | null =
+    const currentTask =
       late[0] ??
       active.find((task) => task.priority === "عاجلة" || task.priority === "عالية") ??
       dueSoon[0] ??
+      doing[0] ??
       active[0] ??
       null;
-    const others = active.filter((task) => task.id !== focusTask?.id).slice(0, 3);
-    return { active, late, review, done, doing, urgent, dueSoon, focusTask, others };
+
+    return { active, late, review, doing, completed, urgent, dueSoon, currentTask };
   }, [tasks]);
 
-  const focus = insight.focusTask;
-  const employeeName = user?.name?.trim() || user?.email?.split("@")[0] || focus?.assigneeName || "الموظف";
-  const initial = employeeName.charAt(0);
-  const department = user?.department?.trim() || "قسم التصميم";
-  const roleLabel = user?.role?.trim() || "عضو الفريق";
-
+  const currentTask = insight.currentTask;
+  const employeeName = currentTask?.assigneeName?.trim() || "الموظف";
+  const department = "قسم التصميم";
+  const progress = statusProgress(currentTask?.status);
   const activeCount = insight.active.length;
-  const pressurePct = Math.min(99, activeCount * 13);
-  const pressureLabel = activeCount >= 6 ? "ضغط مرتفع" : activeCount >= 3 ? "ضغط متوسط" : "طبيعي";
-  const progress = statusProgress(focus?.status);
-  const eta = dueRelative(focus?.dueDate, focus?.status);
+  const pressure = Math.min(99, activeCount * 13);
   const alertCount = insight.late.length + insight.dueSoon.length + insight.review.length;
-  const hasOperationalAlerts = alertCount > 0;
-  const slaStatus = focus ? "لا يوجد SLA محدد" : "لا يوجد مسار نشط";
-  const slaHint = focus ? "نعرض موعد المهمة فقط بدون عداد تصعيد." : "سيظهر موعد المهمة عند وجود مهمة نشطة.";
+  const alerts: AlertItem[] = [
+    { id: "late", label: "مهمة متأخرة", count: insight.late.length, tone: "danger", note: insight.late[0]?.title ?? "لا توجد مهام متأخرة" },
+    { id: "soon", label: "قريبة من الموعد", count: insight.dueSoon.length, tone: "warn", note: "خلال يومين أو أقل" },
+    { id: "review", label: "بانتظار مراجعة", count: insight.review.length, tone: "decision", note: "تحتاج اعتماد المسؤول" },
+  ];
 
   const changeStatus = async (status: TaskStatus, message: string) => {
-    if (!focus) return;
+    if (!currentTask) return;
     setSavingAction(status);
     try {
-      await update(focus.id, { status });
+      await update(currentTask.id, { status });
       toast.success(message);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذر تحديث المهمة");
@@ -199,660 +492,96 @@ export default function MyTwinDeskPage() {
     }
   };
 
-  const busy = !focus || !!savingAction;
-
-  if (loading) {
-    return (
-      <PageGuard permission="manage_tasks">
-        <div className="twindesk" dir="rtl" style={{ display: "grid", placeItems: "center", minHeight: "100vh" }}>
-          <div style={{ textAlign: "center" }}>
-            <svg width={50} height={50} viewBox="0 0 50 50" className="animate-spin" style={{ margin: "0 auto 16px" }}>
-              <circle cx={25} cy={25} r={20} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth={4} />
-              <circle cx={25} cy={25} r={20} fill="none" stroke="#00D9FF" strokeWidth={4} strokeLinecap="round" strokeDasharray="30 150" />
-            </svg>
-            <p style={{ color: "var(--muted)", fontSize: 14, fontWeight: 700 }}>جارٍ تحميل مكتبك الذكي…</p>
-          </div>
-        </div>
-      </PageGuard>
-    );
-  }
-
-  // ---- shared pieces reused across desktop & mobile ----
-  const radarPanel = (
-    <>
-      <div className="p-title">
-        رادار التنبيهات الذكي <span className="en">ALERT RADAR</span>
-      </div>
-      <div className="radar-wrap">
-        <div className="radar">
-          <span className="r-ring a" />
-          <span className="r-ring b" />
-          <span className="r-ring c" />
-          <span className="r-x" />
-          <span className="r-y" />
-          <span className="sweep" />
-          {insight.late.length > 0 && <span className="blip d" style={{ top: "34%", insetInlineStart: "26%" }} />}
-          {insight.dueSoon.length > 0 && <span className="blip w" style={{ top: "56%", insetInlineStart: "66%" }} />}
-          {insight.review.length > 0 && <span className="blip v" style={{ top: "68%", insetInlineStart: "38%" }} />}
-          {!hasOperationalAlerts && <span className="radar-empty">لا تنبيهات</span>}
-        </div>
-      </div>
-      <div className="alerts">
-        <div className="alert d">
-          <span className="led" />
-          <span>
-            <span className="a1">مهمة متأخرة</span>
-            <br />
-            <span className="a2">{insight.late[0]?.title ?? "لا مهام متأخرة"}</span>
-          </span>
-          <span className="a-eta">{insight.late.length}</span>
-        </div>
-        <div className="alert w">
-          <span className="led" />
-          <span>
-            <span className="a1">قريبة من الموعد</span>
-            <br />
-            <span className="a2">خلال يومين أو أقل</span>
-          </span>
-          <span className="a-eta">{insight.dueSoon.length}</span>
-        </div>
-        <div className="alert v">
-          <span className="led" />
-          <span>
-            <span className="a1">بانتظار اعتماد</span>
-            <br />
-            <span className="a2">تحتاج قرار المسؤول</span>
-          </span>
-          <span className="a-eta">{insight.review.length}</span>
-        </div>
-        <div className="alert i">
-          <span className="led" />
-          <span>
-            <span className="a1">مهام نشطة</span>
-            <br />
-            <span className="a2">قيد المتابعة الآن</span>
-          </span>
-          <span className="a-eta">{activeCount}</span>
-        </div>
-      </div>
-      <div className="gauge-card">
-        <div className="p-title" style={{ justifyContent: "center" }}>
-          مؤشر ضغط العمل
-        </div>
-        <PressureGauge value={pressurePct} />
-        <div className="gauge-l1">{pressureLabel}</div>
-        <div className="gauge-l2">لديك {activeCount} مهام نشطة</div>
-      </div>
-    </>
-  );
-
-  const statsRow = (
-    <div className="stats4">
-      <div className="stat d">
-        <div className="sv">{insight.urgent.length}</div>
-        <div className="sl">عاجلة</div>
-      </div>
-      <div className="stat b">
-        <div className="sv">{insight.doing.length}</div>
-        <div className="sl">قيد التنفيذ</div>
-      </div>
-      <div className="stat v">
-        <div className="sv">{insight.review.length}</div>
-        <div className="sl">بانتظار اعتماد</div>
-      </div>
-      <div className="stat s">
-        <div className="sv">{insight.done.length}</div>
-        <div className="sl">مكتملة</div>
-      </div>
-    </div>
-  );
-
-  const miniMap = (
-    <div className="map-stage">
-      <div className="map-plane">
-        <div className="mz hi">
-          <span className="grid" />
-          <span className="floorlite" />
-          <span className="pin" />
-          <span className="tag">
-            <span className="zl">قسم التصميم</span>
-            <span className="zs">ضغط مرتفع</span>
-          </span>
-        </div>
-        <div className="mz ok">
-          <span className="grid" />
-          <span className="floorlite" />
-          <span className="pin" />
-          <span className="tag">
-            <span className="zl">قسم المحتوى</span>
-            <span className="zs">طبيعي</span>
-          </span>
-        </div>
-        <div className="mz ok">
-          <span className="grid" />
-          <span className="floorlite" />
-          <span className="pin" />
-          <span className="tag">
-            <span className="zl">قسم الطباعة</span>
-            <span className="zs">طبيعي</span>
-          </span>
-        </div>
-        <div className="mz md">
-          <span className="grid" />
-          <span className="floorlite" />
-          <span className="pin" />
-          <span className="tag">
-            <span className="zl">قسم التسويق</span>
-            <span className="zs">ضغط متوسط</span>
-          </span>
-        </div>
-      </div>
-    </div>
-  );
+  const startWork = () => changeStatus("قيد_التنفيذ", "تم بدء العمل على المهمة");
+  const sendToReview = () => changeStatus("بانتظار_المراجعة", "تم إرسال المهمة للمراجعة");
+  const askForHelp = () => toast.info("تم تسجيل طلب المساعدة.");
+  const busy = !currentTask || !!savingAction;
 
   return (
     <PageGuard permission="manage_tasks">
-      <div className="twindesk" dir="rtl">
-        {/* ============================= DESKTOP ============================= */}
-        <div className="deskframe">
-          {/* command bar */}
-          <header className="cmdbar">
-            <div className="logo">
-              <span className="orb">B</span>
-              <span>
-                <span className="t1">Blumark24 OS</span>
-                <br />
-                <span className="t2">DIGITAL TWIN INTELLIGENCE</span>
-              </span>
-            </div>
-            <div className="greet">
-              <div className="g1">مرحباً {employeeName}</div>
-              <div className="g2">
-                {department} · {roleLabel}
-              </div>
-            </div>
-            <div className="cmd-actions">
-              <Link href="/tasks" className="back-btn">
-                <ChevronLeft size={14} /> رجوع للمهام
-              </Link>
-              <span className="icon-btn">
-                <Search />
-              </span>
-              <span className="icon-btn">
-                <Bell />
-                {insight.late.length > 0 ? <span className="bdg">{insight.late.length}</span> : null}
-              </span>
-              <span className="icon-btn">
-                <MessageSquare />
-                {insight.review.length > 0 ? <span className="bdg">{insight.review.length}</span> : null}
-              </span>
-              <span className="icon-btn">
-                <Activity />
-              </span>
-            </div>
-            <div className="cmd-user">
-              <span className="av">
-                {initial}
-                <i />
-              </span>
-              <span>
-                <span className="n1">{employeeName}</span>
-                <br />
-                <span className="n2">{roleLabel}</span>
-              </span>
-            </div>
-          </header>
-
-          {/* main three-column grid */}
-          <div className="f-main">
-            <aside className="panel">{radarPanel}</aside>
-
-            {/* cinematic scene (hero) */}
-            <div className="scene">
-              <div className="room">
-                <div className="wall" />
-                <div className="vlines" />
-                <div className="sidelight l" />
-                <div className="sidelight r" />
-                <span className="ceil am" />
-                <span className="ceil cy" />
-                <div className="floor" />
-                <div className="floorpool" />
-                <span className="fring r1" />
-                <span className="fring r3" />
-                <span className="fring r2" />
-              </div>
-
-              <div className="scene-title">
-                <div className="t1">مكتبي الذكـي</div>
-                <div className="t2">MY TWIN DESK</div>
-              </div>
-              <div className="zone-sign zl">
-                <div className="z1">إدارة الطباعة والنشر</div>
-                <div className="z2">الطابق الثاني</div>
-              </div>
-              <div className="zone-sign zr">
-                <div className="z1">{department}</div>
-                <div className="z2">مكتب {employeeName} · {pressureLabel}</div>
-              </div>
-
-              <div className="shelf">
-                <span className="row" style={{ top: "26%" }} />
-                <span className="row" style={{ top: "52%" }} />
-                <span className="row" style={{ top: "78%" }} />
-                <span className="box" style={{ left: 14, top: "8%", width: 38, height: 14 }} />
-                <span className="box" style={{ left: 60, top: "8%", width: 46, height: 14 }} />
-                <span className="box" style={{ left: 20, top: "34%", width: 60, height: 14 }} />
-                <span className="box" style={{ left: 16, top: "60%", width: 40, height: 14 }} />
-                <span className="box" style={{ left: 62, top: "60%", width: 44, height: 14 }} />
-              </div>
-              <div className="screenwall">
-                <i />
-                <i />
-                <i />
-                <i />
-                <i />
-                <i />
-              </div>
-
-              <div className="set">
-                <div className="monitor">
-                  <div className="b">B</div>
-                  <div className="bm">BLUMARK24 · DIGITAL TWIN OFFICE</div>
-                  <div className="scan" />
-                  <span className="stand" />
-                </div>
-                <div className="chair">
-                  <div className="cbk" />
-                  <div className="cst" />
-                  <div className="cpo" />
-                  <div className="cbase" />
-                </div>
-                <div className="desk" />
-                <div className="desk-chip">
-                  <i /> {employeeName} · نشط الآن
-                </div>
-              </div>
-
-              <div className="holo">
-                <div className="head" />
-                <div className="body" />
-                <div className="disc" />
-              </div>
-
-              <span className="particle" style={{ width: 3, height: 3, top: "36%", left: "20%" }} />
-              <span className="particle" style={{ width: 2, height: 2, top: "28%", left: "72%", animationDelay: "2.2s" }} />
-              <span className="particle" style={{ width: 3, height: 3, top: "50%", left: "82%", animationDelay: "4s" }} />
-              <span className="particle" style={{ width: 2, height: 2, top: "56%", left: "12%", animationDelay: "5.5s" }} />
-
-              <span className="explore-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
-                  <path d="M2 10a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3h-3.5l-1.8-2h-3.4l-1.8 2H5a3 3 0 0 1-3-3z" />
-                </svg>{" "}
-                استكشاف المكتب الافتراضي
-              </span>
-              <div className="fog" />
-              <div className="vig" />
-            </div>
-
-            {/* today tasks + next task */}
-            <aside className="panel">
-              <div className="p-title">
-                مهامي اليوم <span style={{ fontSize: 12, color: "var(--muted)" }}>{loading ? "—" : `${activeCount} مهام`}</span>
-              </div>
-              {statsRow}
-
-              {focus ? (
-                <div className="next-task">
-                  <div className="nt-head">
-                    <span className={`badge ${focus.priority === "عاجلة" ? "d" : "b"}`}>
-                      <span className="led" /> {focus.priority}
-                    </span>
-                    <span style={{ fontSize: 11, color: "var(--ice)", fontWeight: 800 }}>{STATUS_LABEL[focus.status]}</span>
-                  </div>
-                  <div className="nt-title">{focus.title}</div>
-                  <div className="nt-due">
-                    {eta.big}
-                    {focus.clientName ? ` · ${focus.clientName}` : ""}
-                  </div>
-                  <div className="nt-mid">
-                    <div className="esc-box">
-                      <div className="e1">موعد المهمة</div>
-                      <div className="e2">{eta.big}</div>
-                      <div className="e3">{eta.sub}</div>
-                    </div>
-                    <ProgressRing value={progress} size={64} stroke={6} />
-                  </div>
-                  <div className="nt-actions">
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      disabled={busy}
-                      onClick={() => changeStatus("قيد_التنفيذ", "تم بدء العمل على المهمة")}
-                    >
-                      <Play size={16} /> ابدأ العمل
-                    </button>
-                    <div className="row2">
-                      <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => toast.info("تم تسجيل طلب المساعدة.")}>
-                        <HelpCircle size={15} /> أحتاج مساعدة
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        disabled={busy}
-                        onClick={() => changeStatus("بانتظار_المراجعة", "تم إرسال المهمة للمراجعة")}
-                      >
-                        <Send size={15} /> للمراجعة
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="next-task">
-                  <div className="nt-title">لا توجد مهام نشطة اليوم</div>
-                  <div className="nt-due">مكتبك الذكي جاهز — ستظهر مهامك القادمة هنا فور إسنادها.</div>
-                </div>
-              )}
-
-              {insight.others.length > 0 ? (
-                <>
-                  <div className="subhead">المهام الأخرى</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {insight.others.map((task) => (
-                      <div key={task.id} className="mini-task">
-                        <span className="badge v" style={{ fontSize: 9 }}>
-                          {STATUS_LABEL[task.status]}
-                        </span>
-                        <span>
-                          <span className="mt1">{task.title}</span>
-                          <br />
-                          <span className="mt2">
-                            {task.priority} · {dueDateLabel(task.dueDate)}
-                          </span>
-                        </span>
-                        <span className="arr">‹</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : null}
-            </aside>
+      <main className="twindesk" dir="rtl">
+        {loading ? (
+          <div className="td-loading">
+            <span className="td-logo">B</span>
+            <strong>جاري تحميل مكتبك الذكي...</strong>
           </div>
+        ) : (
+          <>
+            <section className="td-desktop-shell">
+              <TwinDeskHeader employeeName={employeeName} department={department} alertCount={alertCount} />
 
-          {/* bottom strip: task path · escalation · mini map */}
-          <div className="f-bottom">
-            <div className="panel">
-              <div className="p-title">
-                مسار المهمة في الهيكل الإداري <span className="en">TASK PATH</span>
+              <div className="td-main-grid">
+                <AlertRadarPanel alerts={alerts} activeCount={activeCount} pressure={pressure} />
+                <CinematicOfficeScene employeeName={employeeName} department={department} pressure={pressureLabel(activeCount)} />
+                <TodayTasksPanel
+                  currentTask={currentTask}
+                  urgentCount={insight.urgent.length}
+                  doingCount={insight.doing.length}
+                  reviewCount={insight.review.length}
+                  completedCount={insight.completed.length}
+                  progress={progress}
+                  busy={busy}
+                  onStart={startWork}
+                  onReview={sendToReview}
+                  onHelp={askForHelp}
+                />
               </div>
-              <div className="pathflow">
-                <div className="pnode done">
-                  <span className="pc">
-                    <Users size={17} />
-                  </span>
-                  <span className="pl">مجلس الإدارة</span>
-                  <span className="ps">أعلى مستوى</span>
-                </div>
-                <span className="plink" />
-                <div className="pnode done">
-                  <span className="pc">
-                    <LayoutGrid size={16} />
-                  </span>
-                  <span className="pl">وكالة التشغيل</span>
-                  <span className="ps">المستوى الثاني</span>
-                </div>
-                <span className="plink" />
-                <div className="pnode done">
-                  <span className="pc">
-                    <Building2 size={16} />
-                  </span>
-                  <span className="pl">إدارة الطباعة والنشر</span>
-                  <span className="ps">المستوى الثالث</span>
-                </div>
-                <span className="plink" />
-                <div className="pnode now">
-                  <span className="pc">
-                    <PenTool size={16} />
-                  </span>
-                  <span className="pl">{department}</span>
-                  <span className="ps">المستوى الرابع</span>
-                </div>
-                <span className="plink" />
-                <div className="pnode now">
-                  <span className="pc">{initial}</span>
-                  <span className="pl">{employeeName}</span>
-                  <span className="ps">المستوى الخامس</span>
-                </div>
-                <span className="plink" />
-                <div className="pnode">
-                  <span className="pc">
-                    <FileText size={15} />
-                  </span>
-                  <span className="pl">المهمة</span>
-                  <span className="ps">{focus?.title ?? "—"}</span>
-                </div>
-              </div>
-              <div className="pathbar">
-                <span style={{ fontSize: 10.5, color: "var(--muted)", fontWeight: 700 }}>تقدّم المهمة في المسار</span>
-                <span className="track">
-                  <span className="fill" style={{ width: `${progress}%` }} />
-                </span>
-                <b>{progress}%</b>
-              </div>
-            </div>
 
-            <div className="panel esc-panel">
-              <div className="p-title" style={{ justifyContent: "center" }}>
-                حالة SLA <span className="en">HONEST SLA</span>
-              </div>
-              <div className="e1">{slaHint}</div>
-              <div className="e2">{slaStatus}</div>
-              <div className="e3">لا يوجد عداد تصعيد بدون بيانات SLA صريحة.</div>
-            </div>
+              <TaskPath employeeName={employeeName} department={department} task={currentTask} />
+              <MiniOfficeMap />
+              <BottomTwinNav />
+            </section>
 
-            <div className="panel map-panel">
-              <div className="p-title">
-                خريطة المكتب الافتراضي <span className="en">TWIN OFFICE MAP · معاينة</span>
-              </div>
-              {miniMap}
-            </div>
-          </div>
-
-          {/* bottom nav */}
-          <nav className="f-nav">
-            <Link href="/dashboard" className="navb">
-              <Home /> الرئيسية
-            </Link>
-            <span className="navb on">
-              <LayoutGrid /> المهام
-            </span>
-            <span className="nav-orb">B</span>
-            <span className="navb">
-              <CalendarDays /> التقويم
-            </span>
-            <span className="navb">
-              <FileText /> الملاحظات
-            </span>
-            <span className="navb">
-              <MoreHorizontal /> المزيد
-            </span>
-          </nav>
-        </div>
-
-        {/* ============================= MOBILE ============================= */}
-        <div className="mobframe">
-          <div className="m-top">
-            <span className="orb">B</span>
-            <span>
-              <span className="t1">مكتبي الذكي</span>
-              <br />
-              <span className="t2">MY TWIN DESK</span>
-            </span>
-            <span className="spacer" />
-            <span className="icon-btn">
-              <Bell />
-              {insight.late.length > 0 ? <span className="bdg">{insight.late.length}</span> : null}
-            </span>
-            <span className="av" style={{ position: "relative", width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(160deg,#2C4A78,#122340)", border: "2px solid rgba(125,220,255,.35)", display: "grid", placeItems: "center", fontWeight: 900, fontSize: 13, color: "var(--ice)" }}>
-              {initial}
-            </span>
-          </div>
-
-          <div className="m-hero">
-            <div className="ht">
-              <span>
-                <span className="h1">مرحباً {employeeName}</span>
-                <br />
-                <span className="h2">{department}</span>
-              </span>
-              <span className="badge w">
-                <span className="led" /> {pressureLabel} {pressurePct}%
-              </span>
-            </div>
-            <div className="m-floor" />
-            <div className="m-rays" />
-            <span className="fring r1" />
-            <span className="fring r2" />
-            <div className="m-chair" />
-            <div className="m-mon">B</div>
-            <div className="m-desk" />
-            <span className="explore-btn" style={{ bottom: 12, padding: "8px 16px", fontSize: 10.5 }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" width={13} height={13}>
-                <path d="M2 10a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3h-3.5l-1.8-2h-3.4l-1.8 2H5a3 3 0 0 1-3-3z" />
-              </svg>{" "}
-              استكشاف المكتب
-            </span>
-            <div className="m-vig" />
-          </div>
-
-          <div className="m-q">
-            وش أسوي الآن؟ <span className="en">WHAT&apos;S NEXT</span>
-          </div>
-
-          {focus ? (
-            <div className="m-next">
-              <div className="nt-head">
-                <span className={`badge ${focus.priority === "عاجلة" ? "d" : "b"}`}>
-                  <span className="led" /> {focus.priority}
-                </span>
-                <span style={{ fontSize: 9.5, color: "var(--muted)" }}>{eta.big}</span>
-              </div>
-              <div className="nt-title">{focus.title}</div>
-              <div className="nt-mid" style={{ marginTop: 10 }}>
-                <div className="esc-box">
-                  <div className="e1">موعد المهمة</div>
-                  <div className="e2">{eta.big}</div>
-                </div>
-                <ProgressRing value={progress} size={62} stroke={6} />
-              </div>
-              <div className="nt-actions" style={{ marginTop: 11 }}>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  style={{ height: 46, fontSize: 14 }}
-                  disabled={busy}
-                  onClick={() => changeStatus("قيد_التنفيذ", "تم بدء العمل على المهمة")}
-                >
-                  <Play size={16} /> ابدأ العمل
-                </button>
-                <div className="row2">
-                  <button type="button" className="btn btn-secondary" style={{ height: 38, fontSize: 11.5 }} disabled={busy} onClick={() => toast.info("تم تسجيل طلب المساعدة.")}>
-                    أحتاج مساعدة
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ height: 38, fontSize: 11.5 }}
-                    disabled={busy}
-                    onClick={() => changeStatus("بانتظار_المراجعة", "تم إرسال المهمة للمراجعة")}
-                  >
-                    للمراجعة
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="m-next">
-              <div className="nt-title">لا توجد مهام نشطة اليوم</div>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>ستظهر مهمتك القادمة هنا فور إسنادها.</div>
-            </div>
-          )}
-
-          <div className="m-stats">
-            <div className="stat d">
-              <div className="sv">{insight.urgent.length}</div>
-              <div className="sl">عاجلة</div>
-            </div>
-            <div className="stat b">
-              <div className="sv">{insight.doing.length}</div>
-              <div className="sl">قيد التنفيذ</div>
-            </div>
-            <div className="stat v">
-              <div className="sv">{insight.review.length}</div>
-              <div className="sl">اعتماد</div>
-            </div>
-            <div className="stat s">
-              <div className="sv">{insight.done.length}</div>
-              <div className="sl">مكتملة</div>
-            </div>
-          </div>
-
-          <div className="m-row">
-            <div className="m-radar-card">
-              <div className="radar">
-                <span className="r-ring a" />
-                <span className="r-ring b" />
-                <span className="r-ring c" />
-                <span className="sweep" />
-                {insight.late.length > 0 && <span className="blip d" style={{ top: "32%", insetInlineStart: "30%" }} />}
-                {insight.review.length > 0 && <span className="blip v" style={{ top: "62%", insetInlineStart: "58%" }} />}
-                {!hasOperationalAlerts && <span className="radar-empty">هادئ</span>}
-              </div>
-            </div>
-            <div className="m-alerts">
-              <div className="alert d">
-                <span className="led" />
+            <section className="td-mobile-shell">
+              <div className="td-mobile-header">
+                <span className="td-logo">B</span>
                 <span>
-                  <span className="a1">مهام متأخرة</span>
-                  <br />
-                  <span className="a2">{insight.late.length} تحتاج إجراء</span>
+                  <strong>مرحباً {employeeName}</strong>
+                  <small>{department}</small>
+                </span>
+                <i />
+                <span className="td-mobile-bell">
+                  <Bell size={15} />
+                  {alertCount > 0 ? <b>{alertCount}</b> : null}
                 </span>
               </div>
-              <div className="alert i">
-                <span className="led" />
-                <span>
-                  <span className="a1">بانتظار اعتماد</span>
-                  <br />
-                  <span className="a2">{insight.review.length} مهمة</span>
-                </span>
+
+              <CinematicOfficeScene employeeName={employeeName} department={department} pressure={pressureLabel(activeCount)} />
+
+              <div className="td-mobile-question">وش أسوي الآن؟</div>
+
+              <NextTaskCard
+                task={currentTask}
+                progress={progress}
+                busy={busy}
+                onStart={startWork}
+                onReview={sendToReview}
+                onHelp={askForHelp}
+              />
+
+              <div className="td-mobile-radar-row">
+                <div className="td-mobile-radar">
+                  <div className="td-radar mini">
+                    <span className="td-radar-ring r1" />
+                    <span className="td-radar-ring r2" />
+                    <span className="td-radar-sweep" />
+                    {alertCount > 0 ? <span className="td-blip danger" /> : <span className="td-radar-empty">هادئ</span>}
+                  </div>
+                </div>
+                <div className="td-mobile-stats">
+                  <StatCard tone="danger" value={insight.urgent.length} label="عاجلة" />
+                  <StatCard tone="success" value={insight.completed.length} label="مكتملة" />
+                  <StatCard tone="warn" value={`${pressure}%`} label="ضغط العمل" />
+                  <StatCard tone="info" value={insight.doing.length} label="قيد التنفيذ" />
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="m-map">
-            <div className="p-title" style={{ fontSize: 11.5 }}>
-              خريطة المكتب الافتراضي <span className="en">معاينة</span>
-            </div>
-            {miniMap}
-          </div>
-
-          <nav className="m-nav">
-            <Link href="/dashboard" className="navb">
-              <Home /> الرئيسية
-            </Link>
-            <Link href="/tasks" className="navb on">
-              <LayoutGrid /> المهام
-            </Link>
-            <span className="nav-orb">B</span>
-            <span className="navb">
-              <CalendarDays /> التقويم
-            </span>
-            <span className="navb">
-              <MoreHorizontal /> المزيد
-            </span>
-          </nav>
-        </div>
-      </div>
+              <MiniOfficeMap />
+              <BottomTwinNav />
+            </section>
+          </>
+        )}
+      </main>
     </PageGuard>
   );
 }
