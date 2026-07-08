@@ -45,6 +45,38 @@ const statusBadge = (status: string) =>
 // Shown when an employee account cannot be safely controlled (incomplete linkage).
 const NEEDS_LINK_MSG = "هذا الحساب يحتاج مراجعة قبل التحكم به. يرجى التواصل مع الدعم.";
 
+type PresenceTone = "green" | "cyan" | "amber" | "red" | "violet" | "orange" | "gray";
+
+const PRESENCE_TONE_CLASS: Record<PresenceTone, string> = {
+  green: "border-emerald-300/20 bg-emerald-400/10 text-emerald-100",
+  cyan: "border-cyan-300/20 bg-cyan-400/10 text-cyan-100",
+  amber: "border-amber-300/20 bg-amber-400/10 text-amber-100",
+  red: "border-red-300/20 bg-red-500/10 text-red-100",
+  violet: "border-violet-300/20 bg-violet-500/10 text-violet-100",
+  orange: "border-orange-300/20 bg-orange-400/10 text-orange-100",
+  gray: "border-slate-300/15 bg-white/[0.045] text-slate-200",
+};
+
+const PRESENCE_DOT_CLASS: Record<PresenceTone, string> = {
+  green: "bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.45)]",
+  cyan: "bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.45)]",
+  amber: "bg-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.45)]",
+  red: "bg-red-400 shadow-[0_0_14px_rgba(248,113,113,0.45)]",
+  violet: "bg-violet-400 shadow-[0_0_14px_rgba(167,139,250,0.45)]",
+  orange: "bg-orange-400 shadow-[0_0_14px_rgba(251,146,60,0.45)]",
+  gray: "bg-slate-400",
+};
+
+const PRESENCE_LEGEND: { label: string; description: string; tone: PresenceTone }[] = [
+  { label: "نشط", description: "نشط ومستقر", tone: "green" },
+  { label: "يعمل الآن", description: "لديه مهمة قيد التنفيذ", tone: "cyan" },
+  { label: "ضغط عالي", description: "حمل مهام نشط مرتفع", tone: "amber" },
+  { label: "خطر تأخير", description: "لديه مهمة متأخرة", tone: "red" },
+  { label: "ينتظر مراجعة", description: "لديه مهام بانتظار مراجعة", tone: "violet" },
+  { label: "خارج الهيكل", description: "يحتاج ربط إداري", tone: "orange" },
+  { label: "غير نشط", description: "حسابه غير نشط", tone: "gray" },
+];
+
 function isMissingLoginProfile(message: string): boolean {
   return /المستخدم غير موجود|not found|404/i.test(message);
 }
@@ -165,44 +197,83 @@ function EmployeesContent() {
   );
 
   const presencePreview = useMemo(() => {
-    const activeTaskCountByEmployee = new Map<string, number>();
+    const taskStatsByEmployee = new Map<string, { active: number; running: number; late: number; review: number }>();
+    const ensureStats = (key: string) => {
+      const current = taskStatsByEmployee.get(key) ?? { active: 0, running: 0, late: 0, review: 0 };
+      taskStatsByEmployee.set(key, current);
+      return current;
+    };
+    const taskIsLate = (dueDate: string, status: string) => {
+      if (status === "مكتملة") return false;
+      if (status === "متأخرة") return true;
+      const due = new Date(dueDate);
+      if (Number.isNaN(due.getTime())) return false;
+      return due < new Date();
+    };
+
     tasks.forEach((task) => {
       if (task.status === "مكتملة") return;
       const scope = orgResolver.resolveTaskAssignee(task);
       const key = scope.employeeId ?? task.assigneeId ?? task.assigneeName;
       if (!key) return;
-      activeTaskCountByEmployee.set(key, (activeTaskCountByEmployee.get(key) ?? 0) + 1);
+      const stats = ensureStats(key);
+      stats.active += 1;
+      if (task.status === "قيد_التنفيذ") stats.running += 1;
+      if (task.status === "بانتظار_المراجعة") stats.review += 1;
+      if (taskIsLate(task.dueDate, task.status)) stats.late += 1;
     });
 
     const rows = employees.map((employee) => {
       const scope = orgResolver.resolveEmployee(employee);
-      const activeTasks = activeTaskCountByEmployee.get(employee.id) ?? activeTaskCountByEmployee.get(employee.name) ?? 0;
+      const taskStats = taskStatsByEmployee.get(employee.id) ?? taskStatsByEmployee.get(employee.name) ?? { active: 0, running: 0, late: 0, review: 0 };
       const state = !linkLoading && !linkedProfileIds.has(employee.id)
         ? "review"
         : isEmployeeActive(employee.status)
           ? "active"
           : "inactive";
       const outsideStructure = !scope.isLinkedToOrg;
-      const highWorkload = activeTasks >= 4;
+      const highWorkload = taskStats.active >= 4;
+      const inactive = state === "inactive";
+      const signal = inactive
+        ? { label: "غير نشط", tone: "gray" as PresenceTone }
+        : outsideStructure || state === "review"
+          ? { label: "خارج الهيكل", tone: "orange" as PresenceTone }
+          : taskStats.late > 0
+            ? { label: "خطر تأخير", tone: "red" as PresenceTone }
+            : taskStats.review > 0
+              ? { label: "ينتظر مراجعة", tone: "violet" as PresenceTone }
+              : highWorkload
+                ? { label: "ضغط عالي", tone: "amber" as PresenceTone }
+                : taskStats.running > 0
+                  ? { label: "يعمل الآن", tone: "cyan" as PresenceTone }
+                  : { label: "نشط", tone: "green" as PresenceTone };
       return {
         id: employee.id,
         name: employee.name,
         department: scope.departmentLabel,
         manager: scope.managerName,
         state,
-        activeTasks,
+        activeTasks: taskStats.active,
+        runningTasks: taskStats.running,
+        lateTasks: taskStats.late,
+        reviewTasks: taskStats.review,
         outsideStructure,
         highWorkload,
+        linkedToOrg: scope.isLinkedToOrg,
+        signal,
       };
     });
 
     return {
       rows,
+      byId: new Map(rows.map((row) => [row.id, row])),
       outsideStructure: rows.filter((row) => row.outsideStructure).length,
       highWorkload: rows.filter((row) => row.highWorkload).length,
-      needsReview: rows.filter((row) => row.state === "review" || row.outsideStructure).length,
       active: rows.filter((row) => row.state === "active").length,
       inactive: rows.filter((row) => row.state === "inactive").length,
+      workingNow: rows.filter((row) => row.runningTasks > 0 && row.state !== "inactive").length,
+      delayRisk: rows.filter((row) => row.lateTasks > 0 && row.state !== "inactive").length,
+      needsReview: rows.filter((row) => row.state === "review" || row.outsideStructure).length,
     };
   }, [employees, linkLoading, linkedProfileIds, orgResolver, tasks]);
 
@@ -580,19 +651,30 @@ function EmployeesContent() {
             <div className="border-b border-white/[0.06] bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.13),transparent_38%),rgba(255,255,255,0.025)] p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <h2 className="font-heading text-base font-bold text-white">معاينة الحضور الذكي المرتبط بالهيكل</h2>
+                  <h2 className="font-heading text-base font-bold text-white">الحضور الذكي — معاينة تشغيلية</h2>
                   <p className="mt-1 text-xs leading-5 text-[#8ba3c7]">
-                    معاينة تشغيلية فقط: لا يوجد حضور وانصراف فعلي في هذه المرحلة.
+                    قراءة من حالة الموظف والمهام والهيكل فقط. لا يوجد حضور وانصراف فعلي في هذه المرحلة.
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-5">
                   <div className="rounded-xl border border-emerald-300/15 bg-emerald-400/10 px-3 py-2 text-emerald-100"><strong className="block text-lg text-white">{presencePreview.active}</strong>نشط</div>
-                  <div className="rounded-xl border border-slate-300/15 bg-white/[0.04] px-3 py-2 text-[#d7e7ff]"><strong className="block text-lg text-white">{presencePreview.inactive}</strong>غير نشط</div>
-                  <div className="rounded-xl border border-amber-300/15 bg-amber-400/10 px-3 py-2 text-amber-100"><strong className="block text-lg text-white">{presencePreview.needsReview}</strong>مراجعة</div>
-                  <div className="rounded-xl border border-red-300/15 bg-red-500/10 px-3 py-2 text-red-100"><strong className="block text-lg text-white">{presencePreview.outsideStructure}</strong>خارج الهيكل</div>
-                  <div className="rounded-xl border border-cyan-300/15 bg-cyan-400/10 px-3 py-2 text-cyan-100"><strong className="block text-lg text-white">{presencePreview.highWorkload}</strong>حمل مرتفع</div>
+                  <div className="rounded-xl border border-cyan-300/15 bg-cyan-400/10 px-3 py-2 text-cyan-100"><strong className="block text-lg text-white">{presencePreview.workingNow}</strong>يعمل الآن</div>
+                  <div className="rounded-xl border border-amber-300/15 bg-amber-400/10 px-3 py-2 text-amber-100"><strong className="block text-lg text-white">{presencePreview.highWorkload}</strong>ضغط عالي</div>
+                  <div className="rounded-xl border border-red-300/15 bg-red-500/10 px-3 py-2 text-red-100"><strong className="block text-lg text-white">{presencePreview.delayRisk}</strong>خطر تأخير</div>
+                  <div className="rounded-xl border border-orange-300/15 bg-orange-400/10 px-3 py-2 text-orange-100"><strong className="block text-lg text-white">{presencePreview.needsReview}</strong>خارج الهيكل</div>
                 </div>
               </div>
+            </div>
+            <div className="grid gap-2 border-b border-white/[0.06] bg-black/10 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+              {PRESENCE_LEGEND.map((item) => (
+                <div key={item.label} className={cn("rounded-xl border px-3 py-2 text-xs", PRESENCE_TONE_CLASS[item.tone])}>
+                  <div className="flex items-center gap-2 font-bold">
+                    <span className={cn("h-2.5 w-2.5 rounded-full", PRESENCE_DOT_CLASS[item.tone])} />
+                    {item.label}
+                  </div>
+                  <div className="mt-1 text-[11px] opacity-75">{item.description}</div>
+                </div>
+              ))}
             </div>
             <div className="grid gap-2 p-4 md:grid-cols-2 xl:grid-cols-4">
               {presencePreview.rows.slice(0, 4).map((row) => (
@@ -602,18 +684,16 @@ function EmployeesContent() {
                       <div className="truncate text-sm font-bold text-white">{row.name}</div>
                       <div className="mt-0.5 truncate text-[11px] text-[#8ba3c7]">{row.department} · المدير: {row.manager}</div>
                     </div>
-                    <span className={cn(
-                      "badge shrink-0 text-[10px]",
-                      row.outsideStructure ? "bg-red-500/10 text-red-300" :
-                      row.highWorkload ? "bg-amber-500/10 text-amber-300" :
-                      row.state === "active" ? "status-active" :
-                      row.state === "inactive" ? "status-inactive" :
-                      "bg-amber-500/10 text-amber-300",
-                    )}>
-                      {row.outsideStructure ? "خارج الهيكل" : row.highWorkload ? "حمل مرتفع" : row.state === "active" ? "نشط" : row.state === "inactive" ? "غير نشط" : "مراجعة"}
+                    <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[10px]", PRESENCE_TONE_CLASS[row.signal.tone])}>
+                      <span className={cn("h-2 w-2 rounded-full", PRESENCE_DOT_CLASS[row.signal.tone])} />
+                      {row.signal.label}
                     </span>
                   </div>
-                  <div className="mt-2 text-xs text-[#8ba3c7]">مهام نشطة: {row.activeTasks}</div>
+                  <div className="mt-2 grid grid-cols-3 gap-1.5 text-[11px] text-[#8ba3c7]">
+                    <span className="rounded-lg bg-black/20 px-2 py-1">نشطة: {row.activeTasks}</span>
+                    <span className="rounded-lg bg-black/20 px-2 py-1">متأخرة: {row.lateTasks}</span>
+                    <span className="rounded-lg bg-black/20 px-2 py-1">مراجعة: {row.reviewTasks}</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -749,31 +829,51 @@ function EmployeesContent() {
                 </div>
               ) : mobileView === "list" ? (
                 <div className="space-y-2 min-w-0">
-                  {filtered.map((emp) => (
-                    <EmployeeListRow
-                      key={emp.id}
-                      emp={emp}
-                      needsLink={needsLinkEmployee(emp.id)}
-                      departmentColorFn={deptColorFor}
-                      onDetails={() => setDetailsId(emp.id)}
-                    />
-                  ))}
+                  {filtered.map((emp) => {
+                    const presence = presencePreview.byId.get(emp.id);
+                    return (
+                      <div key={emp.id} className="space-y-1.5">
+                        {presence && (
+                          <div className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px]", PRESENCE_TONE_CLASS[presence.signal.tone])}>
+                            <span className={cn("h-2 w-2 rounded-full", PRESENCE_DOT_CLASS[presence.signal.tone])} />
+                            {presence.signal.label}
+                          </div>
+                        )}
+                        <EmployeeListRow
+                          emp={emp}
+                          needsLink={needsLinkEmployee(emp.id)}
+                          departmentColorFn={deptColorFor}
+                          onDetails={() => setDetailsId(emp.id)}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="space-y-3 min-w-0">
-                  {filtered.map((emp) => (
-                    <EmployeeMobileCard
-                      key={emp.id}
-                      emp={emp}
-                      canManage={canManageEmployees}
-                      busy={rowBusyId === emp.id}
-                      needsLink={needsLinkEmployee(emp.id)}
-                      departmentColorFn={deptColorFor}
-                      onEdit={() => openEdit(emp)}
-                      onDeactivate={() => handleDeactivate(emp)}
-                      onReactivate={() => handleReactivate(emp)}
-                    />
-                  ))}
+                  {filtered.map((emp) => {
+                    const presence = presencePreview.byId.get(emp.id);
+                    return (
+                      <div key={emp.id} className="space-y-1.5">
+                        {presence && (
+                          <div className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px]", PRESENCE_TONE_CLASS[presence.signal.tone])}>
+                            <span className={cn("h-2 w-2 rounded-full", PRESENCE_DOT_CLASS[presence.signal.tone])} />
+                            {presence.signal.label}
+                          </div>
+                        )}
+                        <EmployeeMobileCard
+                          emp={emp}
+                          canManage={canManageEmployees}
+                          busy={rowBusyId === emp.id}
+                          needsLink={needsLinkEmployee(emp.id)}
+                          departmentColorFn={deptColorFor}
+                          onEdit={() => openEdit(emp)}
+                          onDeactivate={() => handleDeactivate(emp)}
+                          onReactivate={() => handleReactivate(emp)}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -796,7 +896,9 @@ function EmployeesContent() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((emp) => (
+                {filtered.map((emp) => {
+                  const presence = presencePreview.byId.get(emp.id);
+                  return (
                   <tr key={emp.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
                     {/* الموظف */}
                     <td className="px-4 py-3">
@@ -814,6 +916,12 @@ function EmployeesContent() {
                           <div className="mt-0.5">
                             <PublicCodeBadge code={emp.publicCode} />
                           </div>
+                          {presence && (
+                            <div className={cn("mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px]", PRESENCE_TONE_CLASS[presence.signal.tone])}>
+                              <span className={cn("h-2 w-2 rounded-full", PRESENCE_DOT_CLASS[presence.signal.tone])} />
+                              {presence.signal.label}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -823,9 +931,14 @@ function EmployeesContent() {
                     </td>
                     {/* الوحدة التنظيمية */}
                     <td className="px-4 py-3">
-                      <span className="badge text-xs max-w-[160px] truncate inline-block align-middle" style={{ background: `${deptColorFor(emp.department)}20`, color: deptColorFor(emp.department) }}>
-                        {emp.department || "—"}
-                      </span>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="badge text-xs max-w-[160px] truncate inline-block align-middle" style={{ background: `${deptColorFor(emp.department)}20`, color: deptColorFor(emp.department) }}>
+                          {presence?.department || emp.department || "غير محدد"}
+                        </span>
+                        <span className="text-[10px] text-[#6b87ab] max-w-[180px] truncate">
+                          المدير: {presence?.manager || "غير محدد"}
+                        </span>
+                      </div>
                     </td>
                     {/* الدور الوظيفي */}
                     <td className="px-4 py-3 text-[#8ba3c7] text-xs">{emp.jobTitle || getTenantRoleLabel(emp.role)}</td>
@@ -836,17 +949,32 @@ function EmployeesContent() {
                           {employeeStatusLabel(emp.status)}
                         </span>
                         {needsLinkEmployee(emp.id) && (
-                          <span className="badge bg-amber-500/10 text-amber-300 flex items-center gap-1" title={NEEDS_LINK_MSG}>
+                          <span className="badge bg-orange-500/10 text-orange-300 flex items-center gap-1" title={NEEDS_LINK_MSG}>
                             <Unlink size={11} />
                             يتطلب مراجعة
+                          </span>
+                        )}
+                        {presence && (
+                          <span className="text-[10px] text-[#6b87ab]">
+                            ربط الهيكل: {presence.linkedToOrg ? "مرتبط" : "غير محدد"}
                           </span>
                         )}
                       </div>
                     </td>
                     {/* المهام */}
                     <td className="hidden xl:table-cell px-4 py-3 whitespace-nowrap">
-                      <span className="text-white">{emp.completedTasks ?? 0}</span>
-                      <span className="text-[#8ba3c7]">/{emp.tasks ?? 0}</span>
+                      {presence ? (
+                        <div className="space-y-0.5 text-xs">
+                          <div><span className="text-white">{presence.activeTasks}</span><span className="text-[#8ba3c7]"> نشطة</span></div>
+                          <div><span className="text-red-300">{presence.lateTasks}</span><span className="text-[#8ba3c7]"> متأخرة</span></div>
+                          <div><span className="text-violet-300">{presence.reviewTasks}</span><span className="text-[#8ba3c7]"> مراجعة</span></div>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="text-white">{emp.completedTasks ?? 0}</span>
+                          <span className="text-[#8ba3c7]">/{emp.tasks ?? 0}</span>
+                        </>
+                      )}
                     </td>
                     {/* الأداء */}
                     <td className="hidden xl:table-cell px-4 py-3">
@@ -882,7 +1010,8 @@ function EmployeesContent() {
                       })()}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
             </div>
