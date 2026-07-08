@@ -149,6 +149,7 @@ function EmployeesContent() {
   // (default, fastest to scan); "cards" = compact detail cards. Desktop table is
   // unaffected. Toggling never touches filters or counts.
   const [mobileView, setMobileView] = useState<"list" | "cards">("list");
+  const [showPresenceDock, setShowPresenceDock] = useState(false);
   // Employee whose details sheet is open (opened from a list row). null = closed.
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [showModal,  setShowModal]  = useState(false);
@@ -259,14 +260,39 @@ function EmployeesContent() {
         reviewTasks: taskStats.review,
         outsideStructure,
         highWorkload,
-        linkedToOrg: scope.isLinkedToOrg,
         signal,
       };
     });
 
+    const priorityWeight = (row: typeof rows[number]) =>
+      (row.lateTasks > 0 ? 50 : 0) +
+      (row.outsideStructure ? 40 : 0) +
+      (row.highWorkload ? 30 : 0) +
+      (row.reviewTasks > 0 ? 20 : 0) +
+      row.activeTasks;
+    const priorityRows = rows
+      .filter((row) => row.lateTasks > 0 || row.outsideStructure || row.highWorkload || row.reviewTasks > 0)
+      .sort((a, b) => priorityWeight(b) - priorityWeight(a))
+      .slice(0, 8);
+    const departmentMap = rows.reduce((acc, row) => {
+      const department = row.department || "غير محدد";
+      const current = acc.get(department) ?? { department, total: 0, late: 0, outside: 0, review: 0 };
+      current.total += 1;
+      if (row.lateTasks > 0) current.late += 1;
+      if (row.outsideStructure) current.outside += 1;
+      if (row.reviewTasks > 0) current.review += 1;
+      acc.set(department, current);
+      return acc;
+    }, new Map<string, { department: string; total: number; late: number; outside: number; review: number }>());
+    const departmentDistribution = Array.from(departmentMap.values())
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 6);
+
     return {
       rows,
       byId: new Map(rows.map((row) => [row.id, row])),
+      priorityRows,
+      departmentDistribution,
       outsideStructure: rows.filter((row) => row.outsideStructure).length,
       highWorkload: rows.filter((row) => row.highWorkload).length,
       active: rows.filter((row) => row.state === "active").length,
@@ -647,57 +673,21 @@ function EmployeesContent() {
         </div>
 
         {!loading && employees.length > 0 && (
-          <section className={cn(WS_CARD, "overflow-hidden p-0")}>
-            <div className="border-b border-white/[0.06] bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.13),transparent_38%),rgba(255,255,255,0.025)] p-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <h2 className="font-heading text-base font-bold text-white">الحضور الذكي — معاينة تشغيلية</h2>
-                  <p className="mt-1 text-xs leading-5 text-[#8ba3c7]">
-                    قراءة من حالة الموظف والمهام والهيكل فقط. لا يوجد حضور وانصراف فعلي في هذه المرحلة.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-5">
-                  <div className="rounded-xl border border-emerald-300/15 bg-emerald-400/10 px-3 py-2 text-emerald-100"><strong className="block text-lg text-white">{presencePreview.active}</strong>نشط</div>
-                  <div className="rounded-xl border border-cyan-300/15 bg-cyan-400/10 px-3 py-2 text-cyan-100"><strong className="block text-lg text-white">{presencePreview.workingNow}</strong>يعمل الآن</div>
-                  <div className="rounded-xl border border-amber-300/15 bg-amber-400/10 px-3 py-2 text-amber-100"><strong className="block text-lg text-white">{presencePreview.highWorkload}</strong>ضغط عالي</div>
-                  <div className="rounded-xl border border-red-300/15 bg-red-500/10 px-3 py-2 text-red-100"><strong className="block text-lg text-white">{presencePreview.delayRisk}</strong>خطر تأخير</div>
-                  <div className="rounded-xl border border-orange-300/15 bg-orange-400/10 px-3 py-2 text-orange-100"><strong className="block text-lg text-white">{presencePreview.needsReview}</strong>خارج الهيكل</div>
-                </div>
-              </div>
+          <div className="flex flex-col gap-2 rounded-2xl border border-[#1e3a5f]/80 bg-[#0d1f3c]/45 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="grid grid-cols-4 gap-1.5 text-center text-[10px] sm:flex sm:items-center sm:gap-2 sm:text-xs">
+              <div className="rounded-xl bg-emerald-400/10 px-2 py-1.5 text-emerald-100"><strong className="block text-sm text-white sm:inline sm:text-xs">{presencePreview.active}</strong> النشطون</div>
+              <div className="rounded-xl bg-cyan-400/10 px-2 py-1.5 text-cyan-100"><strong className="block text-sm text-white sm:inline sm:text-xs">{presencePreview.workingNow}</strong> يعملون الآن</div>
+              <div className="rounded-xl bg-red-500/10 px-2 py-1.5 text-red-100"><strong className="block text-sm text-white sm:inline sm:text-xs">{presencePreview.delayRisk}</strong> خطر تأخير</div>
+              <div className="rounded-xl bg-orange-400/10 px-2 py-1.5 text-orange-100"><strong className="block text-sm text-white sm:inline sm:text-xs">{presencePreview.needsReview}</strong> خارج الهيكل</div>
             </div>
-            <div className="grid gap-2 border-b border-white/[0.06] bg-black/10 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-              {PRESENCE_LEGEND.map((item) => (
-                <div key={item.label} className={cn("rounded-xl border px-3 py-2 text-xs", PRESENCE_TONE_CLASS[item.tone])}>
-                  <div className="flex items-center gap-2 font-bold">
-                    <span className={cn("h-2.5 w-2.5 rounded-full", PRESENCE_DOT_CLASS[item.tone])} />
-                    {item.label}
-                  </div>
-                  <div className="mt-1 text-[11px] opacity-75">{item.description}</div>
-                </div>
-              ))}
-            </div>
-            <div className="grid gap-2 p-4 md:grid-cols-2 xl:grid-cols-4">
-              {presencePreview.rows.slice(0, 4).map((row) => (
-                <div key={row.id} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-bold text-white">{row.name}</div>
-                      <div className="mt-0.5 truncate text-[11px] text-[#8ba3c7]">{row.department} · المدير: {row.manager}</div>
-                    </div>
-                    <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[10px]", PRESENCE_TONE_CLASS[row.signal.tone])}>
-                      <span className={cn("h-2 w-2 rounded-full", PRESENCE_DOT_CLASS[row.signal.tone])} />
-                      {row.signal.label}
-                    </span>
-                  </div>
-                  <div className="mt-2 grid grid-cols-3 gap-1.5 text-[11px] text-[#8ba3c7]">
-                    <span className="rounded-lg bg-black/20 px-2 py-1">نشطة: {row.activeTasks}</span>
-                    <span className="rounded-lg bg-black/20 px-2 py-1">متأخرة: {row.lateTasks}</span>
-                    <span className="rounded-lg bg-black/20 px-2 py-1">مراجعة: {row.reviewTasks}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
+            <button
+              type="button"
+              onClick={() => setShowPresenceDock(true)}
+              className="inline-flex min-h-10 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-2 text-xs font-bold text-cyan-100 transition-colors hover:bg-cyan-400/15"
+            >
+              عرض الحضور الذكي
+            </button>
+          </div>
         )}
 
         {/* Filters */}
@@ -935,9 +925,6 @@ function EmployeesContent() {
                         <span className="badge text-xs max-w-[160px] truncate inline-block align-middle" style={{ background: `${deptColorFor(emp.department)}20`, color: deptColorFor(emp.department) }}>
                           {presence?.department || emp.department || "غير محدد"}
                         </span>
-                        <span className="text-[10px] text-[#6b87ab] max-w-[180px] truncate">
-                          المدير: {presence?.manager || "غير محدد"}
-                        </span>
                       </div>
                     </td>
                     {/* الدور الوظيفي */}
@@ -954,27 +941,12 @@ function EmployeesContent() {
                             يتطلب مراجعة
                           </span>
                         )}
-                        {presence && (
-                          <span className="text-[10px] text-[#6b87ab]">
-                            ربط الهيكل: {presence.linkedToOrg ? "مرتبط" : "غير محدد"}
-                          </span>
-                        )}
                       </div>
                     </td>
                     {/* المهام */}
                     <td className="hidden xl:table-cell px-4 py-3 whitespace-nowrap">
-                      {presence ? (
-                        <div className="space-y-0.5 text-xs">
-                          <div><span className="text-white">{presence.activeTasks}</span><span className="text-[#8ba3c7]"> نشطة</span></div>
-                          <div><span className="text-red-300">{presence.lateTasks}</span><span className="text-[#8ba3c7]"> متأخرة</span></div>
-                          <div><span className="text-violet-300">{presence.reviewTasks}</span><span className="text-[#8ba3c7]"> مراجعة</span></div>
-                        </div>
-                      ) : (
-                        <>
-                          <span className="text-white">{emp.completedTasks ?? 0}</span>
-                          <span className="text-[#8ba3c7]">/{emp.tasks ?? 0}</span>
-                        </>
-                      )}
+                      <span className="text-white">{emp.completedTasks ?? 0}</span>
+                      <span className="text-[#8ba3c7]">/{emp.tasks ?? 0}</span>
                     </td>
                     {/* الأداء */}
                     <td className="hidden xl:table-cell px-4 py-3">
@@ -1026,6 +998,124 @@ function EmployeesContent() {
       </div>
 
       {/* Mobile details sheet — opened from a "قائمة ذكية" row */}
+      {showPresenceDock && (
+        <div className="fixed inset-0 z-50 bg-[#020817]/70 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            aria-label="إغلاق الحضور الذكي"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setShowPresenceDock(false)}
+          />
+          <aside className="absolute inset-y-0 right-0 h-full w-full overflow-y-auto border-l border-cyan-300/15 bg-[#071527] shadow-[-24px_0_80px_rgba(0,0,0,0.42)] sm:max-w-xl">
+            <div className="sticky top-0 z-10 border-b border-white/[0.07] bg-[#071527]/92 px-4 py-4 backdrop-blur-xl sm:px-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-heading text-lg font-bold text-white">الحضور الذكي — معاينة تشغيلية</h2>
+                  <p className="mt-1 text-xs leading-5 text-[#8ba3c7]">
+                    هذه قراءة تشغيلية من حالة الموظف والمهام والهيكل فقط. لا يوجد حضور وانصراف فعلي في هذه المرحلة.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPresenceDock(false)}
+                  className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 text-[#8ba3c7] transition-colors hover:text-white"
+                  aria-label="إغلاق"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4 p-4 sm:p-5">
+              <section className="rounded-2xl border border-cyan-300/12 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.13),transparent_40%),rgba(255,255,255,0.035)] p-3">
+                <div className="mb-3 text-xs font-bold text-cyan-100">ملخص الحضور الذكي</div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="rounded-xl bg-emerald-400/10 px-3 py-2 text-xs text-emerald-100"><strong className="block text-lg text-white">{presencePreview.active}</strong>نشط</div>
+                  <div className="rounded-xl bg-cyan-400/10 px-3 py-2 text-xs text-cyan-100"><strong className="block text-lg text-white">{presencePreview.workingNow}</strong>يعمل الآن</div>
+                  <div className="rounded-xl bg-amber-400/10 px-3 py-2 text-xs text-amber-100"><strong className="block text-lg text-white">{presencePreview.highWorkload}</strong>ضغط عالي</div>
+                  <div className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-100"><strong className="block text-lg text-white">{presencePreview.delayRisk}</strong>خطر تأخير</div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3">
+                <div className="mb-3 text-xs font-bold text-white">دليل الألوان</div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {PRESENCE_LEGEND.map((item) => (
+                    <div key={item.label} className={cn("rounded-xl border px-3 py-2 text-xs", PRESENCE_TONE_CLASS[item.tone])}>
+                      <div className="flex items-center gap-2 font-bold">
+                        <span className={cn("h-2.5 w-2.5 rounded-full", PRESENCE_DOT_CLASS[item.tone])} />
+                        {item.label}
+                      </div>
+                      <div className="mt-1 text-[11px] opacity-75">{item.description}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="text-xs font-bold text-white">أولويات المتابعة</div>
+                  <span className="text-[11px] text-[#8ba3c7]">{presencePreview.priorityRows.length} موظف</span>
+                </div>
+                {presencePreview.priorityRows.length > 0 ? (
+                  <div className="space-y-2">
+                    {presencePreview.priorityRows.map((row) => (
+                      <div key={row.id} className="rounded-xl border border-white/[0.06] bg-black/15 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-bold text-white">{row.name}</div>
+                            <div className="mt-0.5 truncate text-[11px] text-[#8ba3c7]">{row.department || "غير محدد"} · المدير: {row.manager || "غير محدد"}</div>
+                          </div>
+                          <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[10px]", PRESENCE_TONE_CLASS[row.signal.tone])}>
+                            <span className={cn("h-2 w-2 rounded-full", PRESENCE_DOT_CLASS[row.signal.tone])} />
+                            {row.signal.label}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-[#8ba3c7]">
+                          <span className="rounded-lg bg-white/[0.05] px-2 py-1">نشطة: {row.activeTasks}</span>
+                          <span className="rounded-lg bg-red-500/10 px-2 py-1 text-red-100">متأخرة: {row.lateTasks}</span>
+                          <span className="rounded-lg bg-violet-500/10 px-2 py-1 text-violet-100">مراجعة: {row.reviewTasks}</span>
+                          {row.outsideStructure && <span className="rounded-lg bg-orange-400/10 px-2 py-1 text-orange-100">خارج الهيكل</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-white/[0.06] bg-black/15 px-3 py-5 text-center text-xs text-[#8ba3c7]">
+                    لا توجد أولويات متابعة واضحة من البيانات الحالية.
+                  </div>
+                )}
+              </section>
+
+              <section className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3">
+                <div className="mb-3 text-xs font-bold text-white">توزيع الأقسام</div>
+                {presencePreview.departmentDistribution.length > 0 ? (
+                  <div className="space-y-2">
+                    {presencePreview.departmentDistribution.map((dept) => (
+                      <div key={dept.department} className="rounded-xl bg-black/15 px-3 py-2">
+                        <div className="flex items-center justify-between gap-3 text-xs">
+                          <span className="truncate font-bold text-white">{dept.department || "غير محدد"}</span>
+                          <span className="text-[#8ba3c7]">{dept.total} موظف</span>
+                        </div>
+                        <div className="mt-2 grid grid-cols-3 gap-1.5 text-[11px]">
+                          <span className="rounded-lg bg-red-500/10 px-2 py-1 text-red-100">متأخر: {dept.late}</span>
+                          <span className="rounded-lg bg-violet-500/10 px-2 py-1 text-violet-100">مراجعة: {dept.review}</span>
+                          <span className="rounded-lg bg-orange-400/10 px-2 py-1 text-orange-100">خارج: {dept.outside}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-white/[0.06] bg-black/15 px-3 py-5 text-center text-xs text-[#8ba3c7]">
+                    لا توجد بيانات أقسام كافية.
+                  </div>
+                )}
+              </section>
+            </div>
+          </aside>
+        </div>
+      )}
+
       {detailsId && (() => {
         const emp = employees.find((e) => e.id === detailsId);
         if (!emp) return null;
