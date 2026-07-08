@@ -4,29 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
-import {
-  CheckSquare,
-  Plus,
-  List,
-  Columns,
-  Clock,
-  AlertTriangle,
-  X,
-  LayoutGrid,
-  ChevronLeft,
-  Search,
-  Edit2,
-  Trash2,
-  BriefcaseBusiness,
-} from "lucide-react";
+import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X, LayoutGrid, ChevronLeft, Search, Edit2, Trash2, BriefcaseBusiness } from "lucide-react";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { cn } from "@/lib/utils";
 import { WS_PAGE, WS_CARD } from "@/components/ui/workspaceVisual";
-import {
-  PageHero,
-  KpiStatCard,
-  WorkspaceEmpty,
-} from "@/components/ui/workspaceUi";
+import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
 import { MobileHeroCard } from "@/components/ui/MobileHeroCard";
 import { WorkspaceCenterModal } from "@/components/ui/WorkspaceCenterModal";
 import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
@@ -43,13 +25,12 @@ const STATUS_COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
   { key: "متأخرة", label: "متأخرة", color: "#ef4444" },
 ];
 
-const PRIORITY_CONFIG: Record<TaskPriority, { label: string; class: string }> =
-  {
-    عاجلة: { label: "عاجلة", class: "priority-urgent" },
-    عالية: { label: "عالية", class: "priority-high" },
-    متوسطة: { label: "متوسطة", class: "priority-medium" },
-    منخفضة: { label: "منخفضة", class: "priority-low" },
-  };
+const PRIORITY_CONFIG: Record<TaskPriority, { label: string; class: string }> = {
+  عاجلة: { label: "عاجلة", class: "priority-urgent" },
+  عالية: { label: "عالية", class: "priority-high" },
+  متوسطة: { label: "متوسطة", class: "priority-medium" },
+  منخفضة: { label: "منخفضة", class: "priority-low" },
+};
 
 type ViewMode = "kanban" | "list";
 
@@ -69,7 +50,7 @@ function TasksContent() {
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editTask, setEditTask] = useState<(typeof tasks)[0] | null>(null);
+  const [editTask, setEditTask] = useState<typeof tasks[0] | null>(null);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -102,7 +83,7 @@ function TasksContent() {
     setShowModal(true);
   };
 
-  const openEdit = (task: (typeof tasks)[0]) => {
+  const openEdit = (task: typeof tasks[0]) => {
     setEditTask(task);
     setForm({
       title: task.title,
@@ -128,38 +109,16 @@ function TasksContent() {
       const assigneeId = form.assigneeId || user?.id || "";
       const assigneeName = form.assigneeName || user?.email || "";
       if (editTask) {
-        await update(editTask.id, {
-          title: form.title,
-          description: form.description,
-          status: form.status,
-          priority: form.priority,
-          assigneeId,
-          assigneeName,
-          clientId: form.clientId || undefined,
-          clientName: form.clientName || undefined,
-          dueDate: form.dueDate,
-        });
+        await update(editTask.id, { title: form.title, description: form.description, status: form.status, priority: form.priority, assigneeId, assigneeName, clientId: form.clientId || undefined, clientName: form.clientName || undefined, dueDate: form.dueDate });
         toast.success("تم تحديث المهمة بنجاح");
       } else {
-        await insert({
-          title: form.title,
-          description: form.description,
-          status: form.status,
-          priority: form.priority,
-          assigneeId,
-          assigneeName,
-          clientId: form.clientId || undefined,
-          clientName: form.clientName || undefined,
-          dueDate: form.dueDate,
-        });
+        await insert({ title: form.title, description: form.description, status: form.status, priority: form.priority, assigneeId, assigneeName, clientId: form.clientId || undefined, clientName: form.clientName || undefined, dueDate: form.dueDate });
         toast.success("تمت إضافة المهمة بنجاح");
       }
       setShowModal(false);
       resetForm();
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "حدث خطأ أثناء حفظ المهمة",
-      );
+      toast.error(err instanceof Error ? err.message : "حدث خطأ أثناء حفظ المهمة");
       console.error("[Task Save Error]", err);
     } finally {
       setSaving(false);
@@ -181,48 +140,30 @@ function TasksContent() {
     try {
       await update(taskId, { status: newStatus });
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "حدث خطأ أثناء تحديث المهمة",
-      );
+      toast.error(err instanceof Error ? err.message : "حدث خطأ أثناء تحديث المهمة");
       console.error("[Task Move Error]", err);
     }
   };
 
-  const isOverdue = (dueDate: string, status: TaskStatus) =>
-    status !== "مكتملة" && new Date(dueDate) < new Date();
+  const isOverdue = (dueDate: string, status: TaskStatus) => status !== "مكتملة" && new Date(dueDate) < new Date();
 
   const stats = {
     total: tasks.length,
     completed: tasks.filter((t) => t.status === "مكتملة").length,
     inProgress: tasks.filter((t) => t.status === "قيد_التنفيذ").length,
-    late: tasks.filter(
-      (t) =>
-        t.status === "متأخرة" ||
-        (t.status !== "مكتملة" && new Date(t.dueDate) < new Date()),
-    ).length,
+    late: tasks.filter((t) => t.status === "متأخرة" || (t.status !== "مكتملة" && new Date(t.dueDate) < new Date())).length,
   };
 
   const statusMeta = (s: TaskStatus) =>
-    STATUS_COLUMNS.find((c) => c.key === s) ?? {
-      key: s,
-      label: s,
-      color: "#8ba3c7",
-    };
+    STATUS_COLUMNS.find((c) => c.key === s) ?? { key: s, label: s, color: "#8ba3c7" };
 
   // Mobile-only filtered list (the desktop kanban/list views are unfiltered as before).
   const mobileTasks = tasks.filter((t) => {
     const q = mSearch.trim();
-    return (
-      (mStatus === "الكل" || t.status === mStatus) &&
-      (!q ||
-        t.title.includes(q) ||
-        (t.assigneeName ?? "").includes(q) ||
-        (t.clientName ?? "").includes(q))
-    );
+    return (mStatus === "الكل" || t.status === mStatus)
+      && (!q || t.title.includes(q) || (t.assigneeName ?? "").includes(q) || (t.clientName ?? "").includes(q));
   });
-  const detailsTask = detailsId
-    ? (tasks.find((t) => t.id === detailsId) ?? null)
-    : null;
+  const detailsTask = detailsId ? tasks.find((t) => t.id === detailsId) ?? null : null;
 
   return (
     <DashboardLayout>
@@ -243,10 +184,7 @@ function TasksContent() {
           showCta={canManageTasks}
         />
         <div className="sm:hidden -mt-1 flex justify-end">
-          <Link
-            href="/tasks/my-desk"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.10)]"
-          >
+          <Link href="/tasks/my-desk" className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.10)]">
             <BriefcaseBusiness size={13} />
             المكتب الذكي
           </Link>
@@ -256,43 +194,19 @@ function TasksContent() {
         <div className="hidden sm:block">
           <PageHero title="إدارة المهام" subtitle="تتبع وإدارة مهام الفريق">
             <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.04] p-1">
-              <button
-                onClick={() => setView("kanban")}
-                aria-label="عرض كانبان"
-                className={cn(
-                  "rounded-lg p-2.5 min-h-[44px] min-w-[44px] transition-all touch-manipulation",
-                  view === "kanban"
-                    ? "bg-[#22d3ee] text-[#0a1628] shadow-[0_0_24px_rgba(34,211,238,0.45)]"
-                    : "text-[#8ba3c7] hover:text-white",
-                )}
-              >
+              <button onClick={() => setView("kanban")} aria-label="عرض كانبان" className={cn("rounded-lg p-2.5 min-h-[44px] min-w-[44px] transition-all touch-manipulation", view === "kanban" ? "bg-[#22d3ee] text-[#0a1628] shadow-[0_0_24px_rgba(34,211,238,0.45)]" : "text-[#8ba3c7] hover:text-white")}>
                 <Columns size={16} />
               </button>
-              <button
-                onClick={() => setView("list")}
-                aria-label="عرض قائمة"
-                className={cn(
-                  "rounded-lg p-2.5 min-h-[44px] min-w-[44px] transition-all touch-manipulation",
-                  view === "list"
-                    ? "bg-[#22d3ee] text-[#0a1628] shadow-[0_0_24px_rgba(34,211,238,0.45)]"
-                    : "text-[#8ba3c7] hover:text-white",
-                )}
-              >
+              <button onClick={() => setView("list")} aria-label="عرض قائمة" className={cn("rounded-lg p-2.5 min-h-[44px] min-w-[44px] transition-all touch-manipulation", view === "list" ? "bg-[#22d3ee] text-[#0a1628] shadow-[0_0_24px_rgba(34,211,238,0.45)]" : "text-[#8ba3c7] hover:text-white")}>
                 <List size={16} />
               </button>
             </div>
-            <Link
-              href="/tasks/my-desk"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 text-sm font-semibold text-cyan-100 hover:bg-cyan-400/15 transition-colors whitespace-nowrap"
-            >
+            <Link href="/tasks/my-desk" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 text-sm font-semibold text-cyan-100 hover:bg-cyan-400/15 transition-colors whitespace-nowrap">
               <BriefcaseBusiness size={16} />
               المكتب الذكي
             </Link>
             {canManageTasks && (
-              <button
-                onClick={openAdd}
-                className="btn-primary min-h-11 px-4 flex items-center gap-2 whitespace-nowrap touch-manipulation"
-              >
+              <button onClick={openAdd} className="btn-primary min-h-11 px-4 flex items-center gap-2 whitespace-nowrap touch-manipulation">
                 <Plus size={16} />
                 مهمة جديدة
               </button>
@@ -302,47 +216,13 @@ function TasksContent() {
 
         {/* Desktop/tablet KPI cards (sm+) — no bulky KPI on mobile */}
         <section className="hidden sm:grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 min-w-0">
-          <KpiStatCard
-            label="إجمالي المهام"
-            value={String(stats.total)}
-            icon={CheckSquare}
-            accent="cyan"
-            showLive={false}
-            showSparkline={false}
-          />
-          <KpiStatCard
-            label="مكتملة"
-            value={String(stats.completed)}
-            icon={CheckSquare}
-            accent="emerald"
-            showLive={false}
-            showSparkline={false}
-          />
-          <KpiStatCard
-            label="قيد التنفيذ"
-            value={String(stats.inProgress)}
-            icon={Clock}
-            accent="amber"
-            showLive={false}
-            showSparkline={false}
-          />
-          <KpiStatCard
-            label="متأخرة"
-            value={String(stats.late)}
-            icon={AlertTriangle}
-            accent="rose"
-            showLive={false}
-            showSparkline={false}
-          />
+          <KpiStatCard label="إجمالي المهام" value={String(stats.total)} icon={CheckSquare} accent="cyan" showLive={false} showSparkline={false} />
+          <KpiStatCard label="مكتملة" value={String(stats.completed)} icon={CheckSquare} accent="emerald" showLive={false} showSparkline={false} />
+          <KpiStatCard label="قيد التنفيذ" value={String(stats.inProgress)} icon={Clock} accent="amber" showLive={false} showSparkline={false} />
+          <KpiStatCard label="متأخرة" value={String(stats.late)} icon={AlertTriangle} accent="rose" showLive={false} showSparkline={false} />
         </section>
 
-        {loading && (
-          <div
-            className={cn(WS_CARD, "py-10 text-center text-sm text-[#8ba3c7]")}
-          >
-            جارٍ تحميل المهام...
-          </div>
-        )}
+        {loading && <div className={cn(WS_CARD, "py-10 text-center text-sm text-[#8ba3c7]")}>جارٍ تحميل المهام...</div>}
 
         {!loading && tasks.length === 0 && (
           <WorkspaceEmpty
@@ -352,10 +232,7 @@ function TasksContent() {
             accent="cyan"
             action={
               canManageTasks ? (
-                <button
-                  onClick={openAdd}
-                  className="btn-primary min-h-11 px-4 flex items-center gap-2 touch-manipulation"
-                >
+                <button onClick={openAdd} className="btn-primary min-h-11 px-4 flex items-center gap-2 touch-manipulation">
                   <Plus size={16} />
                   مهمة جديدة
                 </button>
@@ -370,121 +247,40 @@ function TasksContent() {
               {STATUS_COLUMNS.map((col) => {
                 const colTasks = tasks.filter((t) => t.status === col.key);
                 return (
-                  <div
-                    key={col.key}
-                    className={cn(
-                      WS_CARD,
-                      "w-[280px] sm:w-[300px] lg:w-[320px] shrink-0 p-3",
-                    )}
-                  >
+                  <div key={col.key} className={cn(WS_CARD, "w-[280px] sm:w-[300px] lg:w-[320px] shrink-0 p-3")}>
                     <div className="mb-3 flex items-center gap-2">
-                      <div
-                        className="h-3 w-3 rounded-full"
-                        style={{ background: col.color }}
-                      />
-                      <span className="text-sm font-medium text-white">
-                        {col.label}
-                      </span>
-                      <span
-                        className="badge text-xs"
-                        style={{
-                          background: `${col.color}20`,
-                          color: col.color,
-                        }}
-                      >
-                        {colTasks.length}
-                      </span>
+                      <div className="h-3 w-3 rounded-full" style={{ background: col.color }} />
+                      <span className="text-sm font-medium text-white">{col.label}</span>
+                      <span className="badge text-xs" style={{ background: `${col.color}20`, color: col.color }}>{colTasks.length}</span>
                     </div>
                     <div className="space-y-3">
                       {colTasks.map((task) => (
-                        <article
-                          key={task.id}
-                          className="glass-card glass-card-hover rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4"
-                        >
+                        <article key={task.id} className="glass-card glass-card-hover rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4">
                           <div className="mb-2 flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1 space-y-1">
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <PublicCodeBadge code={task.publicCode} />
-                                <span
-                                  className={`badge shrink-0 text-xs ${PRIORITY_CONFIG[task.priority].class}`}
-                                >
-                                  {PRIORITY_CONFIG[task.priority].label}
-                                </span>
+                                <span className={`badge shrink-0 text-xs ${PRIORITY_CONFIG[task.priority].class}`}>{PRIORITY_CONFIG[task.priority].label}</span>
                               </div>
-                              <h4 className="text-sm font-semibold leading-6 text-white line-clamp-2">
-                                {task.title}
-                              </h4>
+                              <h4 className="text-sm font-semibold leading-6 text-white line-clamp-2">{task.title}</h4>
                             </div>
                           </div>
-                          {task.description && (
-                            <p className="mb-2 text-xs leading-5 text-[#8ba3c7] line-clamp-2">
-                              {task.description}
-                            </p>
-                          )}
-                          {task.clientName && (
-                            <div className="mb-2 truncate text-xs text-[#8ba3c7]">
-                              👤 {task.clientName}
-                            </div>
-                          )}
+                          {task.description && <p className="mb-2 text-xs leading-5 text-[#8ba3c7] line-clamp-2">{task.description}</p>}
+                          {task.clientName && <div className="mb-2 truncate text-xs text-[#8ba3c7]">👤 {task.clientName}</div>}
                           <div className="mt-3 flex items-center justify-between gap-2">
-                            <div
-                              className={cn(
-                                "flex items-center gap-1 text-xs",
-                                isOverdue(task.dueDate, task.status)
-                                  ? "text-red-300"
-                                  : "text-[#8ba3c7]",
-                              )}
-                            >
+                            <div className={cn("flex items-center gap-1 text-xs", isOverdue(task.dueDate, task.status) ? "text-red-300" : "text-[#8ba3c7]")}>
                               <Clock size={12} />
                               <span className="truncate">{task.dueDate}</span>
-                              {isOverdue(task.dueDate, task.status) &&
-                                task.status !== "متأخرة" && (
-                                  <AlertTriangle
-                                    size={12}
-                                    className="text-red-400"
-                                  />
-                                )}
+                              {isOverdue(task.dueDate, task.status) && task.status !== "متأخرة" && <AlertTriangle size={12} className="text-red-400" />}
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                               {canManageTasks && (
                                 <>
-                                  <button
-                                    onClick={() => openEdit(task)}
-                                    aria-label="تعديل المهمة"
-                                    className="rounded-md p-1.5 text-[#8ba3c7] transition-colors hover:text-[#22d3ee]"
-                                  >
-                                    <svg
-                                      width="12"
-                                      height="12"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                    >
-                                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-                                      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                    </svg>
+                                  <button onClick={() => openEdit(task)} aria-label="تعديل المهمة" className="rounded-md p-1.5 text-[#8ba3c7] transition-colors hover:text-[#22d3ee]">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                   </button>
-                                  <button
-                                    onClick={() =>
-                                      handleDeleteTask(task.id, task.title)
-                                    }
-                                    aria-label="حذف المهمة"
-                                    className="rounded-md p-1.5 text-[#8ba3c7] transition-colors hover:text-red-400"
-                                  >
-                                    <svg
-                                      width="12"
-                                      height="12"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                    >
-                                      <polyline points="3 6 5 6 21 6" />
-                                      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                                      <path d="M10 11v6M14 11v6" />
-                                      <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
-                                    </svg>
+                                  <button onClick={() => handleDeleteTask(task.id, task.title)} aria-label="حذف المهمة" className="rounded-md p-1.5 text-[#8ba3c7] transition-colors hover:text-red-400">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" /></svg>
                                   </button>
                                 </>
                               )}
@@ -493,26 +289,12 @@ function TasksContent() {
                               </div>
                             </div>
                           </div>
-                          <select
-                            className="mt-3 w-full rounded-lg border border-[#2f4f82] bg-[#0d1f3c] px-2.5 py-2 text-xs text-[#8ba3c7] outline-none"
-                            value={task.status}
-                            onChange={(e) =>
-                              moveTask(task.id, e.target.value as TaskStatus)
-                            }
-                          >
-                            {STATUS_COLUMNS.map((s) => (
-                              <option key={s.key} value={s.key}>
-                                {s.label}
-                              </option>
-                            ))}
+                          <select className="mt-3 w-full rounded-lg border border-[#2f4f82] bg-[#0d1f3c] px-2.5 py-2 text-xs text-[#8ba3c7] outline-none" value={task.status} onChange={(e) => moveTask(task.id, e.target.value as TaskStatus)}>
+                            {STATUS_COLUMNS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                           </select>
                         </article>
                       ))}
-                      {colTasks.length === 0 && (
-                        <div className="flex min-h-[96px] items-center justify-center rounded-xl border border-dashed border-[#2a4a76] bg-[#0e2242]/60 p-4 text-center text-xs text-[#6b87ab]">
-                          لا توجد مهام
-                        </div>
-                      )}
+                      {colTasks.length === 0 && <div className="flex min-h-[96px] items-center justify-center rounded-xl border border-dashed border-[#2a4a76] bg-[#0e2242]/60 p-4 text-center text-xs text-[#6b87ab]">لا توجد مهام</div>}
                     </div>
                   </div>
                 );
@@ -522,64 +304,27 @@ function TasksContent() {
         )}
 
         {!loading && tasks.length > 0 && view === "list" && (
-          <section
-            className={cn(WS_CARD, "hidden sm:block overflow-hidden p-0")}
-          >
+          <section className={cn(WS_CARD, "hidden sm:block overflow-hidden p-0")}>
             <div className="block md:hidden space-y-2 p-3">
               {tasks.map((task) => (
-                <article
-                  key={task.id}
-                  className="rounded-xl border border-[#2a4c79] bg-[#0f2344]/80 p-3"
-                >
+                <article key={task.id} className="rounded-xl border border-[#2a4c79] bg-[#0f2344]/80 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-sm font-semibold text-white line-clamp-2">
-                        {task.title}
-                      </h4>
+                      <h4 className="text-sm font-semibold text-white line-clamp-2">{task.title}</h4>
                       <div className="mt-1">
                         <PublicCodeBadge code={task.publicCode} />
                       </div>
                     </div>
-                    <span
-                      className={`badge shrink-0 text-xs ${PRIORITY_CONFIG[task.priority].class}`}
-                    >
-                      {PRIORITY_CONFIG[task.priority].label}
-                    </span>
+                    <span className={`badge shrink-0 text-xs ${PRIORITY_CONFIG[task.priority].class}`}>{PRIORITY_CONFIG[task.priority].label}</span>
                   </div>
-                  {task.description && (
-                    <p className="mt-1 text-xs text-[#8ba3c7] line-clamp-2">
-                      {task.description}
-                    </p>
-                  )}
+                  {task.description && <p className="mt-1 text-xs text-[#8ba3c7] line-clamp-2">{task.description}</p>}
                   <div className="mt-2 space-y-1 text-xs text-[#8ba3c7]">
                     <p className="truncate">المُكلَّف: {task.assigneeName}</p>
                     <p className="truncate">العميل: {task.clientName || "—"}</p>
-                    <p
-                      className={cn(
-                        "flex items-center gap-1",
-                        isOverdue(task.dueDate, task.status)
-                          ? "text-red-300"
-                          : "text-[#8ba3c7]",
-                      )}
-                    >
-                      {isOverdue(task.dueDate, task.status) && (
-                        <AlertTriangle size={11} />
-                      )}{" "}
-                      {task.dueDate}
-                    </p>
+                    <p className={cn("flex items-center gap-1", isOverdue(task.dueDate, task.status) ? "text-red-300" : "text-[#8ba3c7]")}>{isOverdue(task.dueDate, task.status) && <AlertTriangle size={11} />} {task.dueDate}</p>
                   </div>
-                  <select
-                    className="mt-3 w-full rounded-lg border border-[#2f4f82] bg-[#0d1f3c] px-2.5 py-2.5 text-xs text-[#8ba3c7] outline-none"
-                    value={task.status}
-                    onChange={(e) =>
-                      moveTask(task.id, e.target.value as TaskStatus)
-                    }
-                  >
-                    {STATUS_COLUMNS.map((s) => (
-                      <option key={s.key} value={s.key}>
-                        {s.label}
-                      </option>
-                    ))}
+                  <select className="mt-3 w-full rounded-lg border border-[#2f4f82] bg-[#0d1f3c] px-2.5 py-2.5 text-xs text-[#8ba3c7] outline-none" value={task.status} onChange={(e) => moveTask(task.id, e.target.value as TaskStatus)}>
+                    {STATUS_COLUMNS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                   </select>
                 </article>
               ))}
@@ -588,83 +333,30 @@ function TasksContent() {
               <table className="w-full min-w-[720px] text-sm">
                 <thead>
                   <tr className="border-b border-[#1e3a5f] bg-[#11284d]/70">
-                    {[
-                      "المهمة",
-                      "المُكلَّف",
-                      "العميل",
-                      "الأولوية",
-                      "الموعد",
-                      "الحالة",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="px-4 py-3 text-right font-medium text-[#8ba3c7]"
-                      >
-                        {h}
-                      </th>
+                    {["المهمة", "المُكلَّف", "العميل", "الأولوية", "الموعد", "الحالة"].map((h) => (
+                      <th key={h} className="px-4 py-3 text-right font-medium text-[#8ba3c7]">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {tasks.map((task) => (
-                    <tr
-                      key={task.id}
-                      className="table-row border-b border-[#1e3a5f]/40 last:border-0"
-                    >
+                    <tr key={task.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
                       <td className="px-4 py-3">
-                        <div className="font-medium text-white">
-                          {task.title}
-                        </div>
+                        <div className="font-medium text-white">{task.title}</div>
                         <div className="mt-0.5">
                           <PublicCodeBadge code={task.publicCode} />
                         </div>
-                        {task.description && (
-                          <div className="mt-0.5 line-clamp-2 text-xs text-[#8ba3c7]">
-                            {task.description}
-                          </div>
-                        )}
+                        {task.description && <div className="mt-0.5 line-clamp-2 text-xs text-[#8ba3c7]">{task.description}</div>}
                       </td>
-                      <td className="px-4 py-3 text-[#8ba3c7]">
-                        {task.assigneeName}
-                      </td>
-                      <td className="px-4 py-3 text-[#8ba3c7]">
-                        {task.clientName || "—"}
+                      <td className="px-4 py-3 text-[#8ba3c7]">{task.assigneeName}</td>
+                      <td className="px-4 py-3 text-[#8ba3c7]">{task.clientName || "—"}</td>
+                      <td className="px-4 py-3"><span className={`badge ${PRIORITY_CONFIG[task.priority].class}`}>{PRIORITY_CONFIG[task.priority].label}</span></td>
+                      <td className="px-4 py-3">
+                        <div className={cn("flex items-center gap-1 text-xs", isOverdue(task.dueDate, task.status) ? "text-red-300" : "text-[#8ba3c7]")}>{isOverdue(task.dueDate, task.status) && <AlertTriangle size={11} />}{task.dueDate}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`badge ${PRIORITY_CONFIG[task.priority].class}`}
-                        >
-                          {PRIORITY_CONFIG[task.priority].label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div
-                          className={cn(
-                            "flex items-center gap-1 text-xs",
-                            isOverdue(task.dueDate, task.status)
-                              ? "text-red-300"
-                              : "text-[#8ba3c7]",
-                          )}
-                        >
-                          {isOverdue(task.dueDate, task.status) && (
-                            <AlertTriangle size={11} />
-                          )}
-                          {task.dueDate}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <select
-                          className="rounded-lg border border-[#2f4f82] bg-[#0d1f3c] px-2 py-1.5 text-xs text-[#8ba3c7] outline-none"
-                          value={task.status}
-                          onChange={(e) =>
-                            moveTask(task.id, e.target.value as TaskStatus)
-                          }
-                        >
-                          {STATUS_COLUMNS.map((s) => (
-                            <option key={s.key} value={s.key}>
-                              {s.label}
-                            </option>
-                          ))}
+                        <select className="rounded-lg border border-[#2f4f82] bg-[#0d1f3c] px-2 py-1.5 text-xs text-[#8ba3c7] outline-none" value={task.status} onChange={(e) => moveTask(task.id, e.target.value as TaskStatus)}>
+                          {STATUS_COLUMNS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                         </select>
                       </td>
                     </tr>
@@ -680,10 +372,7 @@ function TasksContent() {
           <div className="sm:hidden space-y-3">
             {/* Search */}
             <div className="relative">
-              <Search
-                size={15}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba3c7]"
-              />
+              <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba3c7]" />
               <input
                 className="input-dark pr-9 py-2 text-sm w-full"
                 placeholder="بحث عن مهمة..."
@@ -694,20 +383,13 @@ function TasksContent() {
 
             {/* Status filter chips */}
             <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {(
-                ["الكل", ...STATUS_COLUMNS.map((c) => c.key)] as (
-                  | TaskStatus
-                  | "الكل"
-                )[]
-              ).map((s) => (
+              {(["الكل", ...STATUS_COLUMNS.map((c) => c.key)] as (TaskStatus | "الكل")[]).map((s) => (
                 <button
                   key={s}
                   onClick={() => setMStatus(s)}
                   className={cn(
                     "flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all",
-                    mStatus === s
-                      ? "bg-[#22d3ee] text-[#0a1628]"
-                      : "bg-[#1a3356]/50 text-[#8ba3c7] hover:text-white",
+                    mStatus === s ? "bg-[#22d3ee] text-[#0a1628]" : "bg-[#1a3356]/50 text-[#8ba3c7] hover:text-white",
                   )}
                 >
                   {s === "الكل" ? "الكل" : statusMeta(s as TaskStatus).label}
@@ -720,12 +402,7 @@ function TasksContent() {
               <button
                 onClick={() => setMobileView("list")}
                 aria-pressed={mobileView === "list"}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all min-h-9",
-                  mobileView === "list"
-                    ? "bg-[#22d3ee] text-[#0a1628]"
-                    : "text-[#8ba3c7] hover:text-white hover:bg-white/[0.04]",
-                )}
+                className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all min-h-9", mobileView === "list" ? "bg-[#22d3ee] text-[#0a1628]" : "text-[#8ba3c7] hover:text-white hover:bg-white/[0.04]")}
               >
                 <List size={14} />
                 قائمة ذكية
@@ -733,12 +410,7 @@ function TasksContent() {
               <button
                 onClick={() => setMobileView("cards")}
                 aria-pressed={mobileView === "cards"}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all min-h-9",
-                  mobileView === "cards"
-                    ? "bg-[#22d3ee] text-[#0a1628]"
-                    : "text-[#8ba3c7] hover:text-white hover:bg-white/[0.04]",
-                )}
+                className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all min-h-9", mobileView === "cards" ? "bg-[#22d3ee] text-[#0a1628]" : "text-[#8ba3c7] hover:text-white hover:bg-white/[0.04]")}
               >
                 <LayoutGrid size={14} />
                 بطاقات
@@ -746,14 +418,7 @@ function TasksContent() {
             </div>
 
             {mobileTasks.length === 0 ? (
-              <div
-                className={cn(
-                  WS_CARD,
-                  "py-10 text-center text-[#8ba3c7] text-sm",
-                )}
-              >
-                لا توجد مهام مطابقة
-              </div>
+              <div className={cn(WS_CARD, "py-10 text-center text-[#8ba3c7] text-sm")}>لا توجد مهام مطابقة</div>
             ) : mobileView === "list" ? (
               <div className="space-y-2">
                 {mobileTasks.map((task) => {
@@ -768,44 +433,19 @@ function TasksContent() {
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-white font-semibold text-[13px] truncate flex-1">
-                            {task.title}
-                          </span>
-                          <span
-                            className="badge text-[9px] shrink-0"
-                            style={{
-                              background: `${meta.color}20`,
-                              color: meta.color,
-                            }}
-                          >
-                            {meta.label}
-                          </span>
+                          <span className="text-white font-semibold text-[13px] truncate flex-1">{task.title}</span>
+                          <span className="badge text-[9px] shrink-0" style={{ background: `${meta.color}20`, color: meta.color }}>{meta.label}</span>
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-[#8ba3c7] min-w-0">
-                          <span
-                            className={cn(
-                              "badge text-[9px] shrink-0",
-                              PRIORITY_CONFIG[task.priority].class,
-                            )}
-                          >
-                            {PRIORITY_CONFIG[task.priority].label}
-                          </span>
+                          <span className={cn("badge text-[9px] shrink-0", PRIORITY_CONFIG[task.priority].class)}>{PRIORITY_CONFIG[task.priority].label}</span>
                           <span className="text-[#1e3a5f] shrink-0">·</span>
-                          <span
-                            className={cn(
-                              "shrink-0 flex items-center gap-0.5",
-                              overdue && "text-red-300",
-                            )}
-                          >
-                            {overdue && <AlertTriangle size={10} />}
-                            {task.dueDate}
+                          <span className={cn("shrink-0 flex items-center gap-0.5", overdue && "text-red-300")}>
+                            {overdue && <AlertTriangle size={10} />}{task.dueDate}
                           </span>
                           {task.assigneeName && (
                             <>
                               <span className="text-[#1e3a5f] shrink-0">·</span>
-                              <span className="truncate">
-                                {task.assigneeName}
-                              </span>
+                              <span className="truncate">{task.assigneeName}</span>
                             </>
                           )}
                         </div>
@@ -815,10 +455,7 @@ function TasksContent() {
                           {task.assigneeName.slice(0, 1)}
                         </div>
                       )}
-                      <ChevronLeft
-                        size={16}
-                        className="text-[#8ba3c7] group-hover:text-cyan-300 transition-colors shrink-0"
-                      />
+                      <ChevronLeft size={16} className="text-[#8ba3c7] group-hover:text-cyan-300 transition-colors shrink-0" />
                     </button>
                   );
                 })}
@@ -826,74 +463,22 @@ function TasksContent() {
             ) : (
               <div className="space-y-3">
                 {mobileTasks.map((task) => (
-                  <article
-                    key={task.id}
-                    className={cn(WS_CARD, "p-3.5 space-y-2")}
-                  >
+                  <article key={task.id} className={cn(WS_CARD, "p-3.5 space-y-2")}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <h4 className="text-sm font-semibold text-white line-clamp-2">
-                          {task.title}
-                        </h4>
-                        <div className="mt-1">
-                          <PublicCodeBadge code={task.publicCode} />
-                        </div>
+                        <h4 className="text-sm font-semibold text-white line-clamp-2">{task.title}</h4>
+                        <div className="mt-1"><PublicCodeBadge code={task.publicCode} /></div>
                       </div>
-                      <span
-                        className={cn(
-                          "badge shrink-0 text-xs",
-                          PRIORITY_CONFIG[task.priority].class,
-                        )}
-                      >
-                        {PRIORITY_CONFIG[task.priority].label}
-                      </span>
+                      <span className={cn("badge shrink-0 text-xs", PRIORITY_CONFIG[task.priority].class)}>{PRIORITY_CONFIG[task.priority].label}</span>
                     </div>
-                    {task.description && (
-                      <p className="text-xs text-[#8ba3c7] line-clamp-2">
-                        {task.description}
-                      </p>
-                    )}
+                    {task.description && <p className="text-xs text-[#8ba3c7] line-clamp-2">{task.description}</p>}
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#8ba3c7]">
-                      <span
-                        className="badge text-[10px]"
-                        style={{
-                          background: `${statusMeta(task.status).color}20`,
-                          color: statusMeta(task.status).color,
-                        }}
-                      >
-                        {statusMeta(task.status).label}
-                      </span>
-                      {task.assigneeName && (
-                        <span className="truncate">
-                          المُكلَّف: {task.assigneeName}
-                        </span>
-                      )}
-                      <span
-                        className={cn(
-                          "flex items-center gap-1",
-                          isOverdue(task.dueDate, task.status)
-                            ? "text-red-300"
-                            : "",
-                        )}
-                      >
-                        {isOverdue(task.dueDate, task.status) && (
-                          <AlertTriangle size={11} />
-                        )}
-                        {task.dueDate}
-                      </span>
+                      <span className="badge text-[10px]" style={{ background: `${statusMeta(task.status).color}20`, color: statusMeta(task.status).color }}>{statusMeta(task.status).label}</span>
+                      {task.assigneeName && <span className="truncate">المُكلَّف: {task.assigneeName}</span>}
+                      <span className={cn("flex items-center gap-1", isOverdue(task.dueDate, task.status) ? "text-red-300" : "")}>{isOverdue(task.dueDate, task.status) && <AlertTriangle size={11} />}{task.dueDate}</span>
                     </div>
-                    <select
-                      className="w-full rounded-lg border border-[#2f4f82] bg-[#0d1f3c] px-2.5 py-2 text-xs text-[#8ba3c7] outline-none"
-                      value={task.status}
-                      onChange={(e) =>
-                        moveTask(task.id, e.target.value as TaskStatus)
-                      }
-                    >
-                      {STATUS_COLUMNS.map((s) => (
-                        <option key={s.key} value={s.key}>
-                          {s.label}
-                        </option>
-                      ))}
+                    <select className="w-full rounded-lg border border-[#2f4f82] bg-[#0d1f3c] px-2.5 py-2 text-xs text-[#8ba3c7] outline-none" value={task.status} onChange={(e) => moveTask(task.id, e.target.value as TaskStatus)}>
+                      {STATUS_COLUMNS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                     </select>
                   </article>
                 ))}
@@ -905,83 +490,34 @@ function TasksContent() {
 
       {/* Task details — compact centered glass */}
       {detailsTask && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm"
-          onClick={() => setDetailsId(null)}
-        >
-          <div
-            className="relative w-[min(360px,calc(100vw-48px))] max-[380px]:w-[calc(100vw-36px)] max-h-[72vh] max-[380px]:max-h-[76vh] sm:max-w-[420px] sm:max-h-[80vh] overflow-y-auto rounded-[26px] border border-[rgba(34,211,238,0.18)] bg-[linear-gradient(155deg,rgba(13,25,48,0.97),rgba(7,15,32,0.98))] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.7),0_0_28px_rgba(34,211,238,0.05)] backdrop-blur-[20px] p-4 space-y-3"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm" onClick={() => setDetailsId(null)}>
+          <div className="relative w-[min(360px,calc(100vw-48px))] max-[380px]:w-[calc(100vw-36px)] max-h-[72vh] max-[380px]:max-h-[76vh] sm:max-w-[420px] sm:max-h-[80vh] overflow-y-auto rounded-[26px] border border-[rgba(34,211,238,0.18)] bg-[linear-gradient(155deg,rgba(13,25,48,0.97),rgba(7,15,32,0.98))] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.7),0_0_28px_rgba(34,211,238,0.05)] backdrop-blur-[20px] p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/25 to-transparent" />
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-white font-heading font-bold text-[15px] leading-snug">
-                  {detailsTask.title}
-                </h3>
+                <h3 className="text-white font-heading font-bold text-[15px] leading-snug">{detailsTask.title}</h3>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                  <span
-                    className="badge text-[10px]"
-                    style={{
-                      background: `${statusMeta(detailsTask.status).color}20`,
-                      color: statusMeta(detailsTask.status).color,
-                    }}
-                  >
-                    {statusMeta(detailsTask.status).label}
-                  </span>
-                  <span
-                    className={cn(
-                      "badge text-[10px]",
-                      PRIORITY_CONFIG[detailsTask.priority].class,
-                    )}
-                  >
-                    {PRIORITY_CONFIG[detailsTask.priority].label}
-                  </span>
+                  <span className="badge text-[10px]" style={{ background: `${statusMeta(detailsTask.status).color}20`, color: statusMeta(detailsTask.status).color }}>{statusMeta(detailsTask.status).label}</span>
+                  <span className={cn("badge text-[10px]", PRIORITY_CONFIG[detailsTask.priority].class)}>{PRIORITY_CONFIG[detailsTask.priority].label}</span>
                   <PublicCodeBadge code={detailsTask.publicCode} />
                 </div>
               </div>
-              <button
-                onClick={() => setDetailsId(null)}
-                className="text-[#8ba3c7] hover:text-white shrink-0"
-                aria-label="إغلاق"
-              >
-                <X size={18} />
-              </button>
+              <button onClick={() => setDetailsId(null)} className="text-[#8ba3c7] hover:text-white shrink-0" aria-label="إغلاق"><X size={18} /></button>
             </div>
-            {detailsTask.description && (
-              <p className="text-[12px] text-[#8ba3c7] leading-relaxed">
-                {detailsTask.description}
-              </p>
-            )}
+            {detailsTask.description && <p className="text-[12px] text-[#8ba3c7] leading-relaxed">{detailsTask.description}</p>}
             <div className="grid grid-cols-1 gap-1.5 text-[13px]">
               <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
                 <span className="text-[#8ba3c7] text-[11px]">المُكلَّف</span>
-                <span className="text-white font-medium truncate">
-                  {detailsTask.assigneeName || "—"}
-                </span>
+                <span className="text-white font-medium truncate">{detailsTask.assigneeName || "—"}</span>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
                 <span className="text-[#8ba3c7] text-[11px]">العميل</span>
-                <span className="text-white font-medium truncate">
-                  {detailsTask.clientName || "—"}
-                </span>
+                <span className="text-white font-medium truncate">{detailsTask.clientName || "—"}</span>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-[rgba(148,163,184,0.10)] bg-[rgba(8,18,38,0.5)] px-3 py-2">
-                <span className="text-[#8ba3c7] text-[11px]">
-                  الموعد النهائي
-                </span>
-                <span
-                  className={cn(
-                    "font-medium flex items-center gap-1",
-                    isOverdue(detailsTask.dueDate, detailsTask.status)
-                      ? "text-red-300"
-                      : "text-white",
-                  )}
-                >
-                  {isOverdue(detailsTask.dueDate, detailsTask.status) && (
-                    <AlertTriangle size={12} />
-                  )}
-                  {detailsTask.dueDate}
+                <span className="text-[#8ba3c7] text-[11px]">الموعد النهائي</span>
+                <span className={cn("font-medium flex items-center gap-1", isOverdue(detailsTask.dueDate, detailsTask.status) ? "text-red-300" : "text-white")}>
+                  {isOverdue(detailsTask.dueDate, detailsTask.status) && <AlertTriangle size={12} />}{detailsTask.dueDate}
                 </span>
               </div>
             </div>
@@ -989,11 +525,7 @@ function TasksContent() {
               <div className="flex gap-2 pt-0.5">
                 <button
                   type="button"
-                  onClick={() => {
-                    const t = detailsTask;
-                    setDetailsId(null);
-                    openEdit(t);
-                  }}
+                  onClick={() => { const t = detailsTask; setDetailsId(null); openEdit(t); }}
                   className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2 text-xs text-[#8ba3c7] hover:text-cyan-300 transition-colors min-h-10"
                 >
                   <Edit2 size={14} />
@@ -1001,11 +533,7 @@ function TasksContent() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    const t = detailsTask;
-                    setDetailsId(null);
-                    handleDeleteTask(t.id, t.title);
-                  }}
+                  onClick={() => { const t = detailsTask; setDetailsId(null); handleDeleteTask(t.id, t.title); }}
                   className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-10"
                 >
                   <Trash2 size={14} />
@@ -1020,165 +548,62 @@ function TasksContent() {
       {/* Add / edit task — centered glass */}
       <WorkspaceCenterModal
         open={showModal}
-        onClose={() => {
-          setShowModal(false);
-          resetForm();
-        }}
+        onClose={() => { setShowModal(false); resetForm(); }}
         title={editTask ? "تعديل المهمة" : "إضافة مهمة جديدة"}
         footer={
           <div className="flex flex-col-reverse gap-3 sm:flex-row">
-            <button
-              onClick={() => {
-                setShowModal(false);
-                resetForm();
-              }}
-              disabled={saving}
-              className="btn-secondary min-h-11 flex-1"
-            >
-              إلغاء
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn-primary min-h-11 flex-1 flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {saving && (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-              )}
-              {saving
-                ? "جارٍ الحفظ..."
-                : editTask
-                  ? "حفظ التعديلات"
-                  : "إضافة المهمة"}
+            <button onClick={() => { setShowModal(false); resetForm(); }} disabled={saving} className="btn-secondary min-h-11 flex-1">إلغاء</button>
+            <button onClick={handleSave} disabled={saving} className="btn-primary min-h-11 flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
+              {saving && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
+              {saving ? "جارٍ الحفظ..." : editTask ? "حفظ التعديلات" : "إضافة المهمة"}
             </button>
           </div>
         }
       >
-        <div className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs text-[#8ba3c7]">
-              عنوان المهمة
-            </label>
-            <input
-              className="input-dark min-h-10 text-sm"
-              placeholder="أدخل عنوان المهمة"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-[#8ba3c7]">الوصف</label>
-            <textarea
-              className="input-dark min-h-16 resize-none text-sm"
-              rows={2}
-              placeholder="وصف تفصيلي للمهمة"
-              value={form.description}
-              onChange={(e) =>
-                setForm({ ...form, description: e.target.value })
-              }
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs text-[#8ba3c7]">
-                الأولوية
-              </label>
-              <select
-                className="input-dark min-h-10 text-sm"
-                value={form.priority}
-                onChange={(e) =>
-                  setForm({ ...form, priority: e.target.value as TaskPriority })
-                }
-              >
-                <option value="عاجلة">عاجلة</option>
-                <option value="عالية">عالية</option>
-                <option value="متوسطة">متوسطة</option>
-                <option value="منخفضة">منخفضة</option>
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-[#8ba3c7]">
-                الحالة
-              </label>
-              <select
-                className="input-dark min-h-10 text-sm"
-                value={form.status}
-                onChange={(e) =>
-                  setForm({ ...form, status: e.target.value as TaskStatus })
-                }
-              >
-                {STATUS_COLUMNS.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs text-[#8ba3c7]">
-                المُكلَّف
-              </label>
-              <select
-                className="input-dark min-h-11 text-sm"
-                value={form.assigneeId}
-                onChange={(e) => {
-                  const emp = employees.find((x) => x.id === e.target.value);
-                  setForm({
-                    ...form,
-                    assigneeId: e.target.value,
-                    assigneeName: emp?.name ?? "",
-                  });
-                }}
-              >
-                <option value="">— اختر موظفاً —</option>
-                {employees
-                  .filter((e) => e.status === "نشط")
-                  .map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.name} ({e.department})
-                    </option>
-                  ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-[#8ba3c7]">
-                الموعد النهائي
-              </label>
-              <input
-                className="input-dark min-h-10 text-sm"
-                type="date"
-                value={form.dueDate}
-                onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-[#8ba3c7]">
-              العميل (اختياري)
-            </label>
-            <select
-              className="input-dark min-h-10 text-sm"
-              value={form.clientId}
-              onChange={(e) => {
-                const cl = clients.find((x) => x.id === e.target.value);
-                setForm({
-                  ...form,
-                  clientId: e.target.value,
-                  clientName: cl?.name ?? "",
-                });
-              }}
-            >
-              <option value="">— بدون عميل —</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.status})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs text-[#8ba3c7]">عنوان المهمة</label>
+                  <input className="input-dark min-h-10 text-sm" placeholder="أدخل عنوان المهمة" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-[#8ba3c7]">الوصف</label>
+                  <textarea className="input-dark min-h-16 resize-none text-sm" rows={2} placeholder="وصف تفصيلي للمهمة" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs text-[#8ba3c7]">الأولوية</label>
+                    <select className="input-dark min-h-10 text-sm" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as TaskPriority })}>
+                      <option value="عاجلة">عاجلة</option><option value="عالية">عالية</option><option value="متوسطة">متوسطة</option><option value="منخفضة">منخفضة</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-[#8ba3c7]">الحالة</label>
+                    <select className="input-dark min-h-10 text-sm" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TaskStatus })}>
+                      {STATUS_COLUMNS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs text-[#8ba3c7]">المُكلَّف</label>
+                    <select className="input-dark min-h-11 text-sm" value={form.assigneeId} onChange={(e) => { const emp = employees.find((x) => x.id === e.target.value); setForm({ ...form, assigneeId: e.target.value, assigneeName: emp?.name ?? "" }); }}>
+                      <option value="">— اختر موظفاً —</option>
+                      {employees.filter((e) => e.status === "نشط").map((e) => <option key={e.id} value={e.id}>{e.name} ({e.department})</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-[#8ba3c7]">الموعد النهائي</label>
+                    <input className="input-dark min-h-10 text-sm" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-[#8ba3c7]">العميل (اختياري)</label>
+                  <select className="input-dark min-h-10 text-sm" value={form.clientId} onChange={(e) => { const cl = clients.find((x) => x.id === e.target.value); setForm({ ...form, clientId: e.target.value, clientName: cl?.name ?? "" }); }}>
+                    <option value="">— بدون عميل —</option>
+                    {clients.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.status})</option>)}
+                  </select>
+                </div>
+              </div>
       </WorkspaceCenterModal>
     </DashboardLayout>
   );

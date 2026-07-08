@@ -13,50 +13,21 @@ import {
 import { assignEmployeeToOrgUnit } from "@/lib/org/structureDb";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { WS_PAGE, WS_CARD } from "@/components/ui/workspaceVisual";
-import {
-  PageHero,
-  KpiStatCard,
-  WorkspaceEmpty,
-} from "@/components/ui/workspaceUi";
+import { PageHero, KpiStatCard, WorkspaceEmpty } from "@/components/ui/workspaceUi";
 import { WorkspaceCenterModal } from "@/components/ui/WorkspaceCenterModal";
 import { EmployeeDetailsSheet } from "@/components/employees/EmployeeDetailsSheet";
 import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import { PremiumRolePicker } from "@/components/ui/PremiumRolePicker";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import {
-  Users,
-  Plus,
-  Search,
-  Star,
-  Edit2,
-  UserMinus,
-  UserCheck,
-  Unlink,
-  X,
-  Eye,
-  EyeOff,
-  List,
-  LayoutGrid,
-  ChevronLeft,
-  Activity,
-  AlertTriangle,
-} from "lucide-react";
+import { Users, Plus, Search, Star, Edit2, UserMinus, UserCheck, Unlink, X, Eye, EyeOff, List, LayoutGrid, ChevronLeft, Activity } from "lucide-react";
 import {
   usePermissions,
   TENANT_ROLES,
   UserRole,
 } from "@/contexts/PermissionsContext";
-import {
-  TENANT_ASSIGNABLE_ROLES,
-  TENANT_JOB_TITLES,
-  DEFAULT_TENANT_JOB_TITLE,
-} from "@/lib/tenant/tenantDisplay";
-import {
-  isEmployeeActive,
-  canonicalEmployeeStatus,
-  employeeStatusLabel,
-} from "@/lib/tenant/employeeStatus";
+import { TENANT_ASSIGNABLE_ROLES, TENANT_JOB_TITLES, DEFAULT_TENANT_JOB_TITLE } from "@/lib/tenant/tenantDisplay";
+import { isEmployeeActive, canonicalEmployeeStatus, employeeStatusLabel } from "@/lib/tenant/employeeStatus";
 import { allowedStructureLevels } from "@/lib/org/packageHierarchy";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { useEmployees, useOrgProfileIds, useTasks } from "@/hooks/useData";
@@ -69,35 +40,28 @@ const statusBadge = (status: string) =>
   isEmployeeActive(status) ? "status-active" : "status-inactive";
 
 // Shown when an employee account cannot be safely controlled (incomplete linkage).
-const NEEDS_LINK_MSG =
-  "هذا الحساب يحتاج مراجعة قبل التحكم به. يرجى التواصل مع الدعم.";
+const NEEDS_LINK_MSG = "هذا الحساب يحتاج مراجعة قبل التحكم به. يرجى التواصل مع الدعم.";
 
 function isMissingLoginProfile(message: string): boolean {
   return /المستخدم غير موجود|not found|404/i.test(message);
 }
 
+
 type FormState = {
-  name: string;
-  email: string;
-  password: string;
-  phone: string;
+  name:       string;
+  email:      string;
+  password:   string;
+  phone:      string;
   departmentId: string;
-  managerId: string;
-  role: UserRole;
-  jobTitle: string;
-  status: "نشط" | "غير_نشط";
-  salary: string;
+  managerId:  string;
+  role:       UserRole;
+  jobTitle:   string;
+  status:     "نشط" | "غير_نشط";
+  salary:     string;
 };
 
 function EmployeesContent() {
-  const {
-    data: employees,
-    loading,
-    error,
-    update,
-    refetch,
-    setData,
-  } = useEmployees();
+  const { data: employees, loading, error, update, refetch, setData } = useEmployees();
   const { data: tasks } = useTasks();
   const { data: orgSnapshot, loading: orgLoading } = useOrgStructure(true);
   // Profile-linkage: an employee is "linked" when employees.id matches a
@@ -105,15 +69,12 @@ function EmployeesContent() {
   // While the set is still loading we optimistically treat rows as linked so
   // the action buttons don't flicker disabled on first paint.
   const { ids: linkedProfileIds, loading: linkLoading } = useOrgProfileIds();
-  const needsLinkEmployee = (id: string) =>
-    !linkLoading && !linkedProfileIds.has(id);
+  const needsLinkEmployee = (id: string) => !linkLoading && !linkedProfileIds.has(id);
   const orgUnits = getAssignableOrgUnits(orgSnapshot?.departments ?? []);
   const { userRole, hasPermission } = usePermissions();
   const { planSlug } = useTenantWorkspace();
   const assignableRoles: UserRole[] =
-    userRole === "super_admin"
-      ? [...TENANT_ASSIGNABLE_ROLES, "super_admin"]
-      : [...TENANT_ASSIGNABLE_ROLES];
+    userRole === "super_admin" ? [...TENANT_ASSIGNABLE_ROLES, "super_admin"] : [...TENANT_ASSIGNABLE_ROLES];
 
   // Job-title tiers gated by the active subscription plan's org-structure levels
   // (موظف always; مدير المنشأة is never offered here — reserved for org_manager).
@@ -131,10 +92,8 @@ function EmployeesContent() {
     return unit?.color ?? departmentColor(deptName);
   };
 
-  const resolveDeptId = (emp: (typeof employees)[0]) => {
-    const relation = orgSnapshot?.relations.find(
-      (r) => r.employee_id === emp.id,
-    );
+  const resolveDeptId = (emp: typeof employees[0]) => {
+    const relation = orgSnapshot?.relations.find((r) => r.employee_id === emp.id);
     return resolveOrgUnitIdForEmployee(
       orgSnapshot?.departments ?? [],
       emp.department,
@@ -144,16 +103,13 @@ function EmployeesContent() {
 
   // Current direct-manager link for an employee (employee_relations.manager_id).
   const resolveManagerId = (employeeId: string) =>
-    orgSnapshot?.relations.find((r) => r.employee_id === employeeId)
-      ?.manager_id ?? "";
+    orgSnapshot?.relations.find((r) => r.employee_id === employeeId)?.manager_id ?? "";
 
-  const [search, setSearch] = useState("");
+  const [search,     setSearch]     = useState("");
   const [deptFilter, setDeptFilter] = useState("الكل");
   // Status filter — defaults to "active" so soft-removed ("حذف من الفريق")
   // employees behave like an archive and don't clutter the active team list.
-  const [statusFilter, setStatusFilter] = useState<
-    "active" | "inactive" | "review" | "all"
-  >("active");
+  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "review" | "all">("active");
   // Mobile-only directory display mode. "list" = premium compact names list
   // (default, fastest to scan); "cards" = compact detail cards. Desktop table is
   // unaffected. Toggling never touches filters or counts.
@@ -161,32 +117,21 @@ function EmployeesContent() {
   const [showPresenceDock, setShowPresenceDock] = useState(false);
   // Employee whose details sheet is open (opened from a list row). null = closed.
   const [detailsId, setDetailsId] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [showModal,  setShowModal]  = useState(false);
+  const [editId,     setEditId]     = useState<string | null>(null);
+  const [saving,     setSaving]     = useState(false);
   // Per-row busy flag for deactivate/reactivate so only the acted-on row's
   // buttons disable (the modal's `saving` flag is separate).
-  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
-  const [showPass, setShowPass] = useState(false);
+  const [rowBusyId,  setRowBusyId]  = useState<string | null>(null);
+  const [showPass,   setShowPass]   = useState(false);
   const [legacyDeptHint, setLegacyDeptHint] = useState<string | null>(null);
   // Inline modal error — stays visible (toasts auto-dismiss) so the user sees
   // exactly why a create/save failed without the modal closing.
   const [formError, setFormError] = useState<string | null>(null);
-  const showFormError = (m: string) => {
-    setFormError(m);
-    toast.error(m);
-  };
+  const showFormError = (m: string) => { setFormError(m); toast.error(m); };
   const [form, setForm] = useState<FormState>({
-    name: "",
-    email: "",
-    password: "",
-    phone: "",
-    departmentId: defaultDeptId,
-    managerId: "",
-    role: "employee",
-    jobTitle: DEFAULT_TENANT_JOB_TITLE,
-    status: "نشط",
-    salary: "",
+    name: "", email: "", password: "", phone: "", departmentId: defaultDeptId,
+    managerId: "", role: "employee", jobTitle: DEFAULT_TENANT_JOB_TITLE, status: "نشط", salary: "",
   });
 
   // Safety net: if saving is stuck (network issue, unhandled error, etc.)
@@ -195,177 +140,107 @@ function EmployeesContent() {
     if (!saving) return;
     const timer = setTimeout(() => {
       setSaving(false);
-      toast.error(
-        "انتهت مهلة الحفظ (20 ثانية) — تحقق من اتصالك بالإنترنت وحاول مرة أخرى",
-      );
+      toast.error("انتهت مهلة الحفظ (20 ثانية) — تحقق من اتصالك بالإنترنت وحاول مرة أخرى");
     }, 20_000);
     return () => clearTimeout(timer);
   }, [saving]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The single customer-facing state of an employee row. These are mutually
   // exclusive and map 1:1 to the three labels: نشط / غير نشط / يتطلب مراجعة.
-  const effectiveState = (
-    emp: (typeof employees)[0],
-  ): "active" | "inactive" | "review" =>
-    needsLinkEmployee(emp.id)
-      ? "review"
-      : isEmployeeActive(emp.status)
-        ? "active"
-        : "inactive";
+  const effectiveState = (emp: typeof employees[0]): "active" | "inactive" | "review" =>
+    needsLinkEmployee(emp.id) ? "review" : isEmployeeActive(emp.status) ? "active" : "inactive";
 
   const statusCounts = {
-    all: employees.length,
-    active: employees.filter((e) => effectiveState(e) === "active").length,
+    all:      employees.length,
+    active:   employees.filter((e) => effectiveState(e) === "active").length,
     inactive: employees.filter((e) => effectiveState(e) === "inactive").length,
-    review: employees.filter((e) => effectiveState(e) === "review").length,
+    review:   employees.filter((e) => effectiveState(e) === "review").length,
   };
 
   const filtered = employees.filter((e) => {
     const q = search.toLowerCase();
-    const matchesStatus =
-      statusFilter === "all" || effectiveState(e) === statusFilter;
-    return (
-      matchesStatus &&
-      (deptFilter === "الكل" || e.department === deptFilter) &&
-      (e.name.toLowerCase().includes(q) ||
-        (e.email ?? "").toLowerCase().includes(q))
-    );
+    const matchesStatus = statusFilter === "all" || effectiveState(e) === statusFilter;
+    return matchesStatus
+      && (deptFilter === "الكل" || e.department === deptFilter)
+      && (e.name.toLowerCase().includes(q) || (e.email ?? "").toLowerCase().includes(q));
   });
 
   const emptyMessage = search.trim()
     ? "لا توجد نتائج مطابقة للبحث"
-    : statusFilter === "active"
-      ? "لا يوجد موظفون نشطون"
-      : statusFilter === "inactive"
-        ? "لا يوجد موظفون غير نشطين"
-        : statusFilter === "review"
-          ? "لا توجد حسابات تتطلب مراجعة"
-          : "لا توجد نتائج مطابقة";
+    : statusFilter === "active"   ? "لا يوجد موظفون نشطون"
+    : statusFilter === "inactive" ? "لا يوجد موظفون غير نشطين"
+    : statusFilter === "review"   ? "لا توجد حسابات تتطلب مراجعة"
+    : "لا توجد نتائج مطابقة";
 
-  const STATUS_FILTERS: {
-    key: typeof statusFilter;
-    label: string;
-    count: number;
-  }[] = [
-    { key: "active", label: "النشطون", count: statusCounts.active },
-    { key: "inactive", label: "غير النشطين", count: statusCounts.inactive },
-    { key: "review", label: "يتطلب مراجعة", count: statusCounts.review },
-    { key: "all", label: "الكل", count: statusCounts.all },
+  const STATUS_FILTERS: { key: typeof statusFilter; label: string; count: number }[] = [
+    { key: "active",   label: "النشطون",      count: statusCounts.active },
+    { key: "inactive", label: "غير النشطين",  count: statusCounts.inactive },
+    { key: "review",   label: "يتطلب مراجعة", count: statusCounts.review },
+    { key: "all",      label: "الكل",         count: statusCounts.all },
   ];
 
   const openAdd = () => {
     setEditId(null);
     setLegacyDeptHint(null);
     setFormError(null);
-    setForm({
-      name: "",
-      email: "",
-      password: "",
-      phone: "",
-      departmentId: defaultDeptId,
-      managerId: "",
-      role: "employee",
-      jobTitle: DEFAULT_TENANT_JOB_TITLE,
-      status: "نشط",
-      salary: "",
-    });
+    setForm({ name: "", email: "", password: "", phone: "", departmentId: defaultDeptId, managerId: "", role: "employee", jobTitle: DEFAULT_TENANT_JOB_TITLE, status: "نشط", salary: "" });
     setShowPass(false);
     setShowModal(true);
   };
 
-  const openEdit = (emp: (typeof employees)[0]) => {
+  const openEdit = (emp: typeof employees[0]) => {
     setEditId(emp.id);
     setFormError(null);
     const resolvedId = resolveDeptId(emp);
-    setLegacyDeptHint(
-      !resolvedId && emp.department?.trim() ? emp.department.trim() : null,
-    );
+    setLegacyDeptHint(!resolvedId && emp.department?.trim() ? emp.department.trim() : null);
     setForm({
-      name: emp.name,
-      email: emp.email,
-      password: "",
-      phone: emp.phone || "",
+      name:       emp.name,
+      email:      emp.email,
+      password:   "",
+      phone:      emp.phone || "",
       departmentId: resolvedId,
-      managerId: resolveManagerId(emp.id),
-      role: emp.role as UserRole,
-      jobTitle: emp.jobTitle || DEFAULT_TENANT_JOB_TITLE,
+      managerId:  resolveManagerId(emp.id),
+      role:       emp.role as UserRole,
+      jobTitle:   emp.jobTitle || DEFAULT_TENANT_JOB_TITLE,
       // Normalize legacy/unknown status to a canonical value for the editor.
-      status: canonicalEmployeeStatus(isEmployeeActive(emp.status)),
-      salary: String(emp.salary ?? ""),
+      status:     canonicalEmployeeStatus(isEmployeeActive(emp.status)),
+      salary:     String(emp.salary ?? ""),
     });
     setShowPass(false);
     setShowModal(true);
   };
 
-  const closeModal = () => {
-    setShowModal(false);
-    setLegacyDeptHint(null);
-    setFormError(null);
-  };
+  const closeModal = () => { setShowModal(false); setLegacyDeptHint(null); setFormError(null); };
 
   const handleSave = async () => {
     // ── client-side clean + validate ──────────────────────────────────────────
     setFormError(null);
     // eslint-disable-next-line no-control-regex
-    const cleanEmail = form.email
-      .replace(/[^\x00-\x7F]/g, "")
-      .replace(/\s/g, "")
-      .trim()
-      .toLowerCase();
+    const cleanEmail = form.email.replace(/[^\x00-\x7F]/g, "").replace(/\s/g, "").trim().toLowerCase();
 
-    if (!form.name.trim()) {
-      showFormError("الاسم الكامل مطلوب");
-      return;
-    }
-    if (!form.role) {
-      showFormError("الدور مطلوب");
-      return;
-    }
+    if (!form.name.trim()) { showFormError("الاسم الكامل مطلوب"); return; }
+    if (!form.role) { showFormError("الدور مطلوب"); return; }
     if (!assignableRoles.includes(form.role)) {
       showFormError("الدور المحدد غير مسموح به في واجهة المنشأة");
       return;
     }
     // Organizational unit is OPTIONAL — an employee can be created without it and
     // linked later from the org structure. (When a unit is chosen it is assigned.)
-    if (!cleanEmail) {
-      showFormError("البريد الإلكتروني مطلوب");
-      return;
-    }
+    if (!cleanEmail) { showFormError("البريد الإلكتروني مطلوب"); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       showFormError("البريد الإلكتروني غير صالح — مثال: user@domain.com");
       return;
     }
     if (!editId) {
-      if (!form.password) {
-        showFormError("كلمة المرور مطلوبة لإنشاء حساب جديد");
-        return;
-      }
-      if (form.password.length < 8) {
-        showFormError("كلمة المرور يجب أن تكون 8 أحرف على الأقل");
-        return;
-      }
-      if (!/[A-Z]/.test(form.password)) {
-        showFormError("كلمة المرور يجب أن تحتوي على حرف كبير (A-Z)");
-        return;
-      }
-      if (!/[a-z]/.test(form.password)) {
-        showFormError("كلمة المرور يجب أن تحتوي على حرف صغير (a-z)");
-        return;
-      }
-      if (!/[0-9]/.test(form.password)) {
-        showFormError("كلمة المرور يجب أن تحتوي على رقم (0-9)");
-        return;
-      }
-      if (!/[^A-Za-z0-9]/.test(form.password)) {
-        showFormError("كلمة المرور يجب أن تحتوي على رمز (!@#$%^&*)");
-        return;
-      }
+      if (!form.password)                       { showFormError("كلمة المرور مطلوبة لإنشاء حساب جديد"); return; }
+      if (form.password.length < 8)             { showFormError("كلمة المرور يجب أن تكون 8 أحرف على الأقل"); return; }
+      if (!/[A-Z]/.test(form.password))         { showFormError("كلمة المرور يجب أن تحتوي على حرف كبير (A-Z)"); return; }
+      if (!/[a-z]/.test(form.password))         { showFormError("كلمة المرور يجب أن تحتوي على حرف صغير (a-z)"); return; }
+      if (!/[0-9]/.test(form.password))         { showFormError("كلمة المرور يجب أن تحتوي على رقم (0-9)"); return; }
+      if (!/[^A-Za-z0-9]/.test(form.password)) { showFormError("كلمة المرور يجب أن تحتوي على رمز (!@#$%^&*)"); return; }
     }
 
-    const selectedUnit = findOrgUnitById(
-      orgSnapshot?.departments ?? [],
-      form.departmentId,
-    );
+    const selectedUnit = findOrgUnitById(orgSnapshot?.departments ?? [], form.departmentId);
     const departmentLabel = selectedUnit?.name ?? "";
 
     setSaving(true);
@@ -378,20 +253,17 @@ function EmployeesContent() {
         // update abort the edit.
         try {
           await update(editId, {
-            name: form.name.trim(),
-            email: cleanEmail,
-            phone: form.phone,
+            name:       form.name.trim(),
+            email:      cleanEmail,
+            phone:      form.phone,
             department: departmentLabel,
-            role: form.role as never,
-            jobTitle: form.jobTitle,
-            status: form.status,
-            salary: form.salary ? Number(form.salary) : undefined,
+            role:       form.role as never,
+            jobTitle:   form.jobTitle,
+            status:     form.status,
+            salary:     form.salary ? Number(form.salary) : undefined,
           });
         } catch (clientErr) {
-          console.warn(
-            "[employees] client update skipped (using admin API):",
-            clientErr,
-          );
+          console.warn("[employees] client update skipped (using admin API):", clientErr);
         }
         // Org-unit linking is non-fatal here too: an RLS/structure failure must
         // NOT abort the edit before the canonical service-role sync below runs.
@@ -405,10 +277,7 @@ function EmployeesContent() {
               manager_id: form.managerId || null,
             });
           } catch (assignErr) {
-            console.warn(
-              "[employees] org-unit assignment (edit) failed:",
-              assignErr,
-            );
+            console.warn("[employees] org-unit assignment (edit) failed:", assignErr);
           }
         }
         try {
@@ -429,8 +298,7 @@ function EmployeesContent() {
           );
           toast.success("تم تحديث بيانات الموظف ومزامنة صلاحيات الدخول بنجاح");
         } catch (syncErr) {
-          const syncMsg =
-            syncErr instanceof Error ? syncErr.message : String(syncErr);
+          const syncMsg = syncErr instanceof Error ? syncErr.message : String(syncErr);
           if (isMissingLoginProfile(syncMsg)) {
             toast.warning(
               "تم حفظ بيانات الموظف — لا يوجد حساب دخول مرتبط بهذا السجل، لم تُحدَّث صلاحيات تسجيل الدخول",
@@ -466,17 +334,17 @@ function EmployeesContent() {
         // (Network AbortController in db.ts fires at 12 s; this is the fallback.)
         const created = await withTimeout(
           createAuthUser({
-            email: cleanEmail,
-            password: form.password,
-            name: form.name.trim(),
+            email:      cleanEmail,
+            password:   form.password,
+            name:       form.name.trim(),
             // New tenant hires are always auth-role "employee" (constraint-safe,
             // no broad permissions). The organizational tier is the job title.
-            role: "employee",
-            jobTitle: form.jobTitle,
+            role:       "employee",
+            jobTitle:   form.jobTitle,
             department: departmentLabel,
-            phone: form.phone || null,
-            salary: form.salary ? Number(form.salary) : null,
-            status: form.status,
+            phone:      form.phone || null,
+            salary:     form.salary ? Number(form.salary) : null,
+            status:     form.status,
           }),
           15_000,
           "انتهت مهلة الحفظ (15 ثانية) — تحقق من اتصالك بالإنترنت وحاول مرة أخرى",
@@ -484,25 +352,22 @@ function EmployeesContent() {
         // The auth user + profile + employee row are already created server-side.
         // Reflect that in the list immediately so the new employee never gets
         // "lost" even if a later step (org-unit link) fails.
-        setData((prev) => [
-          {
-            id: created.id,
-            name: form.name.trim(),
-            email: cleanEmail,
-            role: "employee",
-            jobTitle: form.jobTitle,
-            department: departmentLabel,
-            status: form.status,
-            joinDate: new Date().toISOString().split("T")[0],
-            performance: 3,
-            phone: form.phone || undefined,
-            salary: form.salary ? Number(form.salary) : undefined,
-            tasks: 0,
-            completedTasks: 0,
-            avatar: undefined,
-          },
-          ...prev,
-        ]);
+        setData((prev) => [{
+          id:             created.id,
+          name:           form.name.trim(),
+          email:          cleanEmail,
+          role:           "employee",
+          jobTitle:       form.jobTitle,
+          department:     departmentLabel,
+          status:         form.status,
+          joinDate:       new Date().toISOString().split("T")[0],
+          performance:    3,
+          phone:          form.phone || undefined,
+          salary:         form.salary ? Number(form.salary) : undefined,
+          tasks:          0,
+          completedTasks: 0,
+          avatar:         undefined,
+        }, ...prev]);
 
         // Org-unit linking is a separate, non-fatal step: the employee already
         // exists, so an assignment failure must NOT roll back or block — report
@@ -518,10 +383,7 @@ function EmployeesContent() {
               manager_id: form.managerId || null,
             });
           } catch (assignErr) {
-            assignWarning =
-              assignErr instanceof Error
-                ? assignErr.message
-                : String(assignErr);
+            assignWarning = assignErr instanceof Error ? assignErr.message : String(assignErr);
             console.warn("[employees] org-unit assignment failed:", assignErr);
           }
         }
@@ -543,13 +405,11 @@ function EmployeesContent() {
       // is shown inline via showFormError so it does not auto-dismiss.
       let msg = raw;
       if (/مسجل مسبقاً|already|registered|exists|duplicate/i.test(raw)) {
-        msg =
-          "البريد الإلكتروني مستخدم مسبقًا. استخدم بريدًا آخر أو اربطه من لوحة المالك.";
+        msg = "البريد الإلكتروني مستخدم مسبقًا. استخدم بريدًا آخر أو اربطه من لوحة المالك.";
       } else if (/غير مربوط بمنشأة|organization_id/i.test(raw)) {
         msg = "حسابك غير مربوط بمنشأة — تواصل مع الدعم قبل إضافة الموظفين.";
       } else if (/service_role|SERVICE_ROLE_KEY/i.test(raw)) {
-        msg =
-          "خطأ في إعداد الخادم — تحقق من إضافة SUPABASE_SERVICE_ROLE_KEY في Vercel";
+        msg = "خطأ في إعداد الخادم — تحقق من إضافة SUPABASE_SERVICE_ROLE_KEY في Vercel";
       } else if (/invalid email/i.test(raw)) {
         msg = "البريد الإلكتروني غير صالح — تأكد من الكتابة بشكل صحيح";
       }
@@ -564,19 +424,11 @@ function EmployeesContent() {
   // Sets profiles.is_active=false + employees.status="غير_نشط" via the
   // service-role route (org-scoped). auth.users is preserved; the relation to
   // the org structure is kept so the employee shows as inactive, not orphaned.
-  const handleDeactivate = async (emp: (typeof employees)[0]) => {
+  const handleDeactivate = async (emp: typeof employees[0]) => {
     if (rowBusyId) return;
-    if (needsLinkEmployee(emp.id)) {
-      toast.error(NEEDS_LINK_MSG);
-      return;
-    }
+    if (needsLinkEmployee(emp.id)) { toast.error(NEEDS_LINK_MSG); return; }
     if (!isEmployeeActive(emp.status)) return;
-    if (
-      !confirm(
-        `هل تريد إزالة ${emp.name} من الفريق؟ سيتم تعطيل الحساب (بدون حذف) ويمكنك إعادة تفعيله لاحقاً.`,
-      )
-    )
-      return;
+    if (!confirm(`هل تريد إزالة ${emp.name} من الفريق؟ سيتم تعطيل الحساب (بدون حذف) ويمكنك إعادة تفعيله لاحقاً.`)) return;
     setRowBusyId(emp.id);
     try {
       await withTimeout(
@@ -601,12 +453,9 @@ function EmployeesContent() {
   };
 
   // Reactivate ("تفعيل الموظف"): restore active state (mirror of deactivate).
-  const handleReactivate = async (emp: (typeof employees)[0]) => {
+  const handleReactivate = async (emp: typeof employees[0]) => {
     if (rowBusyId) return;
-    if (needsLinkEmployee(emp.id)) {
-      toast.error(NEEDS_LINK_MSG);
-      return;
-    }
+    if (needsLinkEmployee(emp.id)) { toast.error(NEEDS_LINK_MSG); return; }
     if (isEmployeeActive(emp.status)) return;
     setRowBusyId(emp.id);
     try {
@@ -615,9 +464,7 @@ function EmployeesContent() {
         12_000,
         "انتهت مهلة العملية — تحقق من اتصالك بالإنترنت",
       );
-      setData((prev) =>
-        prev.map((e) => (e.id === emp.id ? { ...e, status: "نشط" } : e)),
-      );
+      setData((prev) => prev.map((e) => (e.id === emp.id ? { ...e, status: "نشط" } : e)));
       toast.success(`تم تفعيل ${emp.name} بنجاح`);
       await withSoftTimeout(refetch(), 6_000);
     } catch (err) {
@@ -634,110 +481,49 @@ function EmployeesContent() {
   };
 
   const stats = {
-    total: employees.length,
+    total:  employees.length,
     active: employees.filter((e) => effectiveState(e) === "active").length,
-    depts: orgUnits.length || new Set(employees.map((e) => e.department)).size,
+    depts:  orgUnits.length || new Set(employees.map((e) => e.department)).size,
   };
 
   const filterDepts = ["الكل", ...orgUnits.map((d) => d.name)];
 
-  const presenceFor = (emp: (typeof employees)[0]) => {
-    const empTasks = tasks.filter(
-      (t) => t.assigneeId === emp.id || t.assigneeName === emp.name,
-    );
+  const presenceFor = (emp: typeof employees[0]) => {
+    const empTasks = tasks.filter((t) => t.assigneeId === emp.id || t.assigneeName === emp.name);
     const hasInProgress = empTasks.some((t) => t.status === "قيد_التنفيذ");
-    const hasLate = empTasks.some(
-      (t) =>
-        t.status === "متأخرة" ||
-        (t.status !== "مكتملة" && new Date(t.dueDate) < new Date()),
-    );
+    const hasLate = empTasks.some((t) => t.status === "متأخرة" || (t.status !== "مكتملة" && new Date(t.dueDate) < new Date()));
     const waitsReview = empTasks.some((t) => t.status === "بانتظار_المراجعة");
     const highLoad = empTasks.filter((t) => t.status !== "مكتملة").length >= 5;
-    if (needsLinkEmployee(emp.id) || !emp.department)
-      return {
-        label: "خارج الهيكل",
-        color: "#fb923c",
-        tone: "bg-orange-500/10 text-orange-300 border-orange-400/20",
-      };
-    if (!isEmployeeActive(emp.status))
-      return {
-        label: "غير نشط",
-        color: "#94a3b8",
-        tone: "bg-slate-500/10 text-slate-300 border-slate-400/15",
-      };
-    if (hasLate)
-      return {
-        label: "خطر تأخير",
-        color: "#f87171",
-        tone: "bg-red-500/10 text-red-300 border-red-400/20",
-      };
-    if (highLoad)
-      return {
-        label: "ضغط عالي",
-        color: "#f59e0b",
-        tone: "bg-amber-500/10 text-amber-300 border-amber-400/20",
-      };
-    if (waitsReview)
-      return {
-        label: "ينتظر مراجعة",
-        color: "#a855f7",
-        tone: "bg-violet-500/10 text-violet-300 border-violet-400/20",
-      };
-    if (hasInProgress)
-      return {
-        label: "يعمل الآن",
-        color: "#22d3ee",
-        tone: "bg-cyan-500/10 text-cyan-200 border-cyan-300/20",
-      };
-    return {
-      label: "نشط ومستقر",
-      color: "#34d399",
-      tone: "bg-emerald-500/10 text-emerald-300 border-emerald-400/20",
-    };
+    if (needsLinkEmployee(emp.id) || !emp.department) return { label: "خارج الهيكل", tone: "bg-orange-500/10 text-orange-300 border-orange-400/20" };
+    if (!isEmployeeActive(emp.status)) return { label: "غير نشط", tone: "bg-slate-500/10 text-slate-300 border-slate-400/15" };
+    if (hasLate) return { label: "خطر تأخير", tone: "bg-red-500/10 text-red-300 border-red-400/20" };
+    if (highLoad) return { label: "ضغط عالي", tone: "bg-amber-500/10 text-amber-300 border-amber-400/20" };
+    if (waitsReview) return { label: "ينتظر مراجعة", tone: "bg-violet-500/10 text-violet-300 border-violet-400/20" };
+    if (hasInProgress) return { label: "يعمل الآن", tone: "bg-cyan-500/10 text-cyan-200 border-cyan-300/20" };
+    return { label: "نشط ومستقر", tone: "bg-emerald-500/10 text-emerald-300 border-emerald-400/20" };
   };
 
-  const presenceSummary = employees.reduce<Record<string, number>>(
-    (acc, emp) => {
-      const key = presenceFor(emp).label;
-      acc[key] = (acc[key] ?? 0) + 1;
-      return acc;
-    },
-    {},
-  );
+  const presenceSummary = employees.reduce<Record<string, number>>((acc, emp) => {
+    const key = presenceFor(emp).label;
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
 
-  const priorityPresence = employees
-    .filter((emp) =>
-      ["خطر تأخير", "ضغط عالي", "ينتظر مراجعة", "خارج الهيكل"].includes(
-        presenceFor(emp).label,
-      ),
-    )
-    .slice(0, 6);
+  const priorityPresence = employees.filter((emp) => ["خطر تأخير", "ضغط عالي", "ينتظر مراجعة", "خارج الهيكل"].includes(presenceFor(emp).label)).slice(0, 6);
+  const departmentDistribution = filterDepts.filter((d) => d !== "الكل").map((dept) => ({ dept, count: employees.filter((emp) => emp.department === dept).length })).filter((item) => item.count > 0);
 
-  const departmentDistribution = filterDepts
-    .filter((d) => d !== "الكل")
-    .map((dept) => ({
-      dept,
-      count: employees.filter((emp) => emp.department === dept).length,
-    }))
-    .filter((item) => item.count > 0);
 
   return (
     <DashboardLayout>
       <div className={cn(WS_PAGE, "min-w-0 max-w-full overflow-x-hidden")}>
         <PageHero title="إدارة الموظفين" subtitle="إدارة بيانات فريق العمل">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowPresenceDock(true)}
-              className="hidden sm:flex items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-400/15 transition-colors"
-            >
+            <button onClick={() => setShowPresenceDock(true)} className="hidden sm:flex items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-400/15 transition-colors">
               <Activity size={16} />
               عرض الحضور الذكي
             </button>
             {canManageEmployees && (
-              <button
-                onClick={openAdd}
-                className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation"
-              >
+              <button onClick={openAdd} className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation">
                 <Plus size={16} />
                 إضافة موظف
               </button>
@@ -751,69 +537,33 @@ function EmployeesContent() {
           <div className="pointer-events-none absolute -top-10 -left-10 h-24 w-24 rounded-full bg-cyan-500/10 blur-2xl" />
           <div className="relative grid grid-cols-3 divide-x divide-x-reverse divide-[#1e3a5f]/70">
             <div className="flex flex-col items-center justify-center py-3">
-              <span className="text-white font-bold text-lg leading-none">
-                {stats.total}
-              </span>
+              <span className="text-white font-bold text-lg leading-none">{stats.total}</span>
               <span className="text-[#8ba3c7] text-[11px] mt-1">إجمالي</span>
             </div>
             <div className="flex flex-col items-center justify-center py-3">
-              <span className="text-emerald-400 font-bold text-lg leading-none">
-                {statusCounts.active}
-              </span>
+              <span className="text-emerald-400 font-bold text-lg leading-none">{statusCounts.active}</span>
               <span className="text-[#8ba3c7] text-[11px] mt-1">نشط</span>
             </div>
             <div className="flex flex-col items-center justify-center py-3">
-              <span className="text-amber-300 font-bold text-lg leading-none">
-                {statusCounts.review}
-              </span>
+              <span className="text-amber-300 font-bold text-lg leading-none">{statusCounts.review}</span>
               <span className="text-[#8ba3c7] text-[11px] mt-1">مراجعة</span>
             </div>
           </div>
         </div>
-
         <div className="sm:hidden flex items-center justify-between gap-2 rounded-2xl border border-cyan-300/10 bg-[#08162c]/70 px-3 py-2 shadow-[0_10px_30px_-24px_rgba(34,211,238,0.45)]">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-cyan-100">
-              الحضور الذكي
-            </p>
-            <p className="text-[10px] text-[#8ba3c7] truncate">
-              ملخص تشغيلي مختصر — التفاصيل داخل الدرج
-            </p>
+            <p className="text-[11px] font-semibold text-cyan-100">الحضور الذكي</p>
+            <p className="text-[10px] text-[#8ba3c7] truncate">ملخص تشغيلي مختصر — التفاصيل داخل الدرج</p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowPresenceDock(true)}
-            className="shrink-0 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.10)]"
-          >
+          <button type="button" onClick={() => setShowPresenceDock(true)} className="shrink-0 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.10)]">
             عرض الحضور الذكي
           </button>
         </div>
         {/* Desktop/tablet: full KPI cards (sm+) */}
         <div className="hidden sm:grid sm:grid-cols-3 gap-4 min-w-0">
-          <KpiStatCard
-            label="إجمالي الموظفين"
-            value={String(stats.total)}
-            icon={Users}
-            accent="cyan"
-            showLive={false}
-            showSparkline={false}
-          />
-          <KpiStatCard
-            label="الموظفون النشطون"
-            value={String(stats.active)}
-            icon={Users}
-            accent="emerald"
-            showLive={false}
-            showSparkline={false}
-          />
-          <KpiStatCard
-            label="الأقسام"
-            value={String(stats.depts)}
-            icon={Users}
-            accent="sky"
-            showLive={false}
-            showSparkline={false}
-          />
+          <KpiStatCard label="إجمالي الموظفين" value={String(stats.total)} icon={Users} accent="cyan" showLive={false} showSparkline={false} />
+          <KpiStatCard label="الموظفون النشطون" value={String(stats.active)} icon={Users} accent="emerald" showLive={false} showSparkline={false} />
+          <KpiStatCard label="الأقسام" value={String(stats.depts)} icon={Users} accent="sky" showLive={false} showSparkline={false} />
         </div>
 
         {/* Filters */}
@@ -821,10 +571,7 @@ function EmployeesContent() {
           {/* Search + status segmented control */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="relative sm:flex-1 sm:max-w-xs">
-              <Search
-                size={15}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba3c7]"
-              />
+              <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba3c7]" />
               <input
                 className="input-dark pr-9 py-2 text-sm w-full"
                 placeholder="بحث بالاسم أو البريد..."
@@ -848,9 +595,7 @@ function EmployeesContent() {
                   <span
                     className={cn(
                       "inline-flex items-center justify-center rounded-md text-[10px] px-1.5 min-w-5",
-                      statusFilter === f.key
-                        ? "bg-[#0a1628]/20 text-[#0a1628]"
-                        : "bg-white/[0.06] text-[#8ba3c7]",
+                      statusFilter === f.key ? "bg-[#0a1628]/20 text-[#0a1628]" : "bg-white/[0.06] text-[#8ba3c7]",
                     )}
                   >
                     {f.count}
@@ -868,9 +613,7 @@ function EmployeesContent() {
                   key={d}
                   onClick={() => setDeptFilter(d)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                    deptFilter === d
-                      ? "bg-[#22d3ee] text-[#0a1628]"
-                      : "bg-[#1a3356]/50 text-[#8ba3c7] hover:text-white"
+                    deptFilter === d ? "bg-[#22d3ee] text-[#0a1628]" : "bg-[#1a3356]/50 text-[#8ba3c7] hover:text-white"
                   }`}
                 >
                   {d}
@@ -881,12 +624,7 @@ function EmployeesContent() {
         </div>
 
         {error && (
-          <div
-            className={cn(
-              WS_CARD,
-              "p-4 border-red-500/30 text-red-400 text-sm flex items-center justify-between gap-3",
-            )}
-          >
+          <div className={cn(WS_CARD, "p-4 border-red-500/30 text-red-400 text-sm flex items-center justify-between gap-3")}>
             <span>{error}</span>
             <button
               onClick={() => refetch()}
@@ -896,11 +634,7 @@ function EmployeesContent() {
             </button>
           </div>
         )}
-        {loading && (
-          <div className="text-center py-8 text-[#8ba3c7] text-sm">
-            جارٍ التحميل...
-          </div>
-        )}
+        {loading && <div className="text-center py-8 text-[#8ba3c7] text-sm">جارٍ التحميل...</div>}
 
         {!loading && employees.length === 0 && !error && (
           <WorkspaceEmpty
@@ -910,10 +644,7 @@ function EmployeesContent() {
             accent="violet"
             action={
               canManageEmployees ? (
-                <button
-                  onClick={openAdd}
-                  className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation"
-                >
+                <button onClick={openAdd} className="btn-primary flex items-center gap-2 min-h-11 touch-manipulation">
                   <Plus size={16} />
                   إضافة موظف
                 </button>
@@ -959,12 +690,7 @@ function EmployeesContent() {
               </div>
 
               {filtered.length === 0 ? (
-                <div
-                  className={cn(
-                    WS_CARD,
-                    "py-10 text-center text-[#8ba3c7] text-sm",
-                  )}
-                >
+                <div className={cn(WS_CARD, "py-10 text-center text-[#8ba3c7] text-sm")}>
                   {emptyMessage}
                 </div>
               ) : mobileView === "list" ? (
@@ -972,170 +698,58 @@ function EmployeesContent() {
                   {filtered.map((emp) => {
                     const deptColor = deptColorFor(emp.department);
                     const presence = presenceFor(emp);
-                    const roleLabel =
-                      emp.jobTitle || getTenantRoleLabel(emp.role as UserRole);
+                    const roleLabel = emp.jobTitle || getTenantRoleLabel(emp.role as UserRole);
                     return (
-                      <button
-                        key={emp.id}
-                        type="button"
-                        onClick={() => setDetailsId(emp.id)}
-                        className="group w-full flex items-center gap-2.5 rounded-2xl border border-[#1e3a5f]/65 bg-[#0d1f3c]/40 px-3 py-2.5 text-right transition-all hover:border-cyan-400/30 hover:bg-[#0d1f3c]/70 active:scale-[0.99] min-h-16"
-                      >
-                        <div
-                          className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ring-1 ring-white/10"
-                          style={{
-                            background: `linear-gradient(135deg,${deptColor},#0a1628)`,
-                          }}
-                        >
-                          {emp.name.slice(0, 2)}
-                        </div>
+                      <button key={emp.id} type="button" onClick={() => setDetailsId(emp.id)} className="group w-full flex items-center gap-2.5 rounded-2xl border border-[#1e3a5f]/65 bg-[#0d1f3c]/40 px-3 py-2.5 text-right transition-all hover:border-cyan-400/30 hover:bg-[#0d1f3c]/70 active:scale-[0.99] min-h-16">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ring-1 ring-white/10" style={{ background: `linear-gradient(135deg,${deptColor},#0a1628)` }}>{emp.name.slice(0, 2)}</div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-white font-semibold text-[13px] truncate flex-1">
-                              {emp.name}
-                            </span>
-                            <span
-                              className={cn(
-                                "inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-semibold shrink-0",
-                                presence.tone,
-                              )}
-                            >
-                              {presence.label}
-                            </span>
+                            <span className="text-white font-semibold text-[13px] truncate flex-1">{emp.name}</span>
+                            <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-semibold shrink-0", presence.tone)}>{presence.label}</span>
                           </div>
                           <div className="mt-0.5 flex items-center gap-1.5 min-w-0 text-[11px] text-[#8ba3c7]">
                             <span className="truncate">{roleLabel}</span>
-                            {emp.department && (
-                              <>
-                                <span className="text-[#1e3a5f] shrink-0">
-                                  ·
-                                </span>
-                                <span
-                                  className="truncate max-w-[38%]"
-                                  style={{ color: deptColor }}
-                                >
-                                  {emp.department}
-                                </span>
-                              </>
-                            )}
-                            {emp.publicCode && (
-                              <>
-                                <span className="text-[#1e3a5f] shrink-0">
-                                  ·
-                                </span>
-                                <span
-                                  className="font-mono text-[10px] text-[#6b87ab] shrink-0"
-                                  dir="ltr"
-                                >
-                                  {emp.publicCode}
-                                </span>
-                              </>
-                            )}
+                            {emp.department && <><span className="text-[#1e3a5f] shrink-0">·</span><span className="truncate max-w-[38%]" style={{ color: deptColor }}>{emp.department}</span></>}
+                            {emp.publicCode && <><span className="text-[#1e3a5f] shrink-0">·</span><span className="font-mono text-[10px] text-[#6b87ab] shrink-0" dir="ltr">{emp.publicCode}</span></>}
                           </div>
                         </div>
-                        <ChevronLeft
-                          size={16}
-                          className="text-[#8ba3c7] group-hover:text-cyan-300 transition-colors shrink-0"
-                        />
+                        <ChevronLeft size={16} className="text-[#8ba3c7] group-hover:text-cyan-300 transition-colors shrink-0" />
                       </button>
                     );
                   })}
                 </div>
               ) : (
-                <div className="space-y-2.5 min-w-0">
+                <div className="space-y-3 min-w-0">
                   {filtered.map((emp) => {
                     const deptColor = deptColorFor(emp.department);
                     const presence = presenceFor(emp);
-                    const roleLabel =
-                      emp.jobTitle || getTenantRoleLabel(emp.role as UserRole);
+                    const roleLabel = emp.jobTitle || getTenantRoleLabel(emp.role as UserRole);
                     const isActive = isEmployeeActive(emp.status);
                     const broken = needsLinkEmployee(emp.id);
                     const actionsDisabled = rowBusyId === emp.id || broken;
                     return (
-                      <article
-                        key={emp.id}
-                        className={cn(WS_CARD, "p-3 space-y-2 min-w-0")}
-                      >
+                      <article key={emp.id} className={cn(WS_CARD, "p-3 space-y-2 min-w-0")}>
                         <div className="flex items-start gap-2.5 min-w-0">
-                          <div
-                            className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ring-1 ring-white/10"
-                            style={{
-                              background: `linear-gradient(135deg,${deptColor},#0a1628)`,
-                            }}
-                          >
-                            {emp.name.slice(0, 2)}
-                          </div>
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ring-1 ring-white/10" style={{ background: `linear-gradient(135deg,${deptColor},#0a1628)` }}>{emp.name.slice(0, 2)}</div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <div className="text-white font-semibold text-sm truncate flex-1 min-w-0">
-                                {emp.name}
-                              </div>
-                              <span
-                                className={cn(
-                                  "inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-semibold shrink-0",
-                                  presence.tone,
-                                )}
-                              >
-                                {presence.label}
-                              </span>
+                              <div className="text-white font-semibold text-sm truncate flex-1 min-w-0">{emp.name}</div>
+                              <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-semibold shrink-0", presence.tone)}>{presence.label}</span>
                             </div>
                             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#8ba3c7]">
-                              <span className="truncate max-w-[48%]">
-                                {roleLabel}
-                              </span>
-                              {emp.department && (
-                                <span
-                                  className="truncate max-w-[44%]"
-                                  style={{ color: deptColor }}
-                                >
-                                  {emp.department}
-                                </span>
-                              )}
-                              {emp.publicCode && (
-                                <span
-                                  className="font-mono text-[10px] text-[#6b87ab]"
-                                  dir="ltr"
-                                >
-                                  {emp.publicCode}
-                                </span>
-                              )}
+                              <span className="truncate max-w-[48%]">{roleLabel}</span>
+                              {emp.department && <span className="truncate max-w-[44%]" style={{ color: deptColor }}>{emp.department}</span>}
+                              {emp.publicCode && <span className="font-mono text-[10px] text-[#6b87ab]" dir="ltr">{emp.publicCode}</span>}
                             </div>
                           </div>
                         </div>
                         {canManageEmployees && (
                           <div className="flex gap-2 pt-0.5">
-                            <button
-                              type="button"
-                              onClick={() => openEdit(emp)}
-                              disabled={actionsDisabled}
-                              title={broken ? NEEDS_LINK_MSG : undefined}
-                              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2 text-xs text-[#8ba3c7] hover:text-cyan-300 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              <Edit2 size={14} />
-                              تعديل
-                            </button>
+                            <button type="button" onClick={() => openEdit(emp)} disabled={actionsDisabled} title={broken ? NEEDS_LINK_MSG : undefined} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2 text-xs text-[#8ba3c7] hover:text-cyan-300 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"><Edit2 size={14} />تعديل</button>
                             {isActive ? (
-                              <button
-                                type="button"
-                                onClick={() => handleDeactivate(emp)}
-                                disabled={actionsDisabled}
-                                title={broken ? NEEDS_LINK_MSG : undefined}
-                                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"
-                              >
-                                <UserMinus size={14} />
-                                حذف من الفريق
-                              </button>
+                              <button type="button" onClick={() => handleDeactivate(emp)} disabled={actionsDisabled} title={broken ? NEEDS_LINK_MSG : undefined} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"><UserMinus size={14} />حذف من الفريق</button>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleReactivate(emp)}
-                                disabled={actionsDisabled}
-                                title={broken ? NEEDS_LINK_MSG : undefined}
-                                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 py-2 text-xs text-emerald-400 hover:bg-emerald-500/10 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"
-                              >
-                                <UserCheck size={14} />
-                                تفعيل الموظف
-                              </button>
+                              <button type="button" onClick={() => handleReactivate(emp)} disabled={actionsDisabled} title={broken ? NEEDS_LINK_MSG : undefined} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 py-2 text-xs text-emerald-400 hover:bg-emerald-500/10 transition-colors min-h-10 disabled:opacity-40 disabled:cursor-not-allowed"><UserCheck size={14} />تفعيل الموظف</button>
                             )}
                           </div>
                         )}
@@ -1148,364 +762,157 @@ function EmployeesContent() {
 
             {/* Desktop: table */}
             <div className={cn(WS_CARD, "overflow-hidden p-0 hidden lg:block")}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[#1e3a5f] bg-white/[0.02]">
-                      <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">
-                        الموظف
-                      </th>
-                      <th className="hidden xl:table-cell text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">
-                        البريد
-                      </th>
-                      <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">
-                        الوحدة التنظيمية
-                      </th>
-                      <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">
-                        الدور الوظيفي
-                      </th>
-                      <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">
-                        الحالة
-                      </th>
-                      <th className="hidden xl:table-cell text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">
-                        المهام
-                      </th>
-                      <th className="hidden xl:table-cell text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">
-                        الأداء
-                      </th>
-                      <th className="hidden 2xl:table-cell text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">
-                        تاريخ الانضمام
-                      </th>
-                      <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">
-                        الإجراءات
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((emp) => (
-                      <tr
-                        key={emp.id}
-                        className="table-row border-b border-[#1e3a5f]/40 last:border-0"
-                      >
-                        {/* الموظف */}
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                              style={{
-                                background: `linear-gradient(135deg,${deptColorFor(emp.department)},#0a1628)`,
-                              }}
-                            >
-                              {emp.name.slice(0, 2)}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-white font-medium truncate">
-                                {emp.name}
-                              </div>
-                              {/* Email shown here only when the dedicated البريد column is hidden */}
-                              <div
-                                className="xl:hidden text-xs text-[#8ba3c7] truncate"
-                                dir="ltr"
-                              >
-                                {emp.email}
-                              </div>
-                              <div className="mt-0.5">
-                                <PublicCodeBadge code={emp.publicCode} />
-                              </div>
-                            </div>
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#1e3a5f] bg-white/[0.02]">
+                  <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">الموظف</th>
+                  <th className="hidden xl:table-cell text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">البريد</th>
+                  <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">الوحدة التنظيمية</th>
+                  <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">الدور الوظيفي</th>
+                  <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">الحالة</th>
+                  <th className="hidden xl:table-cell text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">المهام</th>
+                  <th className="hidden xl:table-cell text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">الأداء</th>
+                  <th className="hidden 2xl:table-cell text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">تاريخ الانضمام</th>
+                  <th className="text-right text-[#8ba3c7] font-medium text-xs px-4 py-3">الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((emp) => (
+                  <tr key={emp.id} className="table-row border-b border-[#1e3a5f]/40 last:border-0">
+                    {/* الموظف */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                          style={{ background: `linear-gradient(135deg,${deptColorFor(emp.department)},#0a1628)` }}
+                        >
+                          {emp.name.slice(0, 2)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-white font-medium truncate">{emp.name}</div>
+                          {/* Email shown here only when the dedicated البريد column is hidden */}
+                          <div className="xl:hidden text-xs text-[#8ba3c7] truncate" dir="ltr">{emp.email}</div>
+                          <div className="mt-0.5">
+                            <PublicCodeBadge code={emp.publicCode} />
                           </div>
-                        </td>
-                        {/* البريد */}
-                        <td className="hidden xl:table-cell px-4 py-3">
-                          <span
-                            className="text-[#8ba3c7] text-xs truncate inline-block max-w-[200px] align-middle"
-                            dir="ltr"
-                          >
-                            {emp.email}
+                        </div>
+                      </div>
+                    </td>
+                    {/* البريد */}
+                    <td className="hidden xl:table-cell px-4 py-3">
+                      <span className="text-[#8ba3c7] text-xs truncate inline-block max-w-[200px] align-middle" dir="ltr">{emp.email}</span>
+                    </td>
+                    {/* الوحدة التنظيمية */}
+                    <td className="px-4 py-3">
+                      <span className="badge text-xs max-w-[160px] truncate inline-block align-middle" style={{ background: `${deptColorFor(emp.department)}20`, color: deptColorFor(emp.department) }}>
+                        {emp.department || "—"}
+                      </span>
+                    </td>
+                    {/* الدور الوظيفي */}
+                    <td className="px-4 py-3 text-[#8ba3c7] text-xs">{emp.jobTitle || getTenantRoleLabel(emp.role)}</td>
+                    {/* الحالة */}
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col items-start gap-1">
+                        <span className={`badge ${statusBadge(emp.status)}`}>
+                          {employeeStatusLabel(emp.status)}
+                        </span>
+                        {needsLinkEmployee(emp.id) && (
+                          <span className="badge bg-amber-500/10 text-amber-300 flex items-center gap-1" title={NEEDS_LINK_MSG}>
+                            <Unlink size={11} />
+                            يتطلب مراجعة
                           </span>
-                        </td>
-                        {/* الوحدة التنظيمية */}
-                        <td className="px-4 py-3">
-                          <span
-                            className="badge text-xs max-w-[160px] truncate inline-block align-middle"
-                            style={{
-                              background: `${deptColorFor(emp.department)}20`,
-                              color: deptColorFor(emp.department),
-                            }}
-                          >
-                            {emp.department || "—"}
-                          </span>
-                        </td>
-                        {/* الدور الوظيفي */}
-                        <td className="px-4 py-3 text-[#8ba3c7] text-xs">
-                          {emp.jobTitle || getTenantRoleLabel(emp.role)}
-                        </td>
-                        {/* الحالة */}
-                        <td className="px-4 py-3">
-                          <div className="flex flex-col items-start gap-1">
-                            <span
-                              className={`badge ${statusBadge(emp.status)}`}
-                            >
-                              {employeeStatusLabel(emp.status)}
-                            </span>
-                            {needsLinkEmployee(emp.id) && (
-                              <span
-                                className="badge bg-amber-500/10 text-amber-300 flex items-center gap-1"
-                                title={NEEDS_LINK_MSG}
-                              >
-                                <Unlink size={11} />
-                                يتطلب مراجعة
-                              </span>
+                        )}
+                      </div>
+                    </td>
+                    {/* المهام */}
+                    <td className="hidden xl:table-cell px-4 py-3 whitespace-nowrap">
+                      <span className="text-white">{emp.completedTasks ?? 0}</span>
+                      <span className="text-[#8ba3c7]">/{emp.tasks ?? 0}</span>
+                    </td>
+                    {/* الأداء */}
+                    <td className="hidden xl:table-cell px-4 py-3">
+                      <div className="flex gap-0.5">
+                        {[1,2,3,4,5].map((s) => (
+                          <Star key={s} size={12} fill={s <= (emp.performance ?? 0) ? "#fbbf24" : "none"} className={s <= (emp.performance ?? 0) ? "text-amber-400" : "text-[#1e3a5f]"} />
+                        ))}
+                      </div>
+                    </td>
+                    {/* تاريخ الانضمام */}
+                    <td className="hidden 2xl:table-cell px-4 py-3 text-[#8ba3c7] text-xs whitespace-nowrap">{emp.joinDate}</td>
+                    {/* الإجراءات */}
+                    <td className="px-4 py-3">
+                      {canManageEmployees && (() => {
+                        const broken = needsLinkEmployee(emp.id);
+                        const rowDisabled = rowBusyId === emp.id || broken;
+                        return (
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => openEdit(emp)} aria-label="تعديل الموظف" title={broken ? NEEDS_LINK_MSG : "تعديل"} disabled={rowDisabled} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                              <Edit2 size={14} />
+                            </button>
+                            {isEmployeeActive(emp.status) ? (
+                              <button onClick={() => handleDeactivate(emp)} aria-label="حذف من الفريق" title={broken ? NEEDS_LINK_MSG : "حذف من الفريق"} disabled={rowDisabled} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                                <UserMinus size={14} />
+                              </button>
+                            ) : (
+                              <button onClick={() => handleReactivate(emp)} aria-label="تفعيل الموظف" title={broken ? NEEDS_LINK_MSG : "تفعيل الموظف"} disabled={rowDisabled} className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-emerald-400 hover:bg-emerald-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                                <UserCheck size={14} />
+                              </button>
                             )}
                           </div>
-                        </td>
-                        {/* المهام */}
-                        <td className="hidden xl:table-cell px-4 py-3 whitespace-nowrap">
-                          <span className="text-white">
-                            {emp.completedTasks ?? 0}
-                          </span>
-                          <span className="text-[#8ba3c7]">
-                            /{emp.tasks ?? 0}
-                          </span>
-                        </td>
-                        {/* الأداء */}
-                        <td className="hidden xl:table-cell px-4 py-3">
-                          <div className="flex gap-0.5">
-                            {[1, 2, 3, 4, 5].map((s) => (
-                              <Star
-                                key={s}
-                                size={12}
-                                fill={
-                                  s <= (emp.performance ?? 0)
-                                    ? "#fbbf24"
-                                    : "none"
-                                }
-                                className={
-                                  s <= (emp.performance ?? 0)
-                                    ? "text-amber-400"
-                                    : "text-[#1e3a5f]"
-                                }
-                              />
-                            ))}
-                          </div>
-                        </td>
-                        {/* تاريخ الانضمام */}
-                        <td className="hidden 2xl:table-cell px-4 py-3 text-[#8ba3c7] text-xs whitespace-nowrap">
-                          {emp.joinDate}
-                        </td>
-                        {/* الإجراءات */}
-                        <td className="px-4 py-3">
-                          {canManageEmployees &&
-                            (() => {
-                              const broken = needsLinkEmployee(emp.id);
-                              const rowDisabled =
-                                rowBusyId === emp.id || broken;
-                              return (
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => openEdit(emp)}
-                                    aria-label="تعديل الموظف"
-                                    title={broken ? NEEDS_LINK_MSG : "تعديل"}
-                                    disabled={rowDisabled}
-                                    className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-[#1a3356] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                  >
-                                    <Edit2 size={14} />
-                                  </button>
-                                  {isEmployeeActive(emp.status) ? (
-                                    <button
-                                      onClick={() => handleDeactivate(emp)}
-                                      aria-label="حذف من الفريق"
-                                      title={
-                                        broken
-                                          ? NEEDS_LINK_MSG
-                                          : "حذف من الفريق"
-                                      }
-                                      disabled={rowDisabled}
-                                      className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                    >
-                                      <UserMinus size={14} />
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => handleReactivate(emp)}
-                                      aria-label="تفعيل الموظف"
-                                      title={
-                                        broken ? NEEDS_LINK_MSG : "تفعيل الموظف"
-                                      }
-                                      disabled={rowDisabled}
-                                      className="p-1.5 rounded-lg text-[#8ba3c7] hover:text-emerald-400 hover:bg-emerald-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                    >
-                                      <UserCheck size={14} />
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {filtered.length === 0 && (
-                <div className="text-center py-12 text-[#8ba3c7]">
-                  <p className="text-sm">{emptyMessage}</p>
-                </div>
-              )}
+                        );
+                      })()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
             </div>
+            {filtered.length === 0 && (
+              <div className="text-center py-12 text-[#8ba3c7]">
+                <p className="text-sm">{emptyMessage}</p>
+              </div>
+            )}
+          </div>
           </>
         )}
       </div>
 
       {showPresenceDock && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-          onClick={() => setShowPresenceDock(false)}
-        >
-          <aside
-            className="absolute bottom-0 left-0 right-0 max-h-[82vh] overflow-y-auto rounded-t-[28px] border border-cyan-300/15 bg-[#071326]/95 p-4 shadow-[0_-24px_80px_rgba(0,0,0,0.55)] sm:bottom-auto sm:right-6 sm:left-auto sm:top-20 sm:w-[420px] sm:rounded-[28px]"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" onClick={() => setShowPresenceDock(false)}>
+          <aside className="absolute bottom-0 left-0 right-0 max-h-[82vh] overflow-y-auto rounded-t-[28px] border border-cyan-300/15 bg-[#071326]/95 p-4 shadow-[0_-24px_80px_rgba(0,0,0,0.55)] sm:bottom-auto sm:right-6 sm:left-auto sm:top-20 sm:w-[420px] sm:rounded-[28px]" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-bold text-white">
-                  الحضور الذكي — معاينة تشغيلية
-                </h2>
-                <p className="mt-1 text-xs leading-5 text-[#8ba3c7]">
-                  هذه قراءة تشغيلية من حالة الموظف والمهام والهيكل فقط. لا يوجد
-                  حضور وانصراف فعلي في هذه المرحلة.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowPresenceDock(false)}
-                className="rounded-xl p-2 text-[#8ba3c7] hover:bg-white/5 hover:text-white"
-                aria-label="إغلاق"
-              >
-                <X size={18} />
-              </button>
+              <div><h2 className="text-base font-bold text-white">الحضور الذكي — معاينة تشغيلية</h2><p className="mt-1 text-xs leading-5 text-[#8ba3c7]">هذه قراءة تشغيلية من حالة الموظف والمهام والهيكل فقط. لا يوجد حضور وانصراف فعلي في هذه المرحلة.</p></div>
+              <button onClick={() => setShowPresenceDock(false)} className="rounded-xl p-2 text-[#8ba3c7] hover:bg-white/5 hover:text-white" aria-label="إغلاق"><X size={18} /></button>
             </div>
             <div className="space-y-4">
-              <section className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3">
-                <h3 className="mb-2 text-xs font-semibold text-cyan-100">
-                  Smart Presence Summary
-                </h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(presenceSummary).map(([label, count]) => (
-                    <div
-                      key={label}
-                      className="rounded-xl bg-[#0d1f3c]/70 px-3 py-2"
-                    >
-                      <div className="text-sm font-bold text-white">
-                        {count}
-                      </div>
-                      <div className="text-[10px] text-[#8ba3c7]">{label}</div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-              <section className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3">
-                <h3 className="mb-2 text-xs font-semibold text-cyan-100">
-                  Presence Color Legend
-                </h3>
-                <div className="grid gap-1.5 text-[11px] text-[#c8d7ee]">
-                  {[
-                    ["#34d399", "Green: نشط ومستقر"],
-                    ["#22d3ee", "Cyan: يعمل الآن / لديه مهمة قيد التنفيذ"],
-                    ["#f59e0b", "Amber: ضغط عالي"],
-                    ["#f87171", "Red: خطر تأخير / مهمة متأخرة"],
-                    ["#a855f7", "Violet: ينتظر مراجعة"],
-                    ["#fb923c", "Orange: خارج الهيكل أو يحتاج ربط إداري"],
-                    ["#94a3b8", "Gray: غير نشط"],
-                  ].map(([color, label]) => (
-                    <div key={label} className="flex items-center gap-2">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ background: color }}
-                      />
-                      {label}
-                    </div>
-                  ))}
-                </div>
-              </section>
-              <section className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3">
-                <h3 className="mb-2 text-xs font-semibold text-cyan-100">
-                  Priority follow-up list
-                </h3>
-                {priorityPresence.length ? (
-                  <div className="space-y-2">
-                    {priorityPresence.map((emp) => (
-                      <div
-                        key={emp.id}
-                        className="flex items-center justify-between gap-2 text-xs"
-                      >
-                        <span className="truncate text-white">{emp.name}</span>
-                        <span
-                          className={cn(
-                            "rounded-full border px-2 py-0.5 text-[10px]",
-                            presenceFor(emp).tone,
-                          )}
-                        >
-                          {presenceFor(emp).label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-[#8ba3c7]">
-                    لا توجد عناصر متابعة عاجلة.
-                  </p>
-                )}
-              </section>
-              {departmentDistribution.length > 0 && (
-                <section className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3">
-                  <h3 className="mb-2 text-xs font-semibold text-cyan-100">
-                    Department distribution
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {departmentDistribution.map((item) => (
-                      <span
-                        key={item.dept}
-                        className="rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] text-[#c8d7ee]"
-                      >
-                        {item.dept}: {item.count}
-                      </span>
-                    ))}
-                  </div>
-                </section>
-              )}
+              <section className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3"><h3 className="mb-2 text-xs font-semibold text-cyan-100">Smart Presence Summary</h3><div className="grid grid-cols-2 gap-2">{Object.entries(presenceSummary).map(([label, count]) => <div key={label} className="rounded-xl bg-[#0d1f3c]/70 px-3 py-2"><div className="text-sm font-bold text-white">{count}</div><div className="text-[10px] text-[#8ba3c7]">{label}</div></div>)}</div></section>
+              <section className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3"><h3 className="mb-2 text-xs font-semibold text-cyan-100">Presence Color Legend</h3><div className="grid gap-1.5 text-[11px] text-[#c8d7ee]">{[["#34d399","Green: نشط ومستقر"],["#22d3ee","Cyan: يعمل الآن / لديه مهمة قيد التنفيذ"],["#f59e0b","Amber: ضغط عالي"],["#f87171","Red: خطر تأخير / مهمة متأخرة"],["#a855f7","Violet: ينتظر مراجعة"],["#fb923c","Orange: خارج الهيكل أو يحتاج ربط إداري"],["#94a3b8","Gray: غير نشط"]].map(([color,label]) => <div key={label} className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{background: color}} />{label}</div>)}</div></section>
+              <section className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3"><h3 className="mb-2 text-xs font-semibold text-cyan-100">Priority follow-up list</h3>{priorityPresence.length ? <div className="space-y-2">{priorityPresence.map((emp) => <div key={emp.id} className="flex items-center justify-between gap-2 text-xs"><span className="truncate text-white">{emp.name}</span><span className={cn("rounded-full border px-2 py-0.5 text-[10px]", presenceFor(emp).tone)}>{presenceFor(emp).label}</span></div>)}</div> : <p className="text-xs text-[#8ba3c7]">لا توجد عناصر متابعة عاجلة.</p>}</section>
+              {departmentDistribution.length > 0 && <section className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3"><h3 className="mb-2 text-xs font-semibold text-cyan-100">Department distribution</h3><div className="flex flex-wrap gap-2">{departmentDistribution.map((item) => <span key={item.dept} className="rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] text-[#c8d7ee]">{item.dept}: {item.count}</span>)}</div></section>}
             </div>
           </aside>
         </div>
       )}
 
       {/* Mobile details sheet — opened from a "قائمة ذكية" row */}
-      {detailsId &&
-        (() => {
-          const emp = employees.find((e) => e.id === detailsId);
-          if (!emp) return null;
-          return (
-            <EmployeeDetailsSheet
-              emp={emp}
-              canManage={canManageEmployees}
-              needsLink={needsLinkEmployee(emp.id)}
-              busy={rowBusyId === emp.id}
-              departmentColorFn={deptColorFor}
-              onClose={() => setDetailsId(null)}
-              onEdit={() => {
-                setDetailsId(null);
-                openEdit(emp);
-              }}
-              onDeactivate={() => {
-                setDetailsId(null);
-                handleDeactivate(emp);
-              }}
-              onReactivate={() => {
-                setDetailsId(null);
-                handleReactivate(emp);
-              }}
-            />
-          );
-        })()}
+      {detailsId && (() => {
+        const emp = employees.find((e) => e.id === detailsId);
+        if (!emp) return null;
+        return (
+          <EmployeeDetailsSheet
+            emp={emp}
+            canManage={canManageEmployees}
+            needsLink={needsLinkEmployee(emp.id)}
+            busy={rowBusyId === emp.id}
+            departmentColorFn={deptColorFor}
+            onClose={() => setDetailsId(null)}
+            onEdit={() => { setDetailsId(null); openEdit(emp); }}
+            onDeactivate={() => { setDetailsId(null); handleDeactivate(emp); }}
+            onReactivate={() => { setDetailsId(null); handleReactivate(emp); }}
+          />
+        );
+      })()}
 
       {/* Add / edit modal — centered glass */}
       <WorkspaceCenterModal
@@ -1514,242 +921,173 @@ function EmployeesContent() {
         title={editId ? "تعديل بيانات الموظف" : "إضافة موظف جديد"}
         footer={
           <div className="flex gap-3">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {saving && (
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              )}
-              {saving
-                ? "جارٍ الحفظ..."
-                : editId
-                  ? "حفظ التعديلات"
-                  : "إضافة الموظف"}
+            <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
+              {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              {saving ? "جارٍ الحفظ..." : editId ? "حفظ التعديلات" : "إضافة الموظف"}
             </button>
-            <button
-              onClick={closeModal}
-              disabled={saving}
-              className="btn-secondary flex-1"
-            >
-              إلغاء
-            </button>
+            <button onClick={closeModal} disabled={saving} className="btn-secondary flex-1">إلغاء</button>
           </div>
         }
       >
-        <div className="space-y-3">
-          {editId && (
-            <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2">
-              <span className="text-[11px] text-[#8ba3c7]">حالة الحساب</span>
-              {needsLinkEmployee(editId) ? (
-                <span className="badge text-[10px] bg-amber-500/10 text-amber-300 flex items-center gap-1">
-                  <Unlink size={10} />
-                  يتطلب مراجعة
-                </span>
-              ) : (
-                <span className="badge text-[10px] status-active">مكتمل</span>
+            <div className="space-y-3">
+              {editId && (
+                <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+                  <span className="text-[11px] text-[#8ba3c7]">حالة الحساب</span>
+                  {needsLinkEmployee(editId) ? (
+                    <span className="badge text-[10px] bg-amber-500/10 text-amber-300 flex items-center gap-1">
+                      <Unlink size={10} />
+                      يتطلب مراجعة
+                    </span>
+                  ) : (
+                    <span className="badge text-[10px] status-active">مكتمل</span>
+                  )}
+                </div>
               )}
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-[#8ba3c7] mb-1">
-                الاسم الكامل *
-              </label>
-              <input
-                className="input-dark text-sm"
-                placeholder="الاسم"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-[#8ba3c7] mb-1">
-                البريد الإلكتروني *
-              </label>
-              <input
-                className="input-dark text-sm"
-                type="email"
-                dir="ltr"
-                style={{ textAlign: "left" }}
-                placeholder="user@example.com"
-                autoCapitalize="none"
-                autoCorrect="off"
-                inputMode="email"
-                spellCheck={false}
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                disabled={!!editId}
-              />
-            </div>
-          </div>
-
-          {!editId && (
-            <div>
-              <label className="block text-xs text-[#8ba3c7] mb-1">
-                كلمة المرور *
-              </label>
-              <div className="relative">
-                <input
-                  className="input-dark text-sm pl-10"
-                  type={showPass ? "text" : "password"}
-                  placeholder="مثال: Test@123456"
-                  value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass((p) => !p)}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] hover:text-white"
-                >
-                  {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">الاسم الكامل *</label>
+                  <input className="input-dark text-sm" placeholder="الاسم" value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">البريد الإلكتروني *</label>
+                  <input
+                    className="input-dark text-sm"
+                    type="email"
+                    dir="ltr"
+                    style={{ textAlign: "left" }}
+                    placeholder="user@example.com"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    inputMode="email"
+                    spellCheck={false}
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    disabled={!!editId}
+                  />
+                </div>
               </div>
-              <p className="text-[10px] text-[#6b87ab] mt-1">
-                8 أحرف على الأقل · حرف كبير · حرف صغير · رقم · رمز (!@#$...)
-              </p>
-            </div>
-          )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-[#8ba3c7] mb-1">
-                رقم الهاتف
-              </label>
-              <input
-                className="input-dark text-sm"
-                placeholder="05XXXXXXXX"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-[#8ba3c7] mb-1">
-                الراتب (SAR)
-              </label>
-              <input
-                className="input-dark text-sm"
-                type="number"
-                placeholder="0"
-                value={form.salary}
-                onChange={(e) => setForm({ ...form, salary: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-[#8ba3c7] mb-1">
-                الوحدة التنظيمية (اختياري)
-              </label>
-              {orgLoading ? (
-                <div className="input-dark text-sm text-[#8ba3c7] px-3 py-2.5 rounded-xl">
-                  جارٍ تحميل وحدات الهيكل...
+              {!editId && (
+                <div>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">كلمة المرور *</label>
+                  <div className="relative">
+                    <input
+                      className="input-dark text-sm pl-10"
+                      type={showPass ? "text" : "password"}
+                      placeholder="مثال: Test@123456"
+                      value={form.password}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass((p) => !p)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] hover:text-white"
+                    >
+                      {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[#6b87ab] mt-1">8 أحرف على الأقل · حرف كبير · حرف صغير · رقم · رمز (!@#$...)</p>
                 </div>
-              ) : orgUnits.length === 0 ? (
-                <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2.5 text-[11px] text-amber-100/90 leading-relaxed">
-                  يمكنك إضافة الموظف الآن وربطه بوحدة تنظيمية لاحقاً من{" "}
-                  <Link
-                    href="/org"
-                    className="text-[#22d3ee] underline underline-offset-2"
-                  >
-                    الهيكل الإداري
-                  </Link>
-                </div>
-              ) : (
-                <PremiumRolePicker
-                  hideLabel
-                  label="الوحدة التنظيمية"
-                  value={form.departmentId}
-                  placeholder="— اختر الوحدة —"
-                  options={orgUnits.map((d) => ({
-                    value: d.id,
-                    label: formatOrgUnitOption(d),
-                  }))}
-                  onChange={(v) => setForm({ ...form, departmentId: v })}
-                />
               )}
-              {legacyDeptHint && (
-                <p className="text-[10px] text-amber-200/90 mt-1.5 leading-relaxed">
-                  القسم الحالي: {legacyDeptHint} — اختر وحدة من الهيكل الإداري
-                  للربط
-                </p>
-              )}
-            </div>
-            <div>
-              <PremiumRolePicker
-                label="الدور الوظيفي"
-                required
-                value={form.jobTitle}
-                options={(() => {
-                  const opts = availableJobTitles.map((t) => ({
-                    value: t.value,
-                    label: t.label,
-                  }));
-                  // Keep an existing (possibly higher-tier) job title visible when editing,
-                  // even if the current plan would otherwise hide it.
-                  if (
-                    form.jobTitle &&
-                    !opts.some((o) => o.value === form.jobTitle)
-                  ) {
-                    opts.unshift({
-                      value: form.jobTitle,
-                      label: form.jobTitle,
-                    });
-                  }
-                  return opts;
-                })()}
-                onChange={(v) => setForm({ ...form, jobTitle: v })}
-              />
-            </div>
-          </div>
 
-          {/* Direct manager (المدير المباشر) — optional, same org only.
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">رقم الهاتف</label>
+                  <input className="input-dark text-sm" placeholder="05XXXXXXXX" value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">الراتب (SAR)</label>
+                  <input className="input-dark text-sm" type="number" placeholder="0" value={form.salary}
+                    onChange={(e) => setForm({ ...form, salary: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-[#8ba3c7] mb-1">الوحدة التنظيمية (اختياري)</label>
+                  {orgLoading ? (
+                    <div className="input-dark text-sm text-[#8ba3c7] px-3 py-2.5 rounded-xl">
+                      جارٍ تحميل وحدات الهيكل...
+                    </div>
+                  ) : orgUnits.length === 0 ? (
+                    <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2.5 text-[11px] text-amber-100/90 leading-relaxed">
+                      يمكنك إضافة الموظف الآن وربطه بوحدة تنظيمية لاحقاً من{" "}
+                      <Link href="/org" className="text-[#22d3ee] underline underline-offset-2">
+                        الهيكل الإداري
+                      </Link>
+                    </div>
+                  ) : (
+                    <PremiumRolePicker
+                      hideLabel
+                      label="الوحدة التنظيمية"
+                      value={form.departmentId}
+                      placeholder="— اختر الوحدة —"
+                      options={orgUnits.map((d) => ({ value: d.id, label: formatOrgUnitOption(d) }))}
+                      onChange={(v) => setForm({ ...form, departmentId: v })}
+                    />
+                  )}
+                  {legacyDeptHint && (
+                    <p className="text-[10px] text-amber-200/90 mt-1.5 leading-relaxed">
+                      القسم الحالي: {legacyDeptHint} — اختر وحدة من الهيكل الإداري للربط
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <PremiumRolePicker
+                    label="الدور الوظيفي"
+                    required
+                    value={form.jobTitle}
+                    options={(() => {
+                      const opts = availableJobTitles.map((t) => ({ value: t.value, label: t.label }));
+                      // Keep an existing (possibly higher-tier) job title visible when editing,
+                      // even if the current plan would otherwise hide it.
+                      if (form.jobTitle && !opts.some((o) => o.value === form.jobTitle)) {
+                        opts.unshift({ value: form.jobTitle, label: form.jobTitle });
+                      }
+                      return opts;
+                    })()}
+                    onChange={(v) => setForm({ ...form, jobTitle: v })}
+                  />
+                </div>
+              </div>
+
+              {/* Direct manager (المدير المباشر) — optional, same org only.
                   Candidates are the org's own employees, excluding this person. */}
-          <div>
-            <PremiumRolePicker
-              label="المدير المباشر (اختياري)"
-              value={form.managerId}
-              placeholder="— بدون مدير مباشر —"
-              options={[
-                { value: "", label: "— بدون مدير مباشر —" },
-                ...employees
-                  .filter((e) => e.id !== editId)
-                  .map((e) => ({
-                    value: e.id,
-                    label: e.jobTitle ? `${e.name} · ${e.jobTitle}` : e.name,
-                  })),
-              ]}
-              onChange={(v) => setForm({ ...form, managerId: v })}
-            />
-          </div>
+              <div>
+                <PremiumRolePicker
+                  label="المدير المباشر (اختياري)"
+                  value={form.managerId}
+                  placeholder="— بدون مدير مباشر —"
+                  options={[
+                    { value: "", label: "— بدون مدير مباشر —" },
+                    ...employees
+                      .filter((e) => e.id !== editId)
+                      .map((e) => ({
+                        value: e.id,
+                        label: e.jobTitle ? `${e.name} · ${e.jobTitle}` : e.name,
+                      })),
+                  ]}
+                  onChange={(v) => setForm({ ...form, managerId: v })}
+                />
+              </div>
 
-          <div>
-            <label className="block text-xs text-[#8ba3c7] mb-1">الحالة</label>
-            <select
-              className="input-dark text-sm"
-              value={form.status}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  status: e.target.value as "نشط" | "غير_نشط",
-                })
-              }
-            >
-              <option value="نشط">نشط</option>
-              <option value="غير_نشط">غير نشط</option>
-            </select>
-          </div>
-        </div>
+              <div>
+                <label className="block text-xs text-[#8ba3c7] mb-1">الحالة</label>
+                <select className="input-dark text-sm" value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value as "نشط" | "غير_نشط" })}>
+                  <option value="نشط">نشط</option>
+                  <option value="غير_نشط">غير نشط</option>
+                </select>
+              </div>
+            </div>
 
-        {formError && (
-          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-xs text-red-300 leading-relaxed">
-            {formError}
-          </div>
-        )}
+            {formError && (
+              <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-xs text-red-300 leading-relaxed">
+                {formError}
+              </div>
+            )}
       </WorkspaceCenterModal>
     </DashboardLayout>
   );
