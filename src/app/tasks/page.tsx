@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
-import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X, LayoutGrid, ChevronLeft, Search, Edit2, Trash2 } from "lucide-react";
+import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X, LayoutGrid, ChevronLeft, Search, Edit2, Trash2, Radar } from "lucide-react";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { cn } from "@/lib/utils";
 import { WS_PAGE, WS_CARD } from "@/components/ui/workspaceVisual";
@@ -12,6 +12,8 @@ import { MobileHeroCard } from "@/components/ui/MobileHeroCard";
 import { WorkspaceCenterModal } from "@/components/ui/WorkspaceCenterModal";
 import { PublicCodeBadge } from "@/components/ui/PublicCodeBadge";
 import { useTasks, useClients, useEmployees } from "@/hooks/useData";
+import { useOrgStructure } from "@/hooks/useOrgStructure";
+import { ORG_UNKNOWN_LABEL, createOrgScopeResolver } from "@/lib/org/orgScopeResolver";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -37,6 +39,7 @@ function TasksContent() {
   const { data: tasks, loading, insert, update, remove } = useTasks();
   const { data: clients } = useClients();
   const { data: employees } = useEmployees();
+  const { data: orgSnapshot } = useOrgStructure(true);
   const { hasPermission } = usePermissions();
   const { user } = useAuth();
   const toast = useToast();
@@ -156,6 +159,60 @@ function TasksContent() {
   const statusMeta = (s: TaskStatus) =>
     STATUS_COLUMNS.find((c) => c.key === s) ?? { key: s, label: s, color: "#8ba3c7" };
 
+  const orgResolver = useMemo(
+    () => createOrgScopeResolver(orgSnapshot, employees),
+    [orgSnapshot, employees],
+  );
+
+  const managerCommand = useMemo(() => {
+    const completedStatus = STATUS_COLUMNS[3].key;
+    const reviewStatus = STATUS_COLUMNS[2].key;
+    const lateStatus = STATUS_COLUMNS[4].key;
+    const taskIsOverdue = (dueDate: string, status: TaskStatus) => {
+      if (status === completedStatus) return false;
+      const due = new Date(dueDate);
+      if (Number.isNaN(due.getTime())) return false;
+      return due < new Date();
+    };
+    const departmentMap = new Map<string, { label: string; total: number; late: number; review: number }>();
+    const employeeLoad = new Map<string, { name: string; department: string; count: number }>();
+
+    tasks.forEach((task) => {
+      const scope = orgResolver.resolveTaskAssignee(task);
+      const department = scope.departmentLabel || ORG_UNKNOWN_LABEL;
+      const departmentKey = scope.departmentId ?? department;
+      const currentDepartment = departmentMap.get(departmentKey) ?? {
+        label: department,
+        total: 0,
+        late: 0,
+        review: 0,
+      };
+
+      currentDepartment.total += 1;
+      if (task.status === lateStatus || taskIsOverdue(task.dueDate, task.status)) currentDepartment.late += 1;
+      if (task.status === reviewStatus) currentDepartment.review += 1;
+      departmentMap.set(departmentKey, currentDepartment);
+
+      const employeeKey = scope.employeeId ?? task.assigneeName ?? ORG_UNKNOWN_LABEL;
+      const currentEmployee = employeeLoad.get(employeeKey) ?? {
+        name: scope.employeeName,
+        department,
+        count: 0,
+      };
+      if (task.status !== completedStatus) currentEmployee.count += 1;
+      employeeLoad.set(employeeKey, currentEmployee);
+    });
+
+    return {
+      departments: Array.from(departmentMap.values()).sort((a, b) => b.total - a.total).slice(0, 4),
+      highLoad: Array.from(employeeLoad.values()).filter((item) => item.count >= 4).sort((a, b) => b.count - a.count).slice(0, 4),
+      lateByDepartment: Array.from(departmentMap.values()).filter((item) => item.late > 0).sort((a, b) => b.late - a.late).slice(0, 4),
+      reviewQueue: tasks.filter((task) => task.status === reviewStatus),
+      clientLinked: tasks.filter((task) => Boolean(task.clientId || task.clientName)),
+      unscoped: tasks.filter((task) => !orgResolver.resolveTaskAssignee(task).isLinkedToOrg),
+    };
+  }, [orgResolver, tasks]);
+
   // Mobile-only filtered list (the desktop kanban/list views are unfiltered as before).
   const mobileTasks = tasks.filter((t) => {
     const q = mSearch.trim();
@@ -210,6 +267,88 @@ function TasksContent() {
           <KpiStatCard label="قيد التنفيذ" value={String(stats.inProgress)} icon={Clock} accent="amber" showLive={false} showSparkline={false} />
           <KpiStatCard label="متأخرة" value={String(stats.late)} icon={AlertTriangle} accent="rose" showLive={false} showSparkline={false} />
         </section>
+
+        {!loading && tasks.length > 0 && (
+          <section className={cn(WS_CARD, "overflow-hidden p-0")}>
+            <div className="border-b border-white/[0.06] bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.16),transparent_36%),rgba(255,255,255,0.025)] p-4 sm:p-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-white">
+                    <Radar size={17} className="text-cyan-300" />
+                    <h2 className="font-heading text-base font-bold">مركز قيادة المهام حسب الهيكل</h2>
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-[#8ba3c7]">
+                    قراءة تشغيلية فقط من المهام الحالية والهيكل التنظيمي الحالي.
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="rounded-xl border border-cyan-300/15 bg-cyan-400/10 px-3 py-2 text-cyan-100">
+                    <strong className="block text-lg text-white">{managerCommand.clientLinked.length}</strong>
+                    مرتبطة بعميل
+                  </div>
+                  <div className="rounded-xl border border-violet-300/15 bg-violet-400/10 px-3 py-2 text-violet-100">
+                    <strong className="block text-lg text-white">{managerCommand.reviewQueue.length}</strong>
+                    للمراجعة
+                  </div>
+                  <div className="rounded-xl border border-amber-300/15 bg-amber-400/10 px-3 py-2 text-amber-100">
+                    <strong className="block text-lg text-white">{managerCommand.unscoped.length}</strong>
+                    خارج الربط
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3">
+                <div className="mb-3 text-xs font-bold text-cyan-100">عبء الأقسام</div>
+                <div className="space-y-2">
+                  {managerCommand.departments.length ? managerCommand.departments.map((item) => (
+                    <div key={item.label} className="flex items-center justify-between gap-2 rounded-xl bg-black/20 px-3 py-2 text-xs">
+                      <span className="truncate text-[#d7e7ff]">{item.label}</span>
+                      <span className="font-bold text-white">{item.total}</span>
+                    </div>
+                  )) : <div className="text-xs text-[#8ba3c7]">لا توجد مهام موزعة على أقسام.</div>}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3">
+                <div className="mb-3 text-xs font-bold text-amber-100">حمل مرتفع للموظفين</div>
+                <div className="space-y-2">
+                  {managerCommand.highLoad.length ? managerCommand.highLoad.map((item) => (
+                    <div key={`${item.name}-${item.department}`} className="rounded-xl bg-black/20 px-3 py-2 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-white">{item.name}</span>
+                        <span className="font-bold text-amber-200">{item.count}</span>
+                      </div>
+                      <div className="mt-0.5 truncate text-[11px] text-[#8ba3c7]">{item.department}</div>
+                    </div>
+                  )) : <div className="text-xs text-[#8ba3c7]">لا يوجد حمل مرتفع حسب البيانات الحالية.</div>}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3">
+                <div className="mb-3 text-xs font-bold text-red-100">المتأخر حسب القسم</div>
+                <div className="space-y-2">
+                  {managerCommand.lateByDepartment.length ? managerCommand.lateByDepartment.map((item) => (
+                    <div key={item.label} className="flex items-center justify-between gap-2 rounded-xl bg-red-500/10 px-3 py-2 text-xs">
+                      <span className="truncate text-red-100">{item.label}</span>
+                      <span className="font-bold text-white">{item.late}</span>
+                    </div>
+                  )) : <div className="text-xs text-[#8ba3c7]">لا توجد مهام متأخرة موزعة على أقسام.</div>}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3">
+                <div className="mb-3 text-xs font-bold text-violet-100">طابور المراجعة</div>
+                <div className="space-y-2">
+                  {managerCommand.reviewQueue.slice(0, 3).map((task) => (
+                    <div key={task.id} className="rounded-xl bg-black/20 px-3 py-2 text-xs">
+                      <div className="truncate text-white">{task.title}</div>
+                      <div className="mt-0.5 truncate text-[11px] text-[#8ba3c7]">{task.clientName || "المصدر غير محدد"}</div>
+                    </div>
+                  ))}
+                  {!managerCommand.reviewQueue.length && <div className="text-xs text-[#8ba3c7]">لا توجد مهام بانتظار المراجعة.</div>}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {loading && <div className={cn(WS_CARD, "py-10 text-center text-sm text-[#8ba3c7]")}>جارٍ تحميل المهام...</div>}
 
