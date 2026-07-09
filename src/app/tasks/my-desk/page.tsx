@@ -6,7 +6,6 @@ import {
   Bell,
   CalendarDays,
   ChevronLeft,
-  CircleHelp,
   ClipboardList,
   Home,
   LayoutGrid,
@@ -113,7 +112,7 @@ function TwinDeskHeader({
 
       <div className="td-greeting">
         <strong>مرحباً {employeeName}</strong>
-        <span>{department} · مكتبي الذكي</span>
+        <span>{department || "القسم غير محدد"} · مكتبي الذكي</span>
       </div>
 
       <div className="td-command-actions">
@@ -213,10 +212,12 @@ function CinematicOfficeScene({ employeeName, department, pressure }: { employee
         <span />
         {department}
       </div>
-      <div className="td-zone left">
-        <span />
-        إدارة الطباعة والنشر
-      </div>
+      {department ? (
+        <div className="td-zone left">
+          <span />
+          {department}
+        </div>
+      ) : null}
       <div className="td-floor">
         <span className="td-floor-grid" />
         <span className="td-floor-ring main" />
@@ -254,8 +255,7 @@ function TodayTasksPanel({
   progress,
   busy,
   onStart,
-  onReview,
-  onHelp,
+  onDone,
 }: {
   currentTask: Task | null;
   urgentCount: number;
@@ -265,8 +265,7 @@ function TodayTasksPanel({
   progress: number;
   busy: boolean;
   onStart: () => void;
-  onReview: () => void;
-  onHelp: () => void;
+  onDone: () => void;
 }) {
   return (
     <aside className="td-panel td-tasks-panel">
@@ -287,8 +286,7 @@ function TodayTasksPanel({
         progress={progress}
         busy={busy}
         onStart={onStart}
-        onReview={onReview}
-        onHelp={onHelp}
+        onDone={onDone}
       />
     </aside>
   );
@@ -308,22 +306,20 @@ function NextTaskCard({
   progress,
   busy,
   onStart,
-  onReview,
-  onHelp,
+  onDone,
 }: {
   task: Task | null;
   progress: number;
   busy: boolean;
   onStart: () => void;
-  onReview: () => void;
-  onHelp: () => void;
+  onDone: () => void;
 }) {
   if (!task) {
     return (
       <div className="td-next-task empty">
         <span className="td-kicker">المهمة القادمة</span>
-        <strong>لا توجد مهمة نشطة الآن</strong>
-        <p>عند إسناد مهمة جديدة ستظهر هنا مع الإجراء التالي مباشرة.</p>
+        <strong>لا توجد مهام مسندة لك الآن</strong>
+        <p>عند إسناد مهمة جديدة لك ستظهر هنا مع الإجراء التالي.</p>
       </div>
     );
   }
@@ -351,13 +347,9 @@ function NextTaskCard({
           <Play size={15} />
           ابدأ العمل
         </button>
-        <button type="button" className="td-secondary-action help" disabled={busy} onClick={onHelp}>
-          <CircleHelp size={15} />
-          أحتاج مساعدة
-        </button>
-        <button type="button" className="td-secondary-action" disabled={busy} onClick={onReview}>
+        <button type="button" className="td-secondary-action success" disabled={busy} onClick={onDone}>
           <Send size={15} />
-          للمراجعة
+          تم التنفيذ
         </button>
       </div>
     </div>
@@ -368,46 +360,11 @@ function TaskPath({ employeeName, department, task }: { employeeName: string; de
   return (
     <section className="td-path">
       <span>PATH</span>
-      <b>مجلس الإدارة</b>
-      <i>←</i>
-      <b>وكالة التشغيل</b>
-      <i>←</i>
-      <b>إدارة الطباعة والنشر</b>
-      <i>←</i>
-      <b>{department}</b>
+      <b>{department || "القسم غير محدد"}</b>
       <i>←</i>
       <b>{employeeName}</b>
       <i>←</i>
       <strong>{task?.title ?? "لا توجد مهمة نشطة"}</strong>
-    </section>
-  );
-}
-
-function MiniOfficeMap() {
-  const zones = [
-    { name: "قسم التصميم", label: "ضغط مرتفع", tone: "danger" },
-    { name: "قسم المحتوى", label: "طبيعي", tone: "info" },
-    { name: "قسم الطباعة", label: "طبيعي", tone: "success" },
-    { name: "قسم التسويق", label: "ضغط متوسط", tone: "warn" },
-  ];
-
-  return (
-    <section className="td-map-panel">
-      <div className="td-map-head">
-        <strong>خريطة المكتب الافتراضي</strong>
-        <span>PREVIEW · معاينة</span>
-      </div>
-      <div className="td-map-grid">
-        {zones.map((zone) => (
-          <div className={`td-map-zone ${zone.tone}`} key={zone.name}>
-            <span>
-              <b>{zone.name}</b>
-              <small>{zone.label}</small>
-            </span>
-            <i />
-          </div>
-        ))}
-      </div>
     </section>
   );
 }
@@ -446,12 +403,17 @@ export default function MyTwinDeskPage() {
   const toast = useToast();
   const [savingAction, setSavingAction] = useState<TaskStatus | null>(null);
 
+  const myTasks = useMemo(
+    () => (user?.id ? tasks.filter((task) => task.assigneeId === user.id) : []),
+    [tasks, user?.id],
+  );
+
   const insight = useMemo(() => {
-    const active = tasks.filter((task) => task.status !== "مكتملة");
+    const active = myTasks.filter((task) => task.status !== "مكتملة");
     const late = active.filter((task) => task.status === "متأخرة" || isOverdue(task));
     const review = active.filter((task) => task.status === "بانتظار_المراجعة");
     const doing = active.filter((task) => task.status === "قيد_التنفيذ");
-    const completed = tasks.filter((task) => task.status === "مكتملة");
+    const completed = myTasks.filter((task) => task.status === "مكتملة");
     const urgent = active.filter((task) => task.priority === "عاجلة");
     const dueSoon = active.filter((task) => {
       const diff = daysUntil(task.dueDate);
@@ -466,12 +428,12 @@ export default function MyTwinDeskPage() {
       null;
 
     return { active, late, review, doing, completed, urgent, dueSoon, currentTask };
-  }, [tasks]);
+  }, [myTasks]);
 
   const currentTask = insight.currentTask;
   // Personal desk identity = the signed-in employee, not the org-wide selected task's assignee.
-  const employeeName = user?.name?.trim() || user?.email?.split("@")[0] || currentTask?.assigneeName?.trim() || "الموظف";
-  const department = user?.department?.trim() || "قسم التصميم";
+  const employeeName = user?.name?.trim() || user?.email?.split("@")[0] || "الموظف";
+  const department = user?.department?.trim() || "";
   const progress = statusProgress(currentTask?.status);
   const activeCount = insight.active.length;
   const pressure = Math.min(99, activeCount * 13);
@@ -496,8 +458,7 @@ export default function MyTwinDeskPage() {
   };
 
   const startWork = () => changeStatus("قيد_التنفيذ", "تم بدء العمل على المهمة");
-  const sendToReview = () => changeStatus("بانتظار_المراجعة", "تم إرسال المهمة للمراجعة");
-  const askForHelp = () => toast.info("تم تسجيل طلب المساعدة.");
+  const sendDone = () => changeStatus("بانتظار_المراجعة", "تم إرسال العمل للمراجعة");
   const busy = !currentTask || !!savingAction;
 
   return (
@@ -525,13 +486,11 @@ export default function MyTwinDeskPage() {
                   progress={progress}
                   busy={busy}
                   onStart={startWork}
-                  onReview={sendToReview}
-                  onHelp={askForHelp}
+                  onDone={sendDone}
                 />
               </div>
 
               <TaskPath employeeName={employeeName} department={department} task={currentTask} />
-              <MiniOfficeMap />
               <BottomTwinNav />
             </section>
 
@@ -558,8 +517,7 @@ export default function MyTwinDeskPage() {
                 progress={progress}
                 busy={busy}
                 onStart={startWork}
-                onReview={sendToReview}
-                onHelp={askForHelp}
+                onDone={sendDone}
               />
 
               <div className="td-mobile-radar-row">
@@ -579,7 +537,6 @@ export default function MyTwinDeskPage() {
                 </div>
               </div>
 
-              <MiniOfficeMap />
               <BottomTwinNav />
             </section>
           </>
