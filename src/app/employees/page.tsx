@@ -237,17 +237,19 @@ function EmployeesContent() {
       const inactive = state === "inactive";
       const signal = inactive
         ? { label: "غير نشط", tone: "gray" as PresenceTone }
-        : outsideStructure || state === "review"
+        : outsideStructure
           ? { label: "خارج الهيكل", tone: "orange" as PresenceTone }
-          : taskStats.late > 0
-            ? { label: "خطر تأخير", tone: "red" as PresenceTone }
-            : taskStats.review > 0
-              ? { label: "ينتظر مراجعة", tone: "violet" as PresenceTone }
-              : highWorkload
-                ? { label: "ضغط عالي", tone: "amber" as PresenceTone }
-                : taskStats.running > 0
-                  ? { label: "يعمل الآن", tone: "cyan" as PresenceTone }
-                  : { label: "نشط", tone: "green" as PresenceTone };
+          : state === "review"
+            ? { label: "يحتاج مراجعة", tone: "orange" as PresenceTone }
+            : taskStats.late > 0
+              ? { label: "خطر تأخير", tone: "red" as PresenceTone }
+              : taskStats.review > 0
+                ? { label: "ينتظر مراجعة", tone: "violet" as PresenceTone }
+                : highWorkload
+                  ? { label: "ضغط عالي", tone: "amber" as PresenceTone }
+                  : taskStats.running > 0
+                    ? { label: "يعمل الآن", tone: "cyan" as PresenceTone }
+                    : { label: "مستقر", tone: "green" as PresenceTone };
       return {
         id: employee.id,
         name: employee.name,
@@ -302,6 +304,24 @@ function EmployeesContent() {
       needsReview: rows.filter((row) => row.state === "review" || row.outsideStructure).length,
     };
   }, [employees, linkLoading, linkedProfileIds, orgResolver, tasks]);
+
+  const presenceChip = (presence?: typeof presencePreview.rows[number]) => {
+    if (!presence) return null;
+    const showText = presence.signal.tone !== "green";
+    return (
+      <span
+        className={cn(
+          "pointer-events-none inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] leading-none shadow-[0_8px_20px_rgba(0,0,0,0.18)]",
+          PRESENCE_TONE_CLASS[presence.signal.tone],
+        )}
+        title={presence.signal.label}
+        aria-label={`الحضور الذكي: ${presence.signal.label}`}
+      >
+        <span className={cn("h-1.5 w-1.5 rounded-full", PRESENCE_DOT_CLASS[presence.signal.tone])} />
+        {showText && <span>{presence.signal.label}</span>}
+      </span>
+    );
+  };
 
   const filtered = employees.filter((e) => {
     const q = search.toLowerCase();
@@ -674,7 +694,7 @@ function EmployeesContent() {
 
         {!loading && employees.length > 0 && (
           <div className="flex flex-col gap-2 rounded-2xl border border-[#1e3a5f]/80 bg-[#0d1f3c]/45 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="grid grid-cols-4 gap-1.5 text-center text-[10px] sm:flex sm:items-center sm:gap-2 sm:text-xs">
+            <div className="grid grid-cols-2 gap-1.5 text-center text-[10px] sm:flex sm:items-center sm:gap-2 sm:text-xs">
               <div className="rounded-xl bg-emerald-400/10 px-2 py-1.5 text-emerald-100"><strong className="block text-sm text-white sm:inline sm:text-xs">{presencePreview.active}</strong> النشطون</div>
               <div className="rounded-xl bg-cyan-400/10 px-2 py-1.5 text-cyan-100"><strong className="block text-sm text-white sm:inline sm:text-xs">{presencePreview.workingNow}</strong> يعملون الآن</div>
               <div className="rounded-xl bg-red-500/10 px-2 py-1.5 text-red-100"><strong className="block text-sm text-white sm:inline sm:text-xs">{presencePreview.delayRisk}</strong> خطر تأخير</div>
@@ -780,7 +800,7 @@ function EmployeesContent() {
         {!loading && employees.length > 0 && (
           <>
             {/* Mobile/tablet: smart directory (list ↔ cards). Hidden on desktop. */}
-            <div className="lg:hidden space-y-3 min-w-0">
+            <div className="lg:hidden space-y-3 min-w-0 pb-28">
               {/* View toggle — قائمة ذكية / بطاقات */}
               <div className="flex items-center gap-1 rounded-xl bg-[#0d1f3c]/60 border border-[#1e3a5f] p-1 w-fit">
                 <button
@@ -822,13 +842,8 @@ function EmployeesContent() {
                   {filtered.map((emp) => {
                     const presence = presencePreview.byId.get(emp.id);
                     return (
-                      <div key={emp.id} className="space-y-1.5">
-                        {presence && (
-                          <div className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px]", PRESENCE_TONE_CLASS[presence.signal.tone])}>
-                            <span className={cn("h-2 w-2 rounded-full", PRESENCE_DOT_CLASS[presence.signal.tone])} />
-                            {presence.signal.label}
-                          </div>
-                        )}
+                      <div key={emp.id} className="relative">
+                        <span className="absolute left-9 top-2 z-10">{presenceChip(presence)}</span>
                         <EmployeeListRow
                           emp={emp}
                           needsLink={needsLinkEmployee(emp.id)}
@@ -844,13 +859,8 @@ function EmployeesContent() {
                   {filtered.map((emp) => {
                     const presence = presencePreview.byId.get(emp.id);
                     return (
-                      <div key={emp.id} className="space-y-1.5">
-                        {presence && (
-                          <div className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px]", PRESENCE_TONE_CLASS[presence.signal.tone])}>
-                            <span className={cn("h-2 w-2 rounded-full", PRESENCE_DOT_CLASS[presence.signal.tone])} />
-                            {presence.signal.label}
-                          </div>
-                        )}
+                      <div key={emp.id} className="relative">
+                        <span className="absolute left-3 top-3 z-10">{presenceChip(presence)}</span>
                         <EmployeeMobileCard
                           emp={emp}
                           canManage={canManageEmployees}
