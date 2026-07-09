@@ -16,6 +16,7 @@ import {
   Send,
 } from "lucide-react";
 import PageGuard from "@/components/ui/PageGuard";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useTasks } from "@/hooks/useData";
 import type { Task, TaskStatus } from "@/types";
@@ -441,6 +442,7 @@ function BottomTwinNav() {
 
 export default function MyTwinDeskPage() {
   const { data: tasks, loading, update } = useTasks();
+  const { user } = useAuth();
   const toast = useToast();
   const [savingAction, setSavingAction] = useState<TaskStatus | null>(null);
 
@@ -467,8 +469,9 @@ export default function MyTwinDeskPage() {
   }, [tasks]);
 
   const currentTask = insight.currentTask;
-  const employeeName = currentTask?.assigneeName?.trim() || "الموظف";
-  const department = "قسم التصميم";
+  // Personal desk identity = the signed-in employee, not the org-wide selected task's assignee.
+  const employeeName = user?.name?.trim() || user?.email?.split("@")[0] || currentTask?.assigneeName?.trim() || "الموظف";
+  const department = user?.department?.trim() || "قسم التصميم";
   const progress = statusProgress(currentTask?.status);
   const activeCount = insight.active.length;
   const pressure = Math.min(99, activeCount * 13);
