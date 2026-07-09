@@ -22,10 +22,12 @@ interface PageGuardProps {
   permission?: Permission;
   /** Grant access when the user has any of these permissions. */
   anyPermission?: Permission[];
+  /** Render guard fallbacks without the dashboard shell for immersive pages. */
+  immersive?: boolean;
   children: React.ReactNode;
 }
 
-export default function PageGuard({ permission, anyPermission, children }: PageGuardProps) {
+export default function PageGuard({ permission, anyPermission, immersive = false, children }: PageGuardProps) {
   const pathname = usePathname();
   const { hasPermission } = usePermissions();
   const { loading, user } = useAuth();
@@ -33,6 +35,22 @@ export default function PageGuard({ permission, anyPermission, children }: PageG
     useTenantWorkspace();
 
   if (loading || wsLoading || !user) {
+    if (immersive) {
+      return (
+        <div className="min-h-screen bg-[#03050a] text-white flex items-center justify-center p-6" dir="rtl">
+          <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-white/[0.045] p-6 text-center shadow-2xl">
+            <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-cyan-400/10 text-xl font-black text-cyan-100 shadow-[0_0_32px_rgba(34,211,238,.25)]">
+              B
+            </div>
+            <div className="space-y-3">
+              <CardSkeleton rows={3} />
+              <CardSkeleton rows={3} />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <DashboardLayout>
         <div className="space-y-4">
@@ -75,6 +93,22 @@ export default function PageGuard({ permission, anyPermission, children }: PageG
 
   if (hasPerm && workspaceOk) {
     return <>{children}</>;
+  }
+
+  if (immersive) {
+    return (
+      <div className="min-h-screen bg-[#03050a] text-white flex items-center justify-center p-6" dir="rtl">
+        <div className="w-full max-w-sm rounded-3xl border border-red-500/30 bg-red-500/10 p-6 text-center shadow-2xl">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10">
+            <ShieldOff size={28} className="text-red-300" />
+          </div>
+          <h2 className="text-xl font-bold text-white">لا تملك صلاحية الوصول</h2>
+          <p className="mt-3 text-sm leading-6 text-red-100/80">
+            هذا القسم غير مفعل ضمن باقة منشأتك. تواصل مع مدير المنشأة لترقية الباقة.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
