@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageGuard from "@/components/ui/PageGuard";
 import { CheckSquare, Plus, List, Columns, Clock, AlertTriangle, X, LayoutGrid, ChevronLeft, Search, Edit2, Trash2, Radar } from "lucide-react";
@@ -239,6 +240,15 @@ function TasksContent() {
           onCta={openAdd}
           showCta={canManageTasks}
         />
+        <div className="sm:hidden">
+          <Link
+            href="/tasks/my-desk"
+            className="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-2 text-xs font-bold text-cyan-100 transition-colors hover:bg-cyan-400/15"
+          >
+            <Radar size={14} />
+            افتح المكتب الذكي
+          </Link>
+        </div>
 
         {/* Desktop/tablet hero (sm+) — unchanged */}
         <div className="hidden sm:block">
@@ -251,6 +261,13 @@ function TasksContent() {
                 <List size={16} />
               </button>
             </div>
+            <Link
+              href="/tasks/my-desk"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 text-sm font-bold text-cyan-100 transition-colors hover:bg-cyan-400/15"
+            >
+              <Radar size={16} />
+              المكتب الذكي
+            </Link>
             {canManageTasks && (
               <button onClick={openAdd} className="btn-primary min-h-11 px-4 flex items-center gap-2 whitespace-nowrap touch-manipulation">
                 <Plus size={16} />
