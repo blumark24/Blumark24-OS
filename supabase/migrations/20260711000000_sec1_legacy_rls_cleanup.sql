@@ -69,6 +69,32 @@ BEGIN
   END IF;
 END $$;
 
+-- ── 0b. Preflight — abort if a target table lacks organization_id ──
+-- Runs BEFORE RLS is enabled and BEFORE any policies are dropped (section 2).
+-- If a target table exists but has no organization_id column, org-scoped
+-- policies cannot be recreated for it, and section 3 would silently skip
+-- recreation — leaving the table with RLS enabled and zero policies, or
+-- (worse) leaving it exposed after its legacy policies were already dropped.
+-- Failing fast here guarantees the destructive DROP in section 2 never runs
+-- against a table that can't get its replacement policies.
+DO $$
+DECLARE
+  t TEXT;
+  v_tables TEXT[] := ARRAY['projects', 'invoices', 'expenses', 'activities', 'strategy_phases'];
+BEGIN
+  FOREACH t IN ARRAY v_tables LOOP
+    IF to_regclass('public.' || t) IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = t AND column_name = 'organization_id'
+       ) THEN
+      RAISE EXCEPTION
+        'SEC-1A preflight failed: table public.% exists but has no organization_id column. '
+        'Aborting before any RLS changes or policy drops.', t;
+    END IF;
+  END LOOP;
+END $$;
+
 -- ── 1. Ensure RLS is enabled on all target tables ───────────
 DO $$
 DECLARE
