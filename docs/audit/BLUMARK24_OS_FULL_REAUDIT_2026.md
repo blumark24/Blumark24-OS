@@ -1,6 +1,6 @@
 # Blumark24 OS — Full Re-Audit (2026-07-13)
 
-مراجعة شاملة قراءة-فقط. **لا كتابة على Production/Staging، لا Migration، لا Deploy، لا Commit/Push، لا تعديل صفحات المنتج.**
+مراجعة شاملة قراءة-فقط. **لا كتابة على Production/Staging، لا Migration، لا Production deploy يدوي، لا تعديل صفحات المنتج.** (اللوحة نفسها حُفظت على فرع المتابعة، وVercel أنشأ Preview deployment تلقائيًا عند دفع الفرع.)
 اللوحة التفاعلية الكاملة في `tools/project-dashboard/` (شغّل `npm run project:serve`).
 
 ## 1. الحالة الحالية (مُثبتة)
@@ -40,7 +40,7 @@
 - السبب: لم تُغلق أي بوابة جديدة منذ PR #524. الفحوصات الثابتة نجحت لكنها لا ترفع النسبة؛
   العزل الحي وE2E لم يُنفّذا. (قاعدة: إضافة نطاق لا تخفض النسبة، ونجاح Build لا يعني Runtime.)
 - **Production Gate: BLOCKED** حتى ربط التطبيق بجداول Bridge + E2E + العزل الحي (Preview Org A ≠ Org B).
-- **Bridge مطبّق ومؤكد على Supabase Preview** (`gutxgqwtiuudobpbusos`): migration `20260711005000_mydesk_task_management_bridge` + جداول `task_events` / `task_reviewer_assignments` / `task_reviews` (مصدر المالك).
+- **Bridge — VERIFIED LIVE FROM SUPABASE PREVIEW** (`gutxgqwtiuudobpbusos`): migration `20260711005000_mydesk_task_management_bridge` + جداول `task_events` / `task_reviewer_assignments` / `task_reviews` — جميعها RLS enabled والصفوف الحالية 0.
 - المرحلة: **PR-A Review / Rebase** — My Desk Workflow (75 → 78). البوابة التالية: العزل الحي والأدوار (78 → 82).
 - الخطوة التالية الوحيدة: مراجعة PR-A وإزالة تعارضها مع Bridge (rebase) → ربط التطبيق → E2E. **(Bridge Apply لم يعد خطوة قادمة.)**
 
@@ -65,12 +65,13 @@ Owner Control Plane كامل · Billing lifecycle · Automation Scheduler · Exe
 
 ## 7. تصنيف الأدلة
 
-- Verified (حديث): main=a8bfd6f، verify/lint/build/tsc، AI assistant read-only، غياب /meetings، **Bridge مطبّق على Preview (migration + 3 جداول، مصدر المالك)**.
+- Verified (حديث): main=a8bfd6f، verify/lint/build/tsc، AI assistant read-only، غياب /meetings، **Bridge VERIFIED LIVE FROM SUPABASE PREVIEW (migration + 3 جداول، RLS enabled، 0 صفوف)**، **Vercel Preview deployment تلقائي (READY)**.
 - Partially Verified: الخط الأساسي 75.
 - Stale (لم يُعَد التحقق حيًا): Staging Steps 1–5 + Prerequisite (تقارير سابقة).
 - UNAVAILABLE: لقطات Supabase/Vercel/GitHub الحية (قراءة فقط، لم تُلتقط).
 
 ## 8. تأكيدات السلامة
 
-No Production write · No Staging write · No migration apply · No deploy · No commit · No push ·
+No Production write · No Staging write · No migration apply · **No manual deploy · No Production deploy** ·
+Vercel automatically created a Preview deployment after the Git branch push · **Preview deployment state: READY** ·
 لم تُعدَّل صفحات المنتج · `git diff --check` نظيف · lint/build ما زالا ناجحين.

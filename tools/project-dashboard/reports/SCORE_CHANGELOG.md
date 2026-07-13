@@ -9,5 +9,6 @@
 | 2026-07-13 | Prerequisite | عقد حالات المهام | مكتملة تقنيًا | 75 → 75 | لا زيادة دون E2E |
 | 2026-07-13 | Bridge | مطبّق ومؤكد على Supabase Preview (migration 20260711005000_mydesk_task_management_bridge + جداول task_events/task_reviewer_assignments/task_reviews) | تقنية فقط | 75 → 75 | لا زيادة دون ربط التطبيق وE2E |
 | 2026-07-13 | Re-Audit + Dashboard | إعادة تدقيق كاملة (isolation/lint/build/tsc/audit) + بناء لوحة المتابعة الذاتية التحديث | لا بوابة درجة | 75 → 75 | تثبيت 75 — لا بوابة جديدة أُغلقت؛ الفحوصات ثابتة والعزل الحي/E2E لم يُنفّذا |
-| 2026-07-13 | Live Status Correction | تصحيح حالة Bridge من مصدر المالك (Preview): من قيد المراجعة إلى APPLIED/VERIFIED؛ المرحلة أصبحت PR-A Review/Rebase | لا بوابة درجة | 75 → 75 | تثبيت 75 — تصحيح حالة لا درجة |
+| 2026-07-13 | Live Status Correction | تصحيح حالة Bridge: VERIFIED LIVE FROM SUPABASE PREVIEW (RLS enabled، 0 صفوف)؛ المرحلة أصبحت PR-A Review/Rebase | لا بوابة درجة | 75 → 75 | تثبيت 75 — تصحيح حالة لا درجة |
+| 2026-07-13 | Live Evidence Correction | توثيق أدلة حية: Supabase Preview (Bridge VERIFIED LIVE) + Vercel Preview deployment تلقائي (READY، لا Production deploy يدوي) | لا بوابة درجة | 75 → 75 | تثبيت 75 — تصحيح توثيقي لا درجة |
 | — | المرحلة التالية | PR-A (rebase/إزالة التعارض) + ربط التطبيق + E2E | غير مغلقة | 75 → 78 | تُحتسب بعد النجاح فقط |

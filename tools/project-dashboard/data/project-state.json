@@ -25,7 +25,7 @@
     "evidenceFreshness": {
       "label": "حديث",
       "asOf": "2026-07-13",
-      "note": "Bridge مؤكد مطبّقًا على Supabase Preview (gutxgqwtiuudobpbusos): migration 20260711005000_mydesk_task_management_bridge + جداول task_events / task_reviewer_assignments / task_reviews (مصدر المالك). باقي المصادر الخارجية الحية (Vercel/GitHub PRs) تُعرض UNAVAILABLE حتى تُلتقط لقطة."
+      "note": "Bridge — VERIFIED LIVE FROM SUPABASE PREVIEW (gutxgqwtiuudobpbusos): migration 20260711005000_mydesk_task_management_bridge + جداول task_events / task_reviewer_assignments / task_reviews، جميعها RLS enabled والصفوف الحالية 0. Vercel أنشأ Preview deployment تلقائيًا بعد دفع الفرع (الحالة READY) — لا نشر يدوي ولا Production deploy."
     }
   },
   "axes": [
@@ -92,7 +92,7 @@
   ],
   "executiveSummary": {
     "truth": "المشروع قوي كبنية SaaS متعددة المنشآت، لكنه غير جاهز Production بالكامل.",
-    "completed": "main بعد PR #524 (a8bfd6f) + verify:isolation/lint/build + Staging Steps 1–5 + Prerequisite + Bridge مطبّق على Preview (migration + 3 جداول).",
+    "completed": "main بعد PR #524 (a8bfd6f) + verify:isolation/lint/build + Staging Steps 1–5 + Prerequisite + Bridge VERIFIED LIVE FROM SUPABASE PREVIEW (migration + 3 جداول، RLS enabled، 0 صفوف).",
     "current": "PR-A Review / Rebase.",
     "next": "PR-A (rebase/إزالة التعارض مع Bridge) → ربط التطبيق بجداول Bridge → مستخدمان/منشأتان → E2E.",
     "firstVisibleResult": "Preview للمكتب الذكي الوظيفي.",
@@ -104,7 +104,7 @@
   "scoringRule": "لا نرفع أو نخفض النسبة بسبب رأي أو إضافة نطاق. تتغير فقط عند نجاح بوابة موثقة: Build/Test/Isolation/E2E/Restore.",
   "meta": {
     "curatedFrom": "Blumark24_OS_Truth_Based_Master_Dashboard.xlsx + Full Re-Audit 2026-07-13",
-    "generatedAt": "2026-07-13T21:54:12.377Z",
+    "generatedAt": "2026-07-13T22:27:10.071Z",
     "note": "generatedAt وحقول liveSnapshot تُملأ آليًا عند تشغيل project:audit / project:update. القيم المنسوخة من Excel لا تُعدّل يدويًا في HTML."
   }
 }

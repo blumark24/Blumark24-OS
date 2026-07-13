@@ -244,7 +244,7 @@
   }
   function renderExternal(key, titleAr) {
     var wrap = el("div");
-    wrap.appendChild(card(titleAr, "قراءة فقط. لا Deploy. لا كشف أسرار.", [
+    wrap.appendChild(card(titleAr, "قراءة فقط. لا نشر يدوي ولا Production deploy. لا كشف أسرار.", [
       el("div", { class: "callout warn", html: "<b>الحالة:</b> " + externalStatus(key) }),
       el("p", { class: "small muted", text: "عند غياب لقطة حديثة تُعرض STALE/UNAVAILABLE ولا يُعاد استخدام نتيجة قديمة كأنها حديثة." })
     ]));

@@ -21,8 +21,8 @@
 
 - **Verified (حديث، هذه الجلسة):** `main` بعد PR #524 = `a8bfd6f`؛ verify:isolation PASS (static)؛ lint/build PASS؛ tsc PASS؛
   AI Assistant tenant-scoped + rate-limit + no writes (مؤكد بالكود)؛ غياب مسار `/meetings`؛
-  **Bridge مطبّق على Supabase Preview** (`gutxgqwtiuudobpbusos`): migration `20260711005000_mydesk_task_management_bridge` + جداول
-  `task_events` / `task_reviewer_assignments` / `task_reviews` (مصدر المالك — لم يُكمَل استعلام MCP مستقل في هذه الجلسة).
+  **Bridge — VERIFIED LIVE FROM SUPABASE PREVIEW** (`gutxgqwtiuudobpbusos`): migration `20260711005000_mydesk_task_management_bridge` + جداول
+  `task_events` / `task_reviewer_assignments` / `task_reviews` — جميعها RLS enabled والصفوف الحالية 0.
 - **Partially Verified:** الخط الأساسي 75 (بوابة مغلقة موثقة، لكن لا يعني Production ready).
 - **Stale (لم يُعَد التحقق حيًا هذه الجلسة):** Staging Steps 1–5 + Prerequisite — مصدرها تقارير محادثة سابقة؛
   عُرضت كـ Stale ولم تُستخدم لرفع النسبة.
