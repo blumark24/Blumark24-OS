@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-13T21:54:12.377Z",
+  "git": {
+    "branch": "claude/blumark24-audit-dashboard-xjitup",
+    "head": "a8bfd6f7f9969142c3e28e0873f0c8a09ab4b9da",
+    "originMain": "a8bfd6f7f9969142c3e28e0873f0c8a09ab4b9da",
+    "status": "## claude/blumark24-audit-dashboard-xjitup\n M package.json\n?? .github/workflows/project-dashboard.yml\n?? docs/audit/BLUMARK24_OS_FULL_REAUDIT_2026.md\n?? tools/",
+    "clean": false,
+    "lastCommits": [
+      "a8bfd6f security: SEC-1A legacy RLS policy cleanup",
+      "8a7fb7f feat(tasks): employee smart desk v2",
+      "e77f63c Merge pull request #522 from blumark24/codex/employees-mobile-polish-smart-desk-entry-v2",
+      "89ed192 polish employees mobile presence and smart desk entry",
+      "354e704 Merge pull request #520 from blumark24/codex/org-linked-smart-operating-layer"
+    ],
+    "diffCheck": "clean",
+    "headMatchesOrigin": true
+  },
+  "filesystem": {
+    "routeCount": 50,
+    "apiCount": 27,
+    "migrationCount": 49,
+    "hasMeetingsRoute": false,
+    "packageName": "blumark24-os",
+    "packageVersion": "1.0.0",
+    "nextVersion": "14.2.35"
+  },
+  "external": {
+    "github": {
+      "status": "UNAVAILABLE",
+      "lastChecked": null
+    },
+    "vercel": {
+      "status": "UNAVAILABLE",
+      "lastChecked": null
+    },
+    "supabase": {
+      "status": "UNAVAILABLE",
+      "lastChecked": null
+    },
+    "note": "لقطات المصادر الخارجية غير مأخوذة تلقائيًا (read-only، بلا أسرار). عرّفها يدويًا عبر snapshot مخصص."
+  }
+}
