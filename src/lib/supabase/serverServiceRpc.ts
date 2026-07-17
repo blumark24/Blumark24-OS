@@ -11,6 +11,7 @@ type ServiceTableName =
   | "automation_logs";
 
 type ServiceTableMethod = "GET" | "HEAD" | "PATCH" | "POST";
+type ServiceTableParam = string | number | boolean | null | undefined;
 
 export interface ServiceRpcError {
   status?: number;
@@ -42,6 +43,11 @@ const ALLOWED_SERVICE_TABLES = new Set<ServiceTableName>([
 
 function stringField(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+function responseStatusLabel(response: Response, operation: string): string {
+  const statusText = response.statusText.trim();
+  return statusText || `${operation} HTTP ${response.status}`;
 }
 
 /**
@@ -100,7 +106,7 @@ export async function callServerServiceRpc<T>(
       error: {
         status: response.status,
         code: stringField(record.code),
-        message: stringField(record.message) ?? response.statusText ?? "SERVICE_RPC_FAILED",
+        message: stringField(record.message)?.trim() || responseStatusLabel(response, "RPC request failed"),
         details: stringField(record.details),
         hint: stringField(record.hint),
       },
@@ -120,7 +126,7 @@ export async function callServerServiceTable<T>(
   table: ServiceTableName,
   options: {
     method?: ServiceTableMethod;
-    params?: Record<string, string | string[]>;
+    params?: Record<string, ServiceTableParam | ServiceTableParam[]>;
     body?: unknown;
     prefer?: string;
   } = {},
@@ -137,8 +143,10 @@ export async function callServerServiceTable<T>(
 
   const searchParams = new URLSearchParams();
   for (const [key, value] of Object.entries(options.params ?? {})) {
-    for (const item of Array.isArray(value) ? value : [value]) {
-      searchParams.append(key, item);
+    const items = Array.isArray(value) ? value : [value];
+    for (const item of items) {
+      if (item === null || item === undefined) continue;
+      searchParams.append(key, typeof item === "string" ? item : item.toString());
     }
   }
   const query = searchParams.toString();
@@ -188,7 +196,7 @@ export async function callServerServiceTable<T>(
       error: {
         status: response.status,
         code: stringField(record.code),
-        message: stringField(record.message) ?? response.statusText ?? "SERVICE_TABLE_FAILED",
+        message: stringField(record.message)?.trim() || responseStatusLabel(response, "Table request failed"),
         details: stringField(record.details),
         hint: stringField(record.hint),
       },
