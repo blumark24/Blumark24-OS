@@ -103,10 +103,7 @@ Recommended order:
 3. Activate text meeting rooms second.
 4. Activate consent-based realtime presence third.
 5. Activate live meetings last.
-6. Plan C23 Virtual Office Interaction Layer only after SEC-1B and Meetings Center are complete and approved.
 
 ## Release rule
 
 Do not activate live meetings or realtime until the validation checklist passes and the user consent flow is implemented.
-
-C23 Virtual Office Interaction Layer remains planning-only until SEC-1B, Meetings Center, tenant isolation, realtime privacy, and explicit approval gates are complete.
