@@ -329,7 +329,7 @@ export function TaskWorkspace({ task, userId, userRole, workflow, onTaskRefresh 
     setBusy("action");
     setError(null);
     try {
-      if (task.status === STATUS.new || task.status === STATUS.revision) await workflow.start(task.id);
+      if (currentStatus === STATUS.new || currentStatus === STATUS.revision) await workflow.start(task.id);
       else if (canSubmit) {
         if (!note.trim()) {
           setError("\u0623\u0636\u0641 \u0645\u0644\u0627\u062d\u0638\u0629 \u0627\u0644\u0625\u0631\u0633\u0627\u0644 \u0623\u0648\u0644\u0627\u064b.");

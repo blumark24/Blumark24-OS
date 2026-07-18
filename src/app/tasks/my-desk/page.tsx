@@ -53,7 +53,8 @@ function dueText(task: Task | null) {
   if (!task.dueDate?.trim()) return "بلا موعد محدد";
   const diff = daysUntil(task.dueDate);
   if (!Number.isFinite(diff)) return "تاريخ غير صالح";
-  if (task.status === "مكتملة" || task.status === "ملغاة") return task.status;
+  const status = task.status as string;
+  if (status === "مكتملة" || status === "ملغاة") return status;
   if (diff < 0) return `متأخرة ${Math.abs(diff)} يوم`;
   if (diff === 0) return "تنتهي اليوم";
   if (diff === 1) return "غدًا";
@@ -66,7 +67,7 @@ function formatTaskTime(task: Task) {
   return target.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
 }
 
-function statusProgress(status: TaskStatus | undefined) {
+function statusProgress(status: string | undefined) {
   switch (status) {
     case "مكتملة":
       return 100;
@@ -603,7 +604,7 @@ export default function MyTwinDeskPage() {
   );
 
   const insight = useMemo(() => {
-    const active = myTasks.filter((task) => task.status !== "مكتملة" && task.status !== "ملغاة");
+    const active = myTasks.filter((task) => !["مكتملة", "ملغاة"].includes(task.status as string));
     const late = active.filter((task) => isTaskOverdue(task) || isLegacyOverdue(task));
     const review = active.filter((task) => task.status === "بانتظار_المراجعة");
     const doing = active.filter((task) => task.status === "قيد_التنفيذ");
