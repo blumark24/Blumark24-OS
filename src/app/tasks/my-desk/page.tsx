@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   Bell,
   BriefcaseBusiness,
@@ -157,16 +157,6 @@ const DESK_PANEL_META: Record<DeskPanel, {
     label: "المستندات",
     description: "ستظهر المستندات المرتبطة بمهامك هنا عند توفر مصدر بيانات مصرح به.",
   },
-};
-const QUICK_PANEL_BY_PATH: Record<string, DeskPanel> = {
-  "/tasks": "tasks",
-  "/clients": "clients",
-  "/employees": "employees",
-  "/org": "organization",
-  "/finance": "finance",
-  "/reports": "reports",
-  "/ai": "assistant",
-  "/settings": "settings",
 };
 function panelScope(role: string | undefined, department: string) {
   const normalizedRole = role?.trim().toLowerCase();
@@ -379,29 +369,22 @@ function AnnouncementCard({ alertCount }: { alertCount: number }) {
   );
 }
 
-function QuickLink({ href, icon, label, tone }: { href: string; icon: ReactNode; label: string; tone: "blue" | "gold" | "orange" | "cyan" | "silver" | "slate" }) {
-  return <Link href={href} className={`td-quick-link ${tone}`} aria-label={label}><span>{icon}</span><b>{label}</b></Link>;
+function QuickPanelButton({ panel, icon, label, tone, onOpen }: { panel: DeskPanel; icon: ReactNode; label: string; tone: "blue" | "gold" | "orange" | "cyan" | "silver" | "slate"; onOpen: (panel: DeskPanel, trigger: HTMLElement) => void }) {
+  return <button type="button" className={`td-quick-link ${tone}`} aria-label={label} onClick={(event) => onOpen(panel, event.currentTarget)}><span>{icon}</span><b>{label}</b></button>;
 }
 
 function QuickAccessCard({ onOpen }: { onOpen: (panel: DeskPanel, trigger: HTMLElement) => void }) {
-  const onQuickAccessClick = (event: MouseEvent<HTMLDivElement>) => {
-    const link = (event.target as HTMLElement).closest<HTMLAnchorElement>("a.td-quick-link");
-    const panel = QUICK_PANEL_BY_PATH[link?.getAttribute("href") ?? ""];
-    if (!link || !panel) return;
-    event.preventDefault();
-    onOpen(panel, link);
-  };
   return (
     <GlassCard title="وصول سريع" className="td-quick-card">
-      <div className="td-quick-grid" onClick={onQuickAccessClick}>
-        <QuickLink href="/tasks" icon={<CheckSquare size={18} />} label="المهام" tone="blue" />
-        <QuickLink href="/clients" icon={<BriefcaseBusiness size={18} />} label="العملاء" tone="cyan" />
-        <QuickLink href="/employees" icon={<Users size={18} />} label="الموظفون" tone="orange" />
-        <QuickLink href="/org" icon={<Building2 size={18} />} label="الهيكل الإداري" tone="gold" />
-        <QuickLink href="/finance" icon={<Landmark size={18} />} label="المالية" tone="silver" />
-        <QuickLink href="/reports" icon={<FileText size={18} />} label="التقارير" tone="cyan" />
-        <QuickLink href="/ai" icon={<Sparkles size={18} />} label="المساعد الذكي" tone="blue" />
-        <QuickLink href="/settings" icon={<Settings size={18} />} label="الإعدادات" tone="slate" />
+      <div className="td-quick-grid">
+        <QuickPanelButton panel="tasks" icon={<CheckSquare size={18} />} label="المهام" tone="blue" onOpen={onOpen} />
+        <QuickPanelButton panel="clients" icon={<BriefcaseBusiness size={18} />} label="العملاء" tone="cyan" onOpen={onOpen} />
+        <QuickPanelButton panel="employees" icon={<Users size={18} />} label="الموظفون" tone="orange" onOpen={onOpen} />
+        <QuickPanelButton panel="organization" icon={<Building2 size={18} />} label="الهيكل الإداري" tone="gold" onOpen={onOpen} />
+        <QuickPanelButton panel="finance" icon={<Landmark size={18} />} label="المالية" tone="silver" onOpen={onOpen} />
+        <QuickPanelButton panel="reports" icon={<FileText size={18} />} label="التقارير" tone="cyan" onOpen={onOpen} />
+        <QuickPanelButton panel="assistant" icon={<Sparkles size={18} />} label="المساعد الذكي" tone="blue" onOpen={onOpen} />
+        <QuickPanelButton panel="settings" icon={<Settings size={18} />} label="الإعدادات" tone="slate" onOpen={onOpen} />
       </div>
     </GlassCard>
   );

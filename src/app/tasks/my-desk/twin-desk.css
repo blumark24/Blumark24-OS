@@ -249,7 +249,7 @@
 .td-announcement strong { display: block; margin-bottom: 7px; font-size: 13px; }
 .td-announcement p { margin: 0; color: var(--desk-muted); font-size: 11px; line-height: 1.72; }
 .td-quick-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; }
-.td-quick-link { flex-direction: column; justify-content: center; gap: 7px; min-height: 65px; color: white; font-size: 10px; font-weight: 800; text-align: center; }
+.td-quick-link { flex-direction: column; justify-content: center; gap: 7px; min-height: 65px; border: 0; appearance: none; background: transparent; color: white; font: inherit; font-size: 10px; font-weight: 800; text-align: center; cursor: pointer; }
 .td-quick-link span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 7px; background: var(--quick-color); box-shadow: 0 9px 18px color-mix(in srgb, var(--quick-color) 33%, transparent); }
 .td-quick-link.blue { --quick-color: #3c8cff; }
 .td-quick-link.gold { --quick-color: #d8a348; }
