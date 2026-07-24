@@ -23,29 +23,34 @@ import {
   X,
 } from "lucide-react";
 import PageGuard from "@/components/ui/PageGuard";
-import { TaskWorkspace } from "@/components/tasks/TaskWorkspace";
+import { parseTaskDueDateInRiyadh, TaskWorkspace } from "@/components/tasks/TaskWorkspace";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useTasks } from "@/hooks/useData";
 import { useTaskWorkflow } from "@/hooks/useTaskWorkflow";
 import { isLegacyOverdue, isTaskOverdue } from "@/lib/tasks/taskStatus";
-import type { Task, TaskStatus } from "@/types";
+import type { Task } from "@/types";
 import "./twin-desk.css";
 
 function parseDueDate(dueDate: string | undefined) {
-  if (!dueDate?.trim()) return null;
-  const target = new Date(dueDate);
-  return Number.isNaN(target.getTime()) ? null : target;
+  const timestamp = parseTaskDueDateInRiyadh(dueDate);
+  return timestamp === null ? null : new Date(timestamp);
 }
+
+const riyadhDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Riyadh",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
 function daysUntil(dueDate: string | undefined) {
   const target = parseDueDate(dueDate);
   if (!target) return Number.NaN;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  target.setHours(0, 0, 0, 0);
-  return Math.ceil((target.getTime() - today.getTime()) / 86400000);
+  const targetDay = Date.parse(`${riyadhDateFormatter.format(target)}T00:00:00Z`);
+  const todayDay = Date.parse(`${riyadhDateFormatter.format(new Date())}T00:00:00Z`);
+  return Number.isNaN(targetDay) || Number.isNaN(todayDay) ? Number.NaN : Math.round((targetDay - todayDay) / 86400000);
 }
 
 function dueText(task: Task | null) {
@@ -64,7 +69,7 @@ function dueText(task: Task | null) {
 function formatTaskTime(task: Task) {
   const target = parseDueDate(task.dueDate);
   if (!target) return "--:--";
-  return target.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+  return target.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Riyadh" });
 }
 
 function statusProgress(status: string | undefined) {
@@ -90,7 +95,7 @@ function statusProgress(status: string | undefined) {
 function workdayLabel() {
   return new Intl.DateTimeFormat("ar-SA", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
 }
-type DeskPanel = "tasks" | "clients" | "employees" | "organization" | "finance" | "reports" | "assistant" | "settings" | "documents";
+type DeskPanel = "menu" | "search" | "notifications" | "tasks" | "clients" | "employees" | "organization" | "finance" | "reports" | "assistant" | "settings" | "documents";
 type DeskPanelPermission = "manage_tasks" | "manage_clients" | "view_employees" | "manage_tenant_settings" | "manage_finance" | "manage_reports" | "manage_settings";
 const DESK_PANEL_META: Record<DeskPanel, {
   label: string;
@@ -98,6 +103,9 @@ const DESK_PANEL_META: Record<DeskPanel, {
   description: string;
   permission?: DeskPanelPermission;
 }> = {
+  menu: { label: "قائمة المكتب", description: "تنقل سريع إلى الأقسام المتاحة لحسابك الحالي." },
+  search: { label: "البحث داخل المكتب", description: "البحث داخل المكتب قيد التجهيز. لن نعرض نتائج وهمية." },
+  notifications: { label: "التنبيهات", description: "تنبيهات المهام الشخصية ضمن نطاق حسابك فقط." },
   tasks: {
     label: "المهام",
     href: "/tasks",
@@ -175,6 +183,36 @@ function panelScope(role: string | undefined, department: string) {
   return "النطاق المسموح به وفق الدور والصلاحيات وRLS.";
 }
 
+type DeskExperience = {
+  variant: "employee" | "department" | "organization" | "owner";
+  title: string;
+  subtitle: string;
+  roleLabel: string;
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  super_admin: "مالك المنصة",
+  owner: "مالك المنصة",
+  tenant_owner: "مدير المنشأة",
+  organization_manager: "مدير المنشأة",
+  department_manager: "مدير الإدارة",
+  manager: "مدير الإدارة",
+  employee: "موظف",
+  board_member: "عضو مجلس الإدارة",
+  defense_manager: "مدير وكالة الدفاع",
+  attack_manager: "مدير وكالة الهجوم",
+  finance_manager: "مدير مالي",
+};
+
+function getDeskExperience(rawRole: string | undefined, effectiveRole: string | null): DeskExperience {
+  const normalized = rawRole?.trim().toLowerCase() ?? "";
+  if (normalized === "super_admin" || normalized === "owner") return { variant: "owner", title: "مكتب المالك", subtitle: "مركز قيادة Blumark24 OS", roleLabel: ROLE_LABELS[normalized] };
+  if (normalized === "organization_manager" || normalized === "tenant_owner") return { variant: "organization", title: "المكتب التنفيذي", subtitle: "إدارة المنشأة الحالية ضمن صلاحياتك", roleLabel: ROLE_LABELS[normalized] };
+  if (normalized === "department_manager" || normalized === "manager") return { variant: "department", title: "مكتب مدير الإدارة", subtitle: "مساحة فريقك ومهام إدارتك", roleLabel: ROLE_LABELS[normalized] };
+  const role = effectiveRole ?? normalized;
+  return { variant: "employee", title: "مكتبي", subtitle: "مساحة عملك الشخصية", roleLabel: ROLE_LABELS[role] ?? "مستخدم" };
+}
+
 function GlassCard({ title, action, children, className }: { title: string; action?: string; children: ReactNode; className?: string }) {
   return (
     <section className={`td-glass-card ${className ?? ""}`}>
@@ -205,14 +243,14 @@ function EmptyLine({ title, note }: { title: string; note: string }) {
   );
 }
 
-function ExecutiveHeader({ employeeName, department, alertCount }: { employeeName: string; department: string; alertCount: number }) {
+function ExecutiveHeader({ employeeName, department, alertCount, experience, onOpenPanel }: { employeeName: string; department: string; alertCount: number; experience: DeskExperience; onOpenPanel: (panel: DeskPanel, trigger: HTMLElement) => void }) {
   return (
     <header className="td-command">
       <div className="td-title-block">
-        <span className="td-menu-button" aria-hidden="true"><Menu size={18} /></span>
+        <button type="button" className="td-menu-button" aria-label="فتح قائمة المكتب" onClick={(event) => onOpenPanel("menu", event.currentTarget)}><Menu size={18} /></button>
         <span>
-          <strong>My Desk</strong>
-          <small>مكتب تنفيذي ذكي</small>
+          <strong>{experience.title}</strong>
+          <small>{experience.subtitle}</small>
         </span>
       </div>
 
@@ -222,8 +260,8 @@ function ExecutiveHeader({ employeeName, department, alertCount }: { employeeNam
       </div>
 
       <div className="td-command-actions">
-        <span className="td-search-pill" aria-label="البحث داخل المكتب قريبًا"><Search size={15} />البحث داخل المكتب قريبًا</span>
-        <span className="td-icon-circle" aria-label="تنبيهات المهام الشخصية"><Bell size={15} />{alertCount > 0 ? <i>{alertCount}</i> : null}</span>
+        <button type="button" className="td-search-pill" aria-label="فتح البحث داخل المكتب" onClick={(event) => onOpenPanel("search", event.currentTarget)}><Search size={15} />البحث داخل المكتب</button>
+        <button type="button" className="td-icon-circle" aria-label="فتح تنبيهات المهام الشخصية" onClick={(event) => onOpenPanel("notifications", event.currentTarget)}><Bell size={15} />{alertCount > 0 ? <i>{alertCount}</i> : null}</button>
         <Link href="/tasks" className="td-top-button"><ChevronLeft size={15} />المهام</Link>
       </div>
     </header>
@@ -282,9 +320,9 @@ function TaskCard({
       </div>
       {taskLoadError ? (
         <div className="td-empty-line" role="alert">
-          <strong>{"\u062a\u0639\u0630\u0631 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0645\u0647\u0627\u0645"}</strong>
+          <strong>{"تعذر تحميل المهام"}</strong>
           <button type="button" onClick={onRetryTasks} disabled={retrying}>
-            {retrying ? "\u062c\u0627\u0631\u064d \u0627\u0644\u0625\u0639\u0627\u062f\u0629" : "\u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0645\u062d\u0627\u0648\u0644\u0629"}
+            {retrying ? "جارٍ الإعادة" : "إعادة المحاولة"}
           </button>
         </div>
       ) : currentTask ? (
@@ -300,7 +338,7 @@ function TaskCard({
           {workflowHint ? <small>{workflowHint}</small> : null}
         </div>
       ) : (
-        <EmptyLine title="\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u0647\u0627\u0645 \u0634\u062e\u0635\u064a\u0629" note="\u0633\u062a\u0638\u0647\u0631 \u0647\u0646\u0627 \u0627\u0644\u0645\u0647\u0627\u0645 \u0627\u0644\u0645\u0633\u0646\u062f\u0629 \u0644\u0643 \u0641\u0642\u0637." />
+        <EmptyLine title="لا توجد مهام شخصية" note="ستظهر هنا المهام المسندة لك فقط." />
       )}
       <Link href="/tasks" className="td-card-link">الانتقال إلى لوحة المهام <ChevronLeft size={15} /></Link>
     </GlassCard>
@@ -379,6 +417,8 @@ function SmartPanel({
   onTaskRefresh,
   hasPermission,
   taskSummary,
+  experience,
+  notificationCount,
   dialogRef,
   closeButtonRef,
   onClose,
@@ -387,6 +427,8 @@ function SmartPanel({
   scope: string;
   hasPermission: (permission: DeskPanelPermission) => boolean;
   taskSummary: { pending: number; doing: number; late: number };
+  experience: DeskExperience;
+  notificationCount: number;
   dialogRef: RefObject<HTMLElement>;
   closeButtonRef: RefObject<HTMLButtonElement>;
   task: Task | null;
@@ -402,6 +444,8 @@ function SmartPanel({
 }) {
   const meta = DESK_PANEL_META[panel];
   const allowed = !meta.permission || hasPermission(meta.permission);
+  const unsupported = !meta.href && panel !== "tasks" && panel !== "menu" && panel !== "notifications";
+  const panelDescriptionId = "my-desk-panel-description";
 
   return (
     <div
@@ -417,6 +461,7 @@ function SmartPanel({
         role="dialog"
         aria-modal="true"
         aria-labelledby="my-desk-panel-title"
+        aria-describedby={panelDescriptionId}
       >
         <header className="td-smart-panel-head">
           <div>
@@ -427,37 +472,46 @@ function SmartPanel({
             ref={closeButtonRef}
             type="button"
             className="td-smart-panel-close"
-            aria-label="????? ???????"
+            aria-label="إغلاق النافذة"
             onClick={onClose}
           >
             <X size={18} />
           </button>
         </header>
 
-        {panel === "tasks" ? (
+        <div className="td-smart-panel-context" id={panelDescriptionId}>
+          <div className="td-smart-panel-scope">
+            <span>الدور الحالي</span>
+            <strong>{experience.roleLabel}</strong>
+            <span>النطاق</span>
+            <strong>{scope}</strong>
+            {meta.permission ? <><span>الصلاحية المطلوبة</span><strong>{meta.permission}</strong></> : null}
+          </div>
+          <p className={`td-smart-panel-note ${allowed ? "" : "restricted"}`}>
+            {allowed ? "الوصول متاح ضمن صلاحيات حسابك الحالية وRLS." : "ليس لديك صلاحية الوصول إلى هذا القسم ضمن دورك الحالي."}
+          </p>
+        </div>
+
+        {allowed && panel === "tasks" ? (
           <TaskWorkspace task={task} userId={userId} userRole={userRole} workflow={workflow} onTaskRefresh={onTaskRefresh} />
         ) : (
         <div className="td-smart-panel-content">
           <p>{meta.description}</p>
-          <div className="td-smart-panel-scope">
-            <span>?????? ??????</span>
-            <strong>{scope}</strong>
-          </div>
-          {allowed ? (
-            <p className="td-smart-panel-note">?????? ??????? ?????? ?RLS ??? ??? ?????? ?????????.</p>
-          ) : (
-            <p className="td-smart-panel-note restricted">?? ???? ?????? ??? ?????? ??? ????? ??? ???? ?????.</p>
-          )}
+          {panel === "notifications" ? <div className="td-panel-metrics"><span><strong>{notificationCount}</strong><small>تنبيهات المهام الشخصية</small></span></div> : null}
+          {panel === "notifications" && notificationCount === 0 ? <p className="td-smart-panel-note">لا توجد تنبيهات حالية.</p> : null}
+          {panel === "search" ? <p className="td-smart-panel-note">البحث داخل المكتب قيد التجهيز.</p> : null}
+          {panel === "menu" ? <p className="td-smart-panel-note">استخدم الوصول السريع للأقسام المتاحة ضمن دورك.</p> : null}
+          {allowed && unsupported ? <p className="td-smart-panel-note">هذه الميزة قيد التجهيز.</p> : null}
         </div>
         )}
 
         <footer className="td-smart-panel-actions">
-          {allowed && meta.href ? (
+          {allowed && meta.href && !unsupported ? (
             <Link href={meta.href} className="td-smart-panel-primary" onClick={onClose}>
-              ??? {meta.label}
+              فتح {meta.label}
             </Link>
           ) : null}
-          <button type="button" className="td-smart-panel-secondary" onClick={onClose}>?????</button>
+          <button type="button" className="td-smart-panel-secondary" onClick={onClose}>إغلاق</button>
         </footer>
       </section>
     </div>
@@ -489,10 +543,12 @@ function DockMoreMenu({
   open,
   onClose,
   triggerRef,
+  items,
 }: {
   open: boolean;
   onClose: () => void;
   triggerRef: RefObject<HTMLButtonElement>;
+  items: DeskPanel[];
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -517,25 +573,23 @@ function DockMoreMenu({
     <>
       <button type="button" className="td-more-backdrop" aria-label="إغلاق قائمة المزيد" onClick={onClose} />
       <div className="td-more-menu" id="my-desk-more-menu" ref={menuRef} role="menu" aria-label="المزيد">
-        <Link href="/employees" role="menuitem" onClick={onClose}>الموظفون</Link>
-        <Link href="/org" role="menuitem" onClick={onClose}>الهيكل الإداري</Link>
-        <Link href="/finance" role="menuitem" onClick={onClose}>المالية</Link>
-        <Link href="/reports" role="menuitem" onClick={onClose}>التقارير</Link>
-        <Link href="/ai" role="menuitem" onClick={onClose}>المساعد الذكي</Link>
-        <Link href="/settings" role="menuitem" onClick={onClose}>الإعدادات</Link>
+        {items.length ? items.map((item) => {
+          const meta = DESK_PANEL_META[item];
+          return meta.href ? <Link key={item} href={meta.href} role="menuitem" onClick={onClose}>{meta.label}</Link> : null;
+        }) : <p className="td-more-empty">لا توجد أقسام إضافية متاحة.</p>}
       </div>
     </>
   );
 }
 
-function BottomTwinNav() {
+function BottomTwinNav({ moreItems }: { moreItems: DeskPanel[] }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreTriggerRef = useRef<HTMLButtonElement>(null);
   const closeMoreMenu = () => setMoreOpen(false);
 
   return (
     <>
-      <DockMoreMenu open={moreOpen} onClose={closeMoreMenu} triggerRef={moreTriggerRef} />
+      <DockMoreMenu open={moreOpen} onClose={closeMoreMenu} triggerRef={moreTriggerRef} items={moreItems} />
       <nav className="td-bottom-nav" aria-label="تنقل My Desk">
         <Link href="/dashboard"><Home size={16} />الرئيسية</Link>
         <Link href="/tasks"><LayoutGrid size={16} />المهام</Link>
@@ -564,11 +618,12 @@ export default function MyTwinDeskPage() {
   const workflow = useTaskWorkflow();
   const { user } = useAuth();
   const toast = useToast();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, userRole: effectiveRole } = usePermissions();
   const [activePanel, setActivePanel] = useState<DeskPanel | null>(null);
   const panelTriggerRef = useRef<HTMLElement | null>(null);
   const panelDialogRef = useRef<HTMLElement>(null);
   const panelCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const experience = getDeskExperience(user?.role, effectiveRole);
 
   const openPanel = (panel: DeskPanel, trigger: HTMLElement) => {
     panelTriggerRef.current = trigger;
@@ -589,6 +644,22 @@ export default function MyTwinDeskPage() {
     const focusFrame = requestAnimationFrame(() => panelCloseButtonRef.current?.focus());
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setActivePanel(null);
+      if (event.key !== "Tab" || !panelDialogRef.current) return;
+      const focusable = Array.from(
+        panelDialogRef.current.querySelectorAll<HTMLElement>(
+          "a[href], button:not(:disabled), textarea, input:not([type='hidden']):not([hidden]), select, [tabindex]:not([tabindex=\"-1\"])",
+        ),
+      ).filter((element) => element.tabIndex !== -1 && element.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => {
@@ -625,6 +696,10 @@ export default function MyTwinDeskPage() {
   const schedule = [currentTask, ...insight.dueSoon.filter((task) => task.id !== currentTask?.id)].filter(Boolean).slice(0, 3) as Task[];
   const scope = panelScope(user?.role, department);
   const taskSummary = { pending: insight.pending.length, doing: insight.doing.length, late: insight.late.length };
+  const moreItems = (Object.keys(DESK_PANEL_META) as DeskPanel[]).filter((panel) => {
+    const meta = DESK_PANEL_META[panel];
+    return !["menu", "search", "notifications", "tasks", "clients"].includes(panel) && !!meta.href && (!meta.permission || hasPermission(meta.permission));
+  });
 
   // My Desk is intentionally personal; team management will live in a separate workspace.
 
@@ -663,7 +738,7 @@ export default function MyTwinDeskPage() {
           <div className="td-loading"><span className="td-nav-logo">B</span><strong>جاري تحميل مكتبك التنفيذي...</strong></div>
         ) : (
           <section className="td-desk-shell">
-            <ExecutiveHeader employeeName={employeeName} department={department} alertCount={alertCount} />
+            <ExecutiveHeader employeeName={employeeName} department={department} alertCount={alertCount} experience={experience} onOpenPanel={openPanel} />
             <div className="td-office-layout">
               <aside className="td-side-stack td-left-stack">
                 <GreetingCard employeeName={employeeName} department={department} />
@@ -695,13 +770,15 @@ export default function MyTwinDeskPage() {
                 <DocumentsCard />
               </aside>
             </div>
-            <BottomTwinNav />
+            <BottomTwinNav moreItems={moreItems} />
             {activePanel ? (
               <SmartPanel
                 panel={activePanel}
                 scope={scope}
                 hasPermission={hasPermission}
                 taskSummary={taskSummary}
+                experience={experience}
+                notificationCount={alertCount}
                 task={currentTask}
                 userId={user?.id}
                 userRole={user?.role}
