@@ -37,17 +37,19 @@ function parseDueDate(dueDate: string | undefined) {
   const timestamp = parseTaskDueDateInRiyadh(dueDate);
   return timestamp === null ? null : new Date(timestamp);
 }
+
+const riyadhDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Riyadh",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 function daysUntil(dueDate: string | undefined) {
   const target = parseDueDate(dueDate);
   if (!target) return Number.NaN;
-  const dateFormatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Riyadh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const targetDay = Date.parse(`${dateFormatter.format(target)}T00:00:00Z`);
-  const todayDay = Date.parse(`${dateFormatter.format(new Date())}T00:00:00Z`);
+  const targetDay = Date.parse(`${riyadhDateFormatter.format(target)}T00:00:00Z`);
+  const todayDay = Date.parse(`${riyadhDateFormatter.format(new Date())}T00:00:00Z`);
   return Number.isNaN(targetDay) || Number.isNaN(todayDay) ? Number.NaN : Math.round((targetDay - todayDay) / 86400000);
 }
 
@@ -196,6 +198,10 @@ const ROLE_LABELS: Record<string, string> = {
   department_manager: "مدير الإدارة",
   manager: "مدير الإدارة",
   employee: "موظف",
+  board_member: "عضو مجلس الإدارة",
+  defense_manager: "مدير وكالة الدفاع",
+  attack_manager: "مدير وكالة الهجوم",
+  finance_manager: "مدير مالي",
 };
 
 function getDeskExperience(rawRole: string | undefined, effectiveRole: string | null): DeskExperience {
@@ -639,7 +645,11 @@ export default function MyTwinDeskPage() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setActivePanel(null);
       if (event.key !== "Tab" || !panelDialogRef.current) return;
-      const focusable = Array.from(panelDialogRef.current.querySelectorAll<HTMLElement>("a[href], button:not(:disabled), textarea, input, select, [tabindex]:not([tabindex=\"-1\"])"));
+      const focusable = Array.from(
+        panelDialogRef.current.querySelectorAll<HTMLElement>(
+          "a[href], button:not(:disabled), textarea, input:not([type='hidden']):not([hidden]), select, [tabindex]:not([tabindex=\"-1\"])",
+        ),
+      ).filter((element) => element.tabIndex !== -1 && element.offsetParent !== null);
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
