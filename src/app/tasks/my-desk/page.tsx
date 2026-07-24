@@ -45,6 +45,50 @@ const riyadhDateFormatter = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
+const TASK_STATUS_LABELS: Record<string, string> = {
+  جديدة: "جديدة",
+  new: "جديدة",
+  قيد_التنفيذ: "قيد التنفيذ",
+  "قيد التنفيذ": "قيد التنفيذ",
+  in_progress: "قيد التنفيذ",
+  موقوفة: "موقوفة",
+  paused: "موقوفة",
+  بانتظار_المراجعة: "بانتظار المراجعة",
+  "بانتظار المراجعة": "بانتظار المراجعة",
+  pending_review: "بانتظار المراجعة",
+  طلب_تعديل: "طلب تعديل",
+  "طلب تعديل": "طلب تعديل",
+  revision_requested: "طلب تعديل",
+  مكتملة: "مكتملة",
+  completed: "مكتملة",
+  ملغاة: "ملغاة",
+  cancelled: "ملغاة",
+  متأخرة: "متأخرة",
+  overdue: "متأخرة",
+};
+
+const TASK_PRIORITY_LABELS: Record<string, string> = {
+  عاجلة: "عاجلة",
+  urgent: "عاجلة",
+  عالية: "عالية",
+  high: "عالية",
+  متوسطة: "متوسطة",
+  medium: "متوسطة",
+  normal: "متوسطة",
+  منخفضة: "منخفضة",
+  low: "منخفضة",
+};
+
+function taskStatusLabel(status: unknown) {
+  const key = String(status ?? "").trim().toLowerCase();
+  return TASK_STATUS_LABELS[key] ?? "حالة غير محددة";
+}
+
+function taskPriorityLabel(priority: unknown) {
+  const key = String(priority ?? "").trim().toLowerCase();
+  return TASK_PRIORITY_LABELS[key] ?? "أولوية غير محددة";
+}
+
 function daysUntil(dueDate: string | undefined) {
   const target = parseDueDate(dueDate);
   if (!target) return Number.NaN;
@@ -478,8 +522,8 @@ function TaskPanelList({ tasks }: { tasks: Task[] }) {
             <span>{dueText(task)}</span>
           </div>
           <div className="td-panel-task-meta">
-            <span>{String(task.status).replaceAll("_", " ")}</span>
-            {task.priority ? <b>{task.priority}</b> : null}
+            <span>{taskStatusLabel(task.status)}</span>
+            {task.priority ? <b>{taskPriorityLabel(task.priority)}</b> : null}
           </div>
         </li>
       ))}
