@@ -21,7 +21,7 @@ import { usePermissions, mapAuthRoleToUserRole } from "@/contexts/PermissionsCon
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import type { UserRole } from "@/contexts/PermissionsContext";
 import {
-  WS_CARD, WS_CARD_HOVER, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE,
+  WS_CARD, WS_CARD_HOVER, WS_INNER_CARD, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE,
   WS_STATUS_CHIP, BOARD_THEME, type BoardKey, type KpiAccent,
 } from "@/components/ui/workspaceVisual";
 import { QuickActionTile, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
