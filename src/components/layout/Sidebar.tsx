@@ -25,6 +25,7 @@ import {
 } from "@/lib/features/packageFeatures";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import OfficialBlumarkLogo from "@/components/brand/OfficialBlumarkLogo";
+import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -62,6 +63,7 @@ export default function Sidebar({
   const toast       = useToast();
   const { userRole } = usePermissions();
   const { navRoutes, loading: wsLoading, planSlug, organizationStatus } = useTenantWorkspace();
+  const company = useTenantCompanyName();
   const effectiveRole =
     userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
 
@@ -138,7 +140,13 @@ export default function Sidebar({
             </svg>
           </div>
         ) : (
-          <OfficialBlumarkLogo className="w-[140px] sm:w-[150px] lg:w-[150px]" />
+          <div className="min-w-0 flex-1">
+            <OfficialBlumarkLogo className="w-[136px] sm:w-[145px] lg:w-[148px]" />
+            <div className="mt-1.5">
+              <p className="text-[10px] font-bold tracking-[0.08em] text-[#7dd3fc]">BLUMARK24 OS</p>
+              <p className="mt-0.5 truncate text-[9.5px] text-white/45">منصة تشغيل الأعمال الذكية</p>
+            </div>
+          </div>
         )}
         <button
           onClick={onToggle}
@@ -165,8 +173,8 @@ export default function Sidebar({
               <Building2 size={16} strokeWidth={1.7} />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[11px] font-semibold text-white">BLUMARK24 OS</p>
-              <p className="mt-0.5 truncate text-[10px] text-white/48">منصة تشغيل الأعمال الذكية</p>
+              <p className="truncate text-[11px] font-semibold text-white">{company.name}</p>
+              <p className="mt-0.5 truncate text-[10px] text-white/48">مساحة منشأة مستقلة وآمنة</p>
             </div>
             <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-0.5 text-[9px] font-semibold text-emerald-200">
               {organizationStatus === "inactive" ? "موقوفة" : "نشطة"}
