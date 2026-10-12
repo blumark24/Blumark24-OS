@@ -76,8 +76,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             routes to a tenant via a direct URL.
           */}
           <WorkspaceRouteGuard>
-            <CustomerOnboardingBanner />
             {children}
+            <CustomerOnboardingBanner />
           </WorkspaceRouteGuard>
         </main>
 
