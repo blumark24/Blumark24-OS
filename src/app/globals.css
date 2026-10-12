@@ -135,6 +135,17 @@ html, body {
   color: var(--ds-text-1);
 }
 .bm-fusion-control:active { transform: translateY(1px); }
+.bm-fusion-shell .bm-glass-card,
+.bm-fusion-shell .bm-glass-surface,
+.bm-fusion-shell .bm-fusion-header,
+.bm-fusion-shell .bm-fusion-sidebar {
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    color 160ms ease;
+}
+
 .bm-theme-toggle { position: relative; isolation: isolate; }
 .bm-theme-toggle::after {
   content: "";
@@ -151,11 +162,11 @@ html, body {
 [data-theme="light"] .bm-fusion-sidebar,
 [data-theme="light"] .bm-glass-card,
 [data-theme="light"] .bm-glass-surface {
-  box-shadow: 0 18px 48px rgba(54,47,121,.16), inset 0 1px 0 rgba(255,255,255,.24);
+  box-shadow: 0 14px 36px rgba(67,72,112,.10), inset 0 1px 0 rgba(255,255,255,.82);
 }
 [data-theme="light"] .recharts-cartesian-grid-horizontal line,
 [data-theme="light"] .recharts-cartesian-grid-vertical line {
-  stroke: rgba(255,255,255,.18);
+  stroke: rgba(63,72,101,.10);
 }
 [data-theme="light"] .recharts-text { fill: var(--ds-text-2) !important; }
 
@@ -331,7 +342,7 @@ html, body {
   background: var(--bm-input-bg, rgba(13, 31, 60, 0.8));
   border: 1px solid var(--bm-glass-border, rgba(30, 58, 95, 0.8));
   border-radius: 10px;
-  color: #e2e8f0;
+  color: var(--ds-text-1);
   padding: 10px 14px;
   width: 100%;
   outline: none;
@@ -345,7 +356,7 @@ html, body {
 }
 
 .input-dark::placeholder {
-  color: #8ba3c7;
+  color: var(--ds-text-3);
 }
 
 /* Loading shimmer */
