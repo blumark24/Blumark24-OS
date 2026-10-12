@@ -22,6 +22,7 @@ AS $$
 DECLARE
   v_is_privileged boolean :=
     COALESCE((select auth.role()) = 'service_role', false)
+    OR current_user IN ('postgres', 'service_role', 'supabase_auth_admin')
     OR COALESCE(public.is_owner(), false)
     OR COALESCE(public.get_my_role() = 'super_admin', false);
   v_old jsonb;
