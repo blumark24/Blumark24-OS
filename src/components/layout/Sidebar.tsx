@@ -42,7 +42,9 @@ const ICON_BY_NAME: Record<string, LucideIcon> = {
   Settings,
 };
 
-const PLAN_LABELS_AR = { basic: "أساسي", growth: "نمو", advanced: "متقدم", enterprise: "مؤسسي" } as const;\n\ninterface SidebarProps {
+const PLAN_LABELS_AR = { basic: "أساسي", growth: "نمو", advanced: "متقدم", enterprise: "مؤسسي" } as const;
+
+interface SidebarProps {
   collapsed?:   boolean;
   onToggle?:    () => void;
   mobileOpen?:  boolean;
