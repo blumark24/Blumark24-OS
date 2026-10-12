@@ -75,7 +75,7 @@ export function TaskCommandCenter({
   onAdd,
 }: TaskCommandCenterProps) {
   return (
-    <header className="flex min-h-[80px] flex-col justify-center gap-3 rounded-ds-lg border border-ds-border-soft bg-ds-surface-1 px-3 py-3 shadow-ds-2 sm:min-h-[84px] sm:flex-row sm:items-center sm:justify-between sm:px-4">
+    <header className="flex min-h-[68px] flex-col justify-center gap-2.5 rounded-ds-lg border border-ds-border-soft bg-ds-surface-1 px-3 py-2.5 shadow-ds-2 sm:min-h-[72px] sm:flex-row sm:items-center sm:justify-between sm:px-4">
       <div className="flex min-w-0 items-center gap-3">
         <CompanyLogo name={companyName} logoUrl={logoUrl} />
         <div className="min-w-0">
@@ -113,7 +113,7 @@ export function TaskCommandCenter({
           <button
             type="button"
             onClick={(event) => onAdd(event.currentTarget)}
-            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-ds-sm bg-ds-accent px-4 text-ds-body font-black text-white shadow-ds-1 transition-colors duration-150 hover:brightness-110 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-teal"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-ds-sm bg-ds-accent px-3.5 text-ds-caption font-black text-white shadow-ds-1 transition-colors duration-150 hover:brightness-110 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-teal"
           >
             <Plus size={16} aria-hidden="true" />
             مهمة جديدة
