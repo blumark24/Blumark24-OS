@@ -42,7 +42,7 @@ const ICON_BY_NAME: Record<string, LucideIcon> = {
   Settings,
 };
 
-interface SidebarProps {
+const PLAN_LABELS_AR = { basic: "أساسي", growth: "نمو", advanced: "متقدم", enterprise: "مؤسسي" } as const;\n\ninterface SidebarProps {
   collapsed?:   boolean;
   onToggle?:    () => void;
   mobileOpen?:  boolean;
@@ -59,7 +59,7 @@ export default function Sidebar({
   const { user, loading: authLoading, loggingOut, logout } = useAuth();
   const toast       = useToast();
   const { userRole } = usePermissions();
-  const { navRoutes, loading: wsLoading } = useTenantWorkspace();
+  const { navRoutes, loading: wsLoading, planSlug, organizationStatus } = useTenantWorkspace();
   const effectiveRole =
     userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
 
@@ -154,6 +154,29 @@ export default function Sidebar({
           </button>
         )}
       </div>
+
+      {!collapsed && (
+        <div className="mx-3 mt-3 rounded-2xl border border-cyan-300/[0.14] bg-[linear-gradient(145deg,rgba(34,211,238,0.08),rgba(30,111,217,0.05),rgba(255,255,255,0.02))] p-3 shadow-[0_14px_34px_-22px_rgba(34,211,238,0.65),inset_0_1px_0_rgba(255,255,255,0.05)]">
+          <div className="flex items-start gap-2.5">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-200">
+              <Building2 size={16} strokeWidth={1.7} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[11px] font-semibold text-white">BLUMARK24 OS</p>
+              <p className="mt-0.5 truncate text-[10px] text-white/48">منصة تشغيل الأعمال الذكية</p>
+            </div>
+            <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-0.5 text-[9px] font-semibold text-emerald-200">
+              {organizationStatus === "inactive" ? "موقوفة" : "نشطة"}
+            </span>
+          </div>
+          <div className="mt-3 flex items-center justify-between border-t border-white/[0.06] pt-2.5">
+            <span className="text-[10px] text-white/42">مساحة المنشأة · الباقة</span>
+            <span className="rounded-lg border border-white/[0.08] bg-white/[0.035] px-2 py-1 text-[10px] font-semibold text-white/75">
+              {PLAN_LABELS_AR[planSlug]}
+            </span>
+          </div>
+        </div>
+      )}
 
       <nav className="flex-1 overflow-y-auto px-3 py-3">
         <ul className="space-y-1">
