@@ -26,52 +26,28 @@ function isProtectedPath(pathname: string) {
   );
 }
 
-// PR5-D: Owner Panel and Customer Workspace now run on isolated Supabase
-// auth clients, each persisting its session under a distinct localStorage
-// key. To keep middleware in step with that isolation, the single
-// `blumark_session` edge marker has been split into two surface-scoped
-// cookies. Either surface logging out only clears its own cookie, so the
-// other surface's middleware still sees the visitor as authenticated.
+// Owner Panel and Customer Workspace use isolated Supabase browser clients
+// whose sessions are persisted under separate localStorage keys.
+// Middleware cannot read localStorage, so it must only use the dedicated
+// surface marker cookies as a navigation/session hint.
 //
-// localStorage is never visible to middleware, so these marker cookies
-// remain the authoritative edge-level "is signed in?" signal. The real
-// identity check (owner email allowlist, organization_id binding) still
-// lives in OwnerGuard and AuthContext on the client.
+// IMPORTANT: these marker cookies are NOT the authorization boundary.
+// Real authorization remains enforced by Supabase/RLS, AuthContext/OwnerGuard,
+// and protected server APIs (for example verifyOwnerBearer on owner routes).
+// Requiring an "sb-*-auth-token" cookie here would break valid sessions because
+// the current browser clients do not persist Supabase auth into cookies.
 //
-// P0-Security: hasOwnerSession now requires BOTH the surface marker cookie
-// AND a live Supabase auth cookie. This prevents anyone who only sets the
-// marker cookie (without a real Supabase session) from reaching /owner pages.
-// The email allowlist check is enforced by OwnerGuard (client) and by
-// verifyOwnerBearer() in every owner API route (server). Middleware is the
-// first-line edge gate only.
-//
-// Legacy: any stale `blumark_session=1` from a pre-PR5-D session is
-// honored as a customer marker for one release window so already-logged-in
-// users are not silently kicked to /auth on deploy.
+// Legacy: a stale `blumark_session=1` from the pre-split session model is
+// still accepted for the customer surface during the compatibility window.
 function hasOwnerSession(request: NextRequest): boolean {
-  const hasMarker = request.cookies.get("blumark_owner_session")?.value === "1";
-  if (!hasMarker) return false;
-  // Also require a live Supabase auth cookie — blocks cookie-only spoofing.
-  const hasSupabaseCookie = request.cookies
-    .getAll()
-    .some((c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"));
-  return hasSupabaseCookie;
+  return request.cookies.get("blumark_owner_session")?.value === "1";
 }
 
 function hasCustomerSession(request: NextRequest): boolean {
-  const hasMarker =
+  return (
     request.cookies.get("blumark_customer_session")?.value === "1" ||
-    request.cookies.get("blumark_session")?.value === "1";
-  if (!hasMarker) return false;
-
-  // P0 hardening: a UI marker alone must never unlock protected routes.
-  // Require a Supabase auth cookie as an additional edge-level signal.
-  // Full JWT validation remains enforced by Supabase/AuthContext and is the
-  // next middleware-hardening step once SSR auth is introduced.
-  const hasSupabaseCookie = request.cookies
-    .getAll()
-    .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.endsWith("-auth-token"));
-  return hasSupabaseCookie;
+    request.cookies.get("blumark_session")?.value === "1"
+  );
 }
 
 export function middleware(request: NextRequest) {
