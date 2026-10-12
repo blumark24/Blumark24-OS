@@ -7,11 +7,11 @@ export const WS_PAGE =
   "space-y-3 sm:space-y-4 min-w-0 max-w-full lg:pb-5";
 
 export const WS_CARD =
-  "bm-glass-card relative overflow-hidden rounded-[22px] " +
+  "bm-glass-card relative overflow-hidden rounded-[14px] " +
   "transition-[transform,box-shadow,border-color] duration-200 ease-out";
 
 export const WS_SURFACE =
-  "bm-glass-surface relative overflow-hidden rounded-[22px] " +
+  "bm-glass-surface relative overflow-hidden rounded-[16px] " +
   "transition-[transform,box-shadow,border-color] duration-200 ease-out";
 
 /** Safe hover lift for interactive dashboard cards */
@@ -158,10 +158,10 @@ export const WS_TINTS: Record<KpiAccent, { orb: string; icon: string }> = {
 export type BoardKey = "activeClients" | "completedTasks" | "incompleteTasks" | "overdueTasks";
 
 export const BOARD_THEME: Record<BoardKey, KpiTheme> = {
-  activeClients: KPI_THEMES.cyan,
-  completedTasks: KPI_THEMES.emerald,
-  incompleteTasks: KPI_THEMES.amber,
-  overdueTasks: KPI_THEMES.rose,
+  activeClients: KPI_THEMES.violet,
+  completedTasks: KPI_THEMES.cyan,
+  incompleteTasks: KPI_THEMES.emerald,
+  overdueTasks: KPI_THEMES.amber,
 };
 
 export const SPARK_POINTS =
