@@ -4,7 +4,7 @@
  */
 
 export const WS_PAGE =
-  "space-y-4 sm:space-y-6 min-w-0 max-w-full lg:pb-6";
+  "space-y-3 sm:space-y-4 min-w-0 max-w-full lg:pb-5";
 
 export const WS_CARD =
   "bm-glass-card relative overflow-hidden rounded-[22px] " +
@@ -35,8 +35,7 @@ export const WS_METRIC_LABEL =
 
 export const WS_STATUS_CHIP =
   "inline-flex items-center gap-1.5 min-h-[26px] px-2.5 py-0.5 rounded-full " +
-  "text-xs font-semibold text-[rgba(226,232,240,0.92)] " +
-  "bg-[rgba(15,35,65,0.58)] border border-[rgba(148,163,184,0.14)]";
+  "text-xs font-semibold text-ds-text-2 bm-glass-inset";
 
 export const WS_MOBILE_PAGE =
   "mx-auto w-full max-w-md space-y-3 sm:max-w-none sm:space-y-5";
@@ -51,10 +50,10 @@ export const WS_ICON_ORB =
   "shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_8px_20px_rgba(34,211,238,0.06)]";
 
 export const WS_GLASS_MODAL =
-  "glass-card w-full max-w-lg rounded-2xl border border-white/[0.10] bg-[#0b1e3a]/95 p-4 sm:p-6 max-h-[90vh] overflow-y-auto";
+  "bm-glass-surface w-full max-w-lg rounded-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto";
 
 export const WS_AI_PILL =
-  "inline-flex items-center gap-1.5 rounded-full border border-violet-300/25 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-100 transition-colors hover:bg-violet-500/15";
+  "inline-flex items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 transition-colors hover:bg-violet-500/15";
 
 export const WS_LIVE_PILL =
   "inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium";
