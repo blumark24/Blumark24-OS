@@ -7,10 +7,10 @@ export const WS_PAGE =
   "space-y-4 sm:space-y-6 min-w-0 max-w-full lg:pb-6";
 
 export const WS_CARD =
-  "relative overflow-hidden rounded-[22px] border border-[rgba(148,163,184,0.14)] " +
-  "bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.10),transparent_34%),linear-gradient(145deg,rgba(15,35,65,0.82),rgba(8,18,38,0.94))] " +
-  "shadow-[0_16px_40px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-[14px] " +
-  "transition-[transform,box-shadow,border-color] duration-200 ease-out";
+  "relative overflow-hidden rounded-[22px] border border-[rgba(148,163,184,0.18)] " +
+  "bg-[radial-gradient(120%_110%_at_100%_0%,rgba(34,211,238,0.13),transparent_42%),linear-gradient(145deg,rgba(16,37,68,0.94),rgba(7,18,37,0.98))] " +
+  "shadow-[0_20px_48px_-22px_rgba(0,0,0,0.86),0_8px_24px_-18px_rgba(30,111,217,0.34),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-[16px] " +
+  "ring-1 ring-inset ring-white/[0.025] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out";
 
 export const WS_SURFACE =
   "relative overflow-hidden rounded-[22px] border border-[rgba(148,163,184,0.14)] " +
@@ -20,8 +20,8 @@ export const WS_SURFACE =
 
 /** Safe hover lift for interactive dashboard cards */
 export const WS_CARD_HOVER =
-  "ws-card-hover hover:-translate-y-0.5 hover:border-[rgba(34,211,238,0.26)] " +
-  "hover:shadow-[0_20px_52px_rgba(0,0,0,0.30),0_0_24px_rgba(34,211,238,0.06),inset_0_1px_0_rgba(255,255,255,0.06)]";
+  "ws-card-hover hover:-translate-y-1 hover:border-[rgba(34,211,238,0.34)] " +
+  "hover:shadow-[0_28px_64px_-24px_rgba(0,0,0,0.92),0_18px_38px_-26px_rgba(34,211,238,0.52),inset_0_1px_0_rgba(255,255,255,0.09)]";
 
 export const WS_INNER_CARD =
   "rounded-2xl border border-[rgba(148,163,184,0.12)] bg-[rgba(15,35,65,0.38)] " +
