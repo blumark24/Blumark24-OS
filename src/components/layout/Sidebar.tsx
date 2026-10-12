@@ -25,6 +25,7 @@ import {
 } from "@/lib/features/packageFeatures";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import OfficialBlumarkLogo from "@/components/brand/OfficialBlumarkLogo";
+import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -60,6 +61,7 @@ export default function Sidebar({
   const toast       = useToast();
   const { userRole } = usePermissions();
   const { navRoutes, loading: wsLoading } = useTenantWorkspace();
+  const { name: companyName, logoUrl: companyLogoUrl } = useTenantCompanyName();
   const effectiveRole =
     userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
 
@@ -119,8 +121,9 @@ export default function Sidebar({
   const innerCard = (
     <div
       className={cn(
-        "flex flex-col flex-1 rounded-2xl border border-white/[0.08] overflow-hidden",
-        "bg-[#0a1628] lg:bg-[rgba(10,22,40,0.55)] lg:backdrop-blur-xl",
+        "flex flex-col flex-1 rounded-[22px] border border-white/[0.09] overflow-hidden",
+        "bg-[linear-gradient(180deg,rgba(9,24,43,.98),rgba(5,15,29,.98))] lg:bg-[linear-gradient(180deg,rgba(9,24,43,.78),rgba(5,15,29,.72))] lg:backdrop-blur-xl",
+        "shadow-[0_28px_80px_-44px_rgba(34,211,238,.55),inset_0_1px_0_rgba(255,255,255,.04)]",
       )}
     >
       <div className="relative flex items-center justify-center lg:justify-start px-4 py-4 border-b border-white/[0.06]">
@@ -155,7 +158,7 @@ export default function Sidebar({
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-3">
+      <nav className="flex-1 overflow-y-auto px-2.5 py-2.5 sm:px-3 sm:py-3">
         <ul className="space-y-1">
           {renderedRoutes.map(({ route, locked }) => {
             const Icon = ICON_BY_NAME[route.iconName] ?? LayoutDashboard;
@@ -166,7 +169,7 @@ export default function Sidebar({
               : pathname.startsWith(href));
 
             const itemClass = cn(
-              "flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-colors border w-full text-right",
+              "flex min-h-10 items-center justify-between gap-2.5 px-3 py-2 rounded-xl text-[12.5px] sm:text-[13px] transition-all border w-full text-right",
               isActive
                 ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#3B82F6]/15 to-transparent border-[rgba(34,211,238,0.24)] text-white shadow-[0_2px_10px_-4px_rgba(34,211,238,0.30)]"
                 : locked
@@ -243,15 +246,18 @@ export default function Sidebar({
           )}
         >
           <span
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-semibold text-white flex-shrink-0"
-            style={{ background: "linear-gradient(135deg,#22D3EE,#1E6FD9)" }}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-cover bg-center text-[12px] font-semibold text-white flex-shrink-0"
+            style={companyLogoUrl
+              ? { backgroundImage: `url(${companyLogoUrl})`, backgroundColor: "rgba(255,255,255,.06)" }
+              : { background: "linear-gradient(135deg,#22D3EE,#1E6FD9)" }}
+            aria-label={companyLogoUrl ? "شعار المنشأة" : undefined}
           >
-            {user?.name?.slice(0, 2) ?? "؟"}
+            {companyLogoUrl ? null : (user?.name?.slice(0, 2) ?? "؟")}
           </span>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <div className="text-[12.5px] font-semibold text-white truncate">{user?.name ?? "المستخدم"}</div>
-              <div className="text-[11px] text-white/55 truncate">{roleLabel || " "}</div>
+              <div className="text-[12.5px] font-semibold text-white truncate">{companyName || user?.name || "المنشأة"}</div>
+              <div className="text-[11px] text-white/55 truncate">{user?.name ?? "المستخدم"} · {roleLabel || "عضو الفريق"}</div>
             </div>
           )}
           {!collapsed && (
@@ -285,7 +291,7 @@ export default function Sidebar({
     <aside
       className={cn(
         "flex flex-col h-screen sticky top-0 z-40 p-2 transition-[width] duration-300",
-        collapsed ? "w-16" : "w-[78vw] max-w-[300px] lg:w-60 lg:max-w-none"
+        collapsed ? "w-16" : "w-[86vw] max-w-[320px] lg:w-60 lg:max-w-none"
       )}
     >
       {innerCard}
@@ -298,7 +304,7 @@ export default function Sidebar({
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
           <div
-            className="absolute inset-0 bg-black/55"
+            className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
             onClick={onMobileClose}
           />
           <div className="absolute top-0 right-0 h-full sidebar-mobile-enter" style={{ zIndex: 51 }}>
