@@ -196,7 +196,9 @@ export function mapAuthRoleToUserRole(role: string): UserRole {
     case "مدير_عام":
       return "super_admin";
     case "admin":
-      return "super_admin";
+      // Legacy tenant admin must never be promoted into a platform-only role.
+      // Keep platform super_admin explicit to prevent accidental privilege escalation.
+      return "organization_manager";
     case "organization_manager":
     case "مدير_المنشأة":
     case "owner":
