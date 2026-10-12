@@ -123,7 +123,7 @@ export default function DashboardPulsePanel({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={15} className={overdueTasks > 0 ? "text-rose-300" : "text-cyan-300"} />
-                <h2 className="text-sm font-bold text-white">ما يحتاج انتباهك الآن</h2>
+                <h2 className="text-sm font-bold text-ds-text-1">ما يحتاج انتباهك الآن</h2>
               </div>
               <p className="mt-0.5 text-[11px] text-[#7890b1]">أولوية مختصرة بدل ازدحام الكروت.</p>
             </div>
@@ -138,10 +138,10 @@ export default function DashboardPulsePanel({
               const body = (
                 <>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-bold text-white">{item.label}</div>
-                    <div className="mt-0.5 line-clamp-1 text-[11px] text-white/48">{item.note}</div>
+                    <div className="truncate text-xs font-bold text-ds-text-1">{item.label}</div>
+                    <div className="mt-0.5 line-clamp-1 text-[11px] text-ds-text-3">{item.note}</div>
                   </div>
-                  {item.href ? <ArrowLeft size={14} className="shrink-0 text-white/35" /> : null}
+                  {item.href ? <ArrowLeft size={14} className="shrink-0 text-ds-text-3" /> : null}
                 </>
               );
 
@@ -171,7 +171,7 @@ export default function DashboardPulsePanel({
         <div className={cn(WS_INNER_CARD, "min-w-0 p-3")}>
           <div className="mb-2.5 flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-xs font-bold text-white">
+              <div className="flex items-center gap-2 text-xs font-bold text-ds-text-1">
                 <Gauge size={14} className="text-cyan-300" />
                 نبض العمل
               </div>
@@ -183,7 +183,7 @@ export default function DashboardPulsePanel({
             </span>
           </div>
 
-          <div className="mb-2 truncate text-[11px] text-white/38">{scopeLabel}</div>
+          <div className="mb-2 truncate text-[11px] text-ds-text-3">{scopeLabel}</div>
 
           <div className="grid grid-cols-3 gap-2">
             <PulseMetric icon={CheckCircle2} label="الإنجاز" value={`${completedTasksPct}%`} />
@@ -206,12 +206,12 @@ function PulseMetric({
   value: string;
 }) {
   return (
-    <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.025] px-2.5 py-2">
-      <div className="flex items-center gap-1.5 text-[10px] text-white/40">
+    <div className="min-w-0 rounded-xl border border-ds-border-soft bg-white/[0.025] px-2.5 py-2">
+      <div className="flex items-center gap-1.5 text-[10px] text-ds-text-3">
         <Icon size={11} className="shrink-0 text-cyan-300/80" />
         <span className="truncate">{label}</span>
       </div>
-      <div className="mt-1 truncate text-sm font-black tabular-nums text-white">{value}</div>
+      <div className="mt-1 truncate text-sm font-black tabular-nums text-ds-text-1">{value}</div>
     </div>
   );
 }
