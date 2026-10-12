@@ -5,10 +5,13 @@ import { useState, type RefObject } from "react";
 import {
   Building2,
   ChevronDown,
+  Columns3,
+  Crosshair,
   Home,
   Layers,
   Loader2,
   Plus,
+  Users2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/contexts/PermissionsContext";
@@ -118,6 +121,83 @@ export function TaskCommandCenter({
         ) : null}
       </div>
     </header>
+  );
+}
+
+export type TaskModeStripProps = {
+  managerScope: boolean;
+  focusActive: boolean;
+  listActive: boolean;
+  flowActive: boolean;
+  onFocus: () => void;
+  onList: () => void;
+  onFlow: () => void;
+};
+
+/**
+ * Three intentional task lenses. The underlying task data remains unchanged;
+ * this only switches the existing list/kanban and assignee filters.
+ */
+export function TaskModeStrip({
+  managerScope,
+  focusActive,
+  listActive,
+  flowActive,
+  onFocus,
+  onList,
+  onFlow,
+}: TaskModeStripProps) {
+  const items = [
+    {
+      id: "focus",
+      label: "تركيزي",
+      note: "ما يخصني الآن",
+      icon: Crosshair,
+      active: focusActive,
+      onClick: onFocus,
+    },
+    {
+      id: "list",
+      label: managerScope ? "فريقي" : "قائمتي",
+      note: managerScope ? "كل العمل في نطاقي" : "كل مهامي",
+      icon: Users2,
+      active: listActive,
+      onClick: onList,
+    },
+    {
+      id: "flow",
+      label: "التدفق",
+      note: "المراحل بصرياً",
+      icon: Columns3,
+      active: flowActive,
+      onClick: onFlow,
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-3 gap-1.5 rounded-ds-md border border-ds-border-soft bg-ds-surface-1 p-1.5">
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          aria-pressed={item.active}
+          onClick={item.onClick}
+          className={cn(
+            "flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-ds-sm px-2 text-right transition-colors duration-150 motion-reduce:transition-none",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-teal",
+            item.active
+              ? "bg-[color-mix(in_srgb,var(--ds-accent)_18%,transparent)] text-ds-text-1 shadow-ds-1"
+              : "text-ds-text-2 hover:bg-white/[0.04] hover:text-ds-text-1",
+          )}
+        >
+          <item.icon size={14} className={cn("shrink-0", item.active ? "text-ds-teal" : "text-ds-text-3")} aria-hidden="true" />
+          <span className="min-w-0">
+            <strong className="block truncate text-ds-caption font-black">{item.label}</strong>
+            <small className="hidden truncate text-[10px] font-medium text-ds-text-3 sm:block">{item.note}</small>
+          </span>
+        </button>
+      ))}
+    </div>
   );
 }
 
