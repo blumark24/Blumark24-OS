@@ -2,17 +2,15 @@
 
 import Link from "next/link";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import JellyfishBackground from "@/components/jellyfish/JellyfishBackground";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import {
   Users, CheckCircle2, XCircle, AlertTriangle, Activity, Clock,
-  UserCheck, DollarSign, CheckCircle, X, Sparkles, TrendingUp, Timer, Siren,
+  UserCheck, DollarSign, CheckCircle, X, TrendingUp, Timer, Siren,
   CheckSquare, UserPlus, FileText, Wallet, BarChart3, ListChecks,
-  ArrowLeft, ShieldCheck, Building2, Zap, Plus,
-  Briefcase, Network, UserCog, CreditCard,
+  ArrowLeft, ShieldCheck, Building2, Zap, Plus, CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency, timeAgo } from "@/lib/utils";
@@ -23,10 +21,10 @@ import { usePermissions, mapAuthRoleToUserRole } from "@/contexts/PermissionsCon
 import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import type { UserRole } from "@/contexts/PermissionsContext";
 import {
-  WS_CARD, WS_CARD_HOVER, WS_INNER_CARD, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE, WS_AI_PILL,
+  WS_CARD, WS_CARD_HOVER, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE,
   WS_STATUS_CHIP, BOARD_THEME, type BoardKey, type KpiAccent,
 } from "@/components/ui/workspaceVisual";
-import { StatPill, QuickActionTile, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
+import { QuickActionTile, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
 import { PremiumMetricCard } from "@/components/ui/PremiumMetricCard";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
@@ -38,7 +36,7 @@ import DashboardPulsePanel from "@/components/dashboard/DashboardPulsePanel";
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
-const TOOLTIP_STYLE = { background: "#0d1f3c", border: "1px solid #1e3a5f", borderRadius: "10px", color: "#e2e8f0" };
+const TOOLTIP_STYLE = { background: "var(--bm-glass-surface)", border: "1px solid var(--bm-glass-border)", borderRadius: "10px", color: "var(--ds-text-1)" };
 const DISABLE_TEXT_SELECT_STYLE = {
   WebkitUserSelect: "none",
   userSelect: "none",
@@ -52,10 +50,10 @@ const CustomTooltip = ({
   if (!active || !payload?.length) return null;
   const now = new Date().getFullYear();
   return (
-    <div className="rounded-xl border border-ds-border bg-[#0d1f3c]/95 p-3 text-sm backdrop-blur-md">
+    <div className="bm-glass-surface rounded-xl p-3 text-sm">
       <p className="text-ds-text-2 mb-1">{label}</p>
       {payload.map((entry, i) => (
-        <p key={i} className="font-medium" style={{ color: entry.name === "current" ? "#22d3ee" : "#8ba3c7" }}>
+        <p key={i} className="font-medium" style={{ color: entry.name === "current" ? "#8B5CF6" : "#5CDCE7" }}>
           {entry.name === "current" ? `${now}: ` : `${now - 1}: `}{formatCurrency(entry.value)} SAR
         </p>
       ))}
@@ -157,8 +155,8 @@ export default function DashboardPage() {
       ? getTenantRoleLabel(mapAuthRoleToUserRole(user.role))
       : "عضو الفريق";
   const { display: departmentDisplay } = useProfileOrgDepartment();
-  const { name: companyName, logoUrl: companyLogoUrl, isFallback: companyIsFallback } = useTenantCompanyName();
-  const { context: work, loading: workLoading } = useMyWorkContext();
+  const { name: companyName } = useTenantCompanyName();
+  const { context: work } = useMyWorkContext();
   const { planSlug, organizationStatus } = useTenantWorkspace();
 
   const roleLensLabel = (() => {
@@ -212,13 +210,6 @@ export default function DashboardPage() {
       : kpi.incompleteTasks > 0
         ? `${kpi.incompleteTasks} مهمة قيد التنفيذ، ومعدل الإنجاز الحالي ${kpi.completedTasksPct}%.`
         : "جميع المهام منجزة — أداء ممتاز اليوم! 🎯";
-
-  // Business-relevant hero metrics — derived ONLY from existing KPI values (no fabricated numbers).
-  const operationalStatus = kpi.overdueTasks > 0 ? "يتطلب متابعة" : "مستقر";
-  const operationalTint: KpiAccent = kpi.overdueTasks > 0 ? "amber" : "emerald";
-  const teamPerformance = kpi.completedTasksPct >= 80
-    ? "ممتاز"
-    : kpi.completedTasksPct >= 50 ? "جيد" : kpi.completedTasksPct > 0 ? "متوسط" : "—";
 
   const [activeBoard, setActiveBoard] = useState<BoardKey | null>(null);
 
@@ -330,77 +321,39 @@ export default function DashboardPage() {
   return (
     <DashboardLayout>
       <div className={cn(WS_PAGE, "min-w-0 max-w-full overflow-x-hidden")}>
-        {/* ─── Hero: welcome banner ──────────────────────────────────────── */}
-        <section className={`${WS_SURFACE} p-3.5 sm:p-4`}>
-          <JellyfishBackground />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_100%_at_88%_-20%,rgba(34,211,238,0.09),transparent_58%),radial-gradient(100%_110%_at_8%_125%,rgba(124,58,237,0.09),transparent_58%)]" />
-
-          <div className="relative z-10 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            {/* Welcome + identity + live status metrics (right side on desktop) */}
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-start gap-3">
-                {companyLogoUrl && (
-                  <span
-                    aria-label="شعار المنشأة"
-                    role="img"
-                    className="mt-0.5 h-9 w-9 shrink-0 rounded-xl border border-ds-border bg-white/5 bg-cover bg-center"
-                    style={{ backgroundImage: `url(${companyLogoUrl})` }}
-                  />
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm text-ds-text-2">مرحباً بك 👋</p>
-                  <h1 className="mt-0.5 truncate text-xl sm:text-2xl font-heading font-bold text-ds-text-1">
-                    {employeeDisplayName}
-                  </h1>
-                </div>
+        {/* ─── Reference-video overview header ───────────────────────────── */}
+        <section className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <div className="text-[10px] font-medium text-ds-text-3">
+                لوحة التحكم / نظرة عامة
               </div>
-
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ds-text-2">
-                <span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} className="text-cyan-300" />{roleLabel}</span>
-                <span className={cn(
-                  "inline-flex items-center gap-1.5",
-                  companyIsFallback ? "text-ds-text-3 italic" : "text-ds-text-1 font-medium",
-                )}>
-                  <Building2 size={13} className={companyIsFallback ? "text-ds-text-3" : "text-cyan-300"} />
-                  {companyName}
-                </span>
-                <span className={cn(
-                  "inline-flex items-center gap-1.5",
-                  departmentDisplay.isEmpty ? "text-ds-text-3 italic" : "text-ds-text-2",
-                )}>
-                  <Building2 size={13} className={departmentDisplay.isEmpty ? "text-ds-text-3" : "text-cyan-300"} />
-                  {departmentDisplay.text}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{todayArabic()}
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <h1 className="font-heading text-[22px] font-black tracking-tight text-ds-text-1 sm:text-[26px]">
+                  نظرة عامة
+                </h1>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/[0.08] px-2 py-0.5 text-[10px] font-bold text-emerald-500">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_7px_rgba(74,222,128,.65)]" />
+                  مباشر
                 </span>
               </div>
-
-              {/* Three compact live metrics (derived from existing data only; chips wrap, never clip) */}
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                <StatPill icon={Zap}        label="أداء الفريق"  value={teamPerformance}             tint="emerald"       />
-                <StatPill icon={TrendingUp} label="الإنجاز"      value={`${kpi.completedTasksPct}%`} tint="cyan"          />
-                <StatPill icon={Activity}   label="حالة التشغيل" value={operationalStatus}           tint={operationalTint} />
-              </div>
+              <p className="mt-1 max-w-3xl text-[11px] leading-5 text-ds-text-2 sm:text-xs">
+                مرحباً {employeeDisplayName} — {roleLabel} · {companyName}. {aiInsight}
+              </p>
             </div>
 
-            {/* AI insight panel (left side on desktop; the mobile equivalent lives lower as a full card) */}
-            <div className="hidden lg:flex lg:w-[270px] lg:shrink-0">
-              <div className={cn(WS_INNER_CARD, "w-full p-3 backdrop-blur-sm")}>
-                <div className="mb-2 flex items-center gap-2">
-                  <span className={`${WS_ICON_ORB} w-8 h-8 shrink-0 bg-violet-400/10 ring-1 ring-violet-300/25`}>
-                    <Sparkles size={15} className="text-violet-300" />
-                  </span>
-                  <div className="text-[11px] font-medium text-cyan-200/90">رؤية ذكية من النظام</div>
-                </div>
-                <p className="text-sm leading-snug text-ds-text-1">{aiInsight}</p>
-                <Link
-                  href="/ai"
-                  className={`mt-3 ${WS_AI_PILL}`}
-                >
-                  عرض التفاصيل <ArrowLeft size={14} />
-                </Link>
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="bm-fusion-control inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3 text-[11px] font-semibold">
+                <Activity size={13} className="text-violet-400" />
+                عرض تشغيلي
+              </span>
+              <span className="bm-fusion-control inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3 text-[11px] font-semibold">
+                <Clock size={13} />
+                آخر 90 يوم
+              </span>
+              <span className="bm-fusion-control hidden min-h-9 items-center gap-2 rounded-[10px] px-3 text-[11px] font-semibold sm:inline-flex">
+                مقارنة بالفترة السابقة
+              </span>
             </div>
           </div>
         </section>
@@ -469,77 +422,103 @@ export default function DashboardPage() {
               })}
         </div>
 
-        {/* ─── Role lens + operational pulse ─────────────────────────────── */}
-        <DashboardPulsePanel
-          roleLensLabel={roleLensLabel}
-          roleLabel={roleLabel}
-          scopeLabel={roleScopeLabel}
-          overdueTasks={overdueTasksCount}
-          incompleteTasks={incompleteTasksCount}
-          completedTasksPct={kpi.completedTasksPct}
-          activeClients={activeClients}
-          totalClients={totalClients}
-          activeEmployees={activeEmployees}
-          totalEmployees={totalEmployees}
-          canManageTasks={hasPermission("manage_tasks")}
-          canManageClients={hasPermission("manage_clients")}
-          canViewEmployees={hasPermission("view_employees") || hasPermission("manage_users")}
-        />
-
-        {/* ─── Analytics: performance + task distribution ────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "lg:col-span-2 p-4 sm:p-5")}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-            <div className="relative z-10 mb-3.5 flex items-center justify-between">
-              <h3 className={WS_SECTION_TITLE}>تحليلات الأداء — الإيرادات</h3>
-              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-ds-text-2">آخر 12 شهر</span>
+        {/* ─── Reference-video primary analytics card ─────────────────────── */}
+        <section className={cn(WS_CARD, "p-4 sm:p-5")}>
+          <div className="relative z-10 mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-ds-text-1">نظرة الإيرادات</h2>
+                <span className="rounded-full bg-emerald-400/[0.08] px-2 py-0.5 text-[10px] font-bold text-emerald-500">
+                  +{kpi.netProfit >= 0 ? "موجب" : "تراجع"}
+                </span>
+              </div>
+              <p className="mt-1 text-[10px] text-ds-text-3">الأداء المالي للفترة الحالية مقارنة بالفترة السابقة</p>
             </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={salesData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,58,95,0.4)" />
-                <XAxis dataKey="month" tick={{ fill: "#8ba3c7", fontSize: 11 }} />
-                <YAxis tick={{ fill: "#8ba3c7", fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend formatter={(v) => v === "current" ? String(currentYear) : String(currentYear - 1)} />
-                <Line type="monotone" dataKey="current" stroke="#22d3ee" strokeWidth={2.5} dot={false} name="current" />
-                <Line type="monotone" dataKey="previous" stroke="#1e3a5f" strokeWidth={1.5} dot={false} name="previous" strokeDasharray="4 2" />
-              </LineChart>
-            </ResponsiveContainer>
+
+            <div className="flex items-center gap-1 rounded-[10px] border border-ds-border-soft bg-white/[0.025] p-1">
+              {["7D", "30D", "90D"].map((range) => (
+                <span
+                  key={range}
+                  className={cn(
+                    "rounded-[7px] px-2.5 py-1 text-[10px] font-bold",
+                    range === "90D" ? "bg-violet-500 text-white shadow-sm" : "text-ds-text-3",
+                  )}
+                >
+                  {range}
+                </span>
+              ))}
+            </div>
           </div>
 
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-4 sm:p-5")}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-            <div className="relative z-10 mb-4 flex items-center justify-between">
-              <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>توزيع المهام</h3>
-              <span className={`${WS_ICON_ORB} w-8 h-8 bg-cyan-400/10 ring-1 ring-cyan-300/25`}>
-                <ListChecks size={15} className="text-cyan-300" />
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={salesData}>
+              <defs>
+                <linearGradient id="refCurrentLine" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.32} />
+                  <stop offset="100%" stopColor="#8B5CF6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--ds-border-soft)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fill: "var(--ds-text-3)", fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: "var(--ds-text-3)", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <Tooltip content={<CustomTooltip />} />
+              <Line type="monotone" dataKey="current" stroke="#8B5CF6" strokeWidth={2.2} dot={false} name="current" />
+              <Line type="monotone" dataKey="previous" stroke="#5CDCE7" strokeWidth={1.8} dot={false} name="previous" />
+            </LineChart>
+          </ResponsiveContainer>
+        </section>
+
+        {/* ─── Operational intelligence below the primary chart ───────────── */}
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <DashboardPulsePanel
+              roleLensLabel={roleLensLabel}
+              roleLabel={roleLabel}
+              scopeLabel={roleScopeLabel}
+              overdueTasks={overdueTasksCount}
+              incompleteTasks={incompleteTasksCount}
+              completedTasksPct={kpi.completedTasksPct}
+              activeClients={activeClients}
+              totalClients={totalClients}
+              activeEmployees={activeEmployees}
+              totalEmployees={totalEmployees}
+              canManageTasks={hasPermission("manage_tasks")}
+              canManageClients={hasPermission("manage_clients")}
+              canViewEmployees={hasPermission("view_employees") || hasPermission("manage_users")}
+            />
+          </div>
+
+          <section className={cn(WS_CARD, "p-4")}>
+            <div className="relative z-10 mb-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-ds-text-1">توزيع المهام</h3>
+                <p className="mt-0.5 text-[10px] text-ds-text-3">حالة العمل الحالية</p>
+              </div>
+              <span className={cn(WS_ICON_ORB, "h-8 w-8")}>
+                <ListChecks size={14} className="text-violet-400" />
               </span>
             </div>
-            <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-white/5">
+            <div className="flex h-2 w-full overflow-hidden rounded-full bg-black/[0.05] dark:bg-white/[0.05]">
               <div className="bg-emerald-400/80" style={{ width: taskDistribution.pct(taskDistribution.completed) }} />
-              <div className="bg-amber-400/80"   style={{ width: taskDistribution.pct(taskDistribution.pending) }} />
-              <div className="bg-rose-400/80"    style={{ width: taskDistribution.pct(taskDistribution.overdue) }} />
+              <div className="bg-violet-400/80" style={{ width: taskDistribution.pct(taskDistribution.pending) }} />
+              <div className="bg-rose-400/80" style={{ width: taskDistribution.pct(taskDistribution.overdue) }} />
             </div>
-            <div className="mt-4 space-y-2.5">
+            <div className="mt-4 space-y-2">
               {[
                 { label: "مكتملة", value: taskDistribution.completed, dot: "bg-emerald-400" },
-                { label: "متبقية", value: taskDistribution.pending,   dot: "bg-amber-400" },
-                { label: "متأخرة", value: taskDistribution.overdue,   dot: "bg-rose-400" },
+                { label: "متبقية", value: taskDistribution.pending, dot: "bg-violet-400" },
+                { label: "متأخرة", value: taskDistribution.overdue, dot: "bg-rose-400" },
               ].map((row) => (
-                <div key={row.label} className="flex items-center justify-between text-sm">
+                <div key={row.label} className="flex items-center justify-between text-xs">
                   <span className="flex items-center gap-2 text-ds-text-2">
-                    <span className={`h-2 w-2 rounded-full ${row.dot}`} />
+                    <span className={cn("h-2 w-2 rounded-full", row.dot)} />
                     {row.label}
                   </span>
-                  <span className="font-bold text-ds-text-1">{row.value}</span>
+                  <strong className="text-ds-text-1">{row.value}</strong>
                 </div>
               ))}
-              <div className="flex items-center justify-between border-t border-ds-border-soft pt-2.5 text-sm">
-                <span className="text-ds-text-2">الإجمالي</span>
-                <span className="font-bold text-[#22d3ee]">{taskDistribution.total}</span>
-              </div>
             </div>
-          </div>
+          </section>
         </div>
 
         {/* ─── Employees by dept + satisfaction + quick summary ──────────── */}
