@@ -114,7 +114,7 @@ function TenantProfileAvatar({
         "flex items-center justify-center overflow-hidden flex-shrink-0 text-white font-bold",
         className,
       )}
-      style={{ background: "linear-gradient(135deg,#ff7a3d,#ff5722)" }}
+      style={{ background: "linear-gradient(135deg,#8B5CF6,#5CDCE7)" }}
     >
       {logoUrl && !logoFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -366,8 +366,8 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, onO
       <button
         onClick={onToggle}
         className={cn(
-          "flex items-center gap-2 px-2 py-1.5 rounded-xl transition-all",
-          open ? "bg-[#1a3356]" : "hover:bg-[#1a3356]/50",
+          "bm-fusion-control flex h-10 items-center gap-1.5 rounded-xl px-1.5 transition-all",
+          open ? "border-[var(--bm-glass-border-strong)]" : "",
         )}
         title="الملف الشخصي"
         aria-label="الملف الشخصي"
@@ -379,11 +379,7 @@ function ProfileDropdown({ user, userRole, loggingOut, onLogout, onNavigate, onO
           className="w-8 h-8 rounded-full"
           textClassName="text-sm"
         />
-        <div className="hidden sm:block text-right leading-none">
-          <div className="text-xs font-medium text-white">{user.name}</div>
-          {roleLabel ? <div className="text-[10px] text-[#8ba3c7] mt-0.5">{roleLabel}</div> : null}
-        </div>
-        <ChevronLeft size={12} className={cn("text-[#8ba3c7] hidden sm:block transition-transform", open && "rotate-90")} />
+        <span className="sr-only">{user.name}{roleLabel ? ` — ${roleLabel}` : ""}</span>
       </button>
 
       {open && !isMobile && (
@@ -518,12 +514,12 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
     <>
     <header
       ref={headerRef}
-      className="bm-fusion-header sticky top-0 z-30 flex items-center gap-2 border-b px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3"
+      className="bm-fusion-header sticky top-0 z-30 flex min-h-14 items-center gap-2 border-b px-3 py-2 sm:gap-2.5 sm:px-5"
     >
       {/* Mobile menu toggle */}
       <button
         onClick={onMobileMenuToggle}
-        className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all flex-shrink-0"
+        className="bm-fusion-control lg:hidden inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"
         aria-label="القائمة"
       >
         <Menu size={18} />
@@ -538,7 +534,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
 
       {/* ─── Search ─────────────────────────────────────────────── */}
       <div className={cn("relative", mobileSearchOpen ? "block flex-1" : "hidden lg:block lg:max-w-md lg:flex-1")}>
-        <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba3c7] pointer-events-none" />
+        <Search size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ds-text-3" />
         <input
           type="text"
           placeholder="ابحث في النظام أو اكتب أمراً..."
@@ -547,7 +543,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
           onFocus={() => setOpenSearch(true)}
           className="input-dark pr-9 pl-12 py-2 text-sm w-full"
         />
-        <kbd className="pointer-events-none absolute left-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[10px] font-medium text-[#8ba3c7] lg:inline-flex">
+        <kbd className="pointer-events-none absolute left-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-ds-border-soft bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-medium text-ds-text-3 lg:inline-flex">
           ⌘ K
         </kbd>
         {openSearch && results.length > 0 && (
@@ -556,22 +552,22 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
               <button
                 key={r.id}
                 onClick={() => { goTo(r.href); setQuery(""); setOpenSearch(false); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#1a3356] transition-colors text-right"
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-right transition-colors hover:bg-white/[0.045]"
               >
-                <div className="w-7 h-7 rounded-lg bg-[#1a3356] flex items-center justify-center flex-shrink-0">
+                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-violet-500/10">
                   <r.icon size={13} className="text-[#22d3ee]" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-sm text-white truncate">{r.label}</div>
-                  <div className="text-xs text-[#8ba3c7]">{r.sub}</div>
+                  <div className="truncate text-sm text-ds-text-1">{r.label}</div>
+                  <div className="text-xs text-ds-text-2">{r.sub}</div>
                 </div>
-                <ChevronLeft size={12} className="text-[#8ba3c7] mr-auto flex-shrink-0" />
+                <ChevronLeft size={12} className="mr-auto flex-shrink-0 text-ds-text-3" />
               </button>
             ))}
           </GlassPopover>
         )}
         {openSearch && query && results.length === 0 && (
-          <GlassPopover className="absolute top-full mt-2 w-full z-50 px-4 py-3 text-sm text-[#8ba3c7]">
+          <GlassPopover className="absolute top-full z-50 mt-2 w-full px-4 py-3 text-sm text-ds-text-2">
             لا توجد نتائج لـ &quot;{query}&quot;
           </GlassPopover>
         )}
@@ -586,7 +582,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
         {/* Mobile search toggle */}
         <button
           onClick={() => { setMobileSearchOpen((v) => !v); setOpenSearch(true); }}
-          className="bm-fusion-control lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl"
+          className="bm-fusion-control lg:hidden inline-flex h-9 w-9 items-center justify-center rounded-xl"
           aria-label="بحث"
         >
           {mobileSearchOpen ? <X size={18} /> : <Search size={18} />}
@@ -595,7 +591,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
         {/* AI assistant pill (desktop) */}
         <Link
           href="/ai"
-          className="hidden lg:inline-flex items-center gap-2 rounded-full border border-violet-300/25 bg-violet-500/10 px-3 py-2 text-xs font-medium text-violet-100 hover:bg-violet-500/15 transition"
+          className="hidden lg:inline-flex min-h-9 items-center gap-2 rounded-[10px] border border-violet-400/20 bg-violet-500/[0.08] px-3 text-xs font-medium text-violet-400 transition hover:bg-violet-500/[0.12]"
         >
           <span className="grid h-5 w-5 place-items-center rounded-full bg-gradient-to-br from-violet-400 to-cyan-400 text-white">
             <Bot size={12} />
@@ -607,7 +603,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
         <div className="relative hidden lg:block">
           <button
             onClick={() => { setOpenNew(!openNew); setOpenNotif(false); setOpenMsg(false); }}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 via-[#3B82F6] to-[#22D3EE] text-white shadow-[0_8px_24px_-8px_rgba(124,58,237,0.6)] hover:opacity-90 transition"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-violet-500 text-white shadow-[0_8px_22px_-10px_rgba(139,92,246,.65)] transition hover:bg-violet-600"
             aria-label="إنشاء جديد"
           >
             <Plus size={18} />
@@ -630,7 +626,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
         <div className="relative">
           <button
             onClick={() => { setOpenNotif(!openNotif); setOpenMsg(false); setOpenNew(false); }}
-            className="bm-fusion-control relative inline-flex h-10 w-10 items-center justify-center rounded-xl"
+            className="bm-fusion-control relative inline-flex h-9 w-9 items-center justify-center rounded-xl"
             aria-label="الإشعارات"
           >
             <Bell size={18} />
@@ -690,7 +686,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
         <div className="relative hidden lg:block">
           <button
             onClick={() => { setOpenMsg(!openMsg); setOpenNotif(false); setOpenNew(false); }}
-            className="bm-fusion-control relative inline-flex h-10 w-10 items-center justify-center rounded-xl"
+            className="bm-fusion-control relative inline-flex h-9 w-9 items-center justify-center rounded-xl"
             aria-label="الرسائل"
           >
             <Mail size={18} />
@@ -733,7 +729,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
         {/* Settings (desktop) */}
         <button
           onClick={() => goTo("/settings")}
-          className="bm-fusion-control hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-xl"
+          className="bm-fusion-control hidden lg:inline-flex h-9 w-9 items-center justify-center rounded-xl"
           title="الإعدادات"
           aria-label="الإعدادات"
         >
