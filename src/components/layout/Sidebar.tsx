@@ -119,8 +119,9 @@ export default function Sidebar({
   const innerCard = (
     <div
       className={cn(
-        "flex flex-col flex-1 rounded-2xl border border-white/[0.08] overflow-hidden",
-        "bg-[#0a1628] lg:bg-[rgba(10,22,40,0.55)] lg:backdrop-blur-xl",
+        "flex flex-col flex-1 rounded-[22px] border border-white/[0.10] overflow-hidden",
+        "bg-[radial-gradient(120%_80%_at_100%_0%,rgba(34,211,238,0.08),transparent_42%),linear-gradient(180deg,rgba(8,22,43,0.98),rgba(5,15,31,0.98))] lg:backdrop-blur-xl",
+        "shadow-[0_22px_60px_-28px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.05)]",
       )}
     >
       <div className="relative flex items-center justify-center lg:justify-start px-4 py-4 border-b border-white/[0.06]">
@@ -189,9 +190,9 @@ export default function Sidebar({
               : pathname.startsWith(href));
 
             const itemClass = cn(
-              "flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-colors border w-full text-right",
+              "relative flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-all border w-full text-right overflow-hidden",
               isActive
-                ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#3B82F6]/15 to-transparent border-[rgba(34,211,238,0.24)] text-white shadow-[0_2px_10px_-4px_rgba(34,211,238,0.30)]"
+                ? "bg-gradient-to-l from-[#1E6FD9]/34 via-[#3B82F6]/16 to-transparent border-[rgba(34,211,238,0.30)] text-white shadow-[0_10px_24px_-16px_rgba(34,211,238,0.78),inset_-3px_0_0_rgba(34,211,238,0.72)]"
                 : locked
                   ? "text-white/55 hover:bg-white/[0.04] border-transparent cursor-pointer"
                   : "text-white/[0.72] hover:bg-white/[0.04] border-transparent"
