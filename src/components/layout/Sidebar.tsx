@@ -135,8 +135,7 @@ export default function Sidebar({
   const innerCard = (
     <div
       className={cn(
-        "flex flex-col flex-1 overflow-hidden rounded-[20px] border border-white/[0.10] shadow-[0_24px_70px_rgba(0,0,0,0.34)]",
-        "bg-[#081523]/95 lg:bg-[linear-gradient(180deg,rgba(10,28,46,0.74),rgba(5,15,28,0.70))] lg:backdrop-blur-2xl",
+        "bm-fusion-sidebar flex flex-col flex-1 overflow-hidden rounded-[20px] border shadow-[0_24px_70px_rgba(0,0,0,0.26)]",
       )}
     >
       <div className="relative flex items-center justify-center border-b border-white/[0.07] px-3.5 py-3.5 lg:justify-start">
