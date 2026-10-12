@@ -8,7 +8,7 @@ import {
 } from "recharts";
 import {
   Users, CheckCircle2, XCircle, AlertTriangle, Activity, Clock,
-  UserCheck, DollarSign, CheckCircle, X, TrendingUp, Timer, Siren,
+  UserCheck, DollarSign, CheckCircle, X, Sparkles, TrendingUp, Timer, Siren,
   CheckSquare, UserPlus, FileText, Wallet, BarChart3, ListChecks,
   ArrowLeft, ShieldCheck, Building2, Zap, Plus, CreditCard,
 } from "lucide-react";
