@@ -26,6 +26,7 @@ import {
   CommandCenterLoading,
   CurrentTaskAllocation,
   TaskCommandCenter,
+  TaskModeStrip,
   isManagerScope,
 } from "@/components/tasks/TaskCommandCenter";
 import {
@@ -282,6 +283,16 @@ function TasksContent() {
     setView("list");
   };
 
+  const openAllTasksList = () => {
+    resetFilters();
+    setView("list");
+  };
+
+  const openFlowView = () => {
+    resetFilters();
+    setView("kanban");
+  };
+
   const openAdvancedFilters = (trigger?: HTMLElement | null) => {
     rememberTrigger(trigger ?? smartListTriggerRef.current);
     requestAnimationFrame(() => setFiltersOpen(true));
@@ -356,6 +367,16 @@ function TasksContent() {
               onAdd={openAdd}
             />
           )}
+
+          <TaskModeStrip
+            managerScope={managerScope}
+            focusActive={view === "list" && Boolean(user?.id) && assigneeFilter === user?.id}
+            listActive={view === "list" && assigneeFilter === "الكل"}
+            flowActive={view === "kanban"}
+            onFocus={openMySmartList}
+            onList={openAllTasksList}
+            onFlow={openFlowView}
+          />
 
           <div className={cn(EXECUTIVE_GLASS, "!overflow-visible rounded-ds-md")}>
             <div className="relative z-10 p-2">
