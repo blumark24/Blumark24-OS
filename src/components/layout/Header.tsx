@@ -28,6 +28,7 @@ import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 import { withTimeout } from "@/lib/asyncHelpers";
 import { SmartProfileModal } from "@/components/settings/SmartProfileModal";
+import ThemeToggle from "@/components/layout/ThemeToggle";
 
 // Header global-search timeout — a slow Supabase must never hang the dropdown.
 const SEARCH_TIMEOUT = 8_000;
@@ -517,8 +518,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
     <>
     <header
       ref={headerRef}
-      className="sticky top-0 z-30 flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-[#1e3a5f]"
-      style={{ background: "rgba(10,22,40,0.9)", backdropFilter: "blur(16px)" }}
+      className="bm-fusion-header sticky top-0 z-30 flex items-center gap-2 border-b px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3"
     >
       {/* Mobile menu toggle */}
       <button
@@ -580,10 +580,13 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
       {/* ─── Actions ────────────────────────────────────────────── */}
       <div className="flex items-center gap-1.5 flex-shrink-0">
 
+        {/* Instant Fusion Day / Night switch — local preference, no DB write. */}
+        <ThemeToggle className="hidden sm:inline-flex" />
+
         {/* Mobile search toggle */}
         <button
           onClick={() => { setMobileSearchOpen((v) => !v); setOpenSearch(true); }}
-          className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition"
+          className="bm-fusion-control lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl"
           aria-label="بحث"
         >
           {mobileSearchOpen ? <X size={18} /> : <Search size={18} />}
@@ -627,7 +630,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
         <div className="relative">
           <button
             onClick={() => { setOpenNotif(!openNotif); setOpenMsg(false); setOpenNew(false); }}
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all"
+            className="bm-fusion-control relative inline-flex h-10 w-10 items-center justify-center rounded-xl"
             aria-label="الإشعارات"
           >
             <Bell size={18} />
@@ -687,7 +690,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
         <div className="relative hidden lg:block">
           <button
             onClick={() => { setOpenMsg(!openMsg); setOpenNotif(false); setOpenNew(false); }}
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all"
+            className="bm-fusion-control relative inline-flex h-10 w-10 items-center justify-center rounded-xl"
             aria-label="الرسائل"
           >
             <Mail size={18} />
@@ -730,7 +733,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
         {/* Settings (desktop) */}
         <button
           onClick={() => goTo("/settings")}
-          className="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all"
+          className="bm-fusion-control hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-xl"
           title="الإعدادات"
           aria-label="الإعدادات"
         >
