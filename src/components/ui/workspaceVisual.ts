@@ -7,15 +7,11 @@ export const WS_PAGE =
   "space-y-4 sm:space-y-6 min-w-0 max-w-full lg:pb-6";
 
 export const WS_CARD =
-  "relative overflow-hidden rounded-[22px] border border-[rgba(148,163,184,0.14)] " +
-  "bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.10),transparent_34%),linear-gradient(145deg,rgba(15,35,65,0.82),rgba(8,18,38,0.94))] " +
-  "shadow-[0_16px_40px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-[14px] " +
+  "bm-glass-card relative overflow-hidden rounded-[22px] " +
   "transition-[transform,box-shadow,border-color] duration-200 ease-out";
 
 export const WS_SURFACE =
-  "relative overflow-hidden rounded-[22px] border border-[rgba(148,163,184,0.14)] " +
-  "bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.08),transparent_34%),linear-gradient(150deg,rgba(13,25,48,0.92),rgba(7,15,32,0.95))] " +
-  "shadow-[0_16px_40px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-[14px] " +
+  "bm-glass-surface relative overflow-hidden rounded-[22px] " +
   "transition-[transform,box-shadow,border-color] duration-200 ease-out";
 
 /** Safe hover lift for interactive dashboard cards */
@@ -24,19 +20,18 @@ export const WS_CARD_HOVER =
   "hover:shadow-[0_20px_52px_rgba(0,0,0,0.30),0_0_24px_rgba(34,211,238,0.06),inset_0_1px_0_rgba(255,255,255,0.06)]";
 
 export const WS_INNER_CARD =
-  "rounded-2xl border border-[rgba(148,163,184,0.12)] bg-[rgba(15,35,65,0.38)] " +
-  "shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]";
+  "bm-glass-inset rounded-2xl";
 
-export const WS_SECTION_TITLE = "text-white font-heading font-semibold";
-export const WS_MUTED = "text-[rgba(203,213,225,0.72)]";
-export const WS_SUBTEXT = "text-[#9db1cf]";
+export const WS_SECTION_TITLE = "text-ds-text-1 font-heading font-semibold";
+export const WS_MUTED = "text-ds-text-2";
+export const WS_SUBTEXT = "text-ds-text-2";
 
 export const WS_METRIC_VALUE =
-  "font-heading font-extrabold tracking-tight text-white leading-none " +
+  "font-heading font-extrabold tracking-tight text-ds-text-1 leading-none " +
   "text-[clamp(1.75rem,3vw,2.625rem)]";
 
 export const WS_METRIC_LABEL =
-  "text-[13px] font-medium text-[rgba(203,213,225,0.72)] leading-snug";
+  "text-[13px] font-medium text-ds-text-2 leading-snug";
 
 export const WS_STATUS_CHIP =
   "inline-flex items-center gap-1.5 min-h-[26px] px-2.5 py-0.5 rounded-full " +
