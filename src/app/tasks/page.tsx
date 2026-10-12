@@ -177,10 +177,7 @@ function TasksContent() {
     deletingTaskRef.current = taskId;
     setDeletingTaskId(taskId);
     try {
-      const deletedTaskId = await remove(taskId);
-      if (deletedTaskId !== taskId) {
-        throw new Error("تعذر التحقق من هوية المهمة المحذوفة.");
-      }
+      await remove(taskId);
       await refetch();
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
