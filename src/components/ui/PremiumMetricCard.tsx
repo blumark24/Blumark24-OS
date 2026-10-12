@@ -61,7 +61,7 @@ export function PremiumMetricCard({
         "group relative flex h-full w-full flex-col overflow-hidden",
         WS_CARD,
         WS_CARD_HOVER,
-        compact ? "min-h-[122px] sm:min-h-[132px]" : "min-h-[168px] sm:min-h-[188px]",
+        compact ? "min-h-[132px] sm:min-h-[142px]" : "min-h-[168px] sm:min-h-[188px]",
         theme.panelBorder,
         compact ? "shadow-[0_10px_28px_-18px_rgba(0,0,0,.55)]" : theme.glow,
         className,
@@ -169,11 +169,9 @@ export function PremiumMetricCard({
                 style={{ width: progressWidth ?? "42%" }}
               />
             </div>
-            {!compact ? (
-              <div className={cn("h-5 w-14 shrink-0 opacity-60", theme.spark)}>
-                <Sparkline colorClass={theme.iconColor} />
-              </div>
-            ) : null}
+            <div className={cn(compact ? "h-4 w-12" : "h-5 w-14", "shrink-0 opacity-60", theme.spark)}>
+              <Sparkline colorClass={theme.iconColor} />
+            </div>
           </div>
         </div>
       </div>
