@@ -22,7 +22,7 @@ export default function BlumarkAmbientBackground() {
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(120% 90% at 50% -10%, rgba(20,124,255,0.12), transparent 55%), radial-gradient(110% 80% at 50% 110%, rgba(124,58,237,0.08), transparent 60%)",
+            "radial-gradient(120% 90% at 50% -10%, color-mix(in srgb, var(--bm-ambient-blue) 24%, transparent), transparent 55%), radial-gradient(110% 80% at 50% 110%, color-mix(in srgb, var(--bm-ambient-violet) 18%, transparent), transparent 60%)",
         }}
       />
 
@@ -31,7 +31,7 @@ export default function BlumarkAmbientBackground() {
         className="absolute top-[-15%] right-[-8%] h-[420px] w-[420px] rounded-full opacity-[0.18] blur-3xl animate-float-slow motion-reduce:animate-none premium-mobile:h-[260px] premium-mobile:w-[260px] premium-mobile:opacity-[0.12]"
         style={{
           background:
-            "radial-gradient(circle at 30% 30%, rgba(0,217,255,0.55), transparent 65%)",
+            "radial-gradient(circle at 30% 30%, var(--bm-ambient-cyan), transparent 65%)",
         }}
       />
 
@@ -40,7 +40,7 @@ export default function BlumarkAmbientBackground() {
         className="absolute bottom-[-12%] left-[-10%] h-[460px] w-[460px] rounded-full opacity-[0.16] blur-3xl animate-float-mid motion-reduce:animate-none premium-mobile:h-[280px] premium-mobile:w-[280px] premium-mobile:opacity-[0.10]"
         style={{
           background:
-            "radial-gradient(circle at 65% 65%, rgba(20,124,255,0.55), transparent 65%)",
+            "radial-gradient(circle at 65% 65%, var(--bm-ambient-blue), transparent 65%)",
         }}
       />
 
@@ -50,7 +50,7 @@ export default function BlumarkAmbientBackground() {
         className="absolute top-[40%] left-[35%] hidden h-[340px] w-[340px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.10] blur-3xl premium-tablet:block animate-pulse-glow motion-reduce:animate-none"
         style={{
           background:
-            "radial-gradient(circle, rgba(124,58,237,0.6), transparent 70%)",
+            "radial-gradient(circle, var(--bm-ambient-violet), transparent 70%)",
         }}
       />
 
@@ -60,7 +60,7 @@ export default function BlumarkAmbientBackground() {
         className="absolute inset-0 hidden opacity-[0.05] premium-tablet:block"
         style={{
           backgroundImage:
-            "radial-gradient(rgba(125,220,255,0.55) 1px, transparent 1px)",
+            "radial-gradient(var(--bm-grid-dot) 1px, transparent 1px)",
           backgroundSize: "28px 28px",
         }}
       />
