@@ -50,6 +50,32 @@
   --ds-shadow-1: 0 8px 20px rgba(0, 0, 0, 0.16);   /* بطاقات المهام */
   --ds-shadow-2: 0 16px 40px rgba(0, 0, 0, 0.28);  /* الأسطح المرفوعة */
   --ds-shadow-3: 0 28px 80px rgba(0, 0, 0, 0.52);  /* النوافذ الحوارية */
+
+  /* ---- Blumark Fusion Glass ---- */
+  --bm-page-bg:
+    radial-gradient(95% 70% at 82% -12%, rgba(34, 211, 238, 0.14), transparent 58%),
+    radial-gradient(85% 65% at 8% 108%, rgba(124, 58, 237, 0.12), transparent 60%),
+    linear-gradient(145deg, #020817 0%, #061326 48%, #081a2e 100%);
+  --bm-shell-overlay:
+    linear-gradient(180deg, rgba(5, 16, 31, 0.16), rgba(2, 8, 20, 0.46));
+  --bm-glass-card:
+    radial-gradient(circle at 92% -12%, rgba(34, 211, 238, 0.10), transparent 38%),
+    linear-gradient(145deg, rgba(13, 31, 54, 0.72), rgba(6, 17, 34, 0.82));
+  --bm-glass-surface:
+    linear-gradient(150deg, rgba(12, 27, 48, 0.82), rgba(6, 15, 30, 0.88));
+  --bm-glass-inset: rgba(17, 39, 65, 0.42);
+  --bm-glass-border: rgba(148, 210, 255, 0.13);
+  --bm-glass-border-strong: rgba(103, 218, 255, 0.25);
+  --bm-header-bg: rgba(4, 14, 29, 0.76);
+  --bm-sidebar-bg:
+    linear-gradient(180deg, rgba(9, 28, 47, 0.78), rgba(5, 15, 28, 0.82));
+  --bm-input-bg: rgba(12, 31, 57, 0.72);
+  --bm-control-bg: rgba(255, 255, 255, 0.045);
+  --bm-control-hover: rgba(255, 255, 255, 0.075);
+  --bm-ambient-cyan: rgba(0, 217, 255, 0.55);
+  --bm-ambient-blue: rgba(20, 124, 255, 0.55);
+  --bm-ambient-violet: rgba(124, 58, 237, 0.60);
+  --bm-grid-dot: rgba(125, 220, 255, 0.50);
 }
 
 /*
@@ -57,20 +83,51 @@
  * تُفعّل فعليًا عندما تنتقل المكونات إلى التوكنز في المراحل اللاحقة.
  */
 [data-theme="light"] {
-  --ds-bg: #f0f6ff;
-  --ds-surface-1: #ffffff;
-  --ds-surface-2: #e9f1fa;
-  --ds-surface-3: #dce9f6;
+  /*
+   * Fusion Day is intentionally not a flat white admin theme. It keeps the
+   * premium glass identity from Night while moving the canvas to an aurora
+   * blue/lilac daylight palette, matching the approved visual direction.
+   */
+  --ds-bg: #dbeafe;
+  --ds-surface-1: rgba(32, 55, 96, 0.52);
+  --ds-surface-2: rgba(29, 52, 91, 0.34);
+  --ds-surface-3: rgba(37, 65, 110, 0.42);
 
-  --ds-border-soft: rgba(10, 22, 40, 0.08);
-  --ds-border: rgba(10, 22, 40, 0.12);
-  --ds-border-strong: rgba(10, 22, 40, 0.18);
+  --ds-border-soft: rgba(255, 255, 255, 0.17);
+  --ds-border: rgba(255, 255, 255, 0.24);
+  --ds-border-strong: rgba(255, 255, 255, 0.34);
 
-  --ds-text-1: #0a1628;
-  --ds-text-2: #3d5270;
-  --ds-text-3: #4a6080;
+  --ds-text-1: #f8fbff;
+  --ds-text-2: #e0ebf8;
+  --ds-text-3: #bdd0e7;
 
-  --ds-shadow-1: 0 8px 20px rgba(10, 22, 40, 0.08);
-  --ds-shadow-2: 0 16px 40px rgba(10, 22, 40, 0.12);
-  --ds-shadow-3: 0 28px 80px rgba(10, 22, 40, 0.20);
+  --ds-shadow-1: 0 10px 24px rgba(61, 45, 118, 0.12);
+  --ds-shadow-2: 0 18px 48px rgba(41, 57, 111, 0.18);
+  --ds-shadow-3: 0 32px 90px rgba(37, 31, 92, 0.24);
+
+  --bm-page-bg:
+    radial-gradient(85% 72% at 8% 2%, rgba(194, 111, 255, 0.72), transparent 56%),
+    radial-gradient(88% 72% at 94% 8%, rgba(41, 190, 255, 0.72), transparent 58%),
+    radial-gradient(72% 58% at 52% 102%, rgba(111, 113, 255, 0.48), transparent 64%),
+    linear-gradient(135deg, #6f55d8 0%, #5484df 44%, #3bb8e4 100%);
+  --bm-shell-overlay:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(52, 72, 152, 0.12));
+  --bm-glass-card:
+    radial-gradient(circle at 92% -12%, rgba(255, 255, 255, 0.18), transparent 38%),
+    linear-gradient(145deg, rgba(42, 59, 115, 0.42), rgba(28, 54, 103, 0.34));
+  --bm-glass-surface:
+    linear-gradient(150deg, rgba(46, 64, 121, 0.45), rgba(28, 57, 108, 0.38));
+  --bm-glass-inset: rgba(31, 54, 102, 0.30);
+  --bm-glass-border: rgba(255, 255, 255, 0.24);
+  --bm-glass-border-strong: rgba(255, 255, 255, 0.42);
+  --bm-header-bg: rgba(41, 61, 112, 0.34);
+  --bm-sidebar-bg:
+    linear-gradient(180deg, rgba(45, 59, 112, 0.43), rgba(30, 50, 96, 0.38));
+  --bm-input-bg: rgba(31, 55, 104, 0.36);
+  --bm-control-bg: rgba(255, 255, 255, 0.10);
+  --bm-control-hover: rgba(255, 255, 255, 0.17);
+  --bm-ambient-cyan: rgba(115, 240, 255, 0.62);
+  --bm-ambient-blue: rgba(91, 149, 255, 0.62);
+  --bm-ambient-violet: rgba(210, 139, 255, 0.54);
+  --bm-grid-dot: rgba(255, 255, 255, 0.30);
 }
