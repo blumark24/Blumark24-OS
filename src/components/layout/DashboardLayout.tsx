@@ -6,7 +6,6 @@ import Header from "./Header";
 import MobileShellContext from "./MobileShellContext";
 import MobileBottomNav, { MOBILE_BOTTOM_NAV_INSET } from "./MobileBottomNav";
 import WorkspaceRouteGuard from "@/components/ui/WorkspaceRouteGuard";
-import CustomerOnboardingBanner from "@/components/ui/CustomerOnboardingBanner";
 import BlumarkAmbientBackground from "@/components/dashboard/BlumarkAmbientBackground";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/contexts/PermissionsContext";
@@ -75,9 +74,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <main
           className={`relative flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4 lg:px-6 lg:py-5 xl:px-7 ${MOBILE_BOTTOM_NAV_INSET}`}
         >
-          <div className="mx-auto w-full max-w-[1680px]">
+          <div className="mx-auto w-full max-w-[1480px]">
             <WorkspaceRouteGuard>
-              <CustomerOnboardingBanner />
               {children}
             </WorkspaceRouteGuard>
           </div>
