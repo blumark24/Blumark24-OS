@@ -25,16 +25,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const isDev = process.env.NODE_ENV === "development";
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-[#07111f]">
+    <div className="bm-fusion-shell relative flex h-screen overflow-hidden">
       <BlumarkAmbientBackground />
 
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 z-0 opacity-70"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(8,20,37,0.2), rgba(4,12,24,0.7)), radial-gradient(80% 70% at 80% 0%, rgba(34,211,238,0.06), transparent 58%)",
-        }}
+        className="bm-fusion-overlay pointer-events-none absolute inset-0 z-0 opacity-80"
       />
 
       <div className="relative z-20">
