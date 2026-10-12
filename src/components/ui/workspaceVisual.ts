@@ -4,7 +4,7 @@
  */
 
 export const WS_PAGE =
-  "space-y-4 sm:space-y-6 min-w-0 max-w-full lg:pb-6";
+  "space-y-3 sm:space-y-5 min-w-0 max-w-full lg:pb-6";
 
 export const WS_CARD =
   "relative overflow-hidden rounded-[22px] border border-[rgba(148,163,184,0.14)] " +
@@ -33,7 +33,7 @@ export const WS_SUBTEXT = "text-[#9db1cf]";
 
 export const WS_METRIC_VALUE =
   "font-heading font-extrabold tracking-tight text-white leading-none " +
-  "text-[clamp(1.75rem,3vw,2.625rem)]";
+  "text-[clamp(1.5rem,3vw,2.5rem)]";
 
 export const WS_METRIC_LABEL =
   "text-[13px] font-medium text-[rgba(203,213,225,0.72)] leading-snug";
