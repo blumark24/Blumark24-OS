@@ -52,8 +52,8 @@ const CustomTooltip = ({
   if (!active || !payload?.length) return null;
   const now = new Date().getFullYear();
   return (
-    <div className="rounded-xl border border-white/10 bg-[#0d1f3c]/95 p-3 text-sm backdrop-blur-md">
-      <p className="text-[#8ba3c7] mb-1">{label}</p>
+    <div className="rounded-xl border border-ds-border bg-[#0d1f3c]/95 p-3 text-sm backdrop-blur-md">
+      <p className="text-ds-text-2 mb-1">{label}</p>
       {payload.map((entry, i) => (
         <p key={i} className="font-medium" style={{ color: entry.name === "current" ? "#22d3ee" : "#8ba3c7" }}>
           {entry.name === "current" ? `${now}: ` : `${now - 1}: `}{formatCurrency(entry.value)} SAR
@@ -277,7 +277,7 @@ export default function DashboardPage() {
   if (loading || !user) return (
     <DashboardLayout>
       <div className={WS_PAGE}>
-        <div className="rounded-3xl border border-white/[0.06] bg-[#070d20]/70 h-40 animate-pulse" />
+        <div className="rounded-3xl border border-ds-border-soft bg-[#070d20]/70 h-40 animate-pulse" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
           <KPICardSkeleton />
           <KPICardSkeleton />
@@ -333,7 +333,7 @@ export default function DashboardPage() {
         {/* ─── Hero: welcome banner ──────────────────────────────────────── */}
         <section className={`${WS_SURFACE} p-3.5 sm:p-4`}>
           <JellyfishBackground />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_88%_-25%,rgba(34,211,238,0.18),transparent_55%),radial-gradient(110%_120%_at_8%_125%,rgba(124,58,237,0.16),transparent_55%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_100%_at_88%_-20%,rgba(34,211,238,0.09),transparent_58%),radial-gradient(100%_110%_at_8%_125%,rgba(124,58,237,0.09),transparent_58%)]" />
 
           <div className="relative z-10 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             {/* Welcome + identity + live status metrics (right side on desktop) */}
@@ -343,13 +343,13 @@ export default function DashboardPage() {
                   <span
                     aria-label="شعار المنشأة"
                     role="img"
-                    className="mt-0.5 h-9 w-9 shrink-0 rounded-xl border border-white/10 bg-white/5 bg-cover bg-center"
+                    className="mt-0.5 h-9 w-9 shrink-0 rounded-xl border border-ds-border bg-white/5 bg-cover bg-center"
                     style={{ backgroundImage: `url(${companyLogoUrl})` }}
                   />
                 )}
                 <div className="min-w-0">
-                  <p className="text-sm text-[#8ba3c7]">مرحباً بك 👋</p>
-                  <h1 className="mt-0.5 truncate text-xl sm:text-2xl font-heading font-bold text-white">
+                  <p className="text-sm text-ds-text-2">مرحباً بك 👋</p>
+                  <h1 className="mt-0.5 truncate text-xl sm:text-2xl font-heading font-bold text-ds-text-1">
                     {employeeDisplayName}
                   </h1>
                 </div>
@@ -359,16 +359,16 @@ export default function DashboardPage() {
                 <span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} className="text-cyan-300" />{roleLabel}</span>
                 <span className={cn(
                   "inline-flex items-center gap-1.5",
-                  companyIsFallback ? "text-white/40 italic" : "text-white/90 font-medium",
+                  companyIsFallback ? "text-ds-text-3 italic" : "text-ds-text-1 font-medium",
                 )}>
-                  <Building2 size={13} className={companyIsFallback ? "text-white/30" : "text-cyan-300"} />
+                  <Building2 size={13} className={companyIsFallback ? "text-ds-text-3" : "text-cyan-300"} />
                   {companyName}
                 </span>
                 <span className={cn(
                   "inline-flex items-center gap-1.5",
-                  departmentDisplay.isEmpty ? "text-white/40 italic" : "text-[#8ba3c7]",
+                  departmentDisplay.isEmpty ? "text-ds-text-3 italic" : "text-ds-text-2",
                 )}>
-                  <Building2 size={13} className={departmentDisplay.isEmpty ? "text-white/30" : "text-cyan-300"} />
+                  <Building2 size={13} className={departmentDisplay.isEmpty ? "text-ds-text-3" : "text-cyan-300"} />
                   {departmentDisplay.text}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
@@ -393,7 +393,7 @@ export default function DashboardPage() {
                   </span>
                   <div className="text-[11px] font-medium text-cyan-200/90">رؤية ذكية من النظام</div>
                 </div>
-                <p className="text-sm leading-snug text-[#dbe6f7]">{aiInsight}</p>
+                <p className="text-sm leading-snug text-ds-text-1">{aiInsight}</p>
                 <Link
                   href="/ai"
                   className={`mt-3 ${WS_AI_PILL}`}
@@ -406,7 +406,7 @@ export default function DashboardPage() {
         </section>
 
         {/* ─── KPI cards ─────────────────────────────────────────────────── */}
-        <div className="grid min-w-0 grid-cols-2 items-stretch gap-2.5 md:grid-cols-4 lg:gap-3">
+        <div className="grid min-w-0 grid-cols-2 items-stretch gap-2 md:grid-cols-4 lg:gap-2.5">
           {kpiLoading
             ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
             : kpiCards.map((card) => {
@@ -492,7 +492,7 @@ export default function DashboardPage() {
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             <div className="relative z-10 mb-3.5 flex items-center justify-between">
               <h3 className={WS_SECTION_TITLE}>تحليلات الأداء — الإيرادات</h3>
-              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">آخر 12 شهر</span>
+              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-ds-text-2">آخر 12 شهر</span>
             </div>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={salesData}>
@@ -527,15 +527,15 @@ export default function DashboardPage() {
                 { label: "متأخرة", value: taskDistribution.overdue,   dot: "bg-rose-400" },
               ].map((row) => (
                 <div key={row.label} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-[#8ba3c7]">
+                  <span className="flex items-center gap-2 text-ds-text-2">
                     <span className={`h-2 w-2 rounded-full ${row.dot}`} />
                     {row.label}
                   </span>
-                  <span className="font-bold text-white">{row.value}</span>
+                  <span className="font-bold text-ds-text-1">{row.value}</span>
                 </div>
               ))}
-              <div className="flex items-center justify-between border-t border-white/[0.06] pt-2.5 text-sm">
-                <span className="text-[#8ba3c7]">الإجمالي</span>
+              <div className="flex items-center justify-between border-t border-ds-border-soft pt-2.5 text-sm">
+                <span className="text-ds-text-2">الإجمالي</span>
                 <span className="font-bold text-[#22d3ee]">{taskDistribution.total}</span>
               </div>
             </div>
@@ -548,7 +548,7 @@ export default function DashboardPage() {
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             <div className="relative z-10 mb-3.5 flex items-center justify-between">
               <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>الموظفون بالقسم</h3>
-              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">{activeEmployees} نشط</span>
+              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-ds-text-2">{activeEmployees} نشط</span>
             </div>
             {activeUsersData.length === 0 ? (
               <WorkspaceEmptyInline icon={Users} title="لا توجد بيانات" accent="cyan" className="h-[220px]" />
@@ -570,7 +570,7 @@ export default function DashboardPage() {
             <h3 className="relative z-10 mb-4 text-sm text-[rgba(203,213,225,0.72)]">معدل رضا العملاء</h3>
             {kpiLoading ? (
               <div className="flex h-32 w-32 items-center justify-center rounded-full border-8 border-[#1e3a5f]">
-                <span className="text-xs text-[#8ba3c7]">جارٍ التحميل...</span>
+                <span className="text-xs text-ds-text-2">جارٍ التحميل...</span>
               </div>
             ) : (
               <>
@@ -586,13 +586,13 @@ export default function DashboardPage() {
                     </defs>
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-3xl font-heading font-bold text-white">{satisfactionPct}%</span>
+                    <span className="text-3xl font-heading font-bold text-ds-text-1">{satisfactionPct}%</span>
                     <span className="text-xs font-medium" style={{ color: satisfactionPct >= 70 ? "#10b981" : satisfactionPct >= 40 ? "#f59e0b" : "#ef4444" }}>
                       {satisfactionPct >= 70 ? "ممتاز" : satisfactionPct >= 40 ? "متوسط" : "يحتاج تحسين"}
                     </span>
                   </div>
                 </div>
-                <p className="mt-3 text-center text-xs text-[#8ba3c7]">
+                <p className="mt-3 text-center text-xs text-ds-text-2">
                   {activeOrContractedClients} من {totalClients} عميل نشط/متعاقد
                 </p>
               </>
@@ -606,20 +606,20 @@ export default function DashboardPage() {
               <span className="badge status-active">مباشر</span>
             </div>
             <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
-                <span className="text-xs text-[#8ba3c7]">إجمالي الموظفين</span>
-                <span className="text-sm font-bold text-white">{totalEmployees}</span>
+              <div className="flex items-center justify-between border-b border-ds-border-soft py-2">
+                <span className="text-xs text-ds-text-2">إجمالي الموظفين</span>
+                <span className="text-sm font-bold text-ds-text-1">{totalEmployees}</span>
               </div>
-              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
-                <span className="text-xs text-[#8ba3c7]">الموظفون النشطون</span>
+              <div className="flex items-center justify-between border-b border-ds-border-soft py-2">
+                <span className="text-xs text-ds-text-2">الموظفون النشطون</span>
                 <span className="text-sm font-bold text-emerald-400">{activeEmployees}</span>
               </div>
-              <div className="flex items-center justify-between border-b border-white/[0.06] py-2">
-                <span className="text-xs text-[#8ba3c7]">إجمالي العملاء</span>
+              <div className="flex items-center justify-between border-b border-ds-border-soft py-2">
+                <span className="text-xs text-ds-text-2">إجمالي العملاء</span>
                 <span className="text-sm font-bold text-[#22d3ee]">{totalClients}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-[#8ba3c7]">صافي الدخل</span>
+                <span className="text-xs text-ds-text-2">صافي الدخل</span>
                 <span className="text-sm font-bold" style={{ color: kpi.netProfit >= 0 ? "#10b981" : "#ef4444" }}>{formatCurrency(kpi.netProfit)} SAR</span>
               </div>
             </div>
@@ -642,25 +642,25 @@ export default function DashboardPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/[0.08]">
+                    <tr className="border-b border-ds-border-soft">
                       {["المشروع", "العميل", "التقدم", "الميزانية", "الموعد", "الحالة"].map((h) => (
-                        <th key={h} className="pb-3 text-right font-medium text-[#8ba3c7]">{h}</th>
+                        <th key={h} className="pb-3 text-right font-medium text-ds-text-2">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {projects.map((project) => (
-                      <tr key={project.id} className="table-row border-b border-white/[0.05] last:border-0">
-                        <td className="py-3"><span className="font-medium text-white">{project.name}</span></td>
-                        <td className="py-3 text-[#8ba3c7]">{project.clientName}</td>
+                      <tr key={project.id} className="table-row border-b border-ds-border-soft last:border-0">
+                        <td className="py-3"><span className="font-medium text-ds-text-1">{project.name}</span></td>
+                        <td className="py-3 text-ds-text-2">{project.clientName}</td>
                         <td className="py-3">
                           <div className="flex items-center gap-2">
                             <div className="progress-bar w-20"><div className="progress-fill" style={{ width: `${project.progress}%`, background: project.progress === 100 ? "#10b981" : "linear-gradient(90deg,#22d3ee,#1e6fd9)" }} /></div>
-                            <span className="text-xs text-[#8ba3c7]">{project.progress}%</span>
+                            <span className="text-xs text-ds-text-2">{project.progress}%</span>
                           </div>
                         </td>
-                        <td className="py-3 text-xs text-[#8ba3c7]">{formatCurrency(project.budget)} SAR</td>
-                        <td className="py-3 text-xs text-[#8ba3c7]">{project.deadline}</td>
+                        <td className="py-3 text-xs text-ds-text-2">{formatCurrency(project.budget)} SAR</td>
+                        <td className="py-3 text-xs text-ds-text-2">{project.deadline}</td>
                         <td className="py-3"><span className={`badge ${statusColors[project.status] ?? "status-pending"}`}>{project.status === "قيد_التنفيذ" ? "قيد التنفيذ" : project.status}</span></td>
                       </tr>
                     ))}
@@ -682,13 +682,13 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {activities.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3 border-b border-white/[0.05] pb-3 last:border-0 last:pb-0">
+                  <div key={activity.id} className="flex items-start gap-3 border-b border-ds-border-soft pb-3 last:border-0 last:pb-0">
                     <div className={`${WS_ICON_ORB} w-8 h-8 shrink-0 bg-cyan-400/10 ring-1 ring-cyan-300/20 text-[#22d3ee]`}>
                       {activityIcons[activity.type] ?? <Activity size={14} />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm leading-snug text-white">{activity.description}</p>
-                      <div className="mt-1 flex items-center gap-1 text-xs text-[#6b87ab]"><Clock size={10} /><span>{timeAgo(activity.timestamp)}</span></div>
+                      <p className="text-sm leading-snug text-ds-text-1">{activity.description}</p>
+                      <div className="mt-1 flex items-center gap-1 text-xs text-ds-text-3"><Clock size={10} /><span>{timeAgo(activity.timestamp)}</span></div>
                     </div>
                   </div>
                 ))}
@@ -701,7 +701,7 @@ export default function DashboardPage() {
         <section className={`${WS_SURFACE} p-4 sm:p-5`}>
           <div className="mb-4 flex items-center justify-between">
             <h2 className={`${WS_SECTION_TITLE} text-sm`}>اختصارات سريعة</h2>
-            <span className="text-[11px] text-[#6b87ab]">اختصارات لأهم العمليات</span>
+            <span className="text-[11px] text-ds-text-3">اختصارات لأهم العمليات</span>
           </div>
           <div className="flex items-stretch gap-3">
             {/* Central quick-create orb (links to the existing task create flow) */}
@@ -730,7 +730,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="min-w-0">
                   <h2 className={`${WS_SECTION_TITLE} text-sm`}>حالة الاشتراك والدفع</h2>
-                  <p className="mt-0.5 text-xs text-[#8ba3c7]">
+                  <p className="mt-0.5 text-xs text-ds-text-2">
                     الدفع الإلكتروني قيد التجهيز — تواصل مع الدعم لإتمام الاشتراك.
                   </p>
                 </div>
@@ -742,14 +742,14 @@ export default function DashboardPage() {
                   { label: "حالة الدفع", value: "غير مفعّل" },
                 ].map((row) => (
                   <div key={row.label} className={cn(WS_INNER_CARD, "px-3 py-2")}>
-                    <div className="text-[11px] text-[#8ba3c7]">{row.label}</div>
-                    <div className="mt-1 truncate text-sm font-semibold text-white">{row.value}</div>
+                    <div className="text-[11px] text-ds-text-2">{row.label}</div>
+                    <div className="mt-1 truncate text-sm font-semibold text-ds-text-1">{row.value}</div>
                   </div>
                 ))}
               </div>
             </div>
             <div className="flex shrink-0 flex-col gap-2 lg:w-56">
-              <span className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-[#b8c7dd]">
+              <span className="rounded-xl border border-ds-border-soft bg-white/[0.03] px-3 py-2 text-xs text-[#b8c7dd]">
                 الباقة الحالية: {PLAN_LABELS_AR[planSlug]}
               </span>
               <button
@@ -774,8 +774,8 @@ export default function DashboardPage() {
                     {activeBoard === "activeClients" ? <Users size={20} className={BOARD_THEME[activeBoard].iconColor} /> : activeBoard === "completedTasks" ? <CheckCircle size={20} className={BOARD_THEME[activeBoard].iconColor} /> : activeBoard === "incompleteTasks" ? <Timer size={20} className={BOARD_THEME[activeBoard].iconColor} /> : <AlertTriangle size={20} className={BOARD_THEME[activeBoard].iconColor} />}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-white font-bold text-lg truncate">{kpiCards.find((c) => c.key === activeBoard)?.label}</h3>
-                    <p className="text-[#9db1cf] text-xs mt-0.5">لوحة تنفيذية مباشرة وتفاصيل مركزة</p>
+                    <h3 className="text-ds-text-1 font-bold text-lg truncate">{kpiCards.find((c) => c.key === activeBoard)?.label}</h3>
+                    <p className="text-ds-text-2 text-xs mt-0.5">لوحة تنفيذية مباشرة وتفاصيل مركزة</p>
                     <span className={`inline-flex mt-2 items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${BOARD_THEME[activeBoard].livePill}`}><Sparkles size={11} />مباشر</span>
                   </div>
                 </div>
@@ -783,7 +783,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => setActiveBoard(null)}
                   aria-label="إغلاق"
-                  className="w-9 h-9 rounded-xl border border-white/15 text-[#8ba3c7] hover:text-white hover:border-white/30 inline-flex items-center justify-center touch-manipulation"
+                  className="w-9 h-9 rounded-xl border border-ds-border text-ds-text-2 hover:text-ds-text-1 hover:border-ds-border-strong inline-flex items-center justify-center touch-manipulation"
                   style={DISABLE_TEXT_SELECT_STYLE}
                 >
                   <X size={18} />
@@ -792,24 +792,24 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-5">
                 {dashboardBoards[activeBoard].detailRows.map(([label, value]) => (
                   <div key={label} className={cn(WS_INNER_CARD, "p-3")}>
-                    <span className="text-[#8ba3c7] text-xs">{label}</span>
-                    <p className="text-white text-sm font-semibold mt-1 truncate">{value}</p>
+                    <span className="text-ds-text-2 text-xs">{label}</span>
+                    <p className="text-ds-text-1 text-sm font-semibold mt-1 truncate">{value}</p>
                   </div>
                 ))}
               </div>
               <div className={cn(WS_INNER_CARD, "p-3 sm:p-4")}>
-                <h4 className="text-white text-sm mb-2">تفاصيل اللوحة</h4>
-                <div className="text-xs text-[#8ba3c7] mb-3 space-y-1">
+                <h4 className="text-ds-text-1 text-sm mb-2">تفاصيل اللوحة</h4>
+                <div className="text-xs text-ds-text-2 mb-3 space-y-1">
                   {dashboardBoards[activeBoard].summary.map((line) => <p key={line} className="truncate">{line}</p>)}
                 </div>
                 <h4 className="text-[#22d3ee] text-sm mb-2">آخر 5 عناصر</h4>
                 {dashboardBoards[activeBoard].detailList.length === 0 ? (
-                  <p className="text-[#8ba3c7] text-sm">لا توجد بيانات حالياً</p>
+                  <p className="text-ds-text-2 text-sm">لا توجد بيانات حالياً</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm min-w-[520px] sm:min-w-0">
                       <thead>
-                        <tr className="border-b border-white/10 text-[#8ba3c7]">
+                        <tr className="border-b border-ds-border text-ds-text-2">
                           <th className="text-right pb-2 font-medium">العنصر</th>
                           <th className="text-right pb-2 font-medium">الحالة</th>
                         </tr>
@@ -817,7 +817,7 @@ export default function DashboardPage() {
                       <tbody>
                         {dashboardBoards[activeBoard].detailList.map((item) => (
                           <tr key={item} className="border-b border-white/5 last:border-0">
-                            <td className="py-2 text-white/90">{item.split("•")[0].trim()}</td>
+                            <td className="py-2 text-ds-text-1">{item.split("•")[0].trim()}</td>
                             <td className="py-2">
                               <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] border ${BOARD_THEME[activeBoard].livePill}`}>{activeBoard === "overdueTasks" ? "حرج" : activeBoard === "completedTasks" ? "مكتمل" : activeBoard === "incompleteTasks" ? "قيد التنفيذ" : "عميل"}</span>
                             </td>
@@ -828,8 +828,8 @@ export default function DashboardPage() {
                   </div>
                 )}
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[#8ba3c7]">تصدير سريع</span>
-                  <span className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[#8ba3c7]">مشاركة تنفيذية</span>
+                  <span className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 border border-ds-border text-ds-text-2">تصدير سريع</span>
+                  <span className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 border border-ds-border text-ds-text-2">مشاركة تنفيذية</span>
                 </div>
               </div>
             </div>
