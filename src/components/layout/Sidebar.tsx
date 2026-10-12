@@ -138,7 +138,7 @@ export default function Sidebar({
         "bm-fusion-sidebar flex flex-col flex-1 overflow-hidden rounded-[20px] border shadow-[0_24px_70px_rgba(0,0,0,0.26)]",
       )}
     >
-      <div className="relative flex items-center justify-center border-b border-white/[0.07] px-3.5 py-3.5 lg:justify-start">
+      <div className="relative flex items-center justify-center border-b border-ds-border-soft px-3.5 py-3.5 lg:justify-start">
         {collapsed ? (
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -154,7 +154,7 @@ export default function Sidebar({
         )}
         <button
           onClick={onToggle}
-          className="mr-auto ms-2 p-1.5 -m-1.5 text-white/55 hover:text-[#22D3EE] transition-colors hidden lg:block"
+          className="mr-auto ms-2 p-1.5 -m-1.5 text-ds-text-3 hover:text-[#22D3EE] transition-colors hidden lg:block"
           aria-label="طي القائمة"
         >
           <ChevronLeft size={16} className={cn("transition-transform", collapsed && "rotate-180")} />
@@ -162,7 +162,7 @@ export default function Sidebar({
         {onMobileClose && (
           <button
             onClick={onMobileClose}
-            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 text-white/55 hover:text-[#22D3EE] transition-colors lg:hidden"
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 text-ds-text-3 hover:text-[#22D3EE] transition-colors lg:hidden"
             aria-label="إغلاق القائمة"
           >
             <X size={16} />
@@ -172,13 +172,13 @@ export default function Sidebar({
 
       <nav className="flex-1 overflow-y-auto px-2.5 py-3">
         {!collapsed && (
-          <div className="mb-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2.5">
+          <div className="mb-3 rounded-xl border border-ds-border-soft bg-white/[0.025] px-3 py-2.5">
             <div className="flex min-w-0 items-center gap-2">
               {companyLogoUrl ? (
                 <span
                   aria-label="شعار المنشأة"
                   role="img"
-                  className="h-7 w-7 shrink-0 rounded-lg border border-white/10 bg-white/5 bg-cover bg-center"
+                  className="h-7 w-7 shrink-0 rounded-lg border border-ds-border-soft bg-white/5 bg-cover bg-center"
                   style={{ backgroundImage: "url(" + companyLogoUrl + ")" }}
                 />
               ) : (
@@ -187,8 +187,8 @@ export default function Sidebar({
                 </span>
               )}
               <div className="min-w-0">
-                <div className="truncate text-[11.5px] font-bold text-white/90">{companyName || "Blumark24"}</div>
-                <div className="truncate text-[10px] text-white/40">{roleLabel || "مساحة العمل"}</div>
+                <div className="truncate text-[11.5px] font-bold text-ds-text-1">{companyName || "Blumark24"}</div>
+                <div className="truncate text-[10px] text-ds-text-3">{roleLabel || "مساحة العمل"}</div>
               </div>
             </div>
           </div>
@@ -198,7 +198,7 @@ export default function Sidebar({
           {groupedRoutes.map((section) => (
             <section key={section.id} aria-label={section.label || "الرئيسية"}>
               {!collapsed && section.label ? (
-                <div className="mb-1 px-2 text-[9.5px] font-semibold tracking-[0.04em] text-white/30">
+                <div className="mb-1 px-2 text-[9.5px] font-semibold tracking-[0.04em] text-ds-text-3">
                   {section.label}
                 </div>
               ) : null}
@@ -215,10 +215,10 @@ export default function Sidebar({
                   const itemClass = cn(
                     "group flex min-h-10 w-full items-center justify-between gap-2.5 rounded-xl border px-3 py-2 text-right text-[12.5px] transition-[background-color,border-color,color,transform,box-shadow] duration-200",
                     isActive
-                      ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#22D3EE]/[0.09] to-transparent border-[rgba(34,211,238,0.28)] text-white shadow-[0_10px_26px_-20px_rgba(34,211,238,0.8)]"
+                      ? "bg-gradient-to-l from-[#1E6FD9]/20 via-[#22D3EE]/[0.07] to-transparent border-[rgba(34,211,238,0.22)] text-ds-text-1 shadow-[0_10px_26px_-20px_rgba(34,211,238,0.45)]"
                       : locked
                         ? "cursor-pointer border-transparent text-white/48 hover:bg-white/[0.035]"
-                        : "border-transparent text-white/[0.68] hover:bg-white/[0.045] hover:text-white"
+                        : "border-transparent text-ds-text-2 hover:bg-white/[0.045] hover:text-ds-text-1"
                   );
 
                   const inner = (
@@ -294,10 +294,10 @@ export default function Sidebar({
         </div>
       </nav>
 
-      <div className="px-3 pb-3 pt-2 border-t border-white/[0.06]">
+      <div className="px-3 pb-3 pt-2 border-t border-ds-border-soft">
         <div
           className={cn(
-            "flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5",
+            "flex items-center gap-3 rounded-xl border border-ds-border-soft bg-white/[0.03] p-2.5",
             collapsed && "justify-center"
           )}
         >
@@ -310,14 +310,14 @@ export default function Sidebar({
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <div className="text-[12.5px] font-semibold text-white truncate">{user?.name ?? "المستخدم"}</div>
-              <div className="text-[11px] text-white/55 truncate">{roleLabel || " "}</div>
+              <div className="text-[11px] text-ds-text-3 truncate">{roleLabel || " "}</div>
             </div>
           )}
           {!collapsed && (
             <button
               onClick={handleLogout}
               disabled={loggingOut}
-              className="text-white/55 hover:text-red-400 transition-colors flex-shrink-0 disabled:opacity-50 disabled:hover:text-white/55 disabled:cursor-not-allowed"
+              className="text-ds-text-3 hover:text-red-400 transition-colors flex-shrink-0 disabled:opacity-50 disabled:hover:text-ds-text-3 disabled:cursor-not-allowed"
               title="تسجيل الخروج"
               aria-label="تسجيل الخروج"
             >
@@ -329,7 +329,7 @@ export default function Sidebar({
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className="mt-2 w-full flex justify-center text-white/55 hover:text-red-400 transition-colors disabled:opacity-50 disabled:hover:text-white/55 disabled:cursor-not-allowed"
+            className="mt-2 w-full flex justify-center text-ds-text-3 hover:text-red-400 transition-colors disabled:opacity-50 disabled:hover:text-ds-text-3 disabled:cursor-not-allowed"
             title="تسجيل الخروج"
             aria-label="تسجيل الخروج"
           >
