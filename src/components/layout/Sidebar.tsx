@@ -118,19 +118,8 @@ export default function Sidebar({
     ? getTenantRoleLabel(effectiveRole)
     : "";
 
-  const NAV_SECTIONS: Array<{ id: string; label: string; routes: WorkspaceRouteId[] }> = [
-    { id: "home", label: "", routes: ["dashboard"] },
-    { id: "work", label: "العمل", routes: ["tasks", "clients"] },
-    { id: "team", label: "الفريق والمنشأة", routes: ["employees", "org", "virtual_office"] },
-    { id: "management", label: "الإدارة", routes: ["strategy", "finance", "reports"] },
-    { id: "intelligence", label: "الذكاء والتشغيل", routes: ["automation", "ai"] },
-    { id: "system", label: "النظام", routes: ["settings"] },
-  ];
-
-  const groupedRoutes = NAV_SECTIONS.map((section) => ({
-    ...section,
-    items: renderedRoutes.filter(({ route }) => section.routes.includes(route.id)),
-  })).filter((section) => section.items.length > 0);
+  const mainRoutes = renderedRoutes.filter(({ route }) => route.id !== "settings");
+  const settingsRoute = renderedRoutes.find(({ route }) => route.id === "settings") ?? null;
 
   const innerCard = (
     <div
@@ -182,119 +171,98 @@ export default function Sidebar({
                   style={{ backgroundImage: "url(" + companyLogoUrl + ")" }}
                 />
               ) : (
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-cyan-300/15 bg-cyan-400/[0.06] text-[11px] font-black text-cyan-200">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-cyan-300/15 bg-cyan-400/[0.06] text-[11px] font-black text-cyan-300">
                   {companyName?.trim()?.slice(0, 1) || "B"}
                 </span>
               )}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="truncate text-[11.5px] font-bold text-ds-text-1">{companyName || "Blumark24"}</div>
                 <div className="truncate text-[10px] text-ds-text-3">{roleLabel || "مساحة العمل"}</div>
               </div>
+              <ChevronLeft size={12} className="shrink-0 text-ds-text-3" />
             </div>
           </div>
         )}
 
-        <div className="space-y-3">
-          {groupedRoutes.map((section) => (
-            <section key={section.id} aria-label={section.label || "الرئيسية"}>
-              {!collapsed && section.label ? (
-                <div className="mb-1 px-2 text-[9.5px] font-semibold tracking-[0.04em] text-ds-text-3">
-                  {section.label}
+        <ul className="space-y-1">
+          {mainRoutes.map(({ route, locked }) => {
+            const Icon = ICON_BY_NAME[route.iconName] ?? LayoutDashboard;
+            const href = route.href;
+            const label = getRouteLabel(route.id as WorkspaceRouteId);
+            const isActive = !locked && (href === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname.startsWith(href));
+
+            const itemClass = cn(
+              "group flex min-h-9 w-full items-center justify-between gap-2.5 rounded-[10px] border px-2.5 py-1.5 text-right text-[12px] transition-[background-color,border-color,color,transform,box-shadow] duration-150",
+              isActive
+                ? "border-ds-border bg-[color-mix(in_srgb,var(--ds-accent)_9%,transparent)] text-ds-text-1 shadow-[inset_0_1px_0_rgba(255,255,255,.05)]"
+                : locked
+                  ? "cursor-pointer border-transparent text-ds-text-3 hover:bg-white/[0.035]"
+                  : "border-transparent text-ds-text-2 hover:bg-white/[0.045] hover:text-ds-text-1"
+            );
+
+            const inner = (
+              <>
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <Icon
+                    className={cn(
+                      "h-3.5 w-3.5 shrink-0",
+                      isActive ? "text-violet-400" : "text-ds-text-3"
+                    )}
+                    strokeWidth={1.7}
+                  />
+                  {!collapsed && <span className="truncate">{label}</span>}
                 </div>
-              ) : null}
+                {!collapsed && locked ? (
+                  <Lock className="h-3 w-3 shrink-0 text-ds-text-3" strokeWidth={1.6} />
+                ) : null}
+              </>
+            );
 
-              <ul className="space-y-1">
-                {section.items.map(({ route, locked }) => {
-                  const Icon = ICON_BY_NAME[route.iconName] ?? LayoutDashboard;
-                  const href = route.href;
-                  const label = getRouteLabel(route.id as WorkspaceRouteId);
-                  const isActive = !locked && (href === "/dashboard"
-                    ? pathname === "/dashboard"
-                    : pathname.startsWith(href));
-
-                  const itemClass = cn(
-                    "group flex min-h-10 w-full items-center justify-between gap-2.5 rounded-xl border px-3 py-2 text-right text-[12.5px] transition-[background-color,border-color,color,transform,box-shadow] duration-200",
-                    isActive
-                      ? "bg-gradient-to-l from-[#1E6FD9]/20 via-[#22D3EE]/[0.07] to-transparent border-[rgba(34,211,238,0.22)] text-ds-text-1 shadow-[0_10px_26px_-20px_rgba(34,211,238,0.45)]"
-                      : locked
-                        ? "cursor-pointer border-transparent text-white/48 hover:bg-white/[0.035]"
-                        : "border-transparent text-ds-text-2 hover:bg-white/[0.045] hover:text-ds-text-1"
-                  );
-
-                  const inner = (
-                    <>
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <span
-                          className={cn(
-                            "grid h-7 w-7 shrink-0 place-items-center rounded-lg border transition-colors",
-                            isActive
-                              ? "border-cyan-300/18 bg-cyan-400/[0.08]"
-                              : "border-transparent bg-white/[0.015] group-hover:bg-white/[0.035]",
-                          )}
-                        >
-                          <Icon
-                            className={cn(
-                              "h-3.5 w-3.5",
-                              isActive ? "text-[#22D3EE]" : "text-white/50"
-                            )}
-                            strokeWidth={1.7}
-                          />
-                        </span>
-                        {!collapsed && <span className="truncate">{label}</span>}
-                      </div>
-                      {!collapsed && (
-                        locked ? (
-                          <span className="flex shrink-0 items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 rounded-full border border-[#7C3AED]/35 bg-[#7C3AED]/12 px-1.5 py-0.5 text-[9px] font-semibold text-[#C4B5FD]">
-                              متقدم
-                            </span>
-                            <Lock className="h-3 w-3 text-white/35" strokeWidth={1.6} />
-                          </span>
-                        ) : (
-                          <ArrowLeft
-                            className={cn(
-                              "h-3 w-3 shrink-0 transition-transform group-hover:-translate-x-0.5",
-                              isActive ? "text-[#22D3EE]" : "text-white/22"
-                            )}
-                            strokeWidth={1.6}
-                          />
-                        )
-                      )}
-                    </>
-                  );
-
-                  return (
-                    <li key={route.id + "-" + (locked ? "locked" : "open")}>
-                      {locked ? (
-                        <button
-                          type="button"
-                          onClick={handleLockedVirtualOfficeClick}
-                          className={itemClass}
-                          title={collapsed ? label + " — باقة متقدم أو مؤسسي" : "متاح في باقة متقدم أو مؤسسي"}
-                          aria-label={label + " — متاح في باقة متقدم أو مؤسسي"}
-                        >
-                          {inner}
-                        </button>
-                      ) : (
-                        <Link
-                          href={href}
-                          onClick={onMobileClose}
-                          className={itemClass}
-                          title={collapsed ? label : undefined}
-                        >
-                          {inner}
-                        </Link>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          ))}
-        </div>
+            return (
+              <li key={route.id + "-" + (locked ? "locked" : "open")}>
+                {locked ? (
+                  <button
+                    type="button"
+                    onClick={handleLockedVirtualOfficeClick}
+                    className={itemClass}
+                    title={collapsed ? label + " — باقة متقدم أو مؤسسي" : "متاح في باقة متقدم أو مؤسسي"}
+                    aria-label={label + " — متاح في باقة متقدم أو مؤسسي"}
+                  >
+                    {inner}
+                  </button>
+                ) : (
+                  <Link
+                    href={href}
+                    onClick={onMobileClose}
+                    className={itemClass}
+                    title={collapsed ? label : undefined}
+                  >
+                    {inner}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </nav>
 
       <div className="px-3 pb-3 pt-2 border-t border-ds-border-soft">
+        {settingsRoute && (
+          <Link
+            href={settingsRoute.route.href}
+            onClick={onMobileClose}
+            className={cn(
+              "mb-2 flex min-h-9 items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-1.5 text-[12px] text-ds-text-2 transition-colors hover:bg-white/[0.045] hover:text-ds-text-1",
+              pathname.startsWith(settingsRoute.route.href) && "border-ds-border bg-[color-mix(in_srgb,var(--ds-accent)_9%,transparent)] text-ds-text-1",
+              collapsed && "justify-center",
+            )}
+          >
+            <Settings size={14} className="shrink-0 text-ds-text-3" />
+            {!collapsed && <span>الإعدادات</span>}
+          </Link>
+        )}
         <div
           className={cn(
             "flex items-center gap-3 rounded-xl border border-ds-border-soft bg-white/[0.03] p-2.5",
@@ -344,7 +312,7 @@ export default function Sidebar({
     <aside
       className={cn(
         "sticky top-0 z-40 flex h-screen flex-col p-2 transition-[width] duration-300",
-        collapsed ? "w-16" : "w-[82vw] max-w-[310px] lg:w-[248px] lg:max-w-none"
+        collapsed ? "w-16" : "w-[82vw] max-w-[300px] lg:w-[220px] lg:max-w-none"
       )}
     >
       {innerCard}
