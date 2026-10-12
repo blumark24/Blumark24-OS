@@ -285,8 +285,8 @@ export default function DashboardPage() {
           <KPICardSkeleton />
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
-          <ChartSkeleton height={220} />
-          <ChartSkeleton height={220} />
+          <ChartSkeleton height={190} />
+          <ChartSkeleton height={190} />
         </div>
       </div>
     </DashboardLayout>
@@ -331,11 +331,11 @@ export default function DashboardPage() {
     <DashboardLayout>
       <div className={cn(WS_PAGE, "min-w-0 max-w-full overflow-x-hidden")}>
         {/* ─── Hero: welcome banner ──────────────────────────────────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5 lg:p-6`}>
+        <section className={`${WS_SURFACE} p-3.5 sm:p-4`}>
           <JellyfishBackground />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_88%_-25%,rgba(34,211,238,0.18),transparent_55%),radial-gradient(110%_120%_at_8%_125%,rgba(124,58,237,0.16),transparent_55%)]" />
 
-          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative z-10 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             {/* Welcome + identity + live status metrics (right side on desktop) */}
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-start gap-3">
@@ -355,7 +355,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#8ba3c7]">
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ds-text-2">
                 <span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} className="text-cyan-300" />{roleLabel}</span>
                 <span className={cn(
                   "inline-flex items-center gap-1.5",
@@ -377,7 +377,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Three compact live metrics (derived from existing data only; chips wrap, never clip) */}
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 <StatPill icon={Zap}        label="أداء الفريق"  value={teamPerformance}             tint="emerald"       />
                 <StatPill icon={TrendingUp} label="الإنجاز"      value={`${kpi.completedTasksPct}%`} tint="cyan"          />
                 <StatPill icon={Activity}   label="حالة التشغيل" value={operationalStatus}           tint={operationalTint} />
@@ -385,8 +385,8 @@ export default function DashboardPage() {
             </div>
 
             {/* AI insight panel (left side on desktop; the mobile equivalent lives lower as a full card) */}
-            <div className="hidden lg:flex lg:w-[300px] lg:shrink-0">
-              <div className={cn(WS_INNER_CARD, "w-full p-4 backdrop-blur-sm")}>
+            <div className="hidden lg:flex lg:w-[270px] lg:shrink-0">
+              <div className={cn(WS_INNER_CARD, "w-full p-3 backdrop-blur-sm")}>
                 <div className="mb-2 flex items-center gap-2">
                   <span className={`${WS_ICON_ORB} w-8 h-8 shrink-0 bg-violet-400/10 ring-1 ring-violet-300/25`}>
                     <Sparkles size={15} className="text-violet-300" />
@@ -402,46 +402,6 @@ export default function DashboardPage() {
                 </Link>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* ─── Compact work context ────────────────────────────────────────── */}
-        <section className={cn(WS_CARD, "px-3 py-2.5 sm:px-4")}>
-          <div className="relative z-10 flex min-w-0 flex-wrap items-center gap-2">
-            <span className="inline-flex min-h-7 items-center gap-1.5 text-[11px] font-semibold text-cyan-200/85">
-              <Briefcase size={12} />
-              نطاق العمل
-            </span>
-            {workLoading ? (
-              <span className="h-7 w-40 animate-pulse rounded-full bg-white/5" />
-            ) : work.hasWorkData ? (
-              <>
-                {work.jobTitle ? (
-                  <span className={cn(WS_STATUS_CHIP, "min-h-7 text-[11px]")}>
-                    <Briefcase size={11} className="shrink-0 text-cyan-300" />
-                    <span className="truncate">{work.jobTitle}</span>
-                  </span>
-                ) : null}
-                {work.orgLink ? (
-                  <span className={cn(WS_STATUS_CHIP, "min-h-7 text-[11px]")}>
-                    <Network size={11} className="shrink-0 text-cyan-300" />
-                    <span className="truncate">{work.orgLink}</span>
-                  </span>
-                ) : null}
-                {work.directManager ? (
-                  <span className={cn(WS_STATUS_CHIP, "hidden min-h-7 text-[11px] sm:inline-flex")}>
-                    <UserCog size={11} className="shrink-0 text-cyan-300" />
-                    <span className="truncate">{work.directManager}</span>
-                  </span>
-                ) : null}
-                <span className={cn(WS_STATUS_CHIP, "min-h-7 text-[11px]")}>
-                  <span className={cn("h-1.5 w-1.5 rounded-full", work.status === "inactive" ? "bg-rose-400" : "bg-emerald-400")} />
-                  {work.status === "inactive" ? WORK_IDENTITY_LABELS.inactive : WORK_IDENTITY_LABELS.active}
-                </span>
-              </>
-            ) : (
-              <span className="truncate text-[11px] text-amber-200/80">بيانات النطاق التنظيمي تحتاج استكمالاً بسيطاً</span>
-            )}
           </div>
         </section>
 
@@ -528,9 +488,9 @@ export default function DashboardPage() {
 
         {/* ─── Analytics: performance + task distribution ────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "lg:col-span-2 p-5 sm:p-6")}>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "lg:col-span-2 p-4 sm:p-5")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-            <div className="relative z-10 mb-5 flex items-center justify-between">
+            <div className="relative z-10 mb-3.5 flex items-center justify-between">
               <h3 className={WS_SECTION_TITLE}>تحليلات الأداء — الإيرادات</h3>
               <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">آخر 12 شهر</span>
             </div>
@@ -547,7 +507,7 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
 
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-4 sm:p-5")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             <div className="relative z-10 mb-4 flex items-center justify-between">
               <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>توزيع المهام</h3>
@@ -584,9 +544,9 @@ export default function DashboardPage() {
 
         {/* ─── Employees by dept + satisfaction + quick summary ──────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-4 sm:p-5")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-            <div className="relative z-10 mb-5 flex items-center justify-between">
+            <div className="relative z-10 mb-3.5 flex items-center justify-between">
               <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>الموظفون بالقسم</h3>
               <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-[#8ba3c7]">{activeEmployees} نشط</span>
             </div>
@@ -639,7 +599,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-4 sm:p-5")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             <div className="relative z-10 mb-4 flex items-center justify-between">
               <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>ملخص سريع</h3>
@@ -668,7 +628,7 @@ export default function DashboardPage() {
 
         {/* ─── Projects + recent activity ────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "lg:col-span-2 p-5 sm:p-6")}>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "lg:col-span-2 p-4 sm:p-5")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             <div className="relative z-10 mb-4 flex items-center justify-between">
               <h3 className={WS_SECTION_TITLE}>المشاريع النشطة</h3>
@@ -710,7 +670,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-5 sm:p-6")}>
+          <div className={cn(WS_CARD, WS_CARD_HOVER, "p-4 sm:p-5")}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             <div className="relative z-10 mb-4 flex items-center justify-between">
               <h3 className={cn(WS_SECTION_TITLE, "text-sm")}>النشاطات الأخيرة</h3>
