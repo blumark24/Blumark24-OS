@@ -136,7 +136,7 @@ export function PremiumMetricCard({
           <div
             className={cn(
               compact
-                ? "font-heading text-[clamp(1.45rem,3vw,2rem)] font-extrabold leading-none tracking-tight text-white"
+                ? "font-heading text-[clamp(1.45rem,3vw,2rem)] font-extrabold leading-none tracking-tight text-ds-text-1"
                 : WS_METRIC_VALUE,
               "drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]",
             )}
@@ -147,13 +147,13 @@ export function PremiumMetricCard({
             className={cn(
               WS_METRIC_LABEL,
               compact
-                ? "mt-1 line-clamp-1 text-[12px] font-semibold text-white/90"
-                : "mt-2 line-clamp-2 font-semibold text-white/90",
+                ? "mt-1 line-clamp-1 text-[12px] font-semibold text-ds-text-1"
+                : "mt-2 line-clamp-2 font-semibold text-ds-text-1",
             )}
           >
             {label}
           </div>
-          <div className={cn("mt-0.5 line-clamp-1 leading-snug text-white/45", compact ? "text-[10px]" : "text-[11px]")}>
+          <div className={cn("mt-0.5 line-clamp-1 leading-snug text-ds-text-3", compact ? "text-[10px]" : "text-[11px]")}>
             {subtitle}
           </div>
         </div>
