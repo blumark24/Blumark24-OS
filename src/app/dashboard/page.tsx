@@ -10,9 +10,9 @@ import {
 import {
   Users, CheckCircle2, XCircle, AlertTriangle, Activity, Clock,
   UserCheck, DollarSign, CheckCircle, X, Sparkles, TrendingUp, Timer, Siren,
-  Bot, CheckSquare, UserPlus, FileText, Wallet, BarChart3, ListChecks,
+  CheckSquare, UserPlus, FileText, Wallet, BarChart3, ListChecks,
   ArrowLeft, ShieldCheck, Building2, Zap, Plus,
-  Briefcase, Network, UserCog, CalendarDays, CreditCard,
+  Briefcase, Network, UserCog, CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency, timeAgo } from "@/lib/utils";
@@ -24,7 +24,7 @@ import { KPICardSkeleton, ChartSkeleton, CardSkeleton } from "@/components/ui/Sk
 import type { UserRole } from "@/contexts/PermissionsContext";
 import {
   WS_CARD, WS_CARD_HOVER, WS_INNER_CARD, WS_SURFACE, WS_SECTION_TITLE, WS_ICON_ORB, WS_PAGE, WS_AI_PILL,
-  WS_STATUS_CHIP, BOARD_THEME, WS_TINTS, type BoardKey, type KpiAccent,
+  WS_STATUS_CHIP, BOARD_THEME, type BoardKey, type KpiAccent,
 } from "@/components/ui/workspaceVisual";
 import { StatPill, QuickActionTile, WorkspaceEmptyInline } from "@/components/ui/workspaceUi";
 import { PremiumMetricCard } from "@/components/ui/PremiumMetricCard";
@@ -212,17 +212,6 @@ export default function DashboardPage() {
       : kpi.incompleteTasks > 0
         ? `${kpi.incompleteTasks} مهمة قيد التنفيذ، ومعدل الإنجاز الحالي ${kpi.completedTasksPct}%.`
         : "جميع المهام منجزة — أداء ممتاز اليوم! 🎯";
-
-  // Rule-based Smart Insights — derived only from existing KPI values.
-  // No external AI, no fabricated metrics; an insight is omitted when its data is absent.
-  const smartInsights: { icon: React.ElementType; tint: KpiAccent; text: string }[] = [];
-  if (kpi.overdueTasks > 0)
-    smartInsights.push({ icon: Siren,        tint: "rose",    text: `لديك ${kpi.overdueTasks} مهمة متأخرة تحتاج متابعة فورية.` });
-  if (kpi.incompleteTasks > 0)
-    smartInsights.push({ icon: Timer,        tint: "amber",   text: `يوجد ${kpi.incompleteTasks} مهمة قيد المتابعة هذا الأسبوع.` });
-  smartInsights.push({ icon: CheckCircle2,   tint: "emerald", text: `نسبة الإنجاز الحالية ${kpi.completedTasksPct}%.` });
-  if (kpi.activeClients > 0)
-    smartInsights.push({ icon: Users,        tint: "cyan",    text: `يوجد ${kpi.activeClients} عميل نشط حالياً.` });
 
   // Business-relevant hero metrics — derived ONLY from existing KPI values (no fabricated numbers).
   const operationalStatus = kpi.overdueTasks > 0 ? "يتطلب متابعة" : "مستقر";
