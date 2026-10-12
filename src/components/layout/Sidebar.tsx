@@ -25,6 +25,7 @@ import {
 } from "@/lib/features/packageFeatures";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import OfficialBlumarkLogo from "@/components/brand/OfficialBlumarkLogo";
+import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -41,6 +42,8 @@ const ICON_BY_NAME: Record<string, LucideIcon> = {
   BarChart3,
   Settings,
 };
+
+const PLAN_LABELS_AR = { basic: "أساسي", growth: "نمو", advanced: "متقدم", enterprise: "مؤسسي" } as const;
 
 interface SidebarProps {
   collapsed?:   boolean;
@@ -59,7 +62,8 @@ export default function Sidebar({
   const { user, loading: authLoading, loggingOut, logout } = useAuth();
   const toast       = useToast();
   const { userRole } = usePermissions();
-  const { navRoutes, loading: wsLoading } = useTenantWorkspace();
+  const { navRoutes, loading: wsLoading, planSlug, organizationStatus } = useTenantWorkspace();
+  const company = useTenantCompanyName();
   const effectiveRole =
     userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
 
@@ -119,8 +123,9 @@ export default function Sidebar({
   const innerCard = (
     <div
       className={cn(
-        "flex flex-col flex-1 rounded-2xl border border-white/[0.08] overflow-hidden",
-        "bg-[#0a1628] lg:bg-[rgba(10,22,40,0.55)] lg:backdrop-blur-xl",
+        "flex flex-col flex-1 rounded-[22px] border border-white/[0.10] overflow-hidden",
+        "bg-[radial-gradient(120%_80%_at_100%_0%,rgba(34,211,238,0.08),transparent_42%),linear-gradient(180deg,rgba(8,22,43,0.98),rgba(5,15,31,0.98))] lg:backdrop-blur-xl",
+        "shadow-[0_22px_60px_-28px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.05)]",
       )}
     >
       <div className="relative flex items-center justify-center lg:justify-start px-4 py-4 border-b border-white/[0.06]">
@@ -135,7 +140,13 @@ export default function Sidebar({
             </svg>
           </div>
         ) : (
-          <OfficialBlumarkLogo className="w-[140px] sm:w-[150px] lg:w-[150px]" />
+          <div className="min-w-0 flex-1">
+            <OfficialBlumarkLogo className="w-[136px] sm:w-[145px] lg:w-[148px]" />
+            <div className="mt-1.5">
+              <p className="text-[10px] font-bold tracking-[0.08em] text-[#7dd3fc]">BLUMARK24 OS</p>
+              <p className="mt-0.5 truncate text-[9.5px] text-white/45">منصة تشغيل الأعمال الذكية</p>
+            </div>
+          </div>
         )}
         <button
           onClick={onToggle}
@@ -155,6 +166,29 @@ export default function Sidebar({
         )}
       </div>
 
+      {!collapsed && (
+        <div className="mx-3 mt-3 rounded-2xl border border-cyan-300/[0.14] bg-[linear-gradient(145deg,rgba(34,211,238,0.08),rgba(30,111,217,0.05),rgba(255,255,255,0.02))] p-3 shadow-[0_14px_34px_-22px_rgba(34,211,238,0.65),inset_0_1px_0_rgba(255,255,255,0.05)]">
+          <div className="flex items-start gap-2.5">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-200">
+              <Building2 size={16} strokeWidth={1.7} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[11px] font-semibold text-white">{company.name}</p>
+              <p className="mt-0.5 truncate text-[10px] text-white/48">مساحة منشأة مستقلة وآمنة</p>
+            </div>
+            <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-0.5 text-[9px] font-semibold text-emerald-200">
+              {organizationStatus === "inactive" ? "موقوفة" : "نشطة"}
+            </span>
+          </div>
+          <div className="mt-3 flex items-center justify-between border-t border-white/[0.06] pt-2.5">
+            <span className="text-[10px] text-white/42">مساحة المنشأة · الباقة</span>
+            <span className="rounded-lg border border-white/[0.08] bg-white/[0.035] px-2 py-1 text-[10px] font-semibold text-white/75">
+              {PLAN_LABELS_AR[planSlug]}
+            </span>
+          </div>
+        </div>
+      )}
+
       <nav className="flex-1 overflow-y-auto px-3 py-3">
         <ul className="space-y-1">
           {renderedRoutes.map(({ route, locked }) => {
@@ -166,9 +200,9 @@ export default function Sidebar({
               : pathname.startsWith(href));
 
             const itemClass = cn(
-              "flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-colors border w-full text-right",
+              "relative flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-all border w-full text-right overflow-hidden",
               isActive
-                ? "bg-gradient-to-l from-[#1E6FD9]/30 via-[#3B82F6]/15 to-transparent border-[rgba(34,211,238,0.24)] text-white shadow-[0_2px_10px_-4px_rgba(34,211,238,0.30)]"
+                ? "bg-gradient-to-l from-[#1E6FD9]/34 via-[#3B82F6]/16 to-transparent border-[rgba(34,211,238,0.30)] text-white shadow-[0_10px_24px_-16px_rgba(34,211,238,0.78),inset_-3px_0_0_rgba(34,211,238,0.72)]"
                 : locked
                   ? "text-white/55 hover:bg-white/[0.04] border-transparent cursor-pointer"
                   : "text-white/[0.72] hover:bg-white/[0.04] border-transparent"
