@@ -59,8 +59,15 @@ function hasOwnerSession(request: NextRequest): boolean {
 }
 
 function hasCustomerSession(request: NextRequest): boolean {
-  if (request.cookies.get("blumark_customer_session")?.value === "1") return true;
-  if (request.cookies.get("blumark_session")?.value === "1") return true;
+  const hasMarker =
+    request.cookies.get("blumark_customer_session")?.value === "1" ||
+    request.cookies.get("blumark_session")?.value === "1";
+  if (!hasMarker) return false;
+
+  // P0 hardening: a UI marker alone must never unlock protected routes.
+  // Require a Supabase auth cookie as an additional edge-level signal.
+  // Full JWT validation remains enforced by Supabase/AuthContext and is the
+  // next middleware-hardening step once SSR auth is introduced.
   const hasSupabaseCookie = request.cookies
     .getAll()
     .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.endsWith("-auth-token"));
