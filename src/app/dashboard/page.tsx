@@ -325,11 +325,11 @@ export default function DashboardPage() {
     <DashboardLayout>
       <div className={cn(WS_PAGE, "min-w-0 max-w-full overflow-x-hidden")}>
         {/* ─── Hero: welcome banner ──────────────────────────────────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5 lg:p-6`}>
+        <section className={`${WS_SURFACE} p-3 sm:p-4 lg:p-5`}>
           <JellyfishBackground />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_88%_-25%,rgba(34,211,238,0.18),transparent_55%),radial-gradient(110%_120%_at_8%_125%,rgba(124,58,237,0.16),transparent_55%)]" />
 
-          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative z-10 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             {/* Welcome + identity + live status metrics (right side on desktop) */}
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-start gap-3">
@@ -461,7 +461,7 @@ export default function DashboardPage() {
         </section>
 
         {/* ─── KPI cards ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 auto-rows-fr items-stretch min-w-0">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 auto-rows-fr items-stretch min-w-0">
           {kpiLoading
             ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
             : kpiCards.map((card) => {
@@ -524,7 +524,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ─── Smart Insights (rule-based, free — no external AI) ────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
+        <section className={`${WS_SURFACE} p-3 sm:p-4`}>
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_92%_-20%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(110%_120%_at_5%_120%,rgba(34,211,238,0.12),transparent_55%)]" />
           <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start">
             {/* Glowing AI avatar — on the left in RTL via order */}

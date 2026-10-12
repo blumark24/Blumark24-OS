@@ -517,13 +517,13 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
     <>
     <header
       ref={headerRef}
-      className="sticky top-0 z-30 flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-[#1e3a5f]"
-      style={{ background: "rgba(10,22,40,0.9)", backdropFilter: "blur(16px)" }}
+      className="sticky top-0 z-30 flex min-h-14 items-center gap-1.5 sm:gap-3 px-2.5 sm:px-5 lg:px-6 py-2 sm:py-2.5 border-b border-white/[0.08] shadow-[0_14px_40px_-30px_rgba(34,211,238,.55)]"
+      style={{ background: "rgba(6,17,31,0.84)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}
     >
       {/* Mobile menu toggle */}
       <button
         onClick={onMobileMenuToggle}
-        className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all flex-shrink-0"
+        className="lg:hidden inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition-all flex-shrink-0"
         aria-label="القائمة"
       >
         <Menu size={18} />
@@ -532,7 +532,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
       {/* Mobile brand (centered) — hidden when the mobile search is expanded */}
       {!mobileSearchOpen && (
         <Link href="/dashboard" className="lg:hidden flex min-w-0 flex-1 items-center justify-center" aria-label="Blumark24 OS">
-          <OfficialBlumarkLogo className="w-[118px]" />
+          <OfficialBlumarkLogo className="w-[108px] sm:w-[118px]" />
         </Link>
       )}
 
@@ -583,7 +583,7 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
         {/* Mobile search toggle */}
         <button
           onClick={() => { setMobileSearchOpen((v) => !v); setOpenSearch(true); }}
-          className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition"
+          className="lg:hidden inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#8ba3c7] hover:text-[#22d3ee] hover:bg-white/[0.08] transition"
           aria-label="بحث"
         >
           {mobileSearchOpen ? <X size={18} /> : <Search size={18} />}
