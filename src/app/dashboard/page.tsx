@@ -34,6 +34,7 @@ import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 import { useMyWorkContext } from "@/hooks/useMyWorkContext";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { PLAN_LABELS_AR } from "@/lib/features/packageFeatures";
+import DashboardPulsePanel from "@/components/dashboard/DashboardPulsePanel";
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
@@ -110,7 +111,7 @@ const WORK_IDENTITY_LABELS = {
 
 export default function DashboardPage() {
   const { user, loading }                      = useAuth();
-  const { userRole }                           = usePermissions();
+  const { userRole, hasPermission }            = usePermissions();
   const { data: dashboardSummary, loading: summaryLoading } = useDashboardSummary();
 
   const isSuperAdmin = user
@@ -159,6 +160,22 @@ export default function DashboardPage() {
   const { name: companyName, logoUrl: companyLogoUrl, isFallback: companyIsFallback } = useTenantCompanyName();
   const { context: work, loading: workLoading } = useMyWorkContext();
   const { planSlug, organizationStatus } = useTenantWorkspace();
+
+  const roleLensLabel = (() => {
+    const title = String(work.jobTitle ?? "").trim();
+    if (resolvedRole === "super_admin" || resolvedRole === "organization_manager") return "مركز قيادة المنشأة";
+    if (resolvedRole === "finance_manager") return "المالية والأداء";
+    if (title.includes("مدير وكالة")) return "قيادة الوكالة";
+    if (title.includes("مدير إدارة")) return "قيادة الإدارة";
+    if (title.includes("مدير قسم")) return "قيادة القسم";
+    return "مساحة عملي";
+  })();
+
+  const roleScopeLabel = work.orgLink
+    ? [companyName, work.orgLink].filter(Boolean).join(" / ")
+    : departmentDisplay.isEmpty
+      ? companyName
+      : [companyName, departmentDisplay.text].filter(Boolean).join(" / ");
   const employeeDisplayName = user?.name?.trim() || user?.email || "...";
   const subscriptionStatusLabel =
     organizationStatus === "active"
@@ -399,69 +416,48 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* ─── Work identity block ────────────────────────────────────────── */}
-        <section className={cn(WS_CARD, "p-4 sm:p-5")}>
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-          <div className="relative z-10">
-            <div className="mb-3 flex items-center gap-1.5 text-[11px] text-cyan-300/80">
+        {/* ─── Compact work context ────────────────────────────────────────── */}
+        <section className={cn(WS_CARD, "px-3 py-2.5 sm:px-4")}>
+          <div className="relative z-10 flex min-w-0 flex-wrap items-center gap-2">
+            <span className="inline-flex min-h-7 items-center gap-1.5 text-[11px] font-semibold text-cyan-200/85">
               <Briefcase size={12} />
-              <span>{WORK_IDENTITY_LABELS.title}</span>
-            </div>
+              نطاق العمل
+            </span>
             {workLoading ? (
-              <div className="h-8 animate-pulse rounded-xl bg-white/5" />
+              <span className="h-7 w-40 animate-pulse rounded-full bg-white/5" />
             ) : work.hasWorkData ? (
-              <div className="flex flex-wrap gap-2">
-                {work.jobTitle && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <Briefcase size={12} className="text-cyan-300 shrink-0" />
-                    <span>{work.jobTitle}</span>
+              <>
+                {work.jobTitle ? (
+                  <span className={cn(WS_STATUS_CHIP, "min-h-7 text-[11px]")}>
+                    <Briefcase size={11} className="shrink-0 text-cyan-300" />
+                    <span className="truncate">{work.jobTitle}</span>
                   </span>
-                )}
-                {work.orgLink && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <Network size={12} className="text-cyan-300 shrink-0" />
-                    <span>{work.orgLink}</span>
+                ) : null}
+                {work.orgLink ? (
+                  <span className={cn(WS_STATUS_CHIP, "min-h-7 text-[11px]")}>
+                    <Network size={11} className="shrink-0 text-cyan-300" />
+                    <span className="truncate">{work.orgLink}</span>
                   </span>
-                )}
-                {work.directManager && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <UserCog size={12} className="text-cyan-300 shrink-0" />
-                    <span>{work.directManager}</span>
+                ) : null}
+                {work.directManager ? (
+                  <span className={cn(WS_STATUS_CHIP, "hidden min-h-7 text-[11px] sm:inline-flex")}>
+                    <UserCog size={11} className="shrink-0 text-cyan-300" />
+                    <span className="truncate">{work.directManager}</span>
                   </span>
-                )}
-                {work.joinDate && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <CalendarDays size={12} className="text-cyan-300 shrink-0" />
-                    <span>{shortArabicDate(work.joinDate)}</span>
-                  </span>
-                )}
-                {work.status === "active" && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
-                    <span>{WORK_IDENTITY_LABELS.active}</span>
-                  </span>
-                )}
-                {work.status === "inactive" && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-rose-400 shrink-0" />
-                    <span>{WORK_IDENTITY_LABELS.inactive}</span>
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-amber-400/15 bg-amber-500/[0.05] p-3 text-center space-y-1.5">
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/25 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
-                  {WORK_IDENTITY_LABELS.incompleteBadge}
+                ) : null}
+                <span className={cn(WS_STATUS_CHIP, "min-h-7 text-[11px]")}>
+                  <span className={cn("h-1.5 w-1.5 rounded-full", work.status === "inactive" ? "bg-rose-400" : "bg-emerald-400")} />
+                  {work.status === "inactive" ? WORK_IDENTITY_LABELS.inactive : WORK_IDENTITY_LABELS.active}
                 </span>
-                <div className="text-white text-[13px] font-medium">{WORK_IDENTITY_LABELS.incompleteTitle}</div>
-                <p className="text-[#8ba3c7] text-[11px] leading-relaxed">{WORK_IDENTITY_LABELS.incompleteDescription}</p>
-              </div>
+              </>
+            ) : (
+              <span className="truncate text-[11px] text-amber-200/80">بيانات النطاق التنظيمي تحتاج استكمالاً بسيطاً</span>
             )}
           </div>
         </section>
 
         {/* ─── KPI cards ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 auto-rows-fr items-stretch min-w-0">
+        <div className="grid min-w-0 grid-cols-2 items-stretch gap-2.5 md:grid-cols-4 lg:gap-3">
           {kpiLoading
             ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
             : kpiCards.map((card) => {
@@ -517,64 +513,29 @@ export default function DashboardPage() {
                     progress={progress}
                     footer={footer}
                     onLiveClick={() => setActiveBoard(card.key)}
+                    density="compact"
                     className="h-full"
                   />
                 );
               })}
         </div>
 
-        {/* ─── Smart Insights (rule-based, free — no external AI) ────────── */}
-        <section className={`${WS_SURFACE} p-4 sm:p-5`}>
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_92%_-20%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(110%_120%_at_5%_120%,rgba(34,211,238,0.12),transparent_55%)]" />
-          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start">
-            {/* Glowing AI avatar — on the left in RTL via order */}
-            <div className="order-first flex shrink-0 items-center justify-center sm:order-last sm:w-24">
-              <div className="relative grid h-16 w-16 place-items-center rounded-full bg-violet-500/10 ring-1 ring-violet-300/25">
-                <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(124,58,237,0.45),transparent_70%)] blur-md animate-pulse-glow" />
-                <Bot size={28} className="relative text-violet-200" />
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="min-w-0 flex-1">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Sparkles size={16} className="shrink-0 text-violet-300" />
-                  <div className="min-w-0">
-                    <h2 className={`${WS_SECTION_TITLE} text-sm`}>رؤى ذكية من النظام</h2>
-                    <p className="truncate text-[11px] text-[#6b87ab]">تحليل فوري مبني على بياناتك الحالية</p>
-                  </div>
-                </div>
-                <Link href="/ai" className={`shrink-0 ${WS_AI_PILL}`}>
-                  عرض جميع الرؤى <ArrowLeft size={14} />
-                </Link>
-              </div>
-
-              <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {smartInsights.map((ins, i) => (
-                  <li key={i} className={cn(WS_INNER_CARD, "flex min-w-0 items-start gap-2.5 p-3")}>
-                    <span className={`${WS_ICON_ORB} w-8 h-8 shrink-0 ${WS_TINTS[ins.tint].orb}`}>
-                      <ins.icon size={15} className={WS_TINTS[ins.tint].icon} />
-                    </span>
-                    <p className="min-w-0 text-sm leading-snug text-[#dbe6f7]">{ins.text}</p>
-                  </li>
-                ))}
-              </ul>
-
-              {isSuperAdmin && activeEmployeeNames.length > 0 && (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] text-[#8ba3c7]">موظفون نشطون:</span>
-                  {activeEmployeeNames.map((name) => (
-                    <span key={name} className={cn(WS_STATUS_CHIP, "text-[11px] text-white/80")}>
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
+        {/* ─── Role lens + operational pulse ─────────────────────────────── */}
+        <DashboardPulsePanel
+          roleLensLabel={roleLensLabel}
+          roleLabel={roleLabel}
+          scopeLabel={roleScopeLabel}
+          overdueTasks={overdueTasksCount}
+          incompleteTasks={incompleteTasksCount}
+          completedTasksPct={kpi.completedTasksPct}
+          activeClients={activeClients}
+          totalClients={totalClients}
+          activeEmployees={activeEmployees}
+          totalEmployees={totalEmployees}
+          canManageTasks={hasPermission("manage_tasks")}
+          canManageClients={hasPermission("manage_clients")}
+          canViewEmployees={hasPermission("view_employees") || hasPermission("manage_users")}
+        />
 
         {/* ─── Analytics: performance + task distribution ────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
