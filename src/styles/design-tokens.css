@@ -53,23 +53,24 @@
 
   /* ---- Blumark Fusion Glass — reference-video direction ---- */
   --bm-page-bg:
-    radial-gradient(76% 54% at 78% -8%, rgba(74, 222, 255, 0.10), transparent 62%),
-    radial-gradient(68% 50% at 18% 112%, rgba(133, 93, 255, 0.12), transparent 64%),
-    linear-gradient(145deg, #070912 0%, #0a0d16 52%, #0c101b 100%);
+    radial-gradient(68% 44% at 82% -4%, rgba(117, 92, 231, 0.18), transparent 64%),
+    radial-gradient(62% 46% at 78% 70%, rgba(75, 216, 222, 0.12), transparent 67%),
+    radial-gradient(58% 44% at 34% 98%, rgba(192, 80, 157, 0.10), transparent 68%),
+    linear-gradient(145deg, #151821 0%, #1a1d28 52%, #171a24 100%);
   --bm-shell-overlay:
-    linear-gradient(180deg, rgba(7, 9, 18, 0.06), rgba(7, 9, 18, 0.20));
+    linear-gradient(180deg, rgba(7, 9, 16, 0.10), rgba(7, 9, 16, 0.16));
   --bm-glass-card:
-    radial-gradient(circle at 92% -8%, rgba(73, 224, 255, 0.07), transparent 38%),
-    linear-gradient(145deg, rgba(20, 24, 37, 0.84), rgba(12, 15, 25, 0.90));
+    radial-gradient(circle at 92% -8%, rgba(118, 96, 231, 0.12), transparent 38%),
+    linear-gradient(145deg, rgba(24, 26, 35, 0.92), rgba(14, 16, 23, 0.94));
   --bm-glass-surface:
-    linear-gradient(150deg, rgba(18, 22, 34, 0.90), rgba(11, 14, 24, 0.92));
-  --bm-glass-inset: rgba(25, 29, 44, 0.76);
-  --bm-glass-border: rgba(255, 255, 255, 0.075);
-  --bm-glass-border-strong: rgba(118, 214, 255, 0.20);
-  --bm-header-bg: rgba(11, 14, 24, 0.78);
+    linear-gradient(150deg, rgba(24, 26, 34, 0.94), rgba(16, 18, 25, 0.94));
+  --bm-glass-inset: rgba(24, 27, 37, 0.82);
+  --bm-glass-border: rgba(255, 255, 255, 0.085);
+  --bm-glass-border-strong: rgba(160, 143, 255, 0.22);
+  --bm-header-bg: rgba(20, 22, 31, 0.82);
   --bm-sidebar-bg:
-    linear-gradient(180deg, rgba(16, 20, 31, 0.86), rgba(11, 14, 23, 0.88));
-  --bm-input-bg: rgba(24, 29, 44, 0.78);
+    linear-gradient(180deg, rgba(13, 16, 26, 0.96), rgba(12, 15, 24, 0.96));
+  --bm-input-bg: rgba(28, 31, 43, 0.84);
   --bm-control-bg: rgba(255, 255, 255, 0.035);
   --bm-control-hover: rgba(255, 255, 255, 0.065);
   --bm-ambient-cyan: rgba(92, 226, 255, 0.42);
@@ -83,46 +84,46 @@
  * تُفعّل فعليًا عندما تنتقل المكونات إلى التوكنز في المراحل اللاحقة.
  */
 [data-theme="light"] {
-  --ds-bg: #f6f7fb;
-  --ds-surface-1: rgba(255, 255, 255, 0.78);
-  --ds-surface-2: rgba(250, 251, 255, 0.72);
-  --ds-surface-3: rgba(245, 247, 252, 0.78);
+  --ds-bg: #edf2f8;
+  --ds-surface-1: rgba(246, 249, 252, 0.92);
+  --ds-surface-2: rgba(242, 246, 250, 0.88);
+  --ds-surface-3: rgba(238, 243, 248, 0.90);
 
-  --ds-border-soft: rgba(64, 74, 102, 0.075);
-  --ds-border: rgba(64, 74, 102, 0.11);
-  --ds-border-strong: rgba(64, 74, 102, 0.16);
+  --ds-border-soft: rgba(84, 94, 119, 0.08);
+  --ds-border: rgba(84, 94, 119, 0.11);
+  --ds-border-strong: rgba(84, 94, 119, 0.16);
 
-  --ds-text-1: #182033;
-  --ds-text-2: #657089;
-  --ds-text-3: #8b94a8;
+  --ds-text-1: #171d2b;
+  --ds-text-2: #657087;
+  --ds-text-3: #929aab;
 
-  --ds-shadow-1: 0 8px 24px rgba(71, 73, 110, 0.08);
-  --ds-shadow-2: 0 18px 48px rgba(71, 73, 110, 0.11);
-  --ds-shadow-3: 0 32px 86px rgba(56, 52, 98, 0.16);
+  --ds-shadow-1: 0 8px 22px rgba(74, 78, 112, 0.07);
+  --ds-shadow-2: 0 16px 40px rgba(74, 78, 112, 0.10);
+  --ds-shadow-3: 0 28px 72px rgba(56, 52, 98, 0.14);
 
   --bm-page-bg:
-    radial-gradient(72% 66% at 6% 0%, rgba(196, 171, 255, 0.34), transparent 60%),
-    radial-gradient(78% 64% at 96% 4%, rgba(144, 220, 255, 0.30), transparent 62%),
-    radial-gradient(70% 50% at 52% 108%, rgba(255, 190, 222, 0.24), transparent 68%),
-    linear-gradient(145deg, #f6f7fb 0%, #f3f5fb 54%, #f7f8fb 100%);
+    radial-gradient(62% 50% at 76% 0%, rgba(126, 106, 230, 0.20), transparent 64%),
+    radial-gradient(62% 50% at 82% 74%, rgba(95, 220, 227, 0.16), transparent 66%),
+    radial-gradient(54% 42% at 38% 100%, rgba(238, 166, 212, 0.15), transparent 68%),
+    linear-gradient(145deg, #edf2f8 0%, #f4f7fb 48%, #edf2f7 100%);
   --bm-shell-overlay:
-    linear-gradient(180deg, rgba(255,255,255,0.10), rgba(245,247,252,0.22));
+    linear-gradient(180deg, rgba(255,255,255,0.10), rgba(245,248,251,0.16));
   --bm-glass-card:
-    radial-gradient(circle at 92% -10%, rgba(148, 214, 255, 0.14), transparent 38%),
-    linear-gradient(145deg, rgba(255,255,255,0.78), rgba(250,251,255,0.68));
+    radial-gradient(circle at 92% -8%, rgba(139, 120, 232, 0.08), transparent 38%),
+    linear-gradient(145deg, rgba(247,250,252,0.94), rgba(240,245,249,0.92));
   --bm-glass-surface:
-    linear-gradient(150deg, rgba(255,255,255,0.82), rgba(249,250,254,0.72));
-  --bm-glass-inset: rgba(255,255,255,0.60);
-  --bm-glass-border: rgba(107, 117, 146, 0.12);
-  --bm-glass-border-strong: rgba(102, 126, 191, 0.22);
-  --bm-header-bg: rgba(255,255,255,0.62);
+    linear-gradient(150deg, rgba(248,250,252,0.96), rgba(240,245,249,0.94));
+  --bm-glass-inset: rgba(244,247,250,0.90);
+  --bm-glass-border: rgba(86, 98, 124, 0.10);
+  --bm-glass-border-strong: rgba(112, 95, 210, 0.18);
+  --bm-header-bg: rgba(248,250,252,0.86);
   --bm-sidebar-bg:
-    linear-gradient(180deg, rgba(255,255,255,0.72), rgba(248,249,253,0.68));
-  --bm-input-bg: rgba(255,255,255,0.72);
-  --bm-control-bg: rgba(255,255,255,0.54);
-  --bm-control-hover: rgba(255,255,255,0.78);
-  --bm-ambient-cyan: rgba(129, 224, 255, 0.26);
-  --bm-ambient-blue: rgba(121, 155, 255, 0.22);
-  --bm-ambient-violet: rgba(185, 143, 255, 0.26);
-  --bm-grid-dot: rgba(68, 80, 115, 0.10);
+    linear-gradient(180deg, rgba(255,255,255,0.98), rgba(252,253,255,0.98));
+  --bm-input-bg: rgba(255,255,255,0.90);
+  --bm-control-bg: rgba(255,255,255,0.72);
+  --bm-control-hover: rgba(255,255,255,0.96);
+  --bm-ambient-cyan: rgba(95, 220, 227, 0.24);
+  --bm-ambient-blue: rgba(112, 136, 226, 0.20);
+  --bm-ambient-violet: rgba(139, 120, 232, 0.24);
+  --bm-grid-dot: rgba(72, 82, 108, 0.09);
 }
