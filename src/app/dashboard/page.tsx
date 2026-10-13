@@ -158,6 +158,12 @@ export default function DashboardPage() {
             ? "ملغي"
             : "غير محدد";
 
+  function shortArabicDate(iso: string): string {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "—";
+    return `${d.getDate()} ${ARABIC_MONTHS[d.getMonth()]}`;
+  }
+
   // Task distribution (derived only from existing task buckets — no new data logic).
   // Plain computation: inputs are recomputed each render, so memoization adds no value.
   const taskDistribution = (() => {
