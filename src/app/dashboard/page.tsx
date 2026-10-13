@@ -12,7 +12,7 @@ import {
   UserCheck, DollarSign, CheckCircle, X, Sparkles, TrendingUp, Timer, Siren,
   Bot, CheckSquare, UserPlus, FileText, Wallet, BarChart3, ListChecks,
   ArrowLeft, ShieldCheck, Building2, Zap, Plus,
-  Briefcase, Network, UserCog, CalendarDays, CreditCard,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency, timeAgo } from "@/lib/utils";
@@ -31,7 +31,6 @@ import { PremiumMetricCard } from "@/components/ui/PremiumMetricCard";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
-import { useMyWorkContext } from "@/hooks/useMyWorkContext";
 import { useTenantWorkspace } from "@/contexts/TenantWorkspaceContext";
 import { PLAN_LABELS_AR } from "@/lib/features/packageFeatures";
 
@@ -95,17 +94,6 @@ function todayArabic() {
   return `${d.getDate()} ${ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-const ar = (...codePoints: number[]) => String.fromCodePoint(...codePoints);
-
-const WORK_IDENTITY_LABELS = {
-  title:                ar(0x0628,0x064A,0x0627,0x0646,0x0627,0x062A,0x0020,0x0627,0x0644,0x0639,0x0645,0x0644),
-  active:               ar(0x0646,0x0634,0x0637),
-  inactive:             ar(0x063A,0x064A,0x0631,0x0020,0x0646,0x0634,0x0637),
-  incompleteBadge:      ar(0x064A,0x062A,0x0637,0x0644,0x0628,0x0020,0x0627,0x0633,0x062A,0x0643,0x0645,0x0627,0x0644),
-  incompleteTitle:      ar(0x0628,0x064A,0x0627,0x0646,0x0627,0x062A,0x0020,0x0627,0x0644,0x0639,0x0645,0x0644,0x0020,0x0644,0x0645,0x0020,0x062A,0x064F,0x0633,0x062A,0x0643,0x0645,0x0644,0x0020,0x0628,0x0639,0x062F),
-  incompleteDescription:ar(0x062A,0x064F,0x062F,0x0627,0x0631,0x0020,0x0647,0x0630,0x0647,0x0020,0x0627,0x0644,0x0628,0x064A,0x0627,0x0646,0x0627,0x062A,0x0020,0x0645,0x0646,0x0020,0x0642,0x0633,0x0645,0x0020,0x0627,0x0644,0x0645,0x0648,0x0638,0x0641,0x064A,0x0646,0x0020,0x0648,0x0627,0x0644,0x0647,0x064A,0x0643,0x0644,0x0020,0x0627,0x0644,0x0625,0x062F,0x0627,0x0631,0x064A,0x0020,0x0628,0x0648,0x0627,0x0633,0x0637,0x0629,0x0020,0x0645,0x062F,0x064A,0x0631,0x0020,0x0627,0x0644,0x0645,0x0646,0x0634,0x0623,0x0629,0x002E),
-} as const;
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -157,7 +145,6 @@ export default function DashboardPage() {
       : "عضو الفريق";
   const { display: departmentDisplay } = useProfileOrgDepartment();
   const { name: companyName, logoUrl: companyLogoUrl, isFallback: companyIsFallback } = useTenantCompanyName();
-  const { context: work, loading: workLoading } = useMyWorkContext();
   const { planSlug, organizationStatus } = useTenantWorkspace();
   const employeeDisplayName = user?.name?.trim() || user?.email || "...";
   const subscriptionStatusLabel =
@@ -399,69 +386,8 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* ─── Work identity block ────────────────────────────────────────── */}
-        <section className={cn(WS_CARD, "p-4 sm:p-5")}>
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-          <div className="relative z-10">
-            <div className="mb-3 flex items-center gap-1.5 text-[11px] text-cyan-300/80">
-              <Briefcase size={12} />
-              <span>{WORK_IDENTITY_LABELS.title}</span>
-            </div>
-            {workLoading ? (
-              <div className="h-8 animate-pulse rounded-xl bg-white/5" />
-            ) : work.hasWorkData ? (
-              <div className="flex flex-wrap gap-2">
-                {work.jobTitle && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <Briefcase size={12} className="text-cyan-300 shrink-0" />
-                    <span>{work.jobTitle}</span>
-                  </span>
-                )}
-                {work.orgLink && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <Network size={12} className="text-cyan-300 shrink-0" />
-                    <span>{work.orgLink}</span>
-                  </span>
-                )}
-                {work.directManager && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <UserCog size={12} className="text-cyan-300 shrink-0" />
-                    <span>{work.directManager}</span>
-                  </span>
-                )}
-                {work.joinDate && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <CalendarDays size={12} className="text-cyan-300 shrink-0" />
-                    <span>{shortArabicDate(work.joinDate)}</span>
-                  </span>
-                )}
-                {work.status === "active" && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
-                    <span>{WORK_IDENTITY_LABELS.active}</span>
-                  </span>
-                )}
-                {work.status === "inactive" && (
-                  <span className={cn(WS_STATUS_CHIP)}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-rose-400 shrink-0" />
-                    <span>{WORK_IDENTITY_LABELS.inactive}</span>
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-amber-400/15 bg-amber-500/[0.05] p-3 text-center space-y-1.5">
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/25 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
-                  {WORK_IDENTITY_LABELS.incompleteBadge}
-                </span>
-                <div className="text-white text-[13px] font-medium">{WORK_IDENTITY_LABELS.incompleteTitle}</div>
-                <p className="text-[#8ba3c7] text-[11px] leading-relaxed">{WORK_IDENTITY_LABELS.incompleteDescription}</p>
-              </div>
-            )}
-          </div>
-        </section>
-
         {/* ─── KPI cards ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 auto-rows-fr items-stretch min-w-0">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 auto-rows-fr items-stretch min-w-0">
           {kpiLoading
             ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
             : kpiCards.map((card) => {

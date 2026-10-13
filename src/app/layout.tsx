@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ar" dir="rtl">
       <head>
         {/* Apply theme from localStorage before first paint — prevents flash */}
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=JSON.parse(localStorage.getItem('blumark-theme')||'{}');document.documentElement.setAttribute('data-theme',t.darkMode===false?'light':'dark');if(t.accentColor){document.documentElement.style.setProperty('--accent-primary',t.accentColor);document.documentElement.style.setProperty('--accent-teal',t.accentColor);}}catch(e){}})();` }} />
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=JSON.parse(localStorage.getItem('blumark-theme')||'{}');document.documentElement.setAttribute('data-theme',t.darkMode===true?'dark':'light');if(t.accentColor){document.documentElement.style.setProperty('--accent-primary',t.accentColor);document.documentElement.style.setProperty('--accent-teal',t.accentColor);}}catch(e){}})();` }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}

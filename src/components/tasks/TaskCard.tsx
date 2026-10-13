@@ -289,7 +289,7 @@ export function TaskCard({
   return (
     <article
       className={cn(
-        "flex min-h-[156px] flex-col rounded-ds-md border border-ds-border-soft bg-ds-surface-3 p-3",
+        "flex min-h-[132px] flex-col rounded-ds-md border border-ds-border-soft bg-ds-surface-3 p-2.5",
         "transition-[border-color,background-color] duration-150 motion-reduce:transition-none",
         "hover:border-ds-border-strong hover:bg-[color-mix(in_srgb,var(--ds-surface-3)_94%,var(--ds-accent))]",
         selected && "border-ds-teal/60 ring-1 ring-ds-teal/20",
@@ -316,7 +316,7 @@ export function TaskCard({
         />
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <span
           className="inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2 text-ds-caption font-bold"
           style={{ borderColor: `${meta.color}55`, color: meta.color }}
@@ -331,13 +331,13 @@ export function TaskCard({
       </div>
 
       {task.clientName ? (
-        <div className="mt-2 flex min-w-0 items-center gap-2 text-ds-caption text-ds-text-2">
+        <div className="mt-1.5 flex min-w-0 items-center gap-2 text-ds-caption text-ds-text-2">
           <Building2 size={13} className="shrink-0 text-ds-text-3" aria-hidden="true" />
           <span className="truncate">{task.clientName}</span>
         </div>
       ) : null}
 
-      <div className="mt-auto grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pt-3 text-ds-caption text-ds-text-2">
+      <div className="mt-auto grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pt-2 text-ds-caption text-ds-text-2">
         <span className="flex min-w-0 items-center gap-2">
           <UserRound size={13} className="shrink-0 text-ds-text-3" aria-hidden="true" />
           <span className="truncate">{task.assigneeName || "غير محدد"}</span>

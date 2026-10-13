@@ -6,7 +6,6 @@ import Header from "./Header";
 import MobileShellContext from "./MobileShellContext";
 import MobileBottomNav, { MOBILE_BOTTOM_NAV_INSET } from "./MobileBottomNav";
 import WorkspaceRouteGuard from "@/components/ui/WorkspaceRouteGuard";
-import CustomerOnboardingBanner from "@/components/ui/CustomerOnboardingBanner";
 import BlumarkAmbientBackground from "@/components/dashboard/BlumarkAmbientBackground";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/contexts/PermissionsContext";
@@ -25,16 +24,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const isDev = process.env.NODE_ENV === "development";
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-[#07111f]">
+    <div className="bm-fusion-shell relative flex h-screen overflow-hidden">
       <BlumarkAmbientBackground />
 
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 z-0 opacity-70"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(8,20,37,0.2), rgba(4,12,24,0.7)), radial-gradient(80% 70% at 80% 0%, rgba(34,211,238,0.06), transparent 58%)",
-        }}
+        className="bm-fusion-overlay pointer-events-none absolute inset-0 z-0 opacity-80"
       />
 
       <div className="relative z-20">
@@ -79,9 +74,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <main
           className={`relative flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4 lg:px-6 lg:py-5 xl:px-7 ${MOBILE_BOTTOM_NAV_INSET}`}
         >
-          <div className="mx-auto w-full max-w-[1680px]">
+          <div className="mx-auto w-full max-w-[1480px]">
             <WorkspaceRouteGuard>
-              <CustomerOnboardingBanner />
               {children}
             </WorkspaceRouteGuard>
           </div>

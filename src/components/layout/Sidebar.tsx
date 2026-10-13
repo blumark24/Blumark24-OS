@@ -25,6 +25,7 @@ import {
 } from "@/lib/features/packageFeatures";
 import { getTenantRoleLabel } from "@/lib/tenant/tenantDisplay";
 import OfficialBlumarkLogo from "@/components/brand/OfficialBlumarkLogo";
+import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -60,6 +61,7 @@ export default function Sidebar({
   const toast       = useToast();
   const { userRole } = usePermissions();
   const { navRoutes, loading: wsLoading } = useTenantWorkspace();
+  const { name: companyName, logoUrl: companyLogoUrl } = useTenantCompanyName();
   const effectiveRole =
     userRole ?? (user?.role ? mapAuthRoleToUserRole(user.role) : null);
 
@@ -116,14 +118,16 @@ export default function Sidebar({
     ? getTenantRoleLabel(effectiveRole)
     : "";
 
+  const mainRoutes = renderedRoutes.filter(({ route }) => route.id !== "settings");
+  const settingsRoute = renderedRoutes.find(({ route }) => route.id === "settings") ?? null;
+
   const innerCard = (
     <div
       className={cn(
-        "flex flex-col flex-1 overflow-hidden rounded-[20px] border border-white/[0.10] shadow-[0_24px_70px_rgba(0,0,0,0.34)]",
-        "bg-[#081523]/95 lg:bg-[linear-gradient(180deg,rgba(10,28,46,0.74),rgba(5,15,28,0.70))] lg:backdrop-blur-2xl",
+        "bm-fusion-sidebar flex flex-col flex-1 overflow-hidden rounded-[20px] border shadow-[0_24px_70px_rgba(0,0,0,0.26)]",
       )}
     >
-      <div className="relative flex items-center justify-center border-b border-white/[0.07] px-3.5 py-3.5 lg:justify-start">
+      <div className="relative flex items-center justify-center border-b border-ds-border-soft px-3.5 py-3.5 lg:justify-start">
         {collapsed ? (
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -139,7 +143,7 @@ export default function Sidebar({
         )}
         <button
           onClick={onToggle}
-          className="mr-auto ms-2 p-1.5 -m-1.5 text-white/55 hover:text-[#22D3EE] transition-colors hidden lg:block"
+          className="mr-auto ms-2 p-1.5 -m-1.5 text-ds-text-3 hover:text-[#22D3EE] transition-colors hidden lg:block"
           aria-label="طي القائمة"
         >
           <ChevronLeft size={16} className={cn("transition-transform", collapsed && "rotate-180")} />
@@ -147,7 +151,7 @@ export default function Sidebar({
         {onMobileClose && (
           <button
             onClick={onMobileClose}
-            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 text-white/55 hover:text-[#22D3EE] transition-colors lg:hidden"
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 text-ds-text-3 hover:text-[#22D3EE] transition-colors lg:hidden"
             aria-label="إغلاق القائمة"
           >
             <X size={16} />
@@ -156,8 +160,32 @@ export default function Sidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2.5 py-3">
+        {!collapsed && (
+          <div className="mb-3 rounded-xl border border-ds-border-soft bg-white/[0.025] px-3 py-2.5">
+            <div className="flex min-w-0 items-center gap-2">
+              {companyLogoUrl ? (
+                <span
+                  aria-label="شعار المنشأة"
+                  role="img"
+                  className="h-7 w-7 shrink-0 rounded-lg border border-ds-border-soft bg-white/5 bg-cover bg-center"
+                  style={{ backgroundImage: "url(" + companyLogoUrl + ")" }}
+                />
+              ) : (
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-cyan-300/15 bg-cyan-400/[0.06] text-[11px] font-black text-cyan-300">
+                  {companyName?.trim()?.slice(0, 1) || "B"}
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[11.5px] font-bold text-ds-text-1">{companyName || "Blumark24"}</div>
+                <div className="truncate text-[10px] text-ds-text-3">{roleLabel || "مساحة العمل"}</div>
+              </div>
+              <ChevronLeft size={12} className="shrink-0 text-ds-text-3" />
+            </div>
+          </div>
+        )}
+
         <ul className="space-y-1">
-          {renderedRoutes.map(({ route, locked }) => {
+          {mainRoutes.map(({ route, locked }) => {
             const Icon = ICON_BY_NAME[route.iconName] ?? LayoutDashboard;
             const href = route.href;
             const label = getRouteLabel(route.id as WorkspaceRouteId);
@@ -166,56 +194,41 @@ export default function Sidebar({
               : pathname.startsWith(href));
 
             const itemClass = cn(
-              "flex min-h-10 w-full items-center justify-between gap-2.5 rounded-xl border px-3 py-2 text-right text-[12.5px] transition-all duration-200",
+              "group flex min-h-9 w-full items-center justify-between gap-2.5 rounded-[10px] border px-2.5 py-1.5 text-right text-[12px] transition-[background-color,border-color,color,transform,box-shadow] duration-150",
               isActive
-                ? "bg-gradient-to-l from-[#1E6FD9]/32 via-[#22D3EE]/[0.10] to-transparent border-[rgba(34,211,238,0.30)] text-white shadow-[0_8px_24px_-16px_rgba(34,211,238,0.70)]"
+                ? "border-ds-border bg-[color-mix(in_srgb,var(--ds-accent)_9%,transparent)] text-ds-text-1 shadow-[inset_0_1px_0_rgba(255,255,255,.05)]"
                 : locked
-                  ? "text-white/55 hover:bg-white/[0.04] border-transparent cursor-pointer"
-                  : "text-white/[0.70] hover:bg-white/[0.055] hover:text-white border-transparent"
+                  ? "cursor-pointer border-transparent text-ds-text-3 hover:bg-white/[0.035]"
+                  : "border-transparent text-ds-text-2 hover:bg-white/[0.045] hover:text-ds-text-1"
             );
 
             const inner = (
               <>
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <Icon
                     className={cn(
-                      "h-4 w-4 flex-shrink-0",
-                      isActive ? "text-[#22D3EE]" : "text-white/55"
+                      "h-3.5 w-3.5 shrink-0",
+                      isActive ? "text-violet-400" : "text-ds-text-3"
                     )}
-                    strokeWidth={1.6}
+                    strokeWidth={1.7}
                   />
                   {!collapsed && <span className="truncate">{label}</span>}
                 </div>
-                {!collapsed && (
-                  locked ? (
-                    <span className="flex items-center gap-1.5 flex-shrink-0">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-[#7C3AED]/40 bg-[#7C3AED]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#C4B5FD]">
-                        متقدم
-                      </span>
-                      <Lock className="h-3.5 w-3.5 text-white/40" strokeWidth={1.6} />
-                    </span>
-                  ) : (
-                    <ArrowLeft
-                      className={cn(
-                        "h-3.5 w-3.5 flex-shrink-0",
-                        isActive ? "text-[#22D3EE]" : "text-white/30"
-                      )}
-                      strokeWidth={1.6}
-                    />
-                  )
-                )}
+                {!collapsed && locked ? (
+                  <Lock className="h-3 w-3 shrink-0 text-ds-text-3" strokeWidth={1.6} />
+                ) : null}
               </>
             );
 
             return (
-              <li key={`${route.id}-${locked ? "locked" : "open"}`}>
+              <li key={route.id + "-" + (locked ? "locked" : "open")}>
                 {locked ? (
                   <button
                     type="button"
                     onClick={handleLockedVirtualOfficeClick}
                     className={itemClass}
-                    title={collapsed ? `${label} — باقة متقدم أو مؤسسي` : "متاح في باقة متقدم أو مؤسسي"}
-                    aria-label={`${label} — متاح في باقة متقدم أو مؤسسي`}
+                    title={collapsed ? label + " — باقة متقدم أو مؤسسي" : "متاح في باقة متقدم أو مؤسسي"}
+                    aria-label={label + " — متاح في باقة متقدم أو مؤسسي"}
                   >
                     {inner}
                   </button>
@@ -235,10 +248,24 @@ export default function Sidebar({
         </ul>
       </nav>
 
-      <div className="px-3 pb-3 pt-2 border-t border-white/[0.06]">
+      <div className="px-3 pb-3 pt-2 border-t border-ds-border-soft">
+        {settingsRoute && (
+          <Link
+            href={settingsRoute.route.href}
+            onClick={onMobileClose}
+            className={cn(
+              "mb-2 flex min-h-9 items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-1.5 text-[12px] text-ds-text-2 transition-colors hover:bg-white/[0.045] hover:text-ds-text-1",
+              pathname.startsWith(settingsRoute.route.href) && "border-ds-border bg-[color-mix(in_srgb,var(--ds-accent)_9%,transparent)] text-ds-text-1",
+              collapsed && "justify-center",
+            )}
+          >
+            <Settings size={14} className="shrink-0 text-ds-text-3" />
+            {!collapsed && <span>الإعدادات</span>}
+          </Link>
+        )}
         <div
           className={cn(
-            "flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5",
+            "flex items-center gap-3 rounded-xl border border-ds-border-soft bg-white/[0.03] p-2.5",
             collapsed && "justify-center"
           )}
         >
@@ -251,14 +278,14 @@ export default function Sidebar({
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <div className="text-[12.5px] font-semibold text-white truncate">{user?.name ?? "المستخدم"}</div>
-              <div className="text-[11px] text-white/55 truncate">{roleLabel || " "}</div>
+              <div className="text-[11px] text-ds-text-3 truncate">{roleLabel || " "}</div>
             </div>
           )}
           {!collapsed && (
             <button
               onClick={handleLogout}
               disabled={loggingOut}
-              className="text-white/55 hover:text-red-400 transition-colors flex-shrink-0 disabled:opacity-50 disabled:hover:text-white/55 disabled:cursor-not-allowed"
+              className="text-ds-text-3 hover:text-red-400 transition-colors flex-shrink-0 disabled:opacity-50 disabled:hover:text-ds-text-3 disabled:cursor-not-allowed"
               title="تسجيل الخروج"
               aria-label="تسجيل الخروج"
             >
@@ -270,7 +297,7 @@ export default function Sidebar({
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className="mt-2 w-full flex justify-center text-white/55 hover:text-red-400 transition-colors disabled:opacity-50 disabled:hover:text-white/55 disabled:cursor-not-allowed"
+            className="mt-2 w-full flex justify-center text-ds-text-3 hover:text-red-400 transition-colors disabled:opacity-50 disabled:hover:text-ds-text-3 disabled:cursor-not-allowed"
             title="تسجيل الخروج"
             aria-label="تسجيل الخروج"
           >
@@ -285,7 +312,7 @@ export default function Sidebar({
     <aside
       className={cn(
         "sticky top-0 z-40 flex h-screen flex-col p-2 transition-[width] duration-300",
-        collapsed ? "w-16" : "w-[82vw] max-w-[310px] lg:w-[248px] lg:max-w-none"
+        collapsed ? "w-16" : "w-[82vw] max-w-[300px] lg:w-[220px] lg:max-w-none"
       )}
     >
       {innerCard}
