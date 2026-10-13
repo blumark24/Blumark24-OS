@@ -16,8 +16,8 @@ export const WS_SURFACE =
 
 /** Safe hover lift for interactive dashboard cards */
 export const WS_CARD_HOVER =
-  "ws-card-hover hover:-translate-y-0.5 hover:border-[rgba(34,211,238,0.26)] " +
-  "hover:shadow-[0_20px_52px_rgba(0,0,0,0.30),0_0_24px_rgba(34,211,238,0.06),inset_0_1px_0_rgba(255,255,255,0.06)]";
+  "ws-card-hover hover:-translate-y-px hover:border-ds-border-strong " +
+  "hover:shadow-[0_16px_40px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.05)]";
 
 export const WS_INNER_CARD =
   "bm-glass-inset rounded-2xl";
@@ -44,10 +44,9 @@ export const WS_MOBILE_TOUCH_TARGET =
   "min-h-[44px] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70";
 
 export const WS_ICON_ORB =
-  "grid place-items-center rounded-[15px] " +
-  "bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.14),transparent_32%),linear-gradient(135deg,rgba(34,211,238,0.16),rgba(30,111,217,0.10))] " +
-  "border border-[rgba(34,211,238,0.20)] " +
-  "shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_8px_20px_rgba(34,211,238,0.06)]";
+  "grid place-items-center rounded-[11px] " +
+  "bg-white/[0.035] border border-ds-border-soft " +
+  "shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]";
 
 export const WS_GLASS_MODAL =
   "bm-glass-surface w-full max-w-lg rounded-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto";
@@ -74,37 +73,37 @@ export type KpiTheme = {
 
 const KPI_THEMES: Record<KpiAccent, KpiTheme> = {
   cyan: {
-    glow: "shadow-[0_16px_40px_-12px_rgba(34,211,238,0.35),0_0_0_1px_rgba(34,211,238,0.08)]",
-    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(34,211,238,0.14),transparent_55%)]",
-    orb: "bg-cyan-400/10 ring-1 ring-cyan-300/20",
-    iconColor: "text-cyan-300",
-    accent: "text-cyan-200/85",
-    livePill: "bg-cyan-400/10 text-cyan-200 border border-cyan-300/20",
-    iconTile: "border-[rgba(34,211,238,0.22)]",
-    panelBorder: "border-[rgba(34,211,238,0.28)]",
-    spark: "text-cyan-400/60",
+    glow: "shadow-[0_14px_34px_-14px_rgba(92,220,231,0.30)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(92,220,231,0.14),transparent_55%)]",
+    orb: "bg-[#5CDCE7]/10 ring-1 ring-[#5CDCE7]/18",
+    iconColor: "text-[#5CDCE7]",
+    accent: "text-[#5CDCE7]",
+    livePill: "bg-[#5CDCE7]/10 text-[#54C8D2] border border-[#5CDCE7]/18",
+    iconTile: "border-[#5CDCE7]/20",
+    panelBorder: "border-[#5CDCE7]/20",
+    spark: "text-[#5CDCE7]/65",
   },
   emerald: {
-    glow: "shadow-[0_16px_40px_-12px_rgba(16,185,129,0.32),0_0_0_1px_rgba(16,185,129,0.08)]",
-    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(16,185,129,0.14),transparent_55%)]",
-    orb: "bg-emerald-400/10 ring-1 ring-emerald-300/20",
-    iconColor: "text-emerald-300",
-    accent: "text-emerald-200/85",
-    livePill: "bg-emerald-400/10 text-emerald-200 border border-emerald-300/20",
-    iconTile: "border-[rgba(16,185,129,0.22)]",
-    panelBorder: "border-[rgba(16,185,129,0.28)]",
-    spark: "text-emerald-400/60",
+    glow: "shadow-[0_14px_34px_-14px_rgba(119,222,161,0.28)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(119,222,161,0.13),transparent_55%)]",
+    orb: "bg-[#77DEA1]/10 ring-1 ring-[#77DEA1]/18",
+    iconColor: "text-[#77DEA1]",
+    accent: "text-[#77DEA1]",
+    livePill: "bg-[#77DEA1]/10 text-[#64C98A] border border-[#77DEA1]/18",
+    iconTile: "border-[#77DEA1]/20",
+    panelBorder: "border-[#77DEA1]/20",
+    spark: "text-[#77DEA1]/65",
   },
   amber: {
-    glow: "shadow-[0_16px_40px_-12px_rgba(251,191,36,0.28),0_0_0_1px_rgba(251,191,36,0.08)]",
-    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(251,191,36,0.12),transparent_55%)]",
-    orb: "bg-amber-400/10 ring-1 ring-amber-300/20",
-    iconColor: "text-amber-300",
-    accent: "text-amber-200/85",
-    livePill: "bg-amber-400/10 text-amber-200 border border-amber-300/20",
-    iconTile: "border-[rgba(251,191,36,0.22)]",
-    panelBorder: "border-[rgba(251,191,36,0.28)]",
-    spark: "text-amber-400/60",
+    glow: "shadow-[0_14px_34px_-14px_rgba(230,194,124,0.28)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(230,194,124,0.13),transparent_55%)]",
+    orb: "bg-[#E6C27C]/10 ring-1 ring-[#E6C27C]/18",
+    iconColor: "text-[#E6C27C]",
+    accent: "text-[#E6C27C]",
+    livePill: "bg-[#E6C27C]/10 text-[#CFA95F] border border-[#E6C27C]/18",
+    iconTile: "border-[#E6C27C]/20",
+    panelBorder: "border-[#E6C27C]/20",
+    spark: "text-[#E6C27C]/65",
   },
   rose: {
     glow: "shadow-[0_16px_40px_-12px_rgba(244,63,94,0.28),0_0_0_1px_rgba(244,63,94,0.08)]",
@@ -118,15 +117,15 @@ const KPI_THEMES: Record<KpiAccent, KpiTheme> = {
     spark: "text-rose-400/60",
   },
   violet: {
-    glow: "shadow-[0_16px_40px_-12px_rgba(168,85,247,0.28),0_0_0_1px_rgba(168,85,247,0.08)]",
-    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(168,85,247,0.12),transparent_55%)]",
-    orb: "bg-violet-400/10 ring-1 ring-violet-300/20",
-    iconColor: "text-violet-300",
-    accent: "text-violet-200/85",
-    livePill: "bg-violet-400/10 text-violet-200 border border-violet-300/20",
-    iconTile: "border-[rgba(168,85,247,0.22)]",
-    panelBorder: "border-[rgba(168,85,247,0.28)]",
-    spark: "text-violet-400/60",
+    glow: "shadow-[0_14px_34px_-14px_rgba(139,120,232,0.30)]",
+    ambient: "bg-[radial-gradient(135%_120%_at_85%_-12%,rgba(139,120,232,0.14),transparent_55%)]",
+    orb: "bg-[#8B78E8]/10 ring-1 ring-[#8B78E8]/18",
+    iconColor: "text-[#8B78E8]",
+    accent: "text-[#8B78E8]",
+    livePill: "bg-[#8B78E8]/10 text-[#806DDB] border border-[#8B78E8]/18",
+    iconTile: "border-[#8B78E8]/20",
+    panelBorder: "border-[#8B78E8]/20",
+    spark: "text-[#8B78E8]/65",
   },
   sky: {
     glow: "shadow-[0_16px_40px_-12px_rgba(56,189,248,0.28),0_0_0_1px_rgba(56,189,248,0.08)]",
