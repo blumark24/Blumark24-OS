@@ -431,7 +431,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
   const [companyForm, setCompanyForm] = useState({ ...TENANT_COMPANY_DEFAULTS });
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [showProfile, setShowProfile] = useState(false);
-  const [darkMode,     setDarkMode]     = useState(true);
+  const [darkMode,     setDarkMode]     = useState(false);
   const [accentColor,  setAccentColor]  = useState("#22d3ee");
   const [language,     setLanguage]     = useState("العربية");
   const [notifs,       setNotifs]       = useState({ tasks: true, clients: true, finance: true, weekly: true, email: false });
@@ -481,7 +481,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
           }
           const app = row?.appearance as { darkMode?: boolean; accentColor?: string; language?: string } | undefined;
           if (app) {
-            setDarkMode(app.darkMode ?? true);
+            setDarkMode(app.darkMode ?? false);
             if (app.accentColor) setAccentColor(app.accentColor);
             if (app.language) setLanguage(app.language);
           }
@@ -495,7 +495,7 @@ function SettingsContent({ accountOnly = false }: { accountOnly?: boolean }) {
         if (s.notifications) setNotifs(s.notifications as typeof notifs);
         const app = s.appearance as { darkMode?: boolean; accentColor?: string; language?: string } | undefined;
         if (app) {
-          setDarkMode(app.darkMode ?? true);
+          setDarkMode(app.darkMode ?? false);
           if (app.accentColor) setAccentColor(app.accentColor);
           if (app.language) setLanguage(app.language);
         }
