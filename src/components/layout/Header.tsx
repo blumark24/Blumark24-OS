@@ -28,6 +28,7 @@ import { useProfileOrgDepartment } from "@/hooks/useProfileOrgDepartment";
 import { useTenantCompanyName } from "@/hooks/useTenantCompanyName";
 import { withTimeout } from "@/lib/asyncHelpers";
 import { SmartProfileModal } from "@/components/settings/SmartProfileModal";
+import ThemeToggle from "@/components/layout/ThemeToggle";
 
 // Header global-search timeout — a slow Supabase must never hang the dropdown.
 const SEARCH_TIMEOUT = 8_000;
@@ -579,6 +580,8 @@ export default function Header({ onMobileMenuToggle }: { onMobileMenuToggle?: ()
 
       {/* ─── Actions ────────────────────────────────────────────── */}
       <div className="flex items-center gap-1.5 flex-shrink-0">
+
+        <ThemeToggle />
 
         {/* Mobile search toggle */}
         <button

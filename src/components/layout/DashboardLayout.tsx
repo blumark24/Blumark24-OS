@@ -6,7 +6,6 @@ import Header from "./Header";
 import MobileShellContext from "./MobileShellContext";
 import MobileBottomNav, { MOBILE_BOTTOM_NAV_INSET } from "./MobileBottomNav";
 import WorkspaceRouteGuard from "@/components/ui/WorkspaceRouteGuard";
-import CustomerOnboardingBanner from "@/components/ui/CustomerOnboardingBanner";
 import BlumarkAmbientBackground from "@/components/dashboard/BlumarkAmbientBackground";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/contexts/PermissionsContext";
@@ -81,7 +80,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         >
           <div className="mx-auto w-full max-w-[1680px]">
             <WorkspaceRouteGuard>
-              <CustomerOnboardingBanner />
               {children}
             </WorkspaceRouteGuard>
           </div>
