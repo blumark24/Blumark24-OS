@@ -351,8 +351,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
-      const { error: signErr } = await supabase.auth.signInWithPassword({ email, password });
-      if (signErr) return { ok: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
+      const { error: signErr } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (signErr) {
+        if (signErr.status === 429) {
+          return { ok: false, error: "محاولات دخول كثيرة. انتظر قليلًا ثم أعد المحاولة." };
+        }
+        if (signErr.status && signErr.status >= 500) {
+          return { ok: false, error: "خدمة تسجيل الدخول غير متاحة مؤقتًا. حاول لاحقًا." };
+        }
+        if (signErr.name === "AuthRetryableFetchError") {
+          return { ok: false, error: "تعذر الاتصال بخدمة تسجيل الدخول. تحقق من الاتصال وحالة الخدمة." };
+        }
+        // Never confirm whether an email is registered.
+        return { ok: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
+      }
 
       const res = await resolveCurrentUserProfile();
       if (res.kind !== "ok") {
