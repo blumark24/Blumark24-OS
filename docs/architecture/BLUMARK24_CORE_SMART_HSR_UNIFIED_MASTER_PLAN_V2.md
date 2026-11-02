@@ -13,7 +13,7 @@ BLUMARK24 HOLDING (board / investment / risk)
 
 **Non-negotiable:** The three operating entities remain independent in operations, tenant boundaries, credentials, data and commercial decisions. Corporate ownership does not grant technical access to municipal citizen data. The approved visual identities, RTL interfaces, maps, and existing UX remain unchanged.
 
-**The user experience:** A human employee gets one role-aware AI copilot within their EXISTING product, rather than a new account that silently inherits administrator privileges. The Holding Board gets summaries and approved decision records from Core; a tenant municipal manager sees only their organization's data inside SMART HSR.
+**The user experience:** The existing **المقر الحي (Live HQ)** is the Board-facing office/secretary/CEO interface; CORE runs behind it without replacing its approved design. A human employee gets one role-aware AI copilot within their EXISTING product, rather than a new account that silently inherits administrator privileges. The Holding Board gets summaries and approved decision records from Core; a tenant municipal manager sees only their organization's data inside SMART HSR.
 
 ## 1. Source-backed baseline — don't confuse proposals with deployed capabilities
 
@@ -133,10 +133,10 @@ flowchart TB
 - Owner-approved visual baseline; DESIGN GUARDIAN read-only (no forced Unslop redesign).
 
 **Pilot targets** (targets, NOT measured achievements):
-- ≥95% valid role/tenant policy checks in synthetic evaluation, with 100% denial for prohibited paths.
+- 100% correct role/tenant policy decisions on a pre-approved adversarial synthetic test matrix, including 100% denial for prohibited paths.
 - ≥90% evidence-grounded advice on pre-agreed, reviewed synthetic scenarios; no invented municipal status or AI claim.
 - ≥30% decrease in median **human preparation time** for selected report/triage tasks relative to a measured baseline (hypothesis to validate).
-- ≥99% auditable agent-run decisions and approval events, with any unlogged high-risk action blocking GO.
+- 100% auditable agent-run decisions and approval events, with any unlogged action blocking GO.
 - Track cost per accepted task, time to complete, intervention rate, provider failures, P95 latency and manual rework.
 - No new production release incidents attributable to Core.
 
