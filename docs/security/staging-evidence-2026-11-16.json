@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "mode": "commercial",
+  "target_environment": "staging",
+  "source_commit": "3e4ffce7144f53490be6e06a07cd2abb97336625",
+  "reviewed_as_of": "2026-11-16",
+  "checks": [
+    {
+      "id": "V03",
+      "status": "BLOCKED",
+      "reason": "Cannot execute authenticated RLS negative tests: staging database is inactive and separate preview database connection timed out."
+    },
+    {
+      "id": "V09",
+      "status": "BLOCKED",
+      "reason": "Owner/admin page and API negative tests require isolated staging accounts and a confirmed staging endpoint."
+    },
+    {
+      "id": "V12",
+      "status": "BLOCKED",
+      "reason": "Persistent limiter failure-mode tests require a verified staging backend and test fixtures."
+    },
+    {
+      "id": "V19",
+      "status": "BLOCKED",
+      "reason": "Real payment amount validation is blocked pending isolated sandbox checkout and webhook setup."
+    },
+    {
+      "id": "V26",
+      "status": "BLOCKED",
+      "reason": "Full security execution requires healthy isolated staging and seeded tenants; offline static preflight is not a penetration test."
+    },
+    {
+      "id": "S01",
+      "status": "BLOCKED",
+      "reason": "Cross-tenant Org A/B read-write tests blocked: named staging DB INACTIVE, preview DB hibernated/unreachable and environment mapping unconfirmed."
+    },
+    {
+      "id": "S02",
+      "status": "BLOCKED",
+      "reason": "Authenticated role matrix cannot execute without safe staged test identities and confirmed staging environment."
+    },
+    {
+      "id": "S03",
+      "status": "BLOCKED",
+      "reason": "Privileged API and SECURITY DEFINER live tests blocked pending isolated staging availability."
+    },
+    {
+      "id": "S04",
+      "status": "BLOCKED",
+      "reason": "End-to-end billing, webhook signing and idempotency sandbox not verified or ready to execute."
+    },
+    {
+      "id": "S05",
+      "status": "BLOCKED",
+      "reason": "AI provider smoke test blocked: available Vercel variable names do not include ANTHROPIC_API_KEY required by the inspected route."
+    },
+    {
+      "id": "S06",
+      "status": "BLOCKED",
+      "reason": "Cron E2E blocked: CRON_SECRET not listed in available project env inventory and no cron in inspected vercel.json."
+    },
+    {
+      "id": "S07",
+      "status": "BLOCKED",
+      "reason": "Restore drill blocked: requires isolated active staging DB and approved test backup."
+    },
+    {
+      "id": "S08",
+      "status": "BLOCKED",
+      "reason": "Support/alerts/incident drill remains unexecuted pending isolated environment and agreed response owners."
+    }
+  ]
+}
