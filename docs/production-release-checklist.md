@@ -118,6 +118,14 @@ Validation rule: check presence only. Never paste values in PRs, issue comments,
 - Package upgrades are not performed in C11-E.
 - Load testing must run against staging or preview unless production approval is explicitly granted.
 
+## SaaS Security Release Gate (review-only extension)
+
+- Check [the 35-control evidence catalog](security/RELEASE_GATE.md): 27 video-derived tests and 8 SaaS isolation/operations controls.
+- Run the offline scorer on a sanitized reviewed evidence manifest: node scripts/security/assess-release-gate.mjs path/to/evidence.json --enforce.
+- A default NOT_TESTED result is HOLD, not a proof of a vulnerability. No PASS without linked evidence, reviewer and date.
+- Never treat this score as product-feature completeness or an automatic deployment approval.
+- Commercial GO requires all applicable evidence checks passing and separate human authorization; no CI/production deployment is triggered by the scorer.
+
 ## Go / No-Go Criteria
 
 Go:

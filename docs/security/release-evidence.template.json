@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "mode": "commercial",
+  "target_environment": "staging",
+  "source_commit": "3e4ffce7144f53490be6e06a07cd2abb97336625",
+  "reviewed_as_of": "2026-11-16",
+  "checks": []
+}

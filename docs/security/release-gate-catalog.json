@@ -1,0 +1,286 @@
+{
+  "version": 1,
+  "source": "27 video checklist items reviewed in conversation plus 8 BLUMARK24 OS SaaS extensions",
+  "checks": [
+    {
+      "id": "V01",
+      "origin": "video_27",
+      "title": "Login and session authentication",
+      "priority": "P0",
+      "domain": "AUTH",
+      "required_evidence": "Dated authorized/unauthorized request and session behavior report"
+    },
+    {
+      "id": "V02",
+      "origin": "video_27",
+      "title": "API secrets are server-only",
+      "priority": "P0",
+      "domain": "SECRETS",
+      "required_evidence": "Redacted secret scanning and config-validation report"
+    },
+    {
+      "id": "V03",
+      "origin": "video_27",
+      "title": "Database access and RLS controls",
+      "priority": "P0",
+      "domain": "DATA",
+      "required_evidence": "RLS/SQL access tests and reviewed privilege matrix"
+    },
+    {
+      "id": "V04",
+      "origin": "video_27",
+      "title": "HTTPS enforcement",
+      "priority": "P1",
+      "domain": "TRANSPORT",
+      "required_evidence": "Deployed HTTPS/header and browser network-test report"
+    },
+    {
+      "id": "V05",
+      "origin": "video_27",
+      "title": "Secure password hashing and handling",
+      "priority": "P0",
+      "domain": "AUTH",
+      "required_evidence": "Dated authorized/unauthorized request and session behavior report"
+    },
+    {
+      "id": "V06",
+      "origin": "video_27",
+      "title": "Server-side input validation",
+      "priority": "P1",
+      "domain": "APP",
+      "required_evidence": "Negative request, security-response and boundary test report"
+    },
+    {
+      "id": "V07",
+      "origin": "video_27",
+      "title": "XSS defenses",
+      "priority": "P1",
+      "domain": "APP",
+      "required_evidence": "Negative request, security-response and boundary test report"
+    },
+    {
+      "id": "V08",
+      "origin": "video_27",
+      "title": "Suspicious activity audit logs",
+      "priority": "P1",
+      "domain": "OPERATIONS",
+      "required_evidence": "Timestamped runtime/monitoring/schedule behavior and error test report"
+    },
+    {
+      "id": "V09",
+      "origin": "video_27",
+      "title": "Admin pages and APIs protected",
+      "priority": "P0",
+      "domain": "AUTH",
+      "required_evidence": "Dated authorized/unauthorized request and session behavior report"
+    },
+    {
+      "id": "V10",
+      "origin": "video_27",
+      "title": "SQL injection defenses",
+      "priority": "P0",
+      "domain": "DATA",
+      "required_evidence": "RLS/SQL access tests and reviewed privilege matrix"
+    },
+    {
+      "id": "V11",
+      "origin": "video_27",
+      "title": "Environment secrets never exposed",
+      "priority": "P0",
+      "domain": "SECRETS",
+      "required_evidence": "Redacted secret scanning and config-validation report"
+    },
+    {
+      "id": "V12",
+      "origin": "video_27",
+      "title": "Rate limiting and failure modes",
+      "priority": "P1",
+      "domain": "OPERATIONS",
+      "required_evidence": "Timestamped runtime/monitoring/schedule behavior and error test report"
+    },
+    {
+      "id": "V13",
+      "origin": "video_27",
+      "title": "CORS restrictions where applicable",
+      "priority": "P1",
+      "domain": "TRANSPORT",
+      "required_evidence": "Deployed HTTPS/header and browser network-test report"
+    },
+    {
+      "id": "V14",
+      "origin": "video_27",
+      "title": "Security headers and CSP",
+      "priority": "P1",
+      "domain": "TRANSPORT",
+      "required_evidence": "Deployed HTTPS/header and browser network-test report"
+    },
+    {
+      "id": "V15",
+      "origin": "video_27",
+      "title": "Secure session cookies",
+      "priority": "P1",
+      "domain": "AUTH",
+      "required_evidence": "Dated authorized/unauthorized request and session behavior report"
+    },
+    {
+      "id": "V16",
+      "origin": "video_27",
+      "title": "CSRF protection for state-changing calls",
+      "priority": "P0",
+      "domain": "APP",
+      "required_evidence": "Negative request, security-response and boundary test report"
+    },
+    {
+      "id": "V17",
+      "origin": "video_27",
+      "title": "Expiring non-replayable password reset links",
+      "priority": "P1",
+      "domain": "AUTH",
+      "required_evidence": "Dated authorized/unauthorized request and session behavior report"
+    },
+    {
+      "id": "V18",
+      "origin": "video_27",
+      "title": "Upload type, size and access controls",
+      "priority": "P1",
+      "domain": "APP",
+      "required_evidence": "Negative request, security-response and boundary test report"
+    },
+    {
+      "id": "V19",
+      "origin": "video_27",
+      "title": "Payment prices verified server-side",
+      "priority": "P0",
+      "domain": "BILLING",
+      "required_evidence": "Sandbox checkout/webhook and server reconciliation test results"
+    },
+    {
+      "id": "V20",
+      "origin": "video_27",
+      "title": "Production debug disabled",
+      "priority": "P1",
+      "domain": "OPERATIONS",
+      "required_evidence": "Timestamped runtime/monitoring/schedule behavior and error test report"
+    },
+    {
+      "id": "V21",
+      "origin": "video_27",
+      "title": "Dependency vulnerability review",
+      "priority": "P0",
+      "domain": "SUPPLY_CHAIN",
+      "required_evidence": "Dated dependency/commit audit results and remediation disposition"
+    },
+    {
+      "id": "V22",
+      "origin": "video_27",
+      "title": "Unused dependencies removed or justified",
+      "priority": "P2",
+      "domain": "SUPPLY_CHAIN",
+      "required_evidence": "Dated dependency/commit audit results and remediation disposition"
+    },
+    {
+      "id": "V23",
+      "origin": "video_27",
+      "title": "Sensitive files inaccessible publicly",
+      "priority": "P0",
+      "domain": "SECRETS",
+      "required_evidence": "Redacted secret scanning and config-validation report"
+    },
+    {
+      "id": "V24",
+      "origin": "video_27",
+      "title": "Git history secrets audit",
+      "priority": "P0",
+      "domain": "SECRETS",
+      "required_evidence": "Redacted secret scanning and config-validation report"
+    },
+    {
+      "id": "V25",
+      "origin": "video_27",
+      "title": "Exposed credentials revoked and rotated",
+      "priority": "P0",
+      "domain": "SECRETS",
+      "required_evidence": "Redacted secret scanning and config-validation report"
+    },
+    {
+      "id": "V26",
+      "origin": "video_27",
+      "title": "Security tests run and verified",
+      "priority": "P0",
+      "domain": "TESTING",
+      "required_evidence": "Independent review of test coverage, findings and retest logs"
+    },
+    {
+      "id": "V27",
+      "origin": "video_27",
+      "title": "Findings register, fixes and retests",
+      "priority": "P0",
+      "domain": "TESTING",
+      "required_evidence": "Independent review of test coverage, findings and retest logs"
+    },
+    {
+      "id": "S01",
+      "origin": "saas_extension",
+      "title": "Live Org A vs Org B isolation read/write tests",
+      "priority": "P0",
+      "domain": "TENANCY",
+      "required_evidence": "Seeded isolated Org A/B E2E read/write tests and escalation probes"
+    },
+    {
+      "id": "S02",
+      "origin": "saas_extension",
+      "title": "RBAC scope and privilege escalation negative tests",
+      "priority": "P0",
+      "domain": "TENANCY",
+      "required_evidence": "Seeded isolated Org A/B E2E read/write tests and escalation probes"
+    },
+    {
+      "id": "S03",
+      "origin": "saas_extension",
+      "title": "Privileged APIs and SECURITY DEFINER grants",
+      "priority": "P0",
+      "domain": "DATA",
+      "required_evidence": "RLS/SQL access tests and reviewed privilege matrix"
+    },
+    {
+      "id": "S04",
+      "origin": "saas_extension",
+      "title": "Plan billing, signed webhooks, idempotency and downgrade safety",
+      "priority": "P0",
+      "domain": "BILLING",
+      "required_evidence": "Sandbox checkout/webhook and server reconciliation test results"
+    },
+    {
+      "id": "S05",
+      "origin": "saas_extension",
+      "title": "AI provider, tenant context, costs, rate limits",
+      "priority": "P0",
+      "domain": "AI",
+      "required_evidence": "Provider smoke tests, cost controls and tenant-context isolation evidence"
+    },
+    {
+      "id": "S06",
+      "origin": "saas_extension",
+      "title": "Cron authentication, scheduling, idempotency, tenant scoping",
+      "priority": "P0",
+      "domain": "OPERATIONS",
+      "required_evidence": "Timestamped runtime/monitoring/schedule behavior and error test report"
+    },
+    {
+      "id": "S07",
+      "origin": "saas_extension",
+      "title": "Backup policy and staging restore drill",
+      "priority": "P0",
+      "domain": "RESILIENCE",
+      "required_evidence": "Isolated restore exercise with RTO/RPO evidence"
+    },
+    {
+      "id": "S08",
+      "origin": "saas_extension",
+      "title": "Monitoring, support, alerts, incident and rollback drill",
+      "priority": "P1",
+      "domain": "OPERATIONS",
+      "required_evidence": "Timestamped runtime/monitoring/schedule behavior and error test report"
+    }
+  ]
+}
